@@ -75,6 +75,29 @@ const NewEvents: FC<Props> = ({
           const detail = leadDetails[upd.lead_id];
           const isNew = !viewedEvents.has(String(e.id));
 
+          if (!eventIds[e.id]) {
+            return (
+              <Paper
+                key={e.id}
+                elevation={2}
+                sx={{
+                  p: 2,
+                  backgroundColor: isNew
+                    ? theme.palette.action.hover
+                    : theme.palette.background.paper,
+                  borderLeft: isNew
+                    ? `4px solid ${theme.palette.primary.main}`
+                    : 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Typography>Loading...</Typography>
+              </Paper>
+            );
+          }
+
           return (
             <Paper
               key={e.id}
@@ -90,7 +113,7 @@ const NewEvents: FC<Props> = ({
               }}
             >
               <Stack spacing={1}>
-                <Typography variant="h6">Event #{eventIds[e.id] || '...'}</Typography>
+                <Typography variant="h6">Event #{eventIds[e.id]}</Typography>
                 <Typography variant="body2" color="text.secondary">
                   {new Date(e.created_at).toLocaleString()}
                 </Typography>
@@ -129,18 +152,14 @@ const NewEvents: FC<Props> = ({
                 <Divider />
 
                 <Box>
-                  {eventIds[e.id] ? (
-                    <Button
-                      component={RouterLink}
-                      to={`/events/${eventIds[e.id]}`}
-                      variant="outlined"
-                      size="small"
-                    >
-                      View Full Details
-                    </Button>
-                  ) : (
-                    <CircularProgress size={20} />
-                  )}
+                  <Button
+                    component={RouterLink}
+                    to={`/events/${eventIds[e.id]}`}
+                    variant="outlined"
+                    size="small"
+                  >
+                    View Full Details
+                  </Button>
                 </Box>
               </Stack>
             </Paper>
