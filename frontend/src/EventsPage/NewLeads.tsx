@@ -1,4 +1,5 @@
 import React, { FC, useState, useEffect } from 'react';
+import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { ProcessedLead, LeadDetail as LeadDetailType, EventItem } from './types';
 import {
@@ -35,6 +36,7 @@ const NewLeads: FC<Props> = ({
   const navigate = useNavigate();
 
   const [viewedLeads, setViewedLeads] = useState<Set<string>>(new Set());
+  const [fetchedEvents, setFetchedEvents] = useState<Record<string, number>>({});
 
   useEffect(() => {
     const stored = localStorage.getItem('viewedLeads');
@@ -44,6 +46,34 @@ const NewLeads: FC<Props> = ({
       } catch {}
     }
   }, []);
+
+  useEffect(() => {
+    (async () => {
+      const toFetch = leads
+        .map(l => l.lead_id)
+        .filter(
+          lid =>
+            !events.some(e =>
+              e.payload?.data?.updates?.some(u => u.lead_id === lid)
+            ) &&
+            fetchedEvents[lid] == null
+        );
+      for (const lid of toFetch) {
+        try {
+          const { data } = await axios.get<{ events: any[] }>(
+            `/yelp/leads/${encodeURIComponent(lid)}/events/`,
+            { params: { limit: 1 } }
+          );
+          const ev = data.events?.[0];
+          if (ev && ev.id) {
+            setFetchedEvents(prev => ({ ...prev, [lid]: ev.id }));
+          }
+        } catch {
+          /* ignore */
+        }
+      }
+    })();
+  }, [leads, events]);
 
   const markAsViewed = (lead_id: string) => {
     if (!viewedLeads.has(lead_id)) {
@@ -79,7 +109,7 @@ const NewLeads: FC<Props> = ({
           const matchedEvent = events.find(e =>
             e.payload?.data?.updates?.some(u => u.lead_id === lead_id)
           );
-          const eventId = matchedEvent?.id;
+          const eventId = matchedEvent?.id ?? fetchedEvents[lead_id];
           const isNew = !viewedLeads.has(lead_id);
 
           return (
