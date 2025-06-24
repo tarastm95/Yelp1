@@ -33,11 +33,21 @@ class EventListView(mixins.ListModelMixin, generics.GenericAPIView):
 
     def get(self, request, *args, **kwargs):
         after_id = request.query_params.get("after_id")
+        logger.info(
+            f"[EVENT LIST] GET after_id={after_id} path={request.path}"
+        )
         if after_id is not None:
             qs = self.get_queryset().filter(id__gt=after_id).order_by("id")
             serializer = self.get_serializer(qs, many=True)
+            logger.info(
+                f"[EVENT LIST] returning {len(serializer.data)} events after_id={after_id}"
+            )
             return Response(serializer.data)
-        return self.list(request, *args, **kwargs)
+        response = self.list(request, *args, **kwargs)
+        logger.info(
+            f"[EVENT LIST] paginated response with {len(response.data.get('results', []))} events"
+        )
+        return response
 
 
 class EventRetrieveView(generics.RetrieveAPIView):

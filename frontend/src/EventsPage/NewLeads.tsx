@@ -60,16 +60,23 @@ const NewLeads: FC<Props> = ({
         );
       for (const lid of toFetch) {
         try {
+          console.log('[lead events] fetching for', lid);
           const { data } = await axios.get<{ events: any[] }>(
             `/yelp/leads/${encodeURIComponent(lid)}/events/`,
             { params: { limit: 1 } }
+          );
+          console.log(
+            '[lead events] received',
+            data.events?.length ?? 0,
+            'events for',
+            lid
           );
           const ev = data.events?.[0];
           if (ev && typeof ev.id === 'number') {
             setFetchedEvents(prev => ({ ...prev, [lid]: ev.id }));
           }
-        } catch {
-          /* ignore */
+        } catch (err) {
+          console.error('[lead events] failed for', lid, err);
         }
       }
     })();

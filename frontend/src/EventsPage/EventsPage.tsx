@@ -145,7 +145,9 @@ const EventsPage: FC = () => {
   // Завантажити сторінку лідів та їх деталі
   const loadLeads = async (url = 'http://localhost:8000/api/processed_leads/') => {
     try {
+      console.log('[loadLeads] request', url);
       const { data } = await axios.get<PaginatedResponse<ProcessedLead>>(url);
+      console.log('[loadLeads] received', data.results.length, 'leads');
       setTotalLeadsCount(data.count);
       setLeads(prev => [...prev, ...data.results]);
       setLeadsNextUrl(data.next);
@@ -169,6 +171,7 @@ const EventsPage: FC = () => {
         return map;
       });
     } catch (err: any) {
+      console.error('[loadLeads] error', err);
       setError(`Не вдалося завантажити ліди: ${err.message}`);
     }
   };
@@ -176,7 +179,9 @@ const EventsPage: FC = () => {
   // Завантажити сторінку подій
   const loadEvents = async (url = 'http://localhost:8000/api/events/') => {
     try {
+      console.log('[loadEvents] request', url);
       const { data } = await axios.get<PaginatedResponse<EventItem>>(url);
+      console.log('[loadEvents] received', data.results.length, 'events');
       setTotalEventsCount(data.count);
       setEvents(prev => [...prev, ...data.results]);
       setEventsNextUrl(data.next);
@@ -185,6 +190,7 @@ const EventsPage: FC = () => {
         lastEventIdRef.current = Math.max(lastEventIdRef.current || 0, maxId);
       }
     } catch {
+      console.error('[loadEvents] failed');
       setError('Помилка завантаження подій');
     }
   };
@@ -193,9 +199,10 @@ const EventsPage: FC = () => {
   const pollEvents = async () => {
     if (lastEventIdRef.current == null) return;
     try {
-      const { data } = await axios.get<EventItem[]>(
-        `http://localhost:8000/api/events?after_id=${lastEventIdRef.current}`
-      );
+      const url = `http://localhost:8000/api/events?after_id=${lastEventIdRef.current}`;
+      console.log('[pollEvents] request', url);
+      const { data } = await axios.get<EventItem[]>(url);
+      console.log('[pollEvents] received', data.length, 'events');
       if (data.length) {
         const sorted = [...data].sort((a, b) => a.id - b.id);
         const maxId = sorted[sorted.length - 1].id;
@@ -204,7 +211,7 @@ const EventsPage: FC = () => {
         lastEventIdRef.current = Math.max(lastEventIdRef.current || 0, maxId);
       }
     } catch {
-      /* ignore */
+      console.error('[pollEvents] failed');
     }
   };
 
