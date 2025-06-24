@@ -36,7 +36,7 @@ const NewLeads: FC<Props> = ({
   const navigate = useNavigate();
 
   const [viewedLeads, setViewedLeads] = useState<Set<string>>(new Set());
-  const [fetchedEvents, setFetchedEvents] = useState<Record<string, number>>({});
+  const [fetchedEvents, setFetchedEvents] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const stored = localStorage.getItem('viewedLeads');
@@ -72,8 +72,8 @@ const NewLeads: FC<Props> = ({
             lid
           );
           const ev = data.events?.[0];
-          if (ev && typeof ev.id === 'number') {
-            setFetchedEvents(prev => ({ ...prev, [lid]: ev.id }));
+          if (ev && ev.id) {
+            setFetchedEvents(prev => ({ ...prev, [lid]: String(ev.id) }));
           }
         } catch (err) {
           console.error('[lead events] failed for', lid, err);
@@ -95,7 +95,7 @@ const NewLeads: FC<Props> = ({
     navigate(`/leads/${encodeURIComponent(lead_id)}`);
   };
 
-  const handleViewEvent = (lead_id: string, eventId: number) => {
+  const handleViewEvent = (lead_id: string, eventId: string) => {
     markAsViewed(lead_id);
     navigate(`/events/${eventId}`);
   };
@@ -117,7 +117,7 @@ const NewLeads: FC<Props> = ({
             e.payload?.data?.updates?.some(u => u.lead_id === lead_id)
           );
           const rawEventId = matchedEvent?.id ?? fetchedEvents[lead_id];
-          const eventId = typeof rawEventId === 'number' ? rawEventId : undefined;
+          const eventId = rawEventId ? String(rawEventId) : undefined;
           const isNew = !viewedLeads.has(lead_id);
 
           return (
