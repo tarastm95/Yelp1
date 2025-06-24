@@ -1,7 +1,7 @@
 import React, { FC, useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { ProcessedLead, LeadDetail as LeadDetailType, EventItem } from './types';
+import { ProcessedLead, LeadDetail as LeadDetailType, EventItem, LeadEvent } from './types';
 import {
   Box,
   Typography,
@@ -61,19 +61,12 @@ const NewLeads: FC<Props> = ({
       for (const lid of toFetch) {
         try {
           console.log('[lead events] fetching for', lid);
-          const { data } = await axios.get<{ events: any[] }>(
-            `/yelp/leads/${encodeURIComponent(lid)}/events/`,
-            { params: { limit: 1 } }
+          const { data } = await axios.get<LeadEvent>(
+            `/lead-events/${encodeURIComponent(lid)}/latest/`
           );
-          console.log(
-            '[lead events] received',
-            data.events?.length ?? 0,
-            'events for',
-            lid
-          );
-          const ev = data.events?.[0];
-          if (ev && ev.id) {
-            setFetchedEvents(prev => ({ ...prev, [lid]: String(ev.id) }));
+          console.log('[lead events] received event', data.event_id, 'for', lid);
+          if (data.event_id) {
+            setFetchedEvents(prev => ({ ...prev, [lid]: String(data.event_id) }));
           }
         } catch (err) {
           console.error('[lead events] failed for', lid, err);

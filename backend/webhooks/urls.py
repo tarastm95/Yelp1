@@ -5,7 +5,7 @@ from .views import (
     YelpAuthInitView, YelpAuthCallbackView,
     AutoResponseSettingsView, LeadEventsProxyView, LeadIDsProxyView, LeadDetailProxyView, AttachmentProxyView, ScheduledMessageHistoryList,
     ScheduledMessageListCreate, ScheduledMessageDetail, ProcessedLeadListView, LeadDetailListAPIView,
-    LeadDetailRetrieveAPIView, FollowUpTemplateListCreateView, FollowUpTemplateDestroyView,
+    LeadDetailRetrieveAPIView, LeadLastEventAPIView, FollowUpTemplateListCreateView, FollowUpTemplateDestroyView,
     BusinessListView, BusinessLeadsView, BusinessEventsView,
     YelpTokenListView,
 )
@@ -75,6 +75,7 @@ urlpatterns = [
     path('processed_leads/', ProcessedLeadListView.as_view(), name='processed-leads-list'),
     path('lead-details/', LeadDetailListAPIView.as_view(), name='lead-list'),
     path('lead-details/<str:lead_id>/', LeadDetailRetrieveAPIView.as_view(), name='lead-detail'),
+    path('lead-events/<str:lead_id>/latest/', LeadLastEventAPIView.as_view(), name='lead-last-event'),
     path('follow-up-templates/', FollowUpTemplateListCreateView.as_view(), name='followup-list-create'),
     path('follow-up-templates/<int:pk>/', FollowUpTemplateDestroyView.as_view(), name='followup-destroy'),
     path('tokens/', YelpTokenListView.as_view(), name='token-list'),
