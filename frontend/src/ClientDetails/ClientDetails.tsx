@@ -249,7 +249,7 @@ const LeadDetail: FC = () => {
                     }}
                   >
                     {atts.map((att: any) => {
-                      const proxyUrl = `/api/yelp/leads/${leadId}/attachments/${encodeURIComponent(att.id)}/`;
+                      const proxyUrl = `/yelp/leads/${leadId}/attachments/${encodeURIComponent(att.id)}/`;
                       return (
                         <MuiCard variant="outlined" key={att.id}>
                           <a href={att.url} target="_blank" rel="noreferrer">
