@@ -12,7 +12,7 @@ export interface PayloadUpdate {
 }
 
 export interface EventItem {
-  id: number;
+  id: number | string;
   created_at: string;
   payload: {
     data: {
