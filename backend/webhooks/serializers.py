@@ -221,7 +221,15 @@ class LeadScheduledMessageHistorySerializer(serializers.ModelSerializer):
 class YelpBusinessSerializer(serializers.ModelSerializer):
     class Meta:
         model = YelpBusiness
-        fields = ["business_id", "name", "location", "time_zone", "details"]
+        fields = [
+            "business_id",
+            "name",
+            "location",
+            "time_zone",
+            "open_days",
+            "open_hours",
+            "details",
+        ]
         read_only_fields = fields
 
 

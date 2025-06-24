@@ -16,6 +16,8 @@ from rest_framework.decorators import api_view
 
 from .models import YelpOAuthState, AutoResponseSettings, YelpToken, YelpBusiness
 
+DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
 logger = logging.getLogger(__name__)
 
 
@@ -166,12 +168,37 @@ class YelpAuthCallbackView(APIView):
                                         tz = tz_resp.json().get("timeZoneId", "")
                                 except requests.RequestException as e:
                                     logger.error(f"Failed to fetch timezone for {bid}: {e}")
+
+                            open_days = ""
+                            open_hours = ""
+                            hours_info = det.get("hours") or []
+                            if hours_info:
+                                open_data = hours_info[0].get("open") or []
+                                days_set = []
+                                hours_lines = []
+                                for o in open_data:
+                                    day = o.get("day")
+                                    if day is None:
+                                        continue
+                                    days_set.append(day)
+                                    start = o.get("start", "")
+                                    end = o.get("end", "")
+                                    line = f"{DAYS[day]}: {start[:2]}:{start[2:]} - {end[:2]}:{end[2:]}"
+                                    if o.get("is_overnight"):
+                                        line += " (+1)"
+                                    hours_lines.append(line)
+                                if days_set:
+                                    open_days = ", ".join(DAYS[d] for d in sorted(set(days_set)))
+                                if hours_lines:
+                                    open_hours = "; ".join(hours_lines)
                             YelpBusiness.objects.update_or_create(
                                 business_id=bid,
                                 defaults={
                                     "name": name,
                                     "location": loc,
                                     "time_zone": tz,
+                                    "open_days": open_days,
+                                    "open_hours": open_hours,
                                     "details": det,
                                 },
                             )

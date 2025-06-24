@@ -45,6 +45,8 @@ class YelpBusiness(models.Model):
     name = models.CharField(max_length=255)
     location = models.CharField(max_length=255, blank=True)
     time_zone = models.CharField(max_length=64, blank=True)
+    open_days = models.CharField(max_length=128, blank=True)
+    open_hours = models.TextField(blank=True)
     details = models.JSONField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
