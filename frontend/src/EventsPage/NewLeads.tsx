@@ -65,7 +65,7 @@ const NewLeads: FC<Props> = ({
             { params: { limit: 1 } }
           );
           const ev = data.events?.[0];
-          if (ev && ev.id) {
+          if (ev && typeof ev.id === 'number') {
             setFetchedEvents(prev => ({ ...prev, [lid]: ev.id }));
           }
         } catch {
@@ -109,7 +109,8 @@ const NewLeads: FC<Props> = ({
           const matchedEvent = events.find(e =>
             e.payload?.data?.updates?.some(u => u.lead_id === lead_id)
           );
-          const eventId = matchedEvent?.id ?? fetchedEvents[lead_id];
+          const rawEventId = matchedEvent?.id ?? fetchedEvents[lead_id];
+          const eventId = typeof rawEventId === 'number' ? rawEventId : undefined;
           const isNew = !viewedLeads.has(lead_id);
 
           return (
