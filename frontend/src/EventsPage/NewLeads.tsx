@@ -76,8 +76,8 @@ const NewLeads: FC<Props> = ({
       <Stack spacing={2}>
         {leads.slice(0, visibleCount).map(({ lead_id, business_id, processed_at }) => {
           const detail = leadDetails[lead_id] || {};
-          const matchedEvent = events.find(
-            e => e.payload?.data?.updates?.[0]?.lead_id === lead_id
+          const matchedEvent = events.find(e =>
+            e.payload?.data?.updates?.some(u => u.lead_id === lead_id)
           );
           const eventId = matchedEvent?.id;
           const isNew = !viewedLeads.has(lead_id);
