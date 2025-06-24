@@ -158,17 +158,15 @@ const NewLeads: FC<Props> = ({
 
                 {/* Buttons */}
                 <Box sx={{ display: 'flex', gap: 2, mt: 1 }}>
-                  {eventId ? (
-                    <Button
-                      onClick={() => handleViewEvent(lead_id, eventId)}
-                      variant="outlined"
-                      size="small"
-                    >
-                      View Event Details
-                    </Button>
-                  ) : (
-                    <CircularProgress size={20} />
-                  )}
+                  <Button
+                    onClick={() => eventId && handleViewEvent(lead_id, eventId)}
+                    variant="outlined"
+                    size="small"
+                    disabled={!eventId}
+                    color={eventId ? 'primary' : 'inherit'}
+                  >
+                    View Event Details
+                  </Button>
                   <Button
                     onClick={() => handleViewClient(lead_id)}
                     variant="outlined"
