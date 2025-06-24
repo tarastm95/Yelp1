@@ -42,8 +42,9 @@ LOGGING = {
     'disable_existing_loggers': False,   # не вимикати логери Django
     'formatters': {
         'simple': {
-            'format': '[{levelname}] {name}:{lineno} {message}',
+            'format': '{asctime} [{levelname}] {name}:{lineno} {message}',
             'style': '{',
+            'datefmt': '%Y-%m-%d %H:%M:%S %Z',
         },
     },
     'handlers': {
