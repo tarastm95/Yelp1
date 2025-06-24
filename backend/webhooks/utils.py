@@ -1,7 +1,8 @@
 # utils.py
 import requests
-from datetime import timedelta
+from datetime import timedelta, time
 from django.utils import timezone
+from zoneinfo import ZoneInfo
 from django.conf import settings
 import logging
 from .models import AutoResponseSettings, YelpToken, LeadDetail, ProcessedLead
@@ -91,6 +92,23 @@ def get_token_for_lead(lead_id: str) -> str:
         business_id = pl.business_id
 
     return get_valid_business_token(business_id)
+
+
+def adjust_due_time(base_dt, tz_name: str | None, start: time, end: time):
+    """Return UTC datetime within business hours."""
+    if not tz_name:
+        return base_dt
+    tz = ZoneInfo(tz_name)
+    local = base_dt.astimezone(tz)
+    open_dt = local.replace(hour=start.hour, minute=start.minute, second=0, microsecond=0)
+    close_dt = local.replace(hour=end.hour, minute=end.minute, second=0, microsecond=0)
+    if close_dt <= open_dt:
+        close_dt += timedelta(days=1)
+    if local < open_dt:
+        local = open_dt
+    elif local >= close_dt:
+        local = open_dt + timedelta(days=1)
+    return local.astimezone(timezone.utc)
 
 GS_SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 

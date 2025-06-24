@@ -60,6 +60,8 @@ interface FollowUpTemplate {
   name: string;
   template: string;
   delay: number; // seconds
+  open_from: string;
+  open_to: string;
   active: boolean;
 }
 
@@ -84,6 +86,8 @@ const AutoResponseSettings: FC = () => {
   const [newText, setNewText] = useState('');
   const [newDelayValue, setNewDelayValue] = useState(1);
   const [newDelayUnit, setNewDelayUnit] = useState<TimeUnit>('hour');
+  const [newOpenFrom, setNewOpenFrom] = useState('08:00');
+  const [newOpenTo, setNewOpenTo] = useState('20:00');
 
   // UI state
   const [loading, setLoading] = useState(true);
@@ -221,6 +225,8 @@ const AutoResponseSettings: FC = () => {
       name: `Custom ${templates.length + 1}`,
       template: newText,
       delay: delaySecs,
+      open_from: newOpenFrom,
+      open_to: newOpenTo,
       active: true,
     })
       .then(res => {
@@ -228,6 +234,8 @@ const AutoResponseSettings: FC = () => {
         setNewText('');
         setNewDelayValue(1);
         setNewDelayUnit('hour');
+        setNewOpenFrom('08:00');
+        setNewOpenTo('20:00');
       })
       .catch(() => setError('Не вдалося додати шаблон.'))
       .finally(() => setTplLoading(false));
@@ -370,21 +378,30 @@ const AutoResponseSettings: FC = () => {
                 <CircularProgress size={24} />
               ) : (
                 <List dense>
-                  {templates.map(t => (
-                    <ListItem
-                      key={t.id}
-                      secondaryAction={
-                        <IconButton edge="end" onClick={() => handleDeleteTemplate(t.id)}>
-                          <DeleteIcon />
-                        </IconButton>
-                      }
-                    >
-                      <ListItemText
-                        primary={t.template}
-                        secondary={`Every ${formatDelay(t.delay)}`}
-                      />
-                    </ListItem>
-                  ))}
+                  {templates.map(t => {
+                    const biz = businesses.find(b => b.business_id === selectedBusiness);
+                    const tz = biz?.time_zone;
+                    let localTime = '';
+                    if (tz) {
+                      const ms = Date.now() + t.delay * 1000;
+                      localTime = new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: tz });
+                    }
+                    return (
+                      <ListItem
+                        key={t.id}
+                        secondaryAction={
+                          <IconButton edge="end" onClick={() => handleDeleteTemplate(t.id)}>
+                            <DeleteIcon />
+                          </IconButton>
+                        }
+                      >
+                        <ListItemText
+                          primary={t.template}
+                          secondary={`Every ${formatDelay(t.delay)}${localTime ? ` - ${localTime}` : ''}`}
+                        />
+                      </ListItem>
+                    );
+                  })}
                 </List>
               )}
 
@@ -426,6 +443,33 @@ const AutoResponseSettings: FC = () => {
                       <MenuItem key={u.value} value={u.value}>{u.label}</MenuItem>
                     ))}
                   </Select>
+                  <TextField
+                    label="From"
+                    type="time"
+                    value={newOpenFrom}
+                    onChange={e => setNewOpenFrom(e.target.value)}
+                    size="small"
+                  />
+                  <TextField
+                    label="To"
+                    type="time"
+                    value={newOpenTo}
+                    onChange={e => setNewOpenTo(e.target.value)}
+                    size="small"
+                  />
+                  {selectedBusiness && (() => {
+                    const biz = businesses.find(b => b.business_id === selectedBusiness);
+                    const tz = biz?.time_zone;
+                    if (!tz) return null;
+                    const secs = newDelayValue * TIME_UNITS.find(u => u.value === newDelayUnit)!.factor;
+                    const ms = Date.now() + secs * 1000;
+                    const local = new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: tz });
+                    return (
+                      <Typography variant="body2" sx={{ ml:1 }}>
+                        {local}
+                      </Typography>
+                    );
+                  })()}
                 </Stack>
                 <Button onClick={handleAddTemplate} disabled={tplLoading}>
                   Add

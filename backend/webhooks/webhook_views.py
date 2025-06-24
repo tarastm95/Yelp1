@@ -16,12 +16,14 @@ from .models import (
     LeadEvent,
     LeadDetail,
     FollowUpTemplate,
+    YelpBusiness,
 )
 from .serializers import EventSerializer
 from .utils import (
     get_valid_yelp_token,
     get_valid_business_token,
     get_token_for_lead,
+    adjust_due_time,
 )
 from .tasks import send_follow_up
 from .tasks import send_scheduled_message
@@ -236,14 +238,24 @@ class WebhookView(APIView):
             tpls = FollowUpTemplate.objects.filter(active=True, business__business_id=biz_id)
             if not tpls.exists():
                 tpls = FollowUpTemplate.objects.filter(active=True, business__isnull=True)
+            business = YelpBusiness.objects.filter(business_id=biz_id).first()
             for tmpl in tpls:
                 delay = int(tmpl.delay.total_seconds())
                 text = tmpl.template.format(name=name, jobs=jobs, sep=sep)
+                due = adjust_due_time(
+                    now + timedelta(seconds=delay),
+                    business.time_zone if business else None,
+                    tmpl.open_from,
+                    tmpl.open_to,
+                )
+                countdown = max((due - now).total_seconds(), 0)
                 send_follow_up.apply_async(
                     args=[lead_id, text, token],
-                    countdown=delay,
+                    countdown=countdown,
                 )
-                logger.info(f"[AUTO-RESPONSE] Custom follow-up “{tmpl.name}” scheduled in {delay}s")
+                logger.info(
+                    f"[AUTO-RESPONSE] Custom follow-up “{tmpl.name}” scheduled at {due.isoformat()}"
+                )
 
             for sm in ScheduledMessage.objects.filter(lead_id=lead_id, active=True):
                 delay = max((sm.next_run - now).total_seconds(), 0)

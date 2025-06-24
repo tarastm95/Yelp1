@@ -83,7 +83,16 @@ class FollowUpTemplateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = FollowUpTemplate
-        fields = ['id', 'business_id', 'name', 'template', 'delay', 'active']
+        fields = [
+            'id',
+            'business_id',
+            'name',
+            'template',
+            'delay',
+            'open_from',
+            'open_to',
+            'active',
+        ]
         read_only_fields = ['id']
 
     def create(self, validated_data):
