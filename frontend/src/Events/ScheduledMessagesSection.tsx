@@ -94,7 +94,7 @@ const ScheduledMessagesSection: FC<ScheduledSectionProps> = ({
     setError(null);
     try {
       await axios.post(
-        `/yelp/leads/${leadId}/scheduled_messages/`,
+        `/api/yelp/leads/${leadId}/scheduled_messages/`,
         { content: newContent, interval_minutes: minutesToSend },
         {}
       );
@@ -124,7 +124,7 @@ const ScheduledMessagesSection: FC<ScheduledSectionProps> = ({
     if (!selectedMessage) return;
     try {
       await axios.patch(
-        `/yelp/leads/${leadId}/scheduled_messages/${selectedMessage.id}/`,
+        `/api/yelp/leads/${leadId}/scheduled_messages/${selectedMessage.id}/`,
         { active: false },
         {}
       );
