@@ -1,7 +1,8 @@
 import React, { FC, useEffect, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
+import axios from 'axios';
 import { useTheme } from '@mui/material';
-import { EventItem, LeadDetail as LeadDetailType } from './types';
+import { EventItem, LeadDetail as LeadDetailType, LeadEvent } from './types';
 
 import {
   Box,
@@ -29,6 +30,7 @@ const NewEvents: FC<Props> = ({
   loadingMore,
 }) => {
   const [viewedEvents, setViewedEvents] = useState<Set<string>>(new Set());
+  const [eventIds, setEventIds] = useState<Record<string, string>>({});
   const theme = useTheme();
   useEffect(() => {
     const stored = localStorage.getItem('viewedEvents');
@@ -38,6 +40,25 @@ const NewEvents: FC<Props> = ({
       } catch {}
     }
   }, []);
+
+  useEffect(() => {
+    (async () => {
+      for (const e of events) {
+        const lid = e.payload?.data?.updates?.[0]?.lead_id;
+        if (!lid || eventIds[e.id] != null) continue;
+        try {
+          const { data } = await axios.get<LeadEvent>(
+            `/lead-events/${encodeURIComponent(lid)}/latest/`
+          );
+          if (data.event_id) {
+            setEventIds(prev => ({ ...prev, [e.id]: String(data.event_id) }));
+          }
+        } catch (err) {
+          console.error('[new events] failed for', lid, err);
+        }
+      }
+    })();
+  }, [events]);
   if (!events.length) {
     return (
       <Typography variant="body1" sx={{ mt: 2 }}>
@@ -69,7 +90,7 @@ const NewEvents: FC<Props> = ({
               }}
             >
               <Stack spacing={1}>
-                <Typography variant="h6">Event #{e.id}</Typography>
+                <Typography variant="h6">Event #{eventIds[e.id] || '...'}</Typography>
                 <Typography variant="body2" color="text.secondary">
                   {new Date(e.created_at).toLocaleString()}
                 </Typography>
@@ -108,14 +129,18 @@ const NewEvents: FC<Props> = ({
                 <Divider />
 
                 <Box>
-                  <Button
-                    component={RouterLink}
-                    to={`/events/${e.id}`}
-                    variant="outlined"
-                    size="small"
-                  >
-                    View Full Details
-                  </Button>
+                  {eventIds[e.id] ? (
+                    <Button
+                      component={RouterLink}
+                      to={`/events/${eventIds[e.id]}`}
+                      variant="outlined"
+                      size="small"
+                    >
+                      View Full Details
+                    </Button>
+                  ) : (
+                    <CircularProgress size={20} />
+                  )}
                 </Box>
               </Stack>
             </Paper>
