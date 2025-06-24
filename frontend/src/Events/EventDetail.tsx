@@ -13,12 +13,8 @@ import {
   Button,
 } from '@mui/material';
 
-import {
-  DetailedEvent,
-  LeadDetail,
-  ScheduledMessage,
-  MessageHistory,
-} from './types';
+import { DetailedEvent, LeadDetail, ScheduledMessage, MessageHistory } from './types';
+import { LeadEvent } from '../EventsPage/types';
 import EventList from './EventList';
 import InstantMessageSection from './InstantMessageSection';
 import ScheduledMessagesSection from './ScheduledMessagesSection';
@@ -93,11 +89,20 @@ const EventDetail: FC = () => {
     }
     (async () => {
       try {
-        // Завантажуємо подію за ID
-        const { data: evt } = await axios.get<{ id: number; payload?: any }>(
-          `/events/${id}/`
-        );
-        const found = evt.payload?.data?.updates?.[0]?.lead_id;
+        let found: string | undefined;
+        if (/^\d+$/.test(id)) {
+          // Numeric ID → отримуємо локальну подію
+          const { data: evt } = await axios.get<{ id: number; payload?: any }>(
+            `/events/${id}/`
+          );
+          found = evt.payload?.data?.updates?.[0]?.lead_id;
+        } else {
+          // Інакше намагаємось отримати LeadEvent за event_id
+          const { data: le } = await axios.get<LeadEvent>(
+            `/lead-events/${encodeURIComponent(id)}/`
+          );
+          found = le.lead_id;
+        }
         if (!found) throw new Error('Немає даних оновлення');
 
         setLeadId(found);

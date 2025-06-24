@@ -135,6 +135,17 @@ class LeadLastEventAPIView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
+class LeadEventRetrieveAPIView(APIView):
+    """Return LeadEvent by event_id"""
+
+    def get(self, request, event_id: str):
+        obj = LeadEvent.objects.filter(event_id=event_id).first()
+        if not obj:
+            raise NotFound(detail=f"LeadEvent з event_id={event_id} не знайдено")
+        serializer = LeadEventSerializer(obj)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
 class FollowUpTemplateListCreateView(generics.ListCreateAPIView):
     serializer_class = FollowUpTemplateSerializer
 
