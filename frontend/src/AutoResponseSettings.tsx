@@ -383,7 +383,7 @@ const AutoResponseSettings: FC = () => {
                     const tz = biz?.time_zone;
                     let localTime = '';
                     if (tz) {
-                      const ms = Date.now() + t.delay * 1000;
+                      const ms = Date.now();
                       const fmt = new Intl.DateTimeFormat([], { hour: '2-digit', minute: '2-digit', timeZone: tz });
                       localTime = fmt.format(ms);
                     }
@@ -462,10 +462,8 @@ const AutoResponseSettings: FC = () => {
                     const biz = businesses.find(b => b.business_id === selectedBusiness);
                     const tz = biz?.time_zone;
                     if (!tz) return null;
-                    const secs = newDelayValue * TIME_UNITS.find(u => u.value === newDelayUnit)!.factor;
-                    const ms = Date.now() + secs * 1000;
                     const fmt = new Intl.DateTimeFormat([], { hour: '2-digit', minute: '2-digit', timeZone: tz });
-                    const local = fmt.format(ms);
+                    const local = fmt.format(Date.now());
                     return (
                       <Typography variant="body2" sx={{ ml:1 }}>
                         {local}
