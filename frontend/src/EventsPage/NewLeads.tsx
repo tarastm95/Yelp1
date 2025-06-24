@@ -51,20 +51,17 @@ const NewLeads: FC<Props> = ({
     (async () => {
       const toFetch = leads
         .map(l => l.lead_id)
-        .filter(
-          lid =>
-            !events.some(e =>
-              e.payload?.data?.updates?.some(u => u.lead_id === lid)
-            ) &&
-            fetchedEvents[lid] == null
-        );
+        .filter(lid => {
+          const inEvents = events.some(e =>
+            e.payload?.data?.updates?.some(u => u.lead_id === lid && (u as any).id)
+          );
+          return !inEvents && fetchedEvents[lid] == null;
+        });
       for (const lid of toFetch) {
         try {
-          console.log('[lead events] fetching for', lid);
           const { data } = await axios.get<LeadEvent>(
             `/lead-events/${encodeURIComponent(lid)}/latest/`
           );
-          console.log('[lead events] received event', data.event_id, 'for', lid);
           if (data.event_id) {
             setFetchedEvents(prev => ({ ...prev, [lid]: String(data.event_id) }));
           }
@@ -109,8 +106,8 @@ const NewLeads: FC<Props> = ({
           const matchedEvent = events.find(e =>
             e.payload?.data?.updates?.some(u => u.lead_id === lead_id)
           );
-          const rawEventId = matchedEvent?.id ?? fetchedEvents[lead_id];
-          const eventId = rawEventId ? String(rawEventId) : undefined;
+          const update = matchedEvent?.payload?.data?.updates?.find(u => u.lead_id === lead_id) as any;
+          const eventId = update?.id ? String(update.id) : fetchedEvents[lead_id];
           const isNew = !viewedLeads.has(lead_id);
 
           return (
@@ -170,9 +167,7 @@ const NewLeads: FC<Props> = ({
                       View Event Details
                     </Button>
                   ) : (
-                    <Typography variant="body2" color="text.secondary">
-                      The event has not been found yet.
-                    </Typography>
+                    <CircularProgress size={20} />
                   )}
                   <Button
                     onClick={() => handleViewClient(lead_id)}
