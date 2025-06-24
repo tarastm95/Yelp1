@@ -1,6 +1,6 @@
 from django.db import models
 from django.utils import timezone
-from datetime import timedelta
+from datetime import timedelta, time
 from .fields import EncryptedTextField
 
 
@@ -125,6 +125,8 @@ class FollowUpTemplate(models.Model):
         default=timedelta(hours=24),
         help_text="Затримка перед першим follow-up (наприклад, 24h)"
     )
+    open_from = models.TimeField(default=time(8,0), help_text="Час початку робочих годин (локальний час)")
+    open_to = models.TimeField(default=time(20,0), help_text="Час закінчення робочих годин (локальний час)")
     active = models.BooleanField(default=True)
 
     def __str__(self):
