@@ -1,0 +1,62 @@
+// src/types.ts
+
+export interface PayloadUpdate {
+  event_type: string;
+  lead_id: string;
+  event_content?: {
+    text?: string;
+    fallback_text?: string;
+  };
+  // Якщо потрібні інші поля (cursor, user_type тощо), додай сюди:
+  [key: string]: any;
+}
+
+export interface EventItem {
+  id: number;
+  created_at: string;
+  payload: {
+    data: {
+      updates: PayloadUpdate[];
+    };
+  };
+}
+
+export interface LeadDetail {
+  lead_id: string;
+  business_id: string;
+  conversation_id: string;
+  temporary_email_address?: string;
+  temporary_email_address_expiry?: string;
+  time_created: string;
+  last_event_time?: string;
+  user_display_name?: string;
+  project?: {
+    survey_answers?: Array<{
+      question_text: string;
+      answer_text: string[];
+    }>;
+    location?: Record<string, any>;
+    additional_info?: string;
+    availability?: {
+      status: string;
+      dates?: string[];
+    };
+    job_names?: string[];
+    attachments?: Array<{
+      id: string;
+      url: string;
+      resource_name: string;
+      [key: string]: any;
+    }>;
+    [key: string]: any;
+  };
+  created_at?: string;
+  updated_at?: string;
+  // Якщо є інші поля, додай сюди
+}
+
+export interface ProcessedLead {
+  lead_id: string;
+  business_id: string;
+  processed_at: string;
+}

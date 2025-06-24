@@ -1,0 +1,59 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    command: >
+      uvicorn config.asgi:application
+      --host 0.0.0.0
+      --port 8000
+      --reload
+      --log-level debug
+    restart: unless-stopped
+    environment:
+      DEBUG: "1"
+      SECRET_KEY: "super-secret-key"
+      ALLOWED_HOSTS: "127.0.0.1,localhost"
+      CELERY_BROKER_URL: "redis://redis:6379/0"
+      CELERY_RESULT_BACKEND: "redis://redis:6379/0"
+    volumes:
+      - .:/app
+      - ./dbdata:/app/dbdata
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+
+  celery:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    command: celery -A config worker --loglevel=info
+    restart: unless-stopped
+    environment:
+      CELERY_BROKER_URL: "redis://redis:6379/0"
+      CELERY_RESULT_BACKEND: "redis://redis:6379/0"
+    volumes:
+      - .:/app
+    depends_on:
+      - redis
+      - web
+
+  celery-beat:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    command: celery -A config beat --loglevel=info
+    restart: unless-stopped
+    environment:
+      CELERY_BROKER_URL: "redis://redis:6379/0"
+      CELERY_RESULT_BACKEND: "redis://redis:6379/0"
+    volumes:
+      - .:/app
+    depends_on:
+      - redis
+      - web
