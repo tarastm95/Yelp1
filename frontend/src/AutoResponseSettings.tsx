@@ -384,7 +384,8 @@ const AutoResponseSettings: FC = () => {
                     let localTime = '';
                     if (tz) {
                       const ms = Date.now() + t.delay * 1000;
-                      localTime = new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: tz });
+                      const fmt = new Intl.DateTimeFormat([], { hour: '2-digit', minute: '2-digit', timeZone: tz });
+                      localTime = fmt.format(ms);
                     }
                     return (
                       <ListItem
@@ -463,7 +464,8 @@ const AutoResponseSettings: FC = () => {
                     if (!tz) return null;
                     const secs = newDelayValue * TIME_UNITS.find(u => u.value === newDelayUnit)!.factor;
                     const ms = Date.now() + secs * 1000;
-                    const local = new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: tz });
+                    const fmt = new Intl.DateTimeFormat([], { hour: '2-digit', minute: '2-digit', timeZone: tz });
+                    const local = fmt.format(ms);
                     return (
                       <Typography variant="body2" sx={{ ml:1 }}>
                         {local}
