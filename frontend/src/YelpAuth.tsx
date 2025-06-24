@@ -5,7 +5,7 @@ import { Container, Box, Typography, Button, Paper } from '@mui/material';
 const YelpAuth: FC = () => {
   const handleYelpLogin = async () => {
     try {
-      const res = await axios.get<{ authorization_url: string }>('/yelp/auth/init/');
+      const res = await axios.get<{ authorization_url: string }>('/api/yelp/auth/init/');
       window.location.href = res.data.authorization_url;
     } catch {
       window.alert('Не вдалося почати авторизацію Yelp.');

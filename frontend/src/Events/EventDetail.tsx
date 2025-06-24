@@ -36,7 +36,7 @@ const EventDetail: FC = () => {
 
   const fetchDetails = useCallback(async (lead: string) => {
     const { data } = await axios.get<{ events: DetailedEvent[] }>(
-      `/yelp/leads/${encodeURIComponent(lead)}/events/`,
+      `/api/yelp/leads/${encodeURIComponent(lead)}/events/`,
       { params: { limit: 20 } }
     );
     setEventsDetail(data.events);
@@ -45,7 +45,7 @@ const EventDetail: FC = () => {
   const fetchLeadDetail = useCallback(async (lead: string) => {
     try {
       const { data } = await axios.get<LeadDetail>(
-        `/yelp/leads/${encodeURIComponent(lead)}/`
+        `/api/yelp/leads/${encodeURIComponent(lead)}/`
       );
       setLeadDetail(data);
     } catch {
@@ -56,7 +56,7 @@ const EventDetail: FC = () => {
   const fetchScheduled = useCallback(async () => {
     if (!leadId) return;
     const { data } = await axios.get<ScheduledMessage[]>(
-      `/yelp/leads/${leadId}/scheduled_messages/`
+      `/api/yelp/leads/${leadId}/scheduled_messages/`
     );
     setScheduled(data);
   }, [leadId]);
@@ -64,7 +64,7 @@ const EventDetail: FC = () => {
   const fetchHistory = useCallback(async () => {
     if (!leadId) return;
     const { data } = await axios.get<MessageHistory[]>(
-      `/yelp/leads/${leadId}/scheduled_messages/history/`
+      `/api/yelp/leads/${leadId}/scheduled_messages/history/`
     );
     setHistory(data);
   }, [leadId]);

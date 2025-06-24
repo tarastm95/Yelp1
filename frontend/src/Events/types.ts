@@ -57,7 +57,7 @@ export interface MessageHistory {
   error?: string;
 }
 
-// Для LeadDetail (повна відповідь /yelp/leads/:id)
+// Для LeadDetail (повна відповідь /api/yelp/leads/:id)
 export interface SurveyAnswer {
   question_text: string;
   answer_text: string[];

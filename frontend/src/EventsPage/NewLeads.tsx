@@ -61,7 +61,7 @@ const NewLeads: FC<Props> = ({
       for (const lid of toFetch) {
         try {
           const { data } = await axios.get<{ events: any[] }>(
-            `/yelp/leads/${encodeURIComponent(lid)}/events/`,
+            `/api/yelp/leads/${encodeURIComponent(lid)}/events/`,
             { params: { limit: 1 } }
           );
           const ev = data.events?.[0];

@@ -48,7 +48,7 @@ const InstantMessageSection: FC<InstantSectionProps> = ({
     setSending(true);
     try {
       await axios.post(
-        `/yelp/leads/${encodeURIComponent(leadId)}/events/`,
+        `/api/yelp/leads/${encodeURIComponent(leadId)}/events/`,
         { request_content: msg, request_type: 'TEXT' }
       );
       setSuccess(true);
