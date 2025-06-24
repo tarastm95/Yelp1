@@ -25,15 +25,29 @@ class LeadEventsProxyView(APIView):
         headers = {"Authorization": f"Bearer {token}"}
         params = {"limit": request.query_params.get("limit", 20)}
 
+        logger.info(
+            f"[LEAD EVENTS] GET {url} params={params} token_ending={token[-4:]}"
+        )
+
         resp = requests.get(url, headers=headers, params=params)
+        logger.info(
+            f"[LEAD EVENTS] Yelp response status={resp.status_code} lead={lead_id}"
+        )
         if resp.status_code != 200:
-            logger.error(f"[YELP ERROR] status={resp.status_code} body={resp.text}")
+            logger.error(f"[LEAD EVENTS] Error body: {resp.text}")
             try:
                 error_data = resp.json()
             except ValueError:
                 error_data = {"detail": resp.text}
             return Response(error_data, status=resp.status_code)
-        return Response(resp.json(), status=status.HTTP_200_OK)
+        try:
+            data = resp.json()
+        except ValueError:
+            data = {}
+        logger.info(
+            f"[LEAD EVENTS] Returned {len(data.get('events', []))} event(s) for lead={lead_id}"
+        )
+        return Response(data, status=status.HTTP_200_OK)
 
     def post(self, request, lead_id):
         token = get_token_for_lead(lead_id)
@@ -47,9 +61,16 @@ class LeadEventsProxyView(APIView):
             "request_type": request.data.get("request_type", "TEXT"),
         }
 
+        logger.info(
+            f"[LEAD EVENTS] POST {url} token_ending={token[-4:]} payload_keys={list(payload.keys())}"
+        )
+
         resp = requests.post(url, json=payload, headers=headers, timeout=10)
+        logger.info(
+            f"[LEAD EVENTS] POST response status={resp.status_code} lead={lead_id}"
+        )
         if resp.status_code not in (200, 201):
-            logger.error(f"[YELP ERROR] POST status={resp.status_code} body={resp.text}")
+            logger.error(f"[LEAD EVENTS] POST error body: {resp.text}")
             try:
                 error_data = resp.json()
             except ValueError:
