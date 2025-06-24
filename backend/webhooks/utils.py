@@ -1,6 +1,6 @@
 # utils.py
 import requests
-from datetime import timedelta, time
+from datetime import timedelta, time, timezone as dt_timezone
 from django.utils import timezone
 from zoneinfo import ZoneInfo
 from django.conf import settings
@@ -10,6 +10,9 @@ import gspread
 from google.oauth2.service_account import Credentials
 from django.conf import settings
 import json
+
+# Fallback UTC constant for older Django versions without timezone.utc
+UTC = getattr(timezone, "utc", dt_timezone.utc)
 logger = logging.getLogger(__name__)
 
 
@@ -108,7 +111,7 @@ def adjust_due_time(base_dt, tz_name: str | None, start: time, end: time):
         local = open_dt
     elif local >= close_dt:
         local = open_dt + timedelta(days=1)
-    return local.astimezone(timezone.utc)
+    return local.astimezone(UTC)
 
 GS_SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 

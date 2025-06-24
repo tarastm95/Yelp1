@@ -1,10 +1,13 @@
 import os
 import logging
-from datetime import datetime
+from datetime import datetime, timezone as dt_timezone
 
 from celery import Celery
 from celery.signals import before_task_publish
 from django.utils import timezone
+
+# Fallback UTC constant for older Django versions without timezone.utc
+UTC = getattr(timezone, "utc", dt_timezone.utc)
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 
@@ -27,7 +30,7 @@ def log_task_schedule(sender=None, headers=None, **kwargs):
             # Fallback if fromisoformat fails
             eta_dt = datetime.strptime(eta, "%Y-%m-%dT%H:%M:%S.%f%z")
         if timezone.is_naive(eta_dt):
-            eta_dt = timezone.make_aware(eta_dt, timezone.utc)
+            eta_dt = timezone.make_aware(eta_dt, UTC)
         run_time = timezone.localtime(eta_dt, tz)
         logger.info(
             "[CELERY] %s scheduled for %s", sender,
