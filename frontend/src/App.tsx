@@ -23,8 +23,9 @@ import HomeIcon from '@mui/icons-material/Home';
 import EventIcon from '@mui/icons-material/Event';
 import BusinessIcon from '@mui/icons-material/Business';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
-import EventDetail from "./Events/EventDetail";
-import EventsPage from "./EventsPage/EventsPage";
+import EventDetail from './Events/EventDetail';
+import LeadEventDetail from './EventsPage/LeadEventDetail';
+import EventsPage from './EventsPage/EventsPage';
 import Home from "./Home";
 import YelpCallback from "./YelpCallback";
 import AutoResponseSettings from "./AutoResponseSettings";
@@ -74,6 +75,7 @@ const App: React.FC = () => (
           <Route path="/" element={<Home />} />
           <Route path="/events" element={<EventsPage />} />
           <Route path="/events/:id" element={<EventDetail />} />
+          <Route path="/lead-events/:eventId" element={<LeadEventDetail />} />
           <Route path="/leads/:id" element={<ClientDetails />} />
           <Route path="/auth" element={<YelpAuth />} />
           <Route path="/callback" element={<YelpCallback />} />

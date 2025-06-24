@@ -90,7 +90,11 @@ const NewLeads: FC<Props> = ({
 
   const handleViewEvent = (lead_id: string, eventId: string) => {
     markAsViewed(lead_id);
-    navigate(`/events/${eventId}`);
+    const isNumeric = /^\d+$/.test(eventId);
+    const url = isNumeric
+      ? `/events/${eventId}`
+      : `/lead-events/${encodeURIComponent(eventId)}`;
+    navigate(url);
   };
 
   if (leads.length === 0) {
