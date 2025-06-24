@@ -60,3 +60,18 @@ export interface ProcessedLead {
   business_id: string;
   processed_at: string;
 }
+
+export interface LeadEvent {
+  event_id: string;
+  lead_id: string;
+  event_type: string;
+  user_type: string;
+  user_id: string;
+  user_display_name?: string;
+  text?: string;
+  cursor?: string;
+  time_created: string;
+  raw: any;
+  created_at: string;
+  updated_at: string;
+}

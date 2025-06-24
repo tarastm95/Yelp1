@@ -12,6 +12,7 @@ from .models import (
     LeadDetail,
     FollowUpTemplate,
     YelpToken,
+    LeadEvent,
 )
 from .pagination import FivePerPagePagination
 from .serializers import (
@@ -21,6 +22,7 @@ from .serializers import (
     LeadDetailSerializer,
     FollowUpTemplateSerializer,
     YelpTokenInfoSerializer,
+    LeadEventSerializer,
 )
 
 logger = logging.getLogger(__name__)
@@ -115,6 +117,21 @@ class LeadDetailRetrieveAPIView(APIView):
     def get(self, request, lead_id: str):
         obj = self.get_object(lead_id)
         serializer = LeadDetailSerializer(obj)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class LeadLastEventAPIView(APIView):
+    """Return latest LeadEvent by lead_id"""
+
+    def get(self, request, lead_id: str):
+        obj = (
+            LeadEvent.objects.filter(lead_id=lead_id)
+            .order_by("-time_created")
+            .first()
+        )
+        if not obj:
+            raise NotFound(detail=f"LeadEvent з lead_id={lead_id} не знайдено")
+        serializer = LeadEventSerializer(obj)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
