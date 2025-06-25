@@ -53,9 +53,15 @@ def send_due_scheduled_messages():
     due_list = ScheduledMessage.objects.filter(active=True, next_run__lte=now)
 
     for sched in due_list:
+        biz_id = (
+            LeadDetail.objects.filter(lead_id=sched.lead_id)
+            .values_list("business_id", flat=True)
+            .first()
+        )
         send_scheduled_message.apply_async(
             args=[sched.lead_id, sched.id],
-            countdown=0
+            headers={"business_id": biz_id},
+            countdown=0,
         )
 
 
@@ -121,9 +127,15 @@ def send_due_lead_scheduled_messages():
     now = timezone.now()
     due = LeadScheduledMessage.objects.filter(active=True, next_run__lte=now)
     for msg in due:
+        biz_id = (
+            LeadDetail.objects.filter(lead_id=msg.lead_id)
+            .values_list("business_id", flat=True)
+            .first()
+        )
         send_lead_scheduled_message.apply_async(
             args=[msg.id],
-            countdown=0
+            headers={"business_id": biz_id},
+            countdown=0,
         )
 
 

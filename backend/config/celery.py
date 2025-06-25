@@ -33,6 +33,7 @@ def log_task_schedule(sender=None, headers=None, **kwargs):
     task_id = headers.get("id") if headers else None
     args = kwargs.get("body", [])[0] if kwargs.get("body") else None
     kargs = kwargs.get("body", [])[1] if kwargs.get("body") else None
+    business_id = headers.get("business_id") if headers else None
     if eta:
         try:
             eta_dt = datetime.fromisoformat(eta)
@@ -66,6 +67,7 @@ def log_task_schedule(sender=None, headers=None, **kwargs):
                     "kwargs": kargs,
                     "eta": schedule_time,
                     "status": "SCHEDULED",
+                    "business_id": business_id,
                 },
             )
 

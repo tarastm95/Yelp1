@@ -3,7 +3,7 @@ from django_filters.rest_framework import DjangoFilterBackend, FilterSet, filter
 from rest_framework import generics
 
 from .models import CeleryTaskLog
-from .serializers import CeleryTaskLogSerializer
+from .serializers import CeleryTaskLogSerializer, MessageTaskSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -37,4 +37,23 @@ class TaskLogListView(generics.ListAPIView):
         if start:
             qs = qs.filter(finished_at__gte=start)
         return qs
+
+
+class MessageTaskListView(generics.ListAPIView):
+    """Simplified list of executed message tasks."""
+
+    serializer_class = MessageTaskSerializer
+
+    def get_queryset(self):
+        return (
+            CeleryTaskLog.objects.filter(
+                name__in=[
+                    "send_follow_up",
+                    "send_scheduled_message",
+                    "send_lead_scheduled_message",
+                ],
+                finished_at__isnull=False,
+            )
+            .order_by("-finished_at")
+        )
 
