@@ -230,6 +230,7 @@ class WebhookView(APIView):
                 built_in = auto_settings.follow_up_template.format(name=name, jobs=jobs, sep=sep)
                 send_follow_up.apply_async(
                     args=[lead_id, built_in, token],
+                    headers={"business_id": ld.business_id if ld else None},
                     countdown=auto_settings.follow_up_delay,
                 )
                 logger.info("[AUTO-RESPONSE] Built-in follow-up scheduled")
@@ -251,6 +252,7 @@ class WebhookView(APIView):
                 countdown = max((due - now).total_seconds(), 0)
                 send_follow_up.apply_async(
                     args=[lead_id, text, token],
+                    headers={"business_id": ld.business_id if ld else None},
                     countdown=countdown,
                 )
                 logger.info(
@@ -259,7 +261,11 @@ class WebhookView(APIView):
 
             for sm in ScheduledMessage.objects.filter(lead_id=lead_id, active=True):
                 delay = max((sm.next_run - now).total_seconds(), 0)
-                send_scheduled_message.apply_async(args=[sm.id], countdown=delay)
+                send_scheduled_message.apply_async(
+                    args=[lead_id, sm.id],
+                    headers={"business_id": ld.business_id if ld else None},
+                    countdown=delay,
+                )
                 logger.info(f"[SCHEDULED] Message #{sm.id} scheduled in {delay:.0f}s")
                 sm.schedule_next()
         else:

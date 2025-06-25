@@ -278,3 +278,53 @@ class CeleryTaskLogSerializer(serializers.ModelSerializer):
             "business_id",
         ]
         read_only_fields = fields
+
+
+class MessageTaskSerializer(serializers.ModelSerializer):
+    executed_at = serializers.DateTimeField(source="finished_at")
+    text = serializers.SerializerMethodField()
+    business_name = serializers.SerializerMethodField()
+    task_type = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CeleryTaskLog
+        fields = ["executed_at", "text", "business_name", "task_type"]
+
+    def get_text(self, obj):
+        args = obj.args or []
+        if obj.name == "send_follow_up" and len(args) >= 2:
+            return args[1]
+        if obj.name == "send_scheduled_message" and len(args) >= 2:
+            lead_id, sched_id = args[0], args[1]
+            detail = LeadDetail.objects.filter(lead_id=lead_id).first()
+            name = detail.user_display_name if detail else ""
+            jobs = ", ".join(detail.project.get("job_names", [])) if detail else ""
+            sep = ", " if name and jobs else ""
+            try:
+                sm = ScheduledMessage.objects.get(pk=sched_id)
+                return sm.template.template.format(name=name, jobs=jobs, sep=sep)
+            except ScheduledMessage.DoesNotExist:
+                return ""
+        if obj.name == "send_lead_scheduled_message" and len(args) >= 1:
+            sched_id = args[0]
+            msg = LeadScheduledMessage.objects.filter(pk=sched_id).first()
+            if not msg:
+                return ""
+            detail = LeadDetail.objects.filter(lead_id=msg.lead_id).first()
+            name = detail.user_display_name if detail else ""
+            jobs = ", ".join(detail.project.get("job_names", [])) if detail else ""
+            sep = ", " if name and jobs else ""
+            return msg.content.format(name=name, jobs=jobs, sep=sep)
+        return ""
+
+    def get_business_name(self, obj):
+        biz = YelpBusiness.objects.filter(business_id=obj.business_id).first()
+        return biz.name if biz else None
+
+    def get_task_type(self, obj):
+        mapping = {
+            "send_follow_up": "Built-in Follow-up",
+            "send_scheduled_message": "Additional Follow-up Template",
+            "send_lead_scheduled_message": "Greeting message",
+        }
+        return mapping.get(obj.name, obj.name)
