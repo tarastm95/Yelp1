@@ -88,6 +88,9 @@ const AutoResponseSettings: FC = () => {
   const [newOpenFrom, setNewOpenFrom] = useState('08:00:00');
   const [newOpenTo, setNewOpenTo] = useState('20:00:00');
 
+  // local time of selected business
+  const [localTime, setLocalTime] = useState('');
+
   // UI state
   const [loading, setLoading] = useState(true);
   const [tplLoading, setTplLoading] = useState(false);
@@ -205,6 +208,29 @@ const AutoResponseSettings: FC = () => {
     loadSettings(selectedBusiness || undefined);
     loadTemplates(selectedBusiness || undefined);
   }, [selectedBusiness]);
+
+  // update local time for selected business
+  useEffect(() => {
+    let timer: ReturnType<typeof setInterval> | undefined;
+    const biz = businesses.find(b => b.business_id === selectedBusiness);
+    const tz = biz?.time_zone;
+    if (tz) {
+      const fmt = new Intl.DateTimeFormat([], {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        timeZone: tz,
+      });
+      const update = () => setLocalTime(fmt.format(Date.now()));
+      update();
+      timer = setInterval(update, 1000);
+    } else {
+      setLocalTime('');
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [selectedBusiness, businesses]);
 
   // save settings
   const handleSaveSettings = () => {
@@ -413,6 +439,11 @@ const AutoResponseSettings: FC = () => {
             {/* Global Follow-up Templates */}
             <Box>
               <Typography variant="h6">Additional Follow-up Templates</Typography>
+              {localTime && (
+                <Typography variant="body2" sx={{ mt: 0.5 }}>
+                  Current time: {localTime}
+                </Typography>
+              )}
               {tplLoading ? (
                 <CircularProgress size={24} />
               ) : (
@@ -514,18 +545,6 @@ const AutoResponseSettings: FC = () => {
                       onChange={e => setNewOpenTo(e.target.value)}
                       size="small"
                     />
-                    {selectedBusiness && (() => {
-                      const biz = businesses.find(b => b.business_id === selectedBusiness);
-                      const tz = biz?.time_zone;
-                      if (!tz) return null;
-                      const fmt = new Intl.DateTimeFormat([], { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: tz });
-                      const local = fmt.format(Date.now());
-                      return (
-                        <Typography variant="body2" sx={{ ml:1 }}>
-                          {local}
-                        </Typography>
-                      );
-                    })()}
                   </Stack>
                 </Box>
                 <Button onClick={handleAddTemplate} disabled={tplLoading} sx={{ mt: 1 }}>
