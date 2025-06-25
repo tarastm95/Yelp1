@@ -23,6 +23,7 @@ import HomeIcon from '@mui/icons-material/Home';
 import EventIcon from '@mui/icons-material/Event';
 import BusinessIcon from '@mui/icons-material/Business';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
+import ListAltIcon from '@mui/icons-material/ListAlt';
 import EventDetail from "./Events/EventDetail";
 import EventsPage from "./EventsPage/EventsPage";
 import Home from "./Home";
@@ -32,6 +33,7 @@ import YelpAuth from "./YelpAuth";
 import ClientDetails from "./ClientDetails/ClientDetails";
 import BusinessSelector from "./BusinessSelector";
 import TokenStatus from "./TokenStatus";
+import TaskLogs from "./TaskLogs";
 
 // A default theme for the application
 const theme = createTheme({
@@ -67,6 +69,7 @@ const App: React.FC = () => (
           <Button color="inherit" component={RouterLink} to="/events" startIcon={<EventIcon />}>Events</Button>
           <Button color="inherit" component={RouterLink} to="/businesses" startIcon={<BusinessIcon />}>Businesses</Button>
           <Button color="inherit" component={RouterLink} to="/tokens" startIcon={<VpnKeyIcon />}>Tokens</Button>
+          <Button color="inherit" component={RouterLink} to="/tasks" startIcon={<ListAltIcon />}>Tasks</Button>
         </Toolbar>
       </AppBar>
       <main>
@@ -80,6 +83,7 @@ const App: React.FC = () => (
           <Route path="/businesses" element={<BusinessSelector />} />
           <Route path="/settings" element={<AutoResponseSettings />} />
           <Route path="/tokens" element={<TokenStatus />} />
+          <Route path="/tasks" element={<TaskLogs />} />
         </Routes>
       </main>
     </Router>
