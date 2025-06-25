@@ -434,7 +434,13 @@ const AutoResponseSettings: FC = () => {
                 </List>
               )}
 
-              <Stack direction="row" spacing={2} alignItems="flex-start" mt={2}>
+              <Stack
+                direction="row"
+                spacing={2}
+                alignItems="flex-start"
+                mt={2}
+                flexWrap="wrap"
+              >
                 <Box flexGrow={1}>
                   <Stack direction="row" spacing={1} mb={1}>
                     {PLACEHOLDERS.map(ph => (
