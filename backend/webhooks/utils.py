@@ -103,8 +103,8 @@ def adjust_due_time(base_dt, tz_name: str | None, start: time, end: time):
         return base_dt
     tz = ZoneInfo(tz_name)
     local = base_dt.astimezone(tz)
-    open_dt = local.replace(hour=start.hour, minute=start.minute, second=0, microsecond=0)
-    close_dt = local.replace(hour=end.hour, minute=end.minute, second=0, microsecond=0)
+    open_dt = local.replace(hour=start.hour, minute=start.minute, second=start.second, microsecond=0)
+    close_dt = local.replace(hour=end.hour, minute=end.minute, second=end.second, microsecond=0)
     if close_dt <= open_dt:
         close_dt += timedelta(days=1)
     if local < open_dt:
