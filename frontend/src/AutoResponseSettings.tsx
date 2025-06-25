@@ -85,8 +85,8 @@ const AutoResponseSettings: FC = () => {
   const [newDelayHours, setNewDelayHours] = useState(1);
   const [newDelayMinutes, setNewDelayMinutes] = useState(0);
   const [newDelaySeconds, setNewDelaySeconds] = useState(0);
-  const [newOpenFrom, setNewOpenFrom] = useState('08:00');
-  const [newOpenTo, setNewOpenTo] = useState('20:00');
+  const [newOpenFrom, setNewOpenFrom] = useState('08:00:00');
+  const [newOpenTo, setNewOpenTo] = useState('20:00:00');
 
   // UI state
   const [loading, setLoading] = useState(true);
@@ -270,7 +270,7 @@ const AutoResponseSettings: FC = () => {
   };
 
   return (
-    <Container maxWidth={false} sx={{ mt:4, mb:4, maxWidth: 900, mx: 'auto' }}>
+    <Container maxWidth={false} sx={{ mt:4, mb:4, maxWidth: 1000, mx: 'auto' }}>
       <Box sx={{ mb: 2 }}>
         <Select
           value={selectedBusiness}
@@ -460,7 +460,7 @@ const AutoResponseSettings: FC = () => {
                     placeholder="New follow-up template..."
                   />
                 </Box>
-                <Stack direction="row" spacing={1} alignItems="center">
+                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
                   <TextField
                     label="Days"
                     type="number"
@@ -493,34 +493,41 @@ const AutoResponseSettings: FC = () => {
                     value={newDelaySeconds}
                     onChange={e => setNewDelaySeconds(Number(e.target.value))}
                   />
-                  <TextField
-                    label="From"
-                    type="time"
-                    value={newOpenFrom}
-                    onChange={e => setNewOpenFrom(e.target.value)}
-                    size="small"
-                  />
-                  <TextField
-                    label="To"
-                    type="time"
-                    value={newOpenTo}
-                    onChange={e => setNewOpenTo(e.target.value)}
-                    size="small"
-                  />
-                  {selectedBusiness && (() => {
-                    const biz = businesses.find(b => b.business_id === selectedBusiness);
-                    const tz = biz?.time_zone;
-                    if (!tz) return null;
-                    const fmt = new Intl.DateTimeFormat([], { hour: '2-digit', minute: '2-digit', timeZone: tz });
-                    const local = fmt.format(Date.now());
-                    return (
-                      <Typography variant="body2" sx={{ ml:1 }}>
-                        {local}
-                      </Typography>
-                    );
-                  })()}
                 </Stack>
-                <Button onClick={handleAddTemplate} disabled={tplLoading}>
+                <Box sx={{ mt: 1 }}>
+                  <Typography variant="body2" gutterBottom>Години роботи</Typography>
+                  <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                    <TextField
+                      label="From"
+                      type="time"
+                      inputProps={{ step: 1 }}
+                      value={newOpenFrom}
+                      onChange={e => setNewOpenFrom(e.target.value)}
+                      size="small"
+                    />
+                    <TextField
+                      label="To"
+                      type="time"
+                      inputProps={{ step: 1 }}
+                      value={newOpenTo}
+                      onChange={e => setNewOpenTo(e.target.value)}
+                      size="small"
+                    />
+                    {selectedBusiness && (() => {
+                      const biz = businesses.find(b => b.business_id === selectedBusiness);
+                      const tz = biz?.time_zone;
+                      if (!tz) return null;
+                      const fmt = new Intl.DateTimeFormat([], { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: tz });
+                      const local = fmt.format(Date.now());
+                      return (
+                        <Typography variant="body2" sx={{ ml:1 }}>
+                          {local}
+                        </Typography>
+                      );
+                    })()}
+                  </Stack>
+                </Box>
+                <Button onClick={handleAddTemplate} disabled={tplLoading} sx={{ mt: 1 }}>
                   Add
                 </Button>
               </Stack>
