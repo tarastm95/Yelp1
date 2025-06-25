@@ -19,6 +19,28 @@ app.autodiscover_tasks()
 
 logger = logging.getLogger(__name__)
 
+# Only log tasks related to sending messages which include lead data
+INTERESTING_TASKS = {
+    "send_follow_up",
+    "send_scheduled_message",
+    "send_lead_scheduled_message",
+}
+
+
+def _short_name(sender: str | object) -> str:
+    """Return the final component of the task name."""
+    name = sender
+    if not isinstance(name, str):
+        name = getattr(sender, "name", str(sender))
+    return name.split(".")[-1]
+
+
+def _should_log(sender, args) -> bool:
+    """Check if this task should be persisted in CeleryTaskLog."""
+    if not args:
+        return False
+    return _short_name(sender) in INTERESTING_TASKS
+
 
 def get_task_log_model():
     """Return the CeleryTaskLog model when apps are ready."""
@@ -34,6 +56,9 @@ def log_task_schedule(sender=None, headers=None, **kwargs):
     args = kwargs.get("body", [])[0] if kwargs.get("body") else None
     kargs = kwargs.get("body", [])[1] if kwargs.get("body") else None
     business_id = headers.get("business_id") if headers else None
+
+    if not _should_log(sender, args):
+        return
     if eta:
         try:
             eta_dt = datetime.fromisoformat(eta)
@@ -75,6 +100,9 @@ def log_task_schedule(sender=None, headers=None, **kwargs):
 @task_prerun.connect
 def log_task_start(sender=None, task_id=None, args=None, kwargs=None, **other):
     """Update start time when task begins or create log if missing."""
+    if not _should_log(sender, args):
+        return
+
     model = get_task_log_model()
     updated = model.objects.filter(task_id=task_id).update(
         started_at=timezone.now(), status="STARTED"
@@ -102,6 +130,9 @@ def log_task_done(
     **other,
 ):
     """Update finish time and status when task ends or create log if missing."""
+    if not _should_log(sender, args):
+        return
+
     model = get_task_log_model()
     updated = model.objects.filter(task_id=task_id).update(
         finished_at=timezone.now(), status=state or "SUCCESS", result=str(retval)
