@@ -83,7 +83,7 @@ const EventDetail: FC = () => {
 
   useEffect(() => {
     if (!id) {
-      setError('ID події відсутній');
+      setError('Event ID is missing');
       setLoading(false);
       return;
     }
@@ -91,19 +91,19 @@ const EventDetail: FC = () => {
       try {
         let found: string | undefined;
         if (/^\d+$/.test(id)) {
-          // Numeric ID → отримуємо локальну подію
+          // Numeric ID → get local event
           const { data: evt } = await axios.get<{ id: number; payload?: any }>(
             `/events/${id}/`
           );
           found = evt.payload?.data?.updates?.[0]?.lead_id;
         } else {
-          // Інакше намагаємось отримати LeadEvent за event_id
+          // Otherwise try to fetch LeadEvent by event_id
           const { data: le } = await axios.get<LeadEvent>(
             `/lead-events/${encodeURIComponent(id)}/`
           );
           found = le.lead_id;
         }
-        if (!found) throw new Error('Немає даних оновлення');
+        if (!found) throw new Error('No update data');
 
         setLeadId(found);
         await fetchDetails(found);
@@ -111,14 +111,14 @@ const EventDetail: FC = () => {
         await fetchScheduled();
         await fetchHistory();
       } catch (e: any) {
-        setError(e.message || 'Помилка завантаження');
+        setError(e.message || 'Failed to load data');
       } finally {
         setLoading(false);
       }
     })();
   }, [id, fetchDetails, fetchLeadDetail, fetchScheduled, fetchHistory]);
 
-  // Ранні повернення
+  // Early returns
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
@@ -157,13 +157,13 @@ const EventDetail: FC = () => {
 
   return (
     <Container sx={{ mt: 4, mb: 4 }}>
-      {/* Заголовок сторінки */}
+      {/* Page title */}
       <Typography variant="h4" gutterBottom>
         Event Details
  #{id}
       </Typography>
 
-      {/* Секція історії подій */}
+      {/* Event history section */}
       <Paper elevation={2} sx={{ p: 2, mb: 3 }}>
         <Typography variant="h6" gutterBottom>
           Event History
@@ -171,7 +171,7 @@ const EventDetail: FC = () => {
         <EventList events={eventsDetail} />
       </Paper>
 
-      {/* Секція миттєвих повідомлень */}
+      {/* Instant messages section */}
       <Paper elevation={2} sx={{ p: 2, mb: 3 }}>
         <Typography variant="h6" gutterBottom>
           Instant Messages
@@ -187,7 +187,7 @@ const EventDetail: FC = () => {
         />
       </Paper>
 
-      {/* Секція запланованих повідомлень */}
+      {/* Scheduled messages section */}
       <Paper elevation={2} sx={{ p: 2, mb: 3 }}>
         <Typography variant="h6" gutterBottom>
           Scheduled Messages
@@ -201,7 +201,7 @@ const EventDetail: FC = () => {
         />
       </Paper>
 
-      {/* Секція історії запланованих */}
+      {/* Scheduled history section */}
       <Paper elevation={2} sx={{ p: 2, mb: 3 }}>
         <Typography variant="h6" gutterBottom>
           History of Scheduled Messages
@@ -209,7 +209,7 @@ const EventDetail: FC = () => {
         <HistorySection history={history} />
       </Paper>
 
-      {/* Кнопка повернення */}
+      {/* Back button */}
       <Box sx={{ mt: 2 }}>
         <Button component={RouterLink} to="/events" variant="text">
           ← Back to Events List

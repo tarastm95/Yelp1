@@ -1,24 +1,24 @@
 // src/types.ts
 
-// Відповідь від API: питання-варіанти
+// API response: question options
 export interface SurveyAnswer {
   question_text: string;
   answer_text: string[];
 }
 
-// Локація проекту
+// Project location
 export interface LocationInfo {
   postal_code?: string;
   [key: string]: any;
 }
 
-// Доступність
+// Availability
 export interface Availability {
   status: string;
   dates: string[];
 }
 
-// Вкладення (може бути картинка або інший файл)
+// Attachment (could be an image or other file)
 export interface Attachment {
   id: string;
   mime_type: string;
@@ -26,7 +26,7 @@ export interface Attachment {
   url: string;
 }
 
-// Дані проекту
+// Project data
 export interface ProjectInfo {
   survey_answers?: SurveyAnswer[];
   location?: LocationInfo;
@@ -37,7 +37,7 @@ export interface ProjectInfo {
   [key: string]: any;
 }
 
-// Повні деталі ліда
+// Full lead details
 export interface LeadDetail {
   business_id: string;
   id: string;

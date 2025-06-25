@@ -118,7 +118,7 @@ const TaskLogs: React.FC = () => {
             {completedTasks.length === 0 && (
               <TableRow>
                 <TableCell colSpan={5} align="center">
-                  Немає виконаних/з помилкою тасків
+                  No completed or failed tasks
                 </TableCell>
               </TableRow>
             )}
@@ -144,7 +144,7 @@ const TaskLogs: React.FC = () => {
             {scheduledTasks.length === 0 && (
               <TableRow>
                 <TableCell colSpan={3} align="center">
-                  Немає запланованих тасків
+                  No scheduled tasks
                 </TableCell>
               </TableRow>
             )}

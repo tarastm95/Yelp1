@@ -21,7 +21,7 @@ const EventList: FC<Props> = ({ events }) => {
       borderColor: 'grey.300',
     }}>
       {events.length === 0
-        ? <Typography>Немає деталей подій.</Typography>
+        ? <Typography>No event details.</Typography>
         : (
           <Stack spacing={2}>
             {events.map(evt => {
@@ -63,7 +63,7 @@ const EventList: FC<Props> = ({ events }) => {
 
                         {atts.length > 0 && (
                           <div>
-                            <Typography variant="subtitle2" sx={{ mt: 1, mb: 0.5 }}>Вкладення:</Typography>
+                            <Typography variant="subtitle2" sx={{ mt: 1, mb: 0.5 }}>Attachments:</Typography>
                             <List dense disablePadding>
                               {atts.map(a => (
                                 <ListItem key={a.id} disablePadding>

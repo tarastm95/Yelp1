@@ -1,12 +1,12 @@
 // src/types.ts
 
-// Для оновлень у payload
+// For updates inside the payload
 export interface PayloadUpdate {
   event_type: string;
   lead_id: string;
 }
 
-// Початковий Event з /events
+// Initial Event from /events
 export interface EventItem {
   id: number | string;
   created_at: string;
@@ -19,7 +19,7 @@ export interface EventItem {
   };
 }
 
-// Деталізовані події в EventDetail
+// Detailed events in EventDetail
 export interface Attachment {
   id: string;
   mime_type: string;
@@ -42,7 +42,7 @@ export interface DetailedEvent {
   event_content: EventContent;
 }
 
-// Для ScheduledMessagesSection
+// For ScheduledMessagesSection
 export interface ScheduledMessage {
   id: number;
   content: string;
@@ -57,7 +57,7 @@ export interface MessageHistory {
   error?: string;
 }
 
-// Для LeadDetail (повна відповідь /api/yelp/leads/:id)
+// For LeadDetail (full response from /api/yelp/leads/:id)
 export interface SurveyAnswer {
   question_text: string;
   answer_text: string[];
@@ -95,7 +95,7 @@ export interface LeadDetail {
   [key: string]: any;
 }
 
-// Пропси для секції запланованих повідомлень з можливістю вставки імені/робіт
+// Props for the scheduled messages section with placeholders for name/jobs
 export interface ScheduledSectionProps {
   leadId: string;
   displayName: string;

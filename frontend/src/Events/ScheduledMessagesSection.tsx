@@ -3,7 +3,7 @@ import React, { FC, useState, useEffect } from 'react';
 import axios from 'axios';
 import { ScheduledSectionProps, ScheduledMessage } from './types';
 
-// Material-UI компоненти
+// Material-UI components
 import {
   Typography,
   TextField,
@@ -28,7 +28,7 @@ import {
   ToggleButtonGroup,
   ToggleButton,
   Chip,
-  Stack,  // ← додаємо
+  Stack,  // added
 } from '@mui/material';
 
 // Icons
@@ -64,13 +64,13 @@ const ScheduledMessagesSection: FC<ScheduledSectionProps> = ({
   const [selectedMessage, setSelectedMessage] = useState<ScheduledMessage | null>(null);
   const [feedback, setFeedback] = useState<{ message: string; severity: 'success' | 'error' } | null>(null);
 
-  // оновлення годинника
+  // update the clock
   useEffect(() => {
     const timer = setInterval(() => setTimeNow(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  // початковий fetch
+  // initial fetch
   useEffect(() => {
     if (leadId) onUpdate();
   }, [leadId, onUpdate]);
@@ -200,7 +200,7 @@ const ScheduledMessagesSection: FC<ScheduledSectionProps> = ({
             />
           )}
 
-          {/* заміна Grid на Stack */}
+          {/* replace Grid with Stack */}
           <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
             <Chip
               icon={<PersonPinIcon />}
@@ -292,7 +292,7 @@ const ScheduledMessagesSection: FC<ScheduledSectionProps> = ({
         </Dialog>
       </Paper>
 
-      {/* позиціонований Alert замість Snackbar */}
+      {/* positioned Alert instead of Snackbar */}
       {feedback && (
         <Box
           sx={{

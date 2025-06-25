@@ -7,7 +7,7 @@ export interface PayloadUpdate {
     text?: string;
     fallback_text?: string;
   };
-  // Якщо потрібні інші поля (cursor, user_type тощо), додай сюди:
+  // If other fields are needed (cursor, user_type, etc.), add them here:
   [key: string]: any;
 }
 
@@ -52,7 +52,7 @@ export interface LeadDetail {
   };
   created_at?: string;
   updated_at?: string;
-  // Якщо є інші поля, додай сюди
+  // Add other fields here if needed
 }
 
 export interface ProcessedLead {

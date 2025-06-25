@@ -2,7 +2,7 @@
 const { createProxyMiddleware } = require('http-proxy-middleware');
 
 module.exports = function(app) {
-  // 1) Проксі для вашого Django-бекенду
+  // 1) Proxy to your Django backend
   app.use(
     '/api',
     createProxyMiddleware({
@@ -11,7 +11,7 @@ module.exports = function(app) {
     })
   );
 
-  // 2) (тільки для деву!) Проксі напряму до Yelp API
+  // 2) (dev only!) Proxy directly to the Yelp API
   app.use(
     '/yelp-api',
     createProxyMiddleware({
