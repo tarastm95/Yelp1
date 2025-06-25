@@ -5,8 +5,8 @@ from datetime import datetime, timezone as dt_timezone
 from celery import Celery
 from celery.signals import before_task_publish, task_prerun, task_postrun
 from django.db import transaction
-from webhooks.models import CeleryTaskLog
 from django.utils import timezone
+from django.apps import apps
 
 # Fallback UTC constant for older Django versions without timezone.utc
 UTC = getattr(timezone, "utc", dt_timezone.utc)
@@ -18,6 +18,11 @@ app.config_from_object('django.conf:settings', namespace='CELERY')
 app.autodiscover_tasks()
 
 logger = logging.getLogger(__name__)
+
+
+def get_task_log_model():
+    """Return the CeleryTaskLog model when apps are ready."""
+    return apps.get_model("webhooks", "CeleryTaskLog")
 
 
 @before_task_publish.connect
@@ -53,7 +58,7 @@ def log_task_schedule(sender=None, headers=None, **kwargs):
 
     if task_id:
         with transaction.atomic():
-            CeleryTaskLog.objects.update_or_create(
+            get_task_log_model().objects.update_or_create(
                 task_id=task_id,
                 defaults={
                     "name": sender,
@@ -68,7 +73,7 @@ def log_task_schedule(sender=None, headers=None, **kwargs):
 @task_prerun.connect
 def log_task_start(sender=None, task_id=None, **kwargs):
     """Update start time when task begins."""
-    CeleryTaskLog.objects.filter(task_id=task_id).update(
+    get_task_log_model().objects.filter(task_id=task_id).update(
         started_at=timezone.now(), status="STARTED"
     )
 
@@ -76,6 +81,6 @@ def log_task_start(sender=None, task_id=None, **kwargs):
 @task_postrun.connect
 def log_task_done(sender=None, task_id=None, retval=None, state=None, **kwargs):
     """Update finish time and status when task ends."""
-    CeleryTaskLog.objects.filter(task_id=task_id).update(
+    get_task_log_model().objects.filter(task_id=task_id).update(
         finished_at=timezone.now(), status=state or "SUCCESS", result=str(retval)
     )
