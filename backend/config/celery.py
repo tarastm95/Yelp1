@@ -73,16 +73,53 @@ def log_task_schedule(sender=None, headers=None, **kwargs):
 
 
 @task_prerun.connect
-def log_task_start(sender=None, task_id=None, **kwargs):
-    """Update start time when task begins."""
-    get_task_log_model().objects.filter(task_id=task_id).update(
+def log_task_start(sender=None, task_id=None, args=None, kwargs=None, **other):
+    """Update start time when task begins or create log if missing."""
+    model = get_task_log_model()
+    updated = model.objects.filter(task_id=task_id).update(
         started_at=timezone.now(), status="STARTED"
     )
+    if updated == 0:
+        model.objects.create(
+            task_id=task_id,
+            name=getattr(sender, "name", str(sender)),
+            args=args,
+            kwargs=kwargs,
+            started_at=timezone.now(),
+            status="STARTED",
+        )
 
 
 @task_postrun.connect
-def log_task_done(sender=None, task_id=None, retval=None, state=None, **kwargs):
-    """Update finish time and status when task ends."""
-    get_task_log_model().objects.filter(task_id=task_id).update(
+def log_task_done(
+    sender=None,
+    task_id=None,
+    retval=None,
+    state=None,
+    args=None,
+    kwargs=None,
+    task=None,
+    **other,
+):
+    """Update finish time and status when task ends or create log if missing."""
+    model = get_task_log_model()
+    updated = model.objects.filter(task_id=task_id).update(
         finished_at=timezone.now(), status=state or "SUCCESS", result=str(retval)
     )
+    if updated == 0:
+        business_id = None
+        try:
+            business_id = getattr(task.request, "headers", {}).get("business_id")
+        except Exception:
+            pass
+        model.objects.create(
+            task_id=task_id,
+            name=getattr(sender, "name", str(sender)),
+            args=args,
+            kwargs=kwargs,
+            started_at=timezone.now(),
+            finished_at=timezone.now(),
+            status=state or "SUCCESS",
+            result=str(retval),
+            business_id=business_id,
+        )
