@@ -94,6 +94,9 @@ const AutoResponseSettings: FC = () => {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
 
+  // current business time
+  const [businessTime, setBusinessTime] = useState('');
+
   // refs for placeholder insertion
   const greetingRef = useRef<HTMLTextAreaElement | null>(null);
   const followRef = useRef<HTMLTextAreaElement | null>(null);
@@ -168,7 +171,7 @@ const AutoResponseSettings: FC = () => {
         setFollowDelaySeconds(secs % 60);
         setExportToSheets(d.export_to_sheets);
       })
-      .catch(() => setError('Не вдалося завантажити налаштування.'))
+      .catch(() => setError('Failed to load settings.'))
       .finally(() => setLoading(false));
   };
 
@@ -186,7 +189,7 @@ const AutoResponseSettings: FC = () => {
           setNewOpenTo('20:00:00');
         }
       })
-      .catch(() => setError('Не вдалося завантажити шаблони follow-up.'))
+      .catch(() => setError('Failed to load follow-up templates.'))
       .finally(() => setTplLoading(false));
   };
 
@@ -198,6 +201,27 @@ const AutoResponseSettings: FC = () => {
     loadTemplates();
     loadSettings();
   }, []);
+
+  useEffect(() => {
+    const update = () => {
+      const biz = businesses.find(b => b.business_id === selectedBusiness);
+      const tz = biz?.time_zone;
+      if (!tz) {
+        setBusinessTime('');
+        return;
+      }
+      const fmt = new Intl.DateTimeFormat([], {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        timeZone: tz,
+      });
+      setBusinessTime(fmt.format(Date.now()));
+    };
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, [businesses, selectedBusiness]);
 
   useEffect(() => {
     loadSettings(selectedBusiness || undefined);
@@ -228,7 +252,7 @@ const AutoResponseSettings: FC = () => {
         setSaved(true);
         setError('');
       })
-      .catch(() => setError('Помилка збереження налаштувань.'))
+      .catch(() => setError('Failed to save settings.'))
       .finally(() => setLoading(false));
   };
 
@@ -259,7 +283,7 @@ const AutoResponseSettings: FC = () => {
         setNewOpenFrom('08:00');
         setNewOpenTo('20:00');
       })
-      .catch(() => setError('Не вдалося додати шаблон.'))
+      .catch(() => setError('Failed to add template.'))
       .finally(() => setTplLoading(false));
   };
 
@@ -270,7 +294,7 @@ const AutoResponseSettings: FC = () => {
       .then(() => {
         setTemplates(prev => prev.filter(t => t.id !== tplId));
       })
-      .catch(() => setError('Не вдалося видалити шаблон.'));
+      .catch(() => setError('Failed to delete template.'));
   };
 
   const handleCloseSnackbar = () => {
@@ -411,6 +435,11 @@ const AutoResponseSettings: FC = () => {
             {/* Global Follow-up Templates */}
             <Box>
               <Typography variant="h6">Additional Follow-up Templates</Typography>
+              {businessTime && (
+                <Typography align="center" sx={{ mt: 1 }}>
+                  Current time for business: {businessTime}
+                </Typography>
+              )}
               {tplLoading ? (
                 <CircularProgress size={24} />
               ) : (
@@ -504,7 +533,7 @@ const AutoResponseSettings: FC = () => {
                   />
                 </Stack>
                 <Box sx={{ mt: 1 }}>
-                  <Typography variant="body2" gutterBottom>Години роботи</Typography>
+                  <Typography variant="body2" gutterBottom>Business Hours</Typography>
                   <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
                     <TextField
                       label="From"
