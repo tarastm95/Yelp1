@@ -32,6 +32,7 @@ from .lead_views import (
     FollowUpTemplateDestroyView,
     YelpTokenListView,
 )
+from .task_views import TaskLogListView
 
 __all__ = [
     "ScheduledMessageListCreate",
@@ -61,4 +62,5 @@ __all__ = [
     "FollowUpTemplateDestroyView",
     "YelpTokenListView",
     "AttachmentProxyView",
+    "TaskLogListView",
 ]

@@ -22,6 +22,7 @@ import EventIcon from '@mui/icons-material/Event';
 import SettingsIcon from '@mui/icons-material/Settings';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import ListAltIcon from '@mui/icons-material/ListAlt';
 
 const Home: FC = () => {
   const [alertOpen, setAlertOpen] = useState(false);
@@ -95,6 +96,14 @@ const Home: FC = () => {
               <AccessTimeIcon />
             </ListItemIcon>
             <ListItemText primary="Token Status" />
+          </ListItemButton>
+        </ListItem>
+        <ListItem disablePadding>
+          <ListItemButton component={RouterLink} to="/tasks">
+            <ListItemIcon>
+              <ListAltIcon />
+            </ListItemIcon>
+            <ListItemText primary="Celery Tasks" />
           </ListItemButton>
         </ListItem>
           <ListItem disablePadding>

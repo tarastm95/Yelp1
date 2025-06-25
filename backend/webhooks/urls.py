@@ -9,6 +9,7 @@ from .views import (
     BusinessListView, BusinessLeadsView, BusinessEventsView,
     YelpTokenListView,
 )
+from .task_views import TaskLogListView
 
 urlpatterns = [
     path('webhook/', WebhookView.as_view(), name='webhook'),
@@ -80,4 +81,5 @@ urlpatterns = [
     path('follow-up-templates/', FollowUpTemplateListCreateView.as_view(), name='followup-list-create'),
     path('follow-up-templates/<int:pk>/', FollowUpTemplateDestroyView.as_view(), name='followup-destroy'),
     path('tokens/', YelpTokenListView.as_view(), name='token-list'),
+    path('tasks/', TaskLogListView.as_view(), name='task-log-list'),
 ]

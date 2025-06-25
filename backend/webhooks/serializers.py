@@ -13,6 +13,7 @@ from .models import (
     LeadScheduledMessage,
     YelpToken,
     YelpBusiness,
+    CeleryTaskLog,
 )
 
 
@@ -259,3 +260,21 @@ class YelpTokenInfoSerializer(serializers.ModelSerializer):
         if not biz:
             return None
         return YelpBusinessSerializer(biz).data
+
+
+class CeleryTaskLogSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CeleryTaskLog
+        fields = [
+            "task_id",
+            "name",
+            "args",
+            "kwargs",
+            "eta",
+            "started_at",
+            "finished_at",
+            "status",
+            "result",
+            "business_id",
+        ]
+        read_only_fields = fields

@@ -3,7 +3,9 @@ import logging
 from datetime import datetime, timezone as dt_timezone
 
 from celery import Celery
-from celery.signals import before_task_publish
+from celery.signals import before_task_publish, task_prerun, task_postrun
+from django.db import transaction
+from webhooks.models import CeleryTaskLog
 from django.utils import timezone
 
 # Fallback UTC constant for older Django versions without timezone.utc
@@ -23,6 +25,9 @@ def log_task_schedule(sender=None, headers=None, **kwargs):
     """Log when a task is scheduled to run including timezone."""
     eta = headers.get("eta") if headers else None
     tz = timezone.get_current_timezone()
+    task_id = headers.get("id") if headers else None
+    args = kwargs.get("body", [])[0] if kwargs.get("body") else None
+    kargs = kwargs.get("body", [])[1] if kwargs.get("body") else None
     if eta:
         try:
             eta_dt = datetime.fromisoformat(eta)
@@ -36,6 +41,7 @@ def log_task_schedule(sender=None, headers=None, **kwargs):
             "[CELERY] %s scheduled for %s", sender,
             run_time.strftime("%Y-%m-%d %H:%M:%S %Z"),
         )
+        schedule_time = eta_dt
     else:
         now = timezone.localtime(timezone.now(), tz)
         logger.info(
@@ -43,3 +49,33 @@ def log_task_schedule(sender=None, headers=None, **kwargs):
             sender,
             now.strftime("%Y-%m-%d %H:%M:%S %Z"),
         )
+        schedule_time = timezone.now()
+
+    if task_id:
+        with transaction.atomic():
+            CeleryTaskLog.objects.update_or_create(
+                task_id=task_id,
+                defaults={
+                    "name": sender,
+                    "args": args,
+                    "kwargs": kargs,
+                    "eta": schedule_time,
+                    "status": "SCHEDULED",
+                },
+            )
+
+
+@task_prerun.connect
+def log_task_start(sender=None, task_id=None, **kwargs):
+    """Update start time when task begins."""
+    CeleryTaskLog.objects.filter(task_id=task_id).update(
+        started_at=timezone.now(), status="STARTED"
+    )
+
+
+@task_postrun.connect
+def log_task_done(sender=None, task_id=None, retval=None, state=None, **kwargs):
+    """Update finish time and status when task ends."""
+    CeleryTaskLog.objects.filter(task_id=task_id).update(
+        finished_at=timezone.now(), status=state or "SUCCESS", result=str(retval)
+    )
