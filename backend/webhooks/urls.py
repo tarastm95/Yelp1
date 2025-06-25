@@ -5,7 +5,7 @@ from .views import (
     YelpAuthInitView, YelpAuthCallbackView,
     AutoResponseSettingsView, LeadEventsProxyView, LeadIDsProxyView, LeadDetailProxyView, AttachmentProxyView, ScheduledMessageHistoryList,
     ScheduledMessageListCreate, ScheduledMessageDetail, ProcessedLeadListView, LeadDetailListAPIView,
-    LeadDetailRetrieveAPIView, LeadLastEventAPIView, LeadEventRetrieveAPIView, FollowUpTemplateListCreateView, FollowUpTemplateDestroyView,
+    LeadDetailRetrieveAPIView, LeadLastEventAPIView, LeadEventRetrieveAPIView, FollowUpTemplateListCreateView,
     BusinessListView, BusinessLeadsView, BusinessEventsView,
     YelpTokenListView,
 )
