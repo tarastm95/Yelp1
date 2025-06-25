@@ -94,8 +94,6 @@ const AutoResponseSettings: FC = () => {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
 
-  // current business time
-  const [businessTime, setBusinessTime] = useState('');
 
   // refs for placeholder insertion
   const greetingRef = useRef<HTMLTextAreaElement | null>(null);
@@ -202,26 +200,6 @@ const AutoResponseSettings: FC = () => {
     loadSettings();
   }, []);
 
-  useEffect(() => {
-    const update = () => {
-      const biz = businesses.find(b => b.business_id === selectedBusiness);
-      const tz = biz?.time_zone;
-      if (!tz) {
-        setBusinessTime('');
-        return;
-      }
-      const fmt = new Intl.DateTimeFormat([], {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        timeZone: tz,
-      });
-      setBusinessTime(fmt.format(Date.now()));
-    };
-    update();
-    const id = setInterval(update, 1000);
-    return () => clearInterval(id);
-  }, [businesses, selectedBusiness]);
 
   useEffect(() => {
     loadSettings(selectedBusiness || undefined);
@@ -435,25 +413,11 @@ const AutoResponseSettings: FC = () => {
             {/* Global Follow-up Templates */}
             <Box>
               <Typography variant="h6">Additional Follow-up Templates</Typography>
-              {businessTime && (
-                <Typography align="center" sx={{ mt: 1 }}>
-                  Current time for business: {businessTime}
-                </Typography>
-              )}
               {tplLoading ? (
                 <CircularProgress size={24} />
               ) : (
                 <List dense>
-                  {templates.map(t => {
-                    const biz = businesses.find(b => b.business_id === selectedBusiness);
-                    const tz = biz?.time_zone;
-                    let localTime = '';
-                    if (tz) {
-                      const ms = Date.now();
-                      const fmt = new Intl.DateTimeFormat([], { hour: '2-digit', minute: '2-digit', timeZone: tz });
-                      localTime = fmt.format(ms);
-                    }
-                    return (
+                  {templates.map(t => (
                       <ListItem
                         key={t.id}
                         secondaryAction={
@@ -464,11 +428,10 @@ const AutoResponseSettings: FC = () => {
                       >
                         <ListItemText
                           primary={t.template}
-                          secondary={`Every ${formatDelay(t.delay)} | ${t.open_from} - ${t.open_to}${localTime ? ` - ${localTime}` : ''}`}
+                          secondary={`Через ${formatDelay(t.delay)} | Робочі години відправки: ${t.open_from} - ${t.open_to}`}
                         />
                       </ListItem>
-                    );
-                  })}
+                  ))}
                 </List>
               )}
 
