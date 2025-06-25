@@ -551,18 +551,6 @@ const AutoResponseSettings: FC = () => {
                       onChange={e => setNewOpenTo(e.target.value)}
                       size="small"
                     />
-                    {selectedBusiness && (() => {
-                      const biz = businesses.find(b => b.business_id === selectedBusiness);
-                      const tz = biz?.time_zone;
-                      if (!tz) return null;
-                      const fmt = new Intl.DateTimeFormat([], { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: tz });
-                      const local = fmt.format(Date.now());
-                      return (
-                        <Typography variant="body2" sx={{ ml:1 }}>
-                          {local}
-                        </Typography>
-                      );
-                    })()}
                   </Stack>
                 </Box>
                 <Button onClick={handleAddTemplate} disabled={tplLoading} sx={{ mt: 1 }}>

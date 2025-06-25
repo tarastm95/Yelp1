@@ -31,12 +31,12 @@ const InstantMessageSection: FC<InstantSectionProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  // Вставити плейсхолдер DisplayName
+  // Insert DisplayName placeholder
   const insertName = () => {
     setMsg(c => c + displayName);
   };
 
-  // Вставити плейсхолдер JobNames
+  // Insert JobNames placeholder
   const insertJobs = () => {
     const list = jobNames.join(', ');
     setMsg(c => c + list);

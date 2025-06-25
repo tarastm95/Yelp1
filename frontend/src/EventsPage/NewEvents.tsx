@@ -62,7 +62,7 @@ const NewEvents: FC<Props> = ({
   if (!events.length) {
     return (
       <Typography variant="body1" sx={{ mt: 2 }}>
-        Немає нових повідомлень.
+        No new messages.
       </Typography>
     );
   }

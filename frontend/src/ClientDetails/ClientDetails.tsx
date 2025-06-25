@@ -29,7 +29,7 @@ const LeadDetail: FC = () => {
 
   useEffect(() => {
     if (!leadId) {
-      setError('Невідомий Lead ID');
+      setError('Unknown Lead ID');
       setLoading(false);
       return;
     }
@@ -41,7 +41,7 @@ const LeadDetail: FC = () => {
         setDetail(data);
       } catch (e) {
         console.error(e);
-        setError('Не вдалося завантажити деталі клієнта');
+        setError('Failed to load client details');
       } finally {
         setLoading(false);
       }
@@ -67,7 +67,7 @@ const LeadDetail: FC = () => {
   if (!detail) {
     return (
       <Box mt={4} px={2}>
-        <Typography variant="body1">Дані відсутні</Typography>
+        <Typography variant="body1">No data available</Typography>
       </Box>
     );
   }
@@ -109,7 +109,7 @@ const LeadDetail: FC = () => {
           }
         />
         <CardContent>
-          {/* Загальна інформація */}
+          {/* General information */}
           <Box mb={4}>
             <Typography variant="h6" gutterBottom>
               General information
@@ -154,7 +154,7 @@ const LeadDetail: FC = () => {
             </List>
           </Box>
 
-          {/* Інформація про користувача */}
+          {/* User information */}
           <Box mb={4}>
             <Typography variant="h6" gutterBottom>
               User
@@ -164,7 +164,7 @@ const LeadDetail: FC = () => {
             </Typography>
           </Box>
 
-          {/* Інформація про проект */}
+          {/* Project information */}
           {project && (
             <Box>
               <Typography variant="h6" gutterBottom>
@@ -186,7 +186,7 @@ const LeadDetail: FC = () => {
                 </Box>
               )}
 
-              {/* Grid для location, info, availability, jobs */}
+              {/* Grid for location, info, availability, jobs */}
               <Box
                 sx={{
                   display: 'grid',

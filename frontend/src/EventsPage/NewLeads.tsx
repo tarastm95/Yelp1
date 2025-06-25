@@ -93,7 +93,7 @@ const NewLeads: FC<Props> = ({
   if (leads.length === 0) {
     return (
       <Typography variant="body1" sx={{ mt: 2 }}>
-        Немає оброблених лідів.
+        No processed leads.
       </Typography>
     );
   }

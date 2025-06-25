@@ -79,7 +79,7 @@ const EventsPage: FC = () => {
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [selectedBusiness, setSelectedBusiness] = useState('');
 
-  // IDs of viewed leads (для бейджа "new")
+  // IDs of viewed leads (for the "new" badge)
   const [viewedLeads, setViewedLeads] = useState<Set<string>>(new Set());
   const [viewedEvents, setViewedEvents] = useState<Set<string>>(new Set());
   useEffect(() => {
@@ -110,28 +110,28 @@ const EventsPage: FC = () => {
       .catch(() => setBusinesses([]));
   }, []);
 
-  // Загальна кількість лідів/івентів (для бейджів)
+  // Total number of leads/events (for badges)
   const [totalLeadsCount, setTotalLeadsCount] = useState(0);
   const [totalEventsCount, setTotalEventsCount] = useState(0);
 
-  // Стани для лідів та їхніх деталей
+  // States for leads and their details
   const [leads, setLeads] = useState<ProcessedLead[]>([]);
   const [leadDetails, setLeadDetails] = useState<Record<string, Partial<LeadDetailType>>>({});
   const [leadsNextUrl, setLeadsNextUrl] = useState<string | null>(null);
 
-  // Події
+  // Events
   const [events, setEvents] = useState<EventItem[]>([]);
   const [eventsNextUrl, setEventsNextUrl] = useState<string | null>(null);
   const lastEventIdRef = useRef<number | null>(null);
 
-  // UI стани
+  // UI states
   const [loading, setLoading] = useState(true);
   const [loadingMoreLeads, setLoadingMoreLeads] = useState(false);
   const [loadingMoreEvents, setLoadingMoreEvents] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tabValue, setTabValue] = useState(0);
 
-  // Кількість непрочитаних лідів серед відфільтрованих
+  // Number of unread leads among the filtered ones
   const filteredLeads = selectedBusiness
     ? leads.filter(l => l.business_id === selectedBusiness)
     : leads;
@@ -142,7 +142,7 @@ const EventsPage: FC = () => {
   const unreadLeadsCount = Math.max(0, totalLeadsCount - viewedLoadedIdsCount);
 
 
-  // Завантажити сторінку лідів та їх деталі
+  // Load a page of leads and their details
   const loadLeads = async (url = 'http://localhost:8000/api/processed_leads/') => {
     try {
       console.log('[loadLeads] request', url);
@@ -172,11 +172,11 @@ const EventsPage: FC = () => {
       });
     } catch (err: any) {
       console.error('[loadLeads] error', err);
-      setError(`Не вдалося завантажити ліди: ${err.message}`);
+      setError(`Failed to load leads: ${err.message}`);
     }
   };
 
-  // Завантажити сторінку подій
+  // Load a page of events
   const loadEvents = async (url = 'http://localhost:8000/api/events/') => {
     try {
       console.log('[loadEvents] request', url);
@@ -191,11 +191,11 @@ const EventsPage: FC = () => {
       }
     } catch {
       console.error('[loadEvents] failed');
-      setError('Помилка завантаження подій');
+      setError('Failed to load events');
     }
   };
 
-  // Підтягнути нові події після останньої
+  // Pull new events after the last one
   const pollEvents = async () => {
     if (lastEventIdRef.current == null) return;
     try {
@@ -215,7 +215,7 @@ const EventsPage: FC = () => {
     }
   };
 
-  // На старті підвантажуємо перші сторінки
+  // Load the first pages on start
   const initializedRef = useRef(false);
   useEffect(() => {
     if (initializedRef.current) {

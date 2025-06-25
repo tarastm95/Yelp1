@@ -28,7 +28,7 @@ const YelpCallback: React.FC = () => {
       navigate('/events');
 
     } else {
-      // ні code, ні token — помилка
+      // neither code nor token — error
       setStatus('error');
     }
   }, [location.search, navigate]);
@@ -49,7 +49,7 @@ const YelpCallback: React.FC = () => {
     );
   }
 
-  // статус 'success' ми вже навігували на /events, тому тут можна й нічого не рендерити
+  // status 'success' already navigated to /events, so render nothing here
   return null;
 };
 
