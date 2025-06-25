@@ -428,7 +428,7 @@ const AutoResponseSettings: FC = () => {
                       >
                         <ListItemText
                           primary={t.template}
-                          secondary={`Через ${formatDelay(t.delay)} | Робочі години відправки: ${t.open_from} - ${t.open_to}`}
+                          secondary={`In ${formatDelay(t.delay)} | Dispatch working hours: ${t.open_from} - ${t.open_to}`}
                         />
                       </ListItem>
                   ))}
