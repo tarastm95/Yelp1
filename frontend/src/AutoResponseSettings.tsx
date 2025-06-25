@@ -26,12 +26,7 @@ import {
 import DeleteIcon from '@mui/icons-material/Delete';
 import BusinessInfoCard from './BusinessInfoCard';
 
-const TIME_UNITS = [
-  { value: 'sec', label: 'sec', factor: 1 },
-  { value: 'hour', label: 'hr', factor: 3600 },
-  { value: 'day', label: 'day', factor: 86400 },
-] as const;
-type TimeUnit = typeof TIME_UNITS[number]['value'];
+// Helper placeholders used in message templates
 
 const PLACEHOLDERS = ['{name}', '{jobs}', '{sep}'] as const;
 type Placeholder = typeof PLACEHOLDERS[number];
@@ -77,15 +72,19 @@ const AutoResponseSettings: FC = () => {
   const [includeName, setIncludeName] = useState(true);
   const [includeJobs, setIncludeJobs] = useState(true);
   const [followUpTemplate, setFollowUpTemplate] = useState('');
-  const [followDelayValue, setFollowDelayValue] = useState(1);
-  const [followDelayUnit, setFollowDelayUnit] = useState<TimeUnit>('hour');
+  const [followDelayDays, setFollowDelayDays] = useState(0);
+  const [followDelayHours, setFollowDelayHours] = useState(1);
+  const [followDelayMinutes, setFollowDelayMinutes] = useState(0);
+  const [followDelaySeconds, setFollowDelaySeconds] = useState(0);
   const [exportToSheets, setExportToSheets] = useState(false);
 
   // follow-up templates
   const [templates, setTemplates] = useState<FollowUpTemplate[]>([]);
   const [newText, setNewText] = useState('');
-  const [newDelayValue, setNewDelayValue] = useState(1);
-  const [newDelayUnit, setNewDelayUnit] = useState<TimeUnit>('hour');
+  const [newDelayDays, setNewDelayDays] = useState(0);
+  const [newDelayHours, setNewDelayHours] = useState(1);
+  const [newDelayMinutes, setNewDelayMinutes] = useState(0);
+  const [newDelaySeconds, setNewDelaySeconds] = useState(0);
   const [newOpenFrom, setNewOpenFrom] = useState('08:00');
   const [newOpenTo, setNewOpenTo] = useState('20:00');
 
@@ -133,10 +132,18 @@ const AutoResponseSettings: FC = () => {
   };
 
   const formatDelay = (secs: number) => {
-    if (secs % 86400 === 0) return `${secs / 86400} day${secs / 86400 !== 1 ? 's' : ''}`;
-    if (secs % 3600 === 0) return `${secs / 3600} hr${secs / 3600 !== 1 ? 's' : ''}`;
-    if (secs % 60 === 0) return `${secs / 60} min`;
-    return `${secs} sec`;
+    const d = Math.floor(secs / 86400);
+    secs %= 86400;
+    const h = Math.floor(secs / 3600);
+    secs %= 3600;
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    const parts = [] as string[];
+    if (d) parts.push(`${d}d`);
+    if (h) parts.push(`${h}h`);
+    if (m) parts.push(`${m}m`);
+    if (s) parts.push(`${s}s`);
+    return parts.join(' ') || '0s';
   };
 
   // load settings
@@ -152,17 +159,13 @@ const AutoResponseSettings: FC = () => {
         setIncludeName(d.include_name);
         setIncludeJobs(d.include_jobs);
         setFollowUpTemplate(d.follow_up_template);
-        const secs = d.follow_up_delay;
-        if (secs % 86400 === 0) {
-          setFollowDelayValue(secs / 86400);
-          setFollowDelayUnit('day');
-        } else if (secs % 3600 === 0) {
-          setFollowDelayValue(secs / 3600);
-          setFollowDelayUnit('hour');
-        } else {
-          setFollowDelayValue(secs);
-          setFollowDelayUnit('sec');
-        }
+        let secs = d.follow_up_delay;
+        setFollowDelayDays(Math.floor(secs / 86400));
+        secs %= 86400;
+        setFollowDelayHours(Math.floor(secs / 3600));
+        secs %= 3600;
+        setFollowDelayMinutes(Math.floor(secs / 60));
+        setFollowDelaySeconds(secs % 60);
         setExportToSheets(d.export_to_sheets);
       })
       .catch(() => setError('Не вдалося завантажити налаштування.'))
@@ -197,7 +200,11 @@ const AutoResponseSettings: FC = () => {
     if (settingsId === null) return;
     setLoading(true);
     const url = selectedBusiness ? `/settings/auto-response/?business_id=${selectedBusiness}` : '/settings/auto-response/';
-    const delaySecs = followDelayValue * TIME_UNITS.find(u => u.value === followDelayUnit)!.factor;
+    const delaySecs =
+      followDelayDays * 86400 +
+      followDelayHours * 3600 +
+      followDelayMinutes * 60 +
+      followDelaySeconds;
     axios.put<AutoResponse>(url, {
       enabled,
       greeting_template: greetingTemplate,
@@ -220,7 +227,11 @@ const AutoResponseSettings: FC = () => {
   const handleAddTemplate = () => {
     setTplLoading(true);
     const url = selectedBusiness ? `/follow-up-templates/?business_id=${selectedBusiness}` : '/follow-up-templates/';
-    const delaySecs = newDelayValue * TIME_UNITS.find(u => u.value === newDelayUnit)!.factor;
+    const delaySecs =
+      newDelayDays * 86400 +
+      newDelayHours * 3600 +
+      newDelayMinutes * 60 +
+      newDelaySeconds;
     axios.post<FollowUpTemplate>(url, {
       name: `Custom ${templates.length + 1}`,
       template: newText,
@@ -232,8 +243,10 @@ const AutoResponseSettings: FC = () => {
       .then(res => {
         setTemplates(prev => [...prev, res.data]);
         setNewText('');
-        setNewDelayValue(1);
-        setNewDelayUnit('hour');
+        setNewDelayDays(0);
+        setNewDelayHours(1);
+        setNewDelayMinutes(0);
+        setNewDelaySeconds(0);
         setNewOpenFrom('08:00');
         setNewOpenTo('20:00');
       })
@@ -257,7 +270,7 @@ const AutoResponseSettings: FC = () => {
   };
 
   return (
-    <Container maxWidth="sm" sx={{ mt:4, mb:4 }}>
+    <Container maxWidth={false} sx={{ mt:4, mb:4, maxWidth: 900, mx: 'auto' }}>
       <Box sx={{ mb: 2 }}>
         <Select
           value={selectedBusiness}
@@ -352,22 +365,37 @@ const AutoResponseSettings: FC = () => {
               />
               <Stack direction="row" spacing={1} alignItems="center" sx={{ mt:2 }}>
                 <TextField
-                  label="Delay"
+                  label="Days"
                   type="number"
                   inputProps={{ min:0 }}
-                  sx={{ width:120 }}
-                  value={followDelayValue}
-                  onChange={e => setFollowDelayValue(Number(e.target.value))}
+                  sx={{ width:80 }}
+                  value={followDelayDays}
+                  onChange={e => setFollowDelayDays(Number(e.target.value))}
                 />
-                <Select
-                  value={followDelayUnit}
-                  onChange={e => setFollowDelayUnit(e.target.value as TimeUnit)}
-                  size="small"
-                >
-                  {TIME_UNITS.map(u => (
-                    <MenuItem key={u.value} value={u.value}>{u.label}</MenuItem>
-                  ))}
-                </Select>
+                <TextField
+                  label="Hours"
+                  type="number"
+                  inputProps={{ min:0 }}
+                  sx={{ width:80 }}
+                  value={followDelayHours}
+                  onChange={e => setFollowDelayHours(Number(e.target.value))}
+                />
+                <TextField
+                  label="Min"
+                  type="number"
+                  inputProps={{ min:0 }}
+                  sx={{ width:80 }}
+                  value={followDelayMinutes}
+                  onChange={e => setFollowDelayMinutes(Number(e.target.value))}
+                />
+                <TextField
+                  label="Sec"
+                  type="number"
+                  inputProps={{ min:0 }}
+                  sx={{ width:80 }}
+                  value={followDelaySeconds}
+                  onChange={e => setFollowDelaySeconds(Number(e.target.value))}
+                />
               </Stack>
             </Box>
 
@@ -428,22 +456,37 @@ const AutoResponseSettings: FC = () => {
                 </Box>
                 <Stack direction="row" spacing={1} alignItems="center">
                   <TextField
-                    label="Delay"
+                    label="Days"
                     type="number"
-                    inputProps={{ min:1 }}
-                    sx={{ width:120 }}
-                    value={newDelayValue}
-                    onChange={e => setNewDelayValue(Number(e.target.value))}
+                    inputProps={{ min:0 }}
+                    sx={{ width:70 }}
+                    value={newDelayDays}
+                    onChange={e => setNewDelayDays(Number(e.target.value))}
                   />
-                  <Select
-                    value={newDelayUnit}
-                    onChange={e => setNewDelayUnit(e.target.value as TimeUnit)}
-                    size="small"
-                  >
-                    {TIME_UNITS.map(u => (
-                      <MenuItem key={u.value} value={u.value}>{u.label}</MenuItem>
-                    ))}
-                  </Select>
+                  <TextField
+                    label="Hours"
+                    type="number"
+                    inputProps={{ min:0 }}
+                    sx={{ width:70 }}
+                    value={newDelayHours}
+                    onChange={e => setNewDelayHours(Number(e.target.value))}
+                  />
+                  <TextField
+                    label="Min"
+                    type="number"
+                    inputProps={{ min:0 }}
+                    sx={{ width:70 }}
+                    value={newDelayMinutes}
+                    onChange={e => setNewDelayMinutes(Number(e.target.value))}
+                  />
+                  <TextField
+                    label="Sec"
+                    type="number"
+                    inputProps={{ min:0 }}
+                    sx={{ width:70 }}
+                    value={newDelaySeconds}
+                    onChange={e => setNewDelaySeconds(Number(e.target.value))}
+                  />
                   <TextField
                     label="From"
                     type="time"
