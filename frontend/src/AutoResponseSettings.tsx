@@ -176,7 +176,16 @@ const AutoResponseSettings: FC = () => {
     setTplLoading(true);
     const url = biz ? `/follow-up-templates/?business_id=${biz}` : '/follow-up-templates/';
     axios.get<FollowUpTemplate[]>(url)
-      .then(res => setTemplates(res.data))
+      .then(res => {
+        setTemplates(res.data);
+        if (res.data.length) {
+          setNewOpenFrom(res.data[0].open_from);
+          setNewOpenTo(res.data[0].open_to);
+        } else {
+          setNewOpenFrom('08:00:00');
+          setNewOpenTo('20:00:00');
+        }
+      })
       .catch(() => setError('Не вдалося завантажити шаблони follow-up.'))
       .finally(() => setTplLoading(false));
   };
@@ -426,7 +435,7 @@ const AutoResponseSettings: FC = () => {
                       >
                         <ListItemText
                           primary={t.template}
-                          secondary={`Every ${formatDelay(t.delay)}${localTime ? ` - ${localTime}` : ''}`}
+                          secondary={`Every ${formatDelay(t.delay)} | ${t.open_from} - ${t.open_to}${localTime ? ` - ${localTime}` : ''}`}
                         />
                       </ListItem>
                     );

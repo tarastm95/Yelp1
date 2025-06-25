@@ -169,7 +169,7 @@ class FollowUpTemplateListCreateView(generics.ListCreateAPIView):
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
-class FollowUpTemplateDestroyView(generics.DestroyAPIView):
+class FollowUpTemplateDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = FollowUpTemplateSerializer
 
     def get_queryset(self):
