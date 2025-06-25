@@ -10,52 +10,34 @@ import {
   TableCell,
   TableBody,
   CircularProgress,
-  Tabs,
-  Tab,
-  Paper,
 } from '@mui/material';
 
-type MessageTask = {
-  executed_at: string;
-  text: string;
-  business_name: string | null;
-  task_type: string;
-};
-
-type CeleryTask = {
+interface TaskLog {
   task_id: string;
-  name: string;
   args: any[];
   eta: string | null;
+  status: string;
+  result?: string | null;
   business_id?: string | null;
-};
+}
 
-type Business = {
+interface Business {
   business_id: string;
   name: string;
   time_zone?: string;
-};
+}
 
 const TaskLogs: React.FC = () => {
-  const [scheduled, setScheduled] = useState<CeleryTask[]>([]);
-  const [completed, setCompleted] = useState<MessageTask[]>([]);
+  const [tasks, setTasks] = useState<TaskLog[]>([]);
   const [businesses, setBusinesses] = useState<Business[]>([]);
-  const [loadingScheduled, setLoadingScheduled] = useState(true);
-  const [loadingCompleted, setLoadingCompleted] = useState(true);
-  const [tab, setTab] = useState(0);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     axios
-      .get<CeleryTask[]>('/tasks/?status=SCHEDULED&status=STARTED')
-      .then(res => setScheduled(res.data))
-      .catch(() => setScheduled([]))
-      .finally(() => setLoadingScheduled(false));
-
-    axios
-      .get<MessageTask[]>('/message_tasks/')
-      .then(res => setCompleted(res.data))
-      .catch(() => setCompleted([]))
-      .finally(() => setLoadingCompleted(false));
+      .get<TaskLog[]>('/tasks/?status=success,failure')
+      .then(res => setTasks(res.data))
+      .catch(() => setTasks([]))
+      .finally(() => setLoading(false));
 
     axios
       .get<Business[]>('/businesses/')
@@ -80,10 +62,14 @@ const TaskLogs: React.FC = () => {
       : date.toLocaleString();
   };
 
-  const extractMessage = (task: CeleryTask): string => {
-    const args = task.args || [];
-    if (args.length >= 2) return String(args[1]);
-    return '';
+  const getLeadId = (args: any[] | undefined) => {
+    if (!Array.isArray(args) || args.length === 0) return '';
+    return String(args[0]);
+  };
+
+  const getMessage = (args: any[] | undefined) => {
+    if (!Array.isArray(args) || args.length < 2) return '';
+    return String(args[1]);
   };
 
   return (
@@ -91,44 +77,7 @@ const TaskLogs: React.FC = () => {
       <Typography variant="h4" gutterBottom>
         Celery Tasks
       </Typography>
-      <Paper sx={{ mb: 2 }}>
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="fullWidth">
-          <Tab label="In Progress" />
-          <Tab label="Completed" />
-        </Tabs>
-      </Paper>
-
-      {tab === 0 ? (
-        loadingScheduled ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-            <CircularProgress />
-          </Box>
-        ) : (
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Run Time</TableCell>
-                <TableCell>Message</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {scheduled.map(t => (
-                <TableRow key={t.task_id}>
-                  <TableCell>{formatEta(t.eta, t.business_id)}</TableCell>
-                  <TableCell>{extractMessage(t)}</TableCell>
-                </TableRow>
-              ))}
-              {scheduled.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={2} align="center">
-                    No tasks.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        )
-      ) : loadingCompleted ? (
+      {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
           <CircularProgress />
         </Box>
@@ -136,25 +85,27 @@ const TaskLogs: React.FC = () => {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>Time</TableCell>
-              <TableCell>Text</TableCell>
-              <TableCell>Business</TableCell>
-              <TableCell>Type</TableCell>
+              <TableCell>Lead ID</TableCell>
+              <TableCell>Run Time</TableCell>
+              <TableCell>Message</TableCell>
+              <TableCell>Status</TableCell>
+              <TableCell>Error</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {completed.map((r, idx) => (
-              <TableRow key={idx}>
-                <TableCell>{new Date(r.executed_at).toLocaleString()}</TableCell>
-                <TableCell>{r.text}</TableCell>
-                <TableCell>{r.business_name || ''}</TableCell>
-                <TableCell>{r.task_type}</TableCell>
+            {tasks.map(t => (
+              <TableRow key={t.task_id}>
+                <TableCell>{getLeadId(t.args)}</TableCell>
+                <TableCell>{formatEta(t.eta, t.business_id)}</TableCell>
+                <TableCell>{getMessage(t.args)}</TableCell>
+                <TableCell>{t.status}</TableCell>
+                <TableCell>{t.status === 'FAILURE' ? t.result || '' : ''}</TableCell>
               </TableRow>
             ))}
-            {completed.length === 0 && (
+            {tasks.length === 0 && (
               <TableRow>
-                <TableCell colSpan={4} align="center">
-                  No tasks.
+                <TableCell colSpan={5} align="center">
+                  Немає виконаних/з помилкою тасків
                 </TableCell>
               </TableRow>
             )}

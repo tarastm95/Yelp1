@@ -18,9 +18,14 @@ class TaskLogFilterSet(FilterSet):
         fields = ["status", "business_id"]
 
     def filter_status(self, queryset, name, value):
-        values = self.data.getlist(name)
-        if values:
-            return queryset.filter(status__in=values)
+        """Support comma separated or repeated status params."""
+        raw_values = self.data.getlist(name)
+        statuses: list[str] = []
+        for v in raw_values:
+            if v:
+                statuses.extend(s.strip().upper() for s in v.split(",") if s.strip())
+        if statuses:
+            return queryset.filter(status__in=statuses)
         return queryset
 
 
