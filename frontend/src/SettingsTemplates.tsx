@@ -239,6 +239,25 @@ const SettingsTemplates: React.FC = () => {
       ...data,
       follow_up_templates: [...(data.follow_up_templates || []), tpl],
     });
+
+    // Persist template so it appears on the settings page
+    axios
+      .post('/follow-up-templates/', {
+        name: `Custom ${Date.now()}`,
+        template: newText,
+        delay: delaySecs,
+        open_from: newOpenFrom,
+        open_to: newOpenTo,
+        active: true,
+      })
+      .then(() => {
+        // notify other tabs/pages to refresh templates
+        localStorage.setItem('followTemplateUpdated', Date.now().toString());
+      })
+      .catch(() => {
+        // ignore error, template still stored locally in this dialog
+      });
+
     setNewText('');
     setNewDelayDays(0);
     setNewDelayHours(1);
