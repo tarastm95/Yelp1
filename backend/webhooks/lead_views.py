@@ -113,9 +113,13 @@ class LeadDetailRetrieveAPIView(APIView):
     """Return single LeadDetail by lead_id"""
 
     def get_object(self, lead_id: str) -> LeadDetail:
+        logger.info(f"[LEAD DETAIL] Fetching lead_id={lead_id}")
         try:
-            return LeadDetail.objects.get(lead_id=lead_id)
+            obj = LeadDetail.objects.get(lead_id=lead_id)
+            logger.info(f"[LEAD DETAIL] Found LeadDetail pk={obj.pk}")
+            return obj
         except LeadDetail.DoesNotExist:
+            logger.info(f"[LEAD DETAIL] LeadDetail with lead_id={lead_id} not found")
             raise NotFound(detail=f"LeadDetail з lead_id={lead_id} не знайдено")
 
     def get(self, request, lead_id: str):
