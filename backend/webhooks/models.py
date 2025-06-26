@@ -271,3 +271,16 @@ class CeleryTaskLog(models.Model):
 
     def __str__(self):
         return f"{self.task_id} {self.name} {self.status}"
+
+
+class AutoResponseSettingsTemplate(models.Model):
+    """Stored presets for AutoResponseSettings."""
+
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    data = models.JSONField(help_text="Serialized AutoResponseSettings data")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.name
