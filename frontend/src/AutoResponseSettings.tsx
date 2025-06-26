@@ -152,7 +152,6 @@ const AutoResponseSettings: FC = () => {
   // saved settings templates
   const [settingsTemplates, setSettingsTemplates] = useState<SettingsTemplate[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | 'current' | ''>('');
-  const [previewTemplate, setPreviewTemplate] = useState<SettingsTemplate | null>(null);
 
   // track initial settings and applied template
   const initialSettings = useRef<AutoResponseSettingsData | null>(null);
@@ -636,23 +635,23 @@ const AutoResponseSettings: FC = () => {
             value={selectedTemplateId}
             onChange={e => {
               const val = e.target.value as any;
-              if (val === 'current' || val === '') {
-                setSelectedTemplateId(val);
-                if (val === 'current' && initialSettings.current) {
-                  setPreviewTemplate({
+              setSelectedTemplateId(val);
+
+              if (initialSettings.current) {
+                if (val === 'current' || val === '') {
+                  applyTemplate({
                     id: -1,
                     name: 'Current',
                     description: '',
                     data: initialSettings.current,
                   });
                 } else {
-                  setPreviewTemplate(null);
+                  const id = val as number;
+                  const tpl = settingsTemplates.find(t => t.id === id);
+                  if (tpl) {
+                    applyTemplate(tpl);
+                  }
                 }
-              } else {
-                const id = val as number;
-                setSelectedTemplateId(id);
-                const tpl = settingsTemplates.find(t => t.id === id) || null;
-                setPreviewTemplate(tpl);
               }
             }}
             displayEmpty
@@ -668,29 +667,6 @@ const AutoResponseSettings: FC = () => {
             ))}
           </Select>
         </Box>
-        {previewTemplate && (
-          <Box mt={2}>
-            <Typography variant="subtitle1" gutterBottom>Preview</Typography>
-            <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
-              {previewTemplate.data.greeting_template}
-            </Typography>
-            {Array.isArray(previewTemplate.data.follow_up_templates) &&
-              previewTemplate.data.follow_up_templates.length > 0 && (
-                <Typography variant="body2" sx={{ whiteSpace: 'pre-line', mt: 1 }}>
-                  {previewTemplate.data.follow_up_templates[0].template}
-                </Typography>
-              )}
-            <Button
-              variant="contained"
-              sx={{ mt: 1 }}
-              onClick={() => {
-                applyTemplate(previewTemplate);
-              }}
-            >
-              Apply Template
-            </Button>
-          </Box>
-        )}
 
         <Select
           value={selectedBusiness}
