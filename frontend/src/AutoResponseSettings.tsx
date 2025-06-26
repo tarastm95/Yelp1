@@ -24,6 +24,7 @@ import {
   IconButton,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
 import BusinessInfoCard from './BusinessInfoCard';
 
 // Helper placeholders used in message templates
@@ -106,6 +107,17 @@ const AutoResponseSettings: FC = () => {
   const [newDelaySeconds, setNewDelaySeconds] = useState(0);
   const [newOpenFrom, setNewOpenFrom] = useState('08:00:00');
   const [newOpenTo, setNewOpenTo] = useState('20:00:00');
+
+  // edit follow-up template
+  const [editingTpl, setEditingTpl] = useState<FollowUpTemplate | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editText, setEditText] = useState('');
+  const [editDelayDays, setEditDelayDays] = useState(0);
+  const [editDelayHours, setEditDelayHours] = useState(0);
+  const [editDelayMinutes, setEditDelayMinutes] = useState(0);
+  const [editDelaySeconds, setEditDelaySeconds] = useState(0);
+  const [editOpenFrom, setEditOpenFrom] = useState('08:00:00');
+  const [editOpenTo, setEditOpenTo] = useState('20:00:00');
 
   // saved settings templates
   const [settingsTemplates, setSettingsTemplates] = useState<SettingsTemplate[]>([]);
@@ -365,6 +377,50 @@ const AutoResponseSettings: FC = () => {
       .finally(() => setTplLoading(false));
   };
 
+  const handleEditTemplate = (tpl: FollowUpTemplate) => {
+    setEditingTpl(tpl);
+    setEditText(tpl.template);
+    let secs = tpl.delay;
+    setEditDelayDays(Math.floor(secs / 86400));
+    secs %= 86400;
+    setEditDelayHours(Math.floor(secs / 3600));
+    secs %= 3600;
+    setEditDelayMinutes(Math.floor(secs / 60));
+    setEditDelaySeconds(secs % 60);
+    setEditOpenFrom(tpl.open_from);
+    setEditOpenTo(tpl.open_to);
+    setEditOpen(true);
+  };
+
+  const handleUpdateTemplate = () => {
+    if (!editingTpl) return;
+    setTplLoading(true);
+    const url = selectedBusiness
+      ? `/follow-up-templates/${editingTpl.id}/?business_id=${selectedBusiness}`
+      : `/follow-up-templates/${editingTpl.id}/`;
+    const delaySecs =
+      editDelayDays * 86400 +
+      editDelayHours * 3600 +
+      editDelayMinutes * 60 +
+      editDelaySeconds;
+    axios
+      .put<FollowUpTemplate>(url, {
+        name: editingTpl.name,
+        template: editText,
+        delay: delaySecs,
+        open_from: editOpenFrom,
+        open_to: editOpenTo,
+        active: editingTpl.active,
+      })
+      .then(res => {
+        setTemplates(prev => prev.map(t => (t.id === res.data.id ? res.data : t)));
+        setSaved(true);
+        setEditOpen(false);
+      })
+      .catch(() => setError('Failed to update template.'))
+      .finally(() => setTplLoading(false));
+  };
+
   // delete a template
   const handleDeleteTemplate = (tplId: number) => {
     const url = selectedBusiness ? `/follow-up-templates/${tplId}/?business_id=${selectedBusiness}` : `/follow-up-templates/${tplId}/`;
@@ -613,9 +669,14 @@ const AutoResponseSettings: FC = () => {
                       <ListItem
                         key={t.id}
                         secondaryAction={
-                          <IconButton edge="end" onClick={() => handleDeleteTemplate(t.id)}>
-                            <DeleteIcon />
-                          </IconButton>
+                          <>
+                            <IconButton edge="end" onClick={() => handleEditTemplate(t)}>
+                              <EditIcon />
+                            </IconButton>
+                            <IconButton edge="end" onClick={() => handleDeleteTemplate(t.id)}>
+                              <DeleteIcon />
+                            </IconButton>
+                          </>
                         }
                       >
                         <ListItemText
@@ -712,6 +773,51 @@ const AutoResponseSettings: FC = () => {
                   Add
                 </Button>
               </Stack>
+              <Dialog open={editOpen} onClose={() => setEditOpen(false)} maxWidth="sm" fullWidth>
+                <DialogTitle>Edit Follow-up Template</DialogTitle>
+                <DialogContent dividers>
+                  <Stack spacing={2} sx={{ mt:1 }}>
+                    <Stack direction="row" spacing={1} mb={1}>
+                      {PLACEHOLDERS.map(ph => (
+                        <Button key={ph} size="small" variant="outlined" onClick={() => setEditText(v => v + ph)}>
+                          {ph}
+                        </Button>
+                      ))}
+                    </Stack>
+                    <TextField
+                      multiline
+                      minRows={2}
+                      fullWidth
+                      value={editText}
+                      onChange={e => setEditText(e.target.value)}
+                      placeholder="Follow-up template..."
+                    />
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <TextField label="Days" type="number" inputProps={{min:0}} sx={{width:70}}
+                        value={editDelayDays} onChange={e=>setEditDelayDays(Number(e.target.value))}/>
+                      <TextField label="Hours" type="number" inputProps={{min:0}} sx={{width:70}}
+                        value={editDelayHours} onChange={e=>setEditDelayHours(Number(e.target.value))}/>
+                      <TextField label="Min" type="number" inputProps={{min:0}} sx={{width:70}}
+                        value={editDelayMinutes} onChange={e=>setEditDelayMinutes(Number(e.target.value))}/>
+                      <TextField label="Sec" type="number" inputProps={{min:0}} sx={{width:70}}
+                        value={editDelaySeconds} onChange={e=>setEditDelaySeconds(Number(e.target.value))}/>
+                    </Stack>
+                    <Box>
+                      <Typography variant="body2" gutterBottom>Business Hours</Typography>
+                      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                        <TextField label="From" type="time" inputProps={{ step: 1 }} value={editOpenFrom}
+                          onChange={e=>setEditOpenFrom(e.target.value)} size="small"/>
+                        <TextField label="To" type="time" inputProps={{ step: 1 }} value={editOpenTo}
+                          onChange={e=>setEditOpenTo(e.target.value)} size="small"/>
+                      </Stack>
+                    </Box>
+                  </Stack>
+                </DialogContent>
+                <DialogActions>
+                  <Button onClick={() => setEditOpen(false)}>Cancel</Button>
+                  <Button variant="contained" onClick={handleUpdateTemplate} disabled={tplLoading}>Save</Button>
+                </DialogActions>
+              </Dialog>
             </Box>
 
             {/* Controls */}
