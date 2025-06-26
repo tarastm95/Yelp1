@@ -167,6 +167,9 @@ const AutoResponseSettings: FC = () => {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
 
+  // track ids of templates originally loaded from backend
+  const loadedTemplateIds = useRef<number[]>([]);
+
 
   // refs for placeholder insertion
   const greetingRef = useRef<HTMLTextAreaElement | null>(null);
@@ -277,6 +280,7 @@ const AutoResponseSettings: FC = () => {
     axios.get<FollowUpTemplate[]>(url)
       .then(res => {
         setTemplates(res.data);
+        loadedTemplateIds.current = res.data.map(t => t.id);
         if (res.data.length) {
           setNewOpenFrom(res.data[0].open_from);
           setNewOpenTo(res.data[0].open_to);
@@ -440,7 +444,7 @@ const AutoResponseSettings: FC = () => {
   }, [selectedBusiness, businesses]);
 
   // save settings
-  const handleSaveSettings = () => {
+  const handleSaveSettings = async () => {
     if (settingsId === null) return;
     setLoading(true);
     const url = selectedBusiness ? `/settings/auto-response/?business_id=${selectedBusiness}` : '/settings/auto-response/';
@@ -453,42 +457,84 @@ const AutoResponseSettings: FC = () => {
       greetingDelayHours * 3600 +
       greetingDelayMinutes * 60 +
       greetingDelaySeconds;
-    axios.put<AutoResponse>(url, {
-      enabled,
-      greeting_template: greetingTemplate,
-      greeting_delay: greetDelaySecs,
-      greeting_open_from: greetingOpenFrom,
-      greeting_open_to: greetingOpenTo,
-      include_name: includeName,
-      include_jobs: includeJobs,
-      follow_up_template: followUpTemplate,
-      follow_up_delay: delaySecs,
-      follow_up_open_from: followOpenFrom,
-      follow_up_open_to: followOpenTo,
-      export_to_sheets: exportToSheets,
-    })
-      .then(res => {
-        setSettingsId(res.data.id);
-        initialSettings.current = {
-          enabled,
-          greeting_template: greetingTemplate,
-          greeting_delay: greetDelaySecs,
-          greeting_open_from: greetingOpenFrom,
-          greeting_open_to: greetingOpenTo,
-          include_name: includeName,
-          include_jobs: includeJobs,
-          follow_up_template: followUpTemplate,
-          follow_up_delay: delaySecs,
-          follow_up_open_from: followOpenFrom,
-          follow_up_open_to: followOpenTo,
-          export_to_sheets: exportToSheets,
-          follow_up_templates: initialSettings.current?.follow_up_templates || [],
+    try {
+      const res = await axios.put<AutoResponse>(url, {
+        enabled,
+        greeting_template: greetingTemplate,
+        greeting_delay: greetDelaySecs,
+        greeting_open_from: greetingOpenFrom,
+        greeting_open_to: greetingOpenTo,
+        include_name: includeName,
+        include_jobs: includeJobs,
+        follow_up_template: followUpTemplate,
+        follow_up_delay: delaySecs,
+        follow_up_open_from: followOpenFrom,
+        follow_up_open_to: followOpenTo,
+        export_to_sheets: exportToSheets,
+      });
+
+      setSettingsId(res.data.id);
+      initialSettings.current = {
+        enabled,
+        greeting_template: greetingTemplate,
+        greeting_delay: greetDelaySecs,
+        greeting_open_from: greetingOpenFrom,
+        greeting_open_to: greetingOpenTo,
+        include_name: includeName,
+        include_jobs: includeJobs,
+        follow_up_template: followUpTemplate,
+        follow_up_delay: delaySecs,
+        follow_up_open_from: followOpenFrom,
+        follow_up_open_to: followOpenTo,
+        export_to_sheets: exportToSheets,
+        follow_up_templates: initialSettings.current?.follow_up_templates || [],
+      };
+
+      const bizParam = selectedBusiness ? `?business_id=${selectedBusiness}` : '';
+
+      // remove templates that were loaded initially but no longer present
+      const toDelete = loadedTemplateIds.current.filter(
+        id => !templates.some(t => t.id === id)
+      );
+      await Promise.all(
+        toDelete.map(id =>
+          axios.delete(`/follow-up-templates/${id}/${bizParam}`)
+        )
+      );
+
+      // create or update current templates
+      for (const tpl of templates) {
+        const data = {
+          name: tpl.name,
+          template: tpl.template,
+          delay: tpl.delay,
+          open_from: tpl.open_from,
+          open_to: tpl.open_to,
+          active: tpl.active,
         };
-        setSaved(true);
-        setError('');
-      })
-      .catch(() => setError('Failed to save settings.'))
-      .finally(() => setLoading(false));
+        if (tpl.id < 0) {
+          const resp = await axios.post<FollowUpTemplate>(
+            `/follow-up-templates/${bizParam}`,
+            data
+          );
+          tpl.id = resp.data.id;
+        } else {
+          await axios.put<FollowUpTemplate>(
+            `/follow-up-templates/${tpl.id}/${bizParam}`,
+            data
+          );
+        }
+      }
+
+      loadedTemplateIds.current = templates.map(t => t.id);
+
+      setSaved(true);
+      setError('');
+    } catch {
+      setError('Failed to save settings.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // add new template
@@ -510,6 +556,7 @@ const AutoResponseSettings: FC = () => {
     })
       .then(res => {
         setTemplates(prev => [...prev, res.data]);
+        loadedTemplateIds.current.push(res.data.id);
         setNewText('');
         setNewDelayDays(0);
         setNewDelayHours(1);
@@ -572,6 +619,7 @@ const AutoResponseSettings: FC = () => {
     axios.delete(url)
       .then(() => {
         setTemplates(prev => prev.filter(t => t.id !== tplId));
+        loadedTemplateIds.current = loadedTemplateIds.current.filter(id => id !== tplId);
       })
       .catch(() => setError('Failed to delete template.'));
   };
