@@ -43,6 +43,7 @@ interface AutoResponse {
   id: number;
   enabled: boolean;
   greeting_template: string;
+  greeting_delay: number;
   greeting_open_from: string;
   greeting_open_to: string;
   include_name: boolean;
@@ -73,6 +74,9 @@ const AutoResponseSettings: FC = () => {
   const [settingsId, setSettingsId] = useState<number | null>(null);
   const [enabled, setEnabled] = useState(false);
   const [greetingTemplate, setGreetingTemplate] = useState('');
+  const [greetingDelayHours, setGreetingDelayHours] = useState(0);
+  const [greetingDelayMinutes, setGreetingDelayMinutes] = useState(0);
+  const [greetingDelaySeconds, setGreetingDelaySeconds] = useState(0);
   const [includeName, setIncludeName] = useState(true);
   const [includeJobs, setIncludeJobs] = useState(true);
   const [followUpTemplate, setFollowUpTemplate] = useState('');
@@ -168,6 +172,11 @@ const AutoResponseSettings: FC = () => {
         setSettingsId(d.id);
         setEnabled(d.enabled);
         setGreetingTemplate(d.greeting_template);
+        let gsecs = d.greeting_delay || 0;
+        setGreetingDelayHours(Math.floor(gsecs / 3600));
+        gsecs %= 3600;
+        setGreetingDelayMinutes(Math.floor(gsecs / 60));
+        setGreetingDelaySeconds(gsecs % 60);
         setGreetingOpenFrom(d.greeting_open_from || '08:00:00');
         setGreetingOpenTo(d.greeting_open_to || '20:00:00');
         setIncludeName(d.include_name);
@@ -254,9 +263,14 @@ const AutoResponseSettings: FC = () => {
       followDelayHours * 3600 +
       followDelayMinutes * 60 +
       followDelaySeconds;
+    const greetDelaySecs =
+      greetingDelayHours * 3600 +
+      greetingDelayMinutes * 60 +
+      greetingDelaySeconds;
     axios.put<AutoResponse>(url, {
       enabled,
       greeting_template: greetingTemplate,
+      greeting_delay: greetDelaySecs,
       greeting_open_from: greetingOpenFrom,
       greeting_open_to: greetingOpenTo,
       include_name: includeName,
@@ -393,6 +407,32 @@ const AutoResponseSettings: FC = () => {
                 <FormControlLabel
                   control={<Switch checked={includeJobs} onChange={e => setIncludeJobs(e.target.checked)} />}
                   label="Include Jobs"
+                />
+              </Stack>
+              <Stack direction="row" spacing={1} alignItems="center" sx={{ mt:2 }}>
+                <TextField
+                  label="Hours"
+                  type="number"
+                  inputProps={{ min:0 }}
+                  sx={{ width:80 }}
+                  value={greetingDelayHours}
+                  onChange={e => setGreetingDelayHours(Number(e.target.value))}
+                />
+                <TextField
+                  label="Min"
+                  type="number"
+                  inputProps={{ min:0 }}
+                  sx={{ width:80 }}
+                  value={greetingDelayMinutes}
+                  onChange={e => setGreetingDelayMinutes(Number(e.target.value))}
+                />
+                <TextField
+                  label="Sec"
+                  type="number"
+                  inputProps={{ min:0 }}
+                  sx={{ width:80 }}
+                  value={greetingDelaySeconds}
+                  onChange={e => setGreetingDelaySeconds(Number(e.target.value))}
                 />
               </Stack>
               <Box sx={{ mt: 1 }}>

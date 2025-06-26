@@ -37,6 +37,7 @@ class AutoResponseSettingsSerializer(serializers.ModelSerializer):
             'refresh_token',
             'token_expires_at',
             'greeting_template',
+            'greeting_delay',
             'greeting_open_from',
             'greeting_open_to',
             'include_name',
