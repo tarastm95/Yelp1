@@ -83,6 +83,10 @@ const SettingsTemplates: React.FC = () => {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
 
+  const [greetingDelayHours, setGreetingDelayHours] = useState(0);
+  const [greetingDelayMinutes, setGreetingDelayMinutes] = useState(0);
+  const [greetingDelaySeconds, setGreetingDelaySeconds] = useState(0);
+
   const greetingRef = useRef<HTMLTextAreaElement | null>(null);
   const followRef = useRef<HTMLTextAreaElement | null>(null);
   const tplRef = useRef<HTMLTextAreaElement | null>(null);
@@ -147,6 +151,11 @@ const SettingsTemplates: React.FC = () => {
           ...t.data,
           follow_up_templates: t.data.follow_up_templates || [],
         });
+        let gsecs = t.data.greeting_delay || 0;
+        setGreetingDelayHours(Math.floor(gsecs / 3600));
+        gsecs %= 3600;
+        setGreetingDelayMinutes(Math.floor(gsecs / 60));
+        setGreetingDelaySeconds(gsecs % 60);
         setSaved(false);
         setError('');
         setOpen(true);
@@ -159,13 +168,20 @@ const SettingsTemplates: React.FC = () => {
     setName('');
     setDescription('');
     setData(defaultData);
+    setGreetingDelayHours(0);
+    setGreetingDelayMinutes(0);
+    setGreetingDelaySeconds(0);
     setSaved(false);
     setError('');
     setOpen(true);
   };
 
   const handleSave = () => {
-    const payload = {name, description, data};
+    const greetDelaySecs =
+      greetingDelayHours * 3600 +
+      greetingDelayMinutes * 60 +
+      greetingDelaySeconds;
+    const payload = {name, description, data: {...data, greeting_delay: greetDelaySecs}};
     if (editing) {
       axios.put<SettingsTemplate>(`/settings-templates/${editing.id}/`, payload)
         .then(() => {
@@ -266,10 +282,13 @@ const SettingsTemplates: React.FC = () => {
               value={data.greeting_template}
               onChange={e=>setData({...data, greeting_template:e.target.value})}
             />
-            <Stack direction="row" spacing={1}>
-              <TextField type="number" label="Greeting Delay (sec)" value={data.greeting_delay}
-                onChange={e=>setData({...data, greeting_delay: Number(e.target.value)})}
-              />
+            <Stack direction="row" spacing={1} alignItems="center">
+              <TextField label="Hours" type="number" inputProps={{min:0}} sx={{ width:80 }}
+                value={greetingDelayHours} onChange={e=>setGreetingDelayHours(Number(e.target.value))}/>
+              <TextField label="Min" type="number" inputProps={{min:0}} sx={{ width:80 }}
+                value={greetingDelayMinutes} onChange={e=>setGreetingDelayMinutes(Number(e.target.value))}/>
+              <TextField label="Sec" type="number" inputProps={{min:0}} sx={{ width:80 }}
+                value={greetingDelaySeconds} onChange={e=>setGreetingDelaySeconds(Number(e.target.value))}/>
               <TextField label="Open From" type="time" value={data.greeting_open_from}
                 onChange={e=>setData({...data, greeting_open_from:e.target.value})}
                 inputProps={{ step:1 }} size="small"/>
