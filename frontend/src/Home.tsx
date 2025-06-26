@@ -1,5 +1,5 @@
 import React, { FC, useEffect, useState } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
 // --- Material-UI Imports ---
@@ -11,10 +11,18 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  Paper,
   Snackbar,
   Alert,
-  Box,
+  Grid,
+  Card,
+  CardContent,
+  Dialog,
+  DialogTitle,
+  DialogActions,
+  Button,
+  useMediaQuery,
+  useTheme,
+  Grow,
 } from '@mui/material';
 
 // --- Material-UI Icons ---
@@ -26,6 +34,10 @@ import ListAltIcon from '@mui/icons-material/ListAlt';
 
 const Home: FC = () => {
   const [alertOpen, setAlertOpen] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   useEffect(() => {
     axios.get('/tokens/')
@@ -51,71 +63,73 @@ const Home: FC = () => {
   };
 
   return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'linear-gradient(to right, #e1f5fe, #e3f2fd)',
-        py: 8,
-      }}
-    >
-      <Container maxWidth="md">
-        <Paper
-          elevation={6}
-          sx={{ p: 4, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.9)' }}
-        >
-          <Typography variant="h4" component="h1" gutterBottom>
-            Welcome to the Yelp Integration Dashboard!
-          </Typography>
-        <Typography variant="body1" color="text.secondary" paragraph>
-          This dashboard helps you manage your Yelp events, leads, and automated responses.
-          Select an action from the list below to get started.
-        </Typography>
-        <List>
-          <ListItem disablePadding>
-            <ListItemButton component={RouterLink} to="/events">
-              <ListItemIcon>
-                <EventIcon />
-              </ListItemIcon>
-              <ListItemText primary="View Events" />
-            </ListItemButton>
-          </ListItem>
-        <ListItem disablePadding>
-          <ListItemButton component={RouterLink} to="/settings">
-            <ListItemIcon>
-              <SettingsIcon />
-            </ListItemIcon>
-            <ListItemText primary="Auto-response Settings" />
-          </ListItemButton>
-        </ListItem>
-        <ListItem disablePadding>
-          <ListItemButton component={RouterLink} to="/tokens">
-            <ListItemIcon>
-              <AccessTimeIcon />
-            </ListItemIcon>
-            <ListItemText primary="Token Status" />
-          </ListItemButton>
-        </ListItem>
-        <ListItem disablePadding>
-          <ListItemButton component={RouterLink} to="/tasks">
-            <ListItemIcon>
-              <ListAltIcon />
-            </ListItemIcon>
-            <ListItemText primary="Celery Tasks" />
-          </ListItemButton>
-        </ListItem>
-          <ListItem disablePadding>
-            <ListItemButton component={RouterLink} to="/auth">
-              <ListItemIcon>
-                <VpnKeyIcon />
-              </ListItemIcon>
-              <ListItemText primary="Authorize with Yelp" />
-            </ListItemButton>
-          </ListItem>
-        </List>
-      </Paper>
+    <Container maxWidth="lg" sx={{ mt: isMobile ? 2 : 4 }}>
+      <Grid container spacing={2}>
+        <Grow in timeout={500}>
+          <Grid item xs={12} md={8}>
+            <Card sx={{ p: 3, mb: 2 }}>
+              <CardContent>
+                <Typography variant="h4" gutterBottom>
+                  Welcome to the Yelp Integration Dashboard!
+                </Typography>
+                <Typography variant="body1" color="text.secondary">
+                  This dashboard helps you manage your Yelp events, leads and automated responses. Select an action from the list to get started.
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grow>
+        <Grow in timeout={700}>
+          <Grid item xs={12} md={4}>
+            <Card sx={{ p: 3, mb: 2 }}>
+              <CardContent>
+                <List>
+                  <ListItem disablePadding>
+                    <ListItemButton component={RouterLink} to="/events">
+                      <ListItemIcon>
+                        <EventIcon />
+                      </ListItemIcon>
+                      <ListItemText primary="View Events" />
+                    </ListItemButton>
+                  </ListItem>
+                  <ListItem disablePadding>
+                    <ListItemButton component={RouterLink} to="/settings">
+                      <ListItemIcon>
+                        <SettingsIcon />
+                      </ListItemIcon>
+                      <ListItemText primary="Auto-response Settings" />
+                    </ListItemButton>
+                  </ListItem>
+                  <ListItem disablePadding>
+                    <ListItemButton component={RouterLink} to="/tokens">
+                      <ListItemIcon>
+                        <AccessTimeIcon />
+                      </ListItemIcon>
+                      <ListItemText primary="Token Status" />
+                    </ListItemButton>
+                  </ListItem>
+                  <ListItem disablePadding>
+                    <ListItemButton component={RouterLink} to="/tasks">
+                      <ListItemIcon>
+                        <ListAltIcon />
+                      </ListItemIcon>
+                      <ListItemText primary="Celery Tasks" />
+                    </ListItemButton>
+                  </ListItem>
+                  <ListItem disablePadding>
+                    <ListItemButton onClick={() => setDialogOpen(true)}>
+                      <ListItemIcon>
+                        <VpnKeyIcon />
+                      </ListItemIcon>
+                      <ListItemText primary="Authorize with Yelp" />
+                    </ListItemButton>
+                  </ListItem>
+                </List>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grow>
+      </Grid>
       <Snackbar
         open={alertOpen}
         onClose={handleCloseAlert}
@@ -125,8 +139,16 @@ const Home: FC = () => {
           One or more refresh tokens expired. Please reauthorize.
         </Alert>
       </Snackbar>
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)}>
+        <DialogTitle>Authorize with Yelp?</DialogTitle>
+        <DialogActions>
+          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
+          <Button onClick={() => { setDialogOpen(false); navigate('/auth'); }} autoFocus>
+            Continue
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
-    </Box>
   );
 };
 
