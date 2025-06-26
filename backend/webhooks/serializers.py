@@ -14,6 +14,7 @@ from .models import (
     YelpToken,
     YelpBusiness,
     CeleryTaskLog,
+    AutoResponseSettingsTemplate,
 )
 
 
@@ -333,3 +334,17 @@ class MessageTaskSerializer(serializers.ModelSerializer):
             "send_lead_scheduled_message": "Greeting message",
         }
         return mapping.get(obj.name, obj.name)
+
+
+class AutoResponseSettingsTemplateSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = AutoResponseSettingsTemplate
+        fields = [
+            "id",
+            "name",
+            "description",
+            "data",
+        ]
+        read_only_fields = ["id"]

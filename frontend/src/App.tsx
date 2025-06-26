@@ -34,6 +34,7 @@ import ClientDetails from "./ClientDetails/ClientDetails";
 import BusinessSelector from "./BusinessSelector";
 import TokenStatus from "./TokenStatus";
 import TaskLogs from "./TaskLogs";
+import SettingsTemplates from "./SettingsTemplates";
 
 // A default theme for the application
 const theme = createTheme({
@@ -70,6 +71,7 @@ const App: React.FC = () => (
           <Button color="inherit" component={RouterLink} to="/businesses" startIcon={<BusinessIcon />}>Businesses</Button>
           <Button color="inherit" component={RouterLink} to="/tokens" startIcon={<VpnKeyIcon />}>Tokens</Button>
           <Button color="inherit" component={RouterLink} to="/tasks" startIcon={<ListAltIcon />}>Tasks</Button>
+          <Button color="inherit" component={RouterLink} to="/templates" startIcon={<ListAltIcon />}>Templates</Button>
         </Toolbar>
       </AppBar>
       <main>
@@ -84,6 +86,7 @@ const App: React.FC = () => (
           <Route path="/settings" element={<AutoResponseSettings />} />
           <Route path="/tokens" element={<TokenStatus />} />
           <Route path="/tasks" element={<TaskLogs />} />
+          <Route path="/templates" element={<SettingsTemplates />} />
         </Routes>
       </main>
     </Router>

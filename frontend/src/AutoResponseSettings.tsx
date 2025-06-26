@@ -65,6 +65,13 @@ interface FollowUpTemplate {
   active: boolean;
 }
 
+interface SettingsTemplate {
+  id: number;
+  name: string;
+  description: string;
+  data: any;
+}
+
 const AutoResponseSettings: FC = () => {
   // businesses
   const [businesses, setBusinesses] = useState<Business[]>([]);
@@ -99,6 +106,10 @@ const AutoResponseSettings: FC = () => {
   const [newDelaySeconds, setNewDelaySeconds] = useState(0);
   const [newOpenFrom, setNewOpenFrom] = useState('08:00:00');
   const [newOpenTo, setNewOpenTo] = useState('20:00:00');
+
+  // saved settings templates
+  const [settingsTemplates, setSettingsTemplates] = useState<SettingsTemplate[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<number | ''>('');
 
   // local time of selected business
   const [localTime, setLocalTime] = useState('');
@@ -215,6 +226,38 @@ const AutoResponseSettings: FC = () => {
       .finally(() => setTplLoading(false));
   };
 
+  const applyTemplate = (tpl: SettingsTemplate) => {
+    const d = tpl.data;
+    setEnabled(d.enabled);
+    setGreetingTemplate(d.greeting_template);
+    let gsecs = d.greeting_delay || 0;
+    setGreetingDelayHours(Math.floor(gsecs / 3600));
+    gsecs %= 3600;
+    setGreetingDelayMinutes(Math.floor(gsecs / 60));
+    setGreetingDelaySeconds(gsecs % 60);
+    setGreetingOpenFrom(d.greeting_open_from || '08:00:00');
+    setGreetingOpenTo(d.greeting_open_to || '20:00:00');
+    setIncludeName(d.include_name);
+    setIncludeJobs(d.include_jobs);
+    setFollowUpTemplate(d.follow_up_template);
+    let secs = d.follow_up_delay || 0;
+    setFollowDelayDays(Math.floor(secs / 86400));
+    secs %= 86400;
+    setFollowDelayHours(Math.floor(secs / 3600));
+    secs %= 3600;
+    setFollowDelayMinutes(Math.floor(secs / 60));
+    setFollowDelaySeconds(secs % 60);
+    setFollowOpenFrom(d.follow_up_open_from || '08:00:00');
+    setFollowOpenTo(d.follow_up_open_to || '20:00:00');
+    setExportToSheets(d.export_to_sheets);
+  };
+
+  const loadSettingsTemplates = () => {
+    axios.get<SettingsTemplate[]>('/settings-templates/')
+      .then(res => setSettingsTemplates(res.data))
+      .catch(() => setSettingsTemplates([]));
+  };
+
   useEffect(() => {
     axios.get<Business[]>('/businesses/')
       .then(res => setBusinesses(res.data))
@@ -222,6 +265,7 @@ const AutoResponseSettings: FC = () => {
 
     loadTemplates();
     loadSettings();
+    loadSettingsTemplates();
   }, []);
 
 
@@ -339,6 +383,25 @@ const AutoResponseSettings: FC = () => {
   return (
     <Container maxWidth={false} sx={{ mt:4, mb:4, maxWidth: 1000, mx: 'auto' }}>
       <Box sx={{ mb: 2 }}>
+        <Select
+          value={selectedTemplateId}
+          onChange={e => {
+            const id = e.target.value as number | '';
+            setSelectedTemplateId(id);
+            const tpl = settingsTemplates.find(t => t.id === id);
+            if (tpl) applyTemplate(tpl);
+          }}
+          displayEmpty
+          size="small"
+          sx={{ mr:2 }}
+        >
+          <MenuItem value="">
+            <em>Custom</em>
+          </MenuItem>
+          {settingsTemplates.map(t => (
+            <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>
+          ))}
+        </Select>
         <Select
           value={selectedBusiness}
           onChange={e => setSelectedBusiness(e.target.value as string)}
