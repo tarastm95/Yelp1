@@ -98,7 +98,10 @@ class WebhookView(APIView):
                         lead_id=lid,
                     )
                     logger.info(f"[WEBHOOK] Created ProcessedLead id={pl.id} for lead={lid}")
+                    logger.info(f"[WEBHOOK] Calling handle_new_lead for lead={lid}")
                     self.handle_new_lead(lid)
+                else:
+                    logger.info(f"[WEBHOOK] Lead {lid} already processed; skipping handle_new_lead")
 
         for lid in lead_ids:
             token = get_token_for_lead(lid)
