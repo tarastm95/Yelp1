@@ -73,19 +73,11 @@ interface FollowUpTemplate {
   active: boolean;
 }
 
-interface PresetFollowUpTemplate {
-  template: string;
-  delay: number;
-  open_from: string;
-  open_to: string;
-}
-
 interface SettingsTemplate {
   id: number;
   name: string;
   description: string;
   data: any;
-  follow_up_templates?: PresetFollowUpTemplate[];
 }
 
 const AutoResponseSettings: FC = () => {
@@ -280,11 +272,8 @@ const AutoResponseSettings: FC = () => {
     setExportToSheets(d.export_to_sheets);
 
     // load additional follow-up templates from the selected preset
-    const presetFollowUps = Array.isArray(tpl.follow_up_templates)
-      ? tpl.follow_up_templates
-      : d.follow_up_templates;
-    if (Array.isArray(presetFollowUps)) {
-      const mapped = presetFollowUps.map((t: any, idx: number) => ({
+    if (Array.isArray(d.follow_up_templates)) {
+      const mapped = d.follow_up_templates.map((t: any, idx: number) => ({
         id: -(idx + 1),
         name: `Template ${idx + 1}`,
         template: t.template,
