@@ -78,6 +78,7 @@ interface SettingsTemplate {
   name: string;
   description: string;
   data: any;
+  follow_up_templates: FollowUpTemplate[];
 }
 
 const AutoResponseSettings: FC = () => {

@@ -54,6 +54,7 @@ interface SettingsTemplate {
   name: string;
   description: string;
   data: AutoResponseSettingsData;
+  follow_up_templates: FollowUpTemplate[];
 }
 
 const defaultData: AutoResponseSettingsData = {
