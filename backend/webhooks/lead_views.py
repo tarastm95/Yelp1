@@ -26,6 +26,7 @@ from .serializers import (
     LeadEventSerializer,
     AutoResponseSettingsTemplateSerializer,
 )
+from .tasks import reschedule_follow_up_tasks
 
 logger = logging.getLogger(__name__)
 
@@ -181,6 +182,10 @@ class FollowUpTemplateDetailView(generics.RetrieveUpdateDestroyAPIView):
             if qs.exists():
                 return qs
         return FollowUpTemplate.objects.filter(business__isnull=True)
+
+    def perform_update(self, serializer):
+        instance = serializer.save()
+        reschedule_follow_up_tasks(instance)
 
 
 class AutoResponseSettingsTemplateListCreateView(generics.ListCreateAPIView):

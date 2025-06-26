@@ -206,3 +206,22 @@ def refresh_expiring_tokens():
             logger.info(f"[TOKEN REFRESH] refreshed for {tok.business_id}")
         except Exception as exc:
             logger.error(f"[TOKEN REFRESH] failed for {tok.business_id}: {exc}")
+
+
+def reschedule_follow_up_tasks(template: "FollowUpTemplate"):
+    """Update next_run for ScheduledMessage objects of this template."""
+    from .utils import adjust_due_time
+    biz = template.business
+    now = timezone.now()
+    for sm in ScheduledMessage.objects.filter(template=template, active=True):
+        new_run = adjust_due_time(
+            now + template.delay,
+            biz.time_zone if biz else None,
+            template.open_from,
+            template.open_to,
+        )
+        sm.next_run = new_run
+        sm.save(update_fields=["next_run"])
+        logger.info(
+            f"[SCHEDULED] Rescheduled msg #{sm.id} for template {template.id}"
+        )
