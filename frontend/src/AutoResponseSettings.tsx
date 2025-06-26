@@ -469,6 +469,21 @@ const AutoResponseSettings: FC = () => {
     })
       .then(res => {
         setSettingsId(res.data.id);
+        initialSettings.current = {
+          enabled,
+          greeting_template: greetingTemplate,
+          greeting_delay: greetDelaySecs,
+          greeting_open_from: greetingOpenFrom,
+          greeting_open_to: greetingOpenTo,
+          include_name: includeName,
+          include_jobs: includeJobs,
+          follow_up_template: followUpTemplate,
+          follow_up_delay: delaySecs,
+          follow_up_open_from: followOpenFrom,
+          follow_up_open_to: followOpenTo,
+          export_to_sheets: exportToSheets,
+          follow_up_templates: initialSettings.current?.follow_up_templates || [],
+        };
         setSaved(true);
         setError('');
       })
