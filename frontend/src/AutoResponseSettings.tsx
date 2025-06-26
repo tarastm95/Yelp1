@@ -266,6 +266,31 @@ const AutoResponseSettings: FC = () => {
     setFollowOpenFrom(d.follow_up_open_from || '08:00:00');
     setFollowOpenTo(d.follow_up_open_to || '20:00:00');
     setExportToSheets(d.export_to_sheets);
+
+    // load additional follow-up templates from the selected preset
+    if (Array.isArray(d.follow_up_templates)) {
+      const mapped = d.follow_up_templates.map((t: any, idx: number) => ({
+        id: -(idx + 1),
+        name: `Template ${idx + 1}`,
+        template: t.template,
+        delay: t.delay,
+        open_from: t.open_from,
+        open_to: t.open_to,
+        active: true,
+      }));
+      setTemplates(mapped);
+      if (mapped.length) {
+        setNewOpenFrom(mapped[0].open_from);
+        setNewOpenTo(mapped[0].open_to);
+      } else {
+        setNewOpenFrom('08:00:00');
+        setNewOpenTo('20:00:00');
+      }
+    } else {
+      setTemplates([]);
+      setNewOpenFrom('08:00:00');
+      setNewOpenTo('20:00:00');
+    }
   };
 
   const loadSettingsTemplates = () => {
