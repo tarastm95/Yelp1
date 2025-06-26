@@ -7,6 +7,7 @@ from .views import (
     ScheduledMessageListCreate, ScheduledMessageDetail, ProcessedLeadListView, LeadDetailListAPIView,
     LeadDetailRetrieveAPIView, LeadLastEventAPIView, LeadEventRetrieveAPIView,
     FollowUpTemplateListCreateView, FollowUpTemplateDetailView,
+    AutoResponseSettingsTemplateListCreateView, AutoResponseSettingsTemplateDetailView,
     BusinessListView, BusinessLeadsView, BusinessEventsView,
     YelpTokenListView,
 )
