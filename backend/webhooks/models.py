@@ -279,6 +279,11 @@ class AutoResponseSettingsTemplate(models.Model):
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
     data = models.JSONField(help_text="Serialized AutoResponseSettings data")
+    follow_up_templates = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Serialized list of additional FollowUpTemplate objects",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

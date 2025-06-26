@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useState, useRef} from 'react';
 import axios from 'axios';
 import {
   Container,
@@ -16,11 +16,22 @@ import {
   Switch,
   FormControlLabel,
   Stack,
+  Box,
   Snackbar,
   Alert,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
+
+const PLACEHOLDERS = ['{name}', '{jobs}', '{sep}'] as const;
+type Placeholder = typeof PLACEHOLDERS[number];
+
+interface FollowUpTemplate {
+  template: string;
+  delay: number;
+  open_from: string;
+  open_to: string;
+}
 
 interface AutoResponseSettingsData {
   enabled: boolean;
@@ -35,6 +46,7 @@ interface AutoResponseSettingsData {
   follow_up_open_from: string;
   follow_up_open_to: string;
   export_to_sheets: boolean;
+  follow_up_templates: FollowUpTemplate[];
 }
 
 interface SettingsTemplate {
@@ -57,6 +69,7 @@ const defaultData: AutoResponseSettingsData = {
   follow_up_open_from: '08:00:00',
   follow_up_open_to: '20:00:00',
   export_to_sheets: false,
+  follow_up_templates: [],
 };
 
 const SettingsTemplates: React.FC = () => {
@@ -69,6 +82,49 @@ const SettingsTemplates: React.FC = () => {
   const [data, setData] = useState<AutoResponseSettingsData>(defaultData);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
+
+  const greetingRef = useRef<HTMLTextAreaElement | null>(null);
+  const followRef = useRef<HTMLTextAreaElement | null>(null);
+  const tplRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const [newText, setNewText] = useState('');
+  const [newDelayDays, setNewDelayDays] = useState(0);
+  const [newDelayHours, setNewDelayHours] = useState(1);
+  const [newDelayMinutes, setNewDelayMinutes] = useState(0);
+  const [newDelaySeconds, setNewDelaySeconds] = useState(0);
+  const [newOpenFrom, setNewOpenFrom] = useState('08:00:00');
+  const [newOpenTo, setNewOpenTo] = useState('20:00:00');
+
+  const insertPlaceholder = (
+    ph: Placeholder,
+    target: 'greeting' | 'follow' | 'template'
+  ) => {
+    let ref: HTMLTextAreaElement | null = null;
+    let base = '';
+    let setter: (v: string) => void = () => {};
+    if (target === 'greeting') {
+      ref = greetingRef.current;
+      base = data.greeting_template;
+      setter = (v: string) => setData({...data, greeting_template: v});
+    } else if (target === 'follow') {
+      ref = followRef.current;
+      base = data.follow_up_template;
+      setter = (v: string) => setData({...data, follow_up_template: v});
+    } else {
+      ref = tplRef.current;
+      base = newText;
+      setter = setNewText;
+    }
+    if (!ref) return;
+    const start = ref.selectionStart ?? 0;
+    const end = ref.selectionEnd ?? 0;
+    const updated = base.slice(0, start) + ph + base.slice(end);
+    setter(updated);
+    setTimeout(() => {
+      ref!.focus();
+      ref!.setSelectionRange(start + ph.length, start + ph.length);
+    }, 0);
+  };
 
   const load = () => {
     axios.get<SettingsTemplate[]>('/settings-templates/')
@@ -87,7 +143,10 @@ const SettingsTemplates: React.FC = () => {
         setEditing(t);
         setName(t.name);
         setDescription(t.description);
-        setData(t.data);
+        setData({
+          ...t.data,
+          follow_up_templates: t.data.follow_up_templates || [],
+        });
         setSaved(false);
         setError('');
         setOpen(true);
@@ -126,6 +185,37 @@ const SettingsTemplates: React.FC = () => {
     }
   };
 
+  const handleAddFollowTemplate = () => {
+    const delaySecs =
+      newDelayDays * 86400 +
+      newDelayHours * 3600 +
+      newDelayMinutes * 60 +
+      newDelaySeconds;
+    const tpl: FollowUpTemplate = {
+      template: newText,
+      delay: delaySecs,
+      open_from: newOpenFrom,
+      open_to: newOpenTo,
+    };
+    setData({
+      ...data,
+      follow_up_templates: [...(data.follow_up_templates || []), tpl],
+    });
+    setNewText('');
+    setNewDelayDays(0);
+    setNewDelayHours(1);
+    setNewDelayMinutes(0);
+    setNewDelaySeconds(0);
+    setNewOpenFrom('08:00:00');
+    setNewOpenTo('20:00:00');
+  };
+
+  const handleDeleteFollowTemplate = (idx: number) => {
+    const arr = [...(data.follow_up_templates || [])];
+    arr.splice(idx, 1);
+    setData({...data, follow_up_templates: arr});
+  };
+
   const handleDelete = (id: number) => {
     axios.delete(`/settings-templates/${id}/`).then(() => load());
   };
@@ -160,7 +250,15 @@ const SettingsTemplates: React.FC = () => {
           <Stack spacing={2} sx={{ mt:1 }}>
             <TextField label="Name" fullWidth value={name} onChange={e=>setName(e.target.value)}/>
             <TextField label="Description" fullWidth value={description} onChange={e=>setDescription(e.target.value)}/>
+            <Stack direction="row" spacing={1} mb={1}>
+              {PLACEHOLDERS.map(ph => (
+                <Button key={ph} size="small" variant="outlined" onClick={() => insertPlaceholder(ph, 'greeting')}>
+                  {ph}
+                </Button>
+              ))}
+            </Stack>
             <TextField
+              inputRef={greetingRef}
               multiline
               minRows={3}
               label="Greeting Template"
@@ -183,7 +281,15 @@ const SettingsTemplates: React.FC = () => {
               onChange={e=>setData({...data, include_name:e.target.checked})}/>} label="Include Name" />
             <FormControlLabel control={<Switch checked={data.include_jobs}
               onChange={e=>setData({...data, include_jobs:e.target.checked})}/>} label="Include Jobs" />
+            <Stack direction="row" spacing={1} mb={1}>
+              {PLACEHOLDERS.map(ph => (
+                <Button key={ph} size="small" variant="outlined" onClick={() => insertPlaceholder(ph, 'follow')}>
+                  {ph}
+                </Button>
+              ))}
+            </Stack>
             <TextField
+              inputRef={followRef}
               multiline
               minRows={3}
               label="Built-in Follow-up"
@@ -202,6 +308,63 @@ const SettingsTemplates: React.FC = () => {
                 onChange={e=>setData({...data, follow_up_open_to:e.target.value})}
                 inputProps={{ step:1 }} size="small"/>
             </Stack>
+
+            <Typography variant="h6">Additional Follow-up Templates</Typography>
+            <List dense>
+              {(data.follow_up_templates || []).map((t, idx) => (
+                <ListItem key={idx} secondaryAction={
+                  <IconButton edge="end" onClick={() => handleDeleteFollowTemplate(idx)}>
+                    <DeleteIcon />
+                  </IconButton>
+                }>
+                  <ListItemText
+                    primary={t.template}
+                    secondary={`In ${Math.floor(t.delay/86400)}d ${Math.floor((t.delay%86400)/3600)}h | ${t.open_from} - ${t.open_to}`}
+                  />
+                </ListItem>
+              ))}
+            </List>
+            <Stack direction="row" spacing={2} alignItems="flex-start" flexWrap="wrap" mt={2}>
+              <Box flexGrow={1}>
+                <Stack direction="row" spacing={1} mb={1}>
+                  {PLACEHOLDERS.map(ph => (
+                    <Button key={ph} size="small" variant="outlined" onClick={() => insertPlaceholder(ph, 'template')}>
+                      {ph}
+                    </Button>
+                  ))}
+                </Stack>
+                <TextField
+                  inputRef={tplRef}
+                  multiline
+                  minRows={2}
+                  fullWidth
+                  value={newText}
+                  onChange={e=>setNewText(e.target.value)}
+                  placeholder="New follow-up template..."
+                />
+              </Box>
+              <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                <TextField label="Days" type="number" inputProps={{min:0}} sx={{width:70}}
+                  value={newDelayDays} onChange={e=>setNewDelayDays(Number(e.target.value))}/>
+                <TextField label="Hours" type="number" inputProps={{min:0}} sx={{width:70}}
+                  value={newDelayHours} onChange={e=>setNewDelayHours(Number(e.target.value))}/>
+                <TextField label="Min" type="number" inputProps={{min:0}} sx={{width:70}}
+                  value={newDelayMinutes} onChange={e=>setNewDelayMinutes(Number(e.target.value))}/>
+                <TextField label="Sec" type="number" inputProps={{min:0}} sx={{width:70}}
+                  value={newDelaySeconds} onChange={e=>setNewDelaySeconds(Number(e.target.value))}/>
+              </Stack>
+              <Box sx={{ mt: 1 }}>
+                <Typography variant="body2" gutterBottom>Business Hours</Typography>
+                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                  <TextField label="From" type="time" inputProps={{ step: 1 }} value={newOpenFrom}
+                    onChange={e=>setNewOpenFrom(e.target.value)} size="small"/>
+                  <TextField label="To" type="time" inputProps={{ step: 1 }} value={newOpenTo}
+                    onChange={e=>setNewOpenTo(e.target.value)} size="small"/>
+                </Stack>
+              </Box>
+              <Button onClick={handleAddFollowTemplate} sx={{ mt:1 }}>Add</Button>
+            </Stack>
+
             <FormControlLabel control={<Switch checked={data.enabled}
               onChange={e=>setData({...data, enabled:e.target.checked})}/>} label="Enable Auto-response" />
             <FormControlLabel control={<Switch checked={data.export_to_sheets}

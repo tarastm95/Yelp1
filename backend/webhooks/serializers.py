@@ -346,5 +346,6 @@ class AutoResponseSettingsTemplateSerializer(serializers.ModelSerializer):
             "name",
             "description",
             "data",
+            "follow_up_templates",
         ]
         read_only_fields = ["id"]
