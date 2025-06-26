@@ -15,6 +15,9 @@ import {
   Box,
   Select,
   MenuItem,
+  Card,
+  CardActionArea,
+  CardContent,
   Snackbar,
   Alert,
   CircularProgress,
@@ -134,6 +137,7 @@ const AutoResponseSettings: FC = () => {
   // saved settings templates
   const [settingsTemplates, setSettingsTemplates] = useState<SettingsTemplate[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | ''>('');
+  const [previewTemplate, setPreviewTemplate] = useState<SettingsTemplate | null>(null);
 
   // local time of selected business
   const [localTime, setLocalTime] = useState('');
@@ -490,30 +494,56 @@ const AutoResponseSettings: FC = () => {
   return (
     <Container maxWidth={false} sx={{ mt:4, mb:4, maxWidth: 1000, mx: 'auto' }}>
       <Box sx={{ mb: 2 }}>
-        <Select
-          value={selectedTemplateId}
-          onChange={e => {
-            const id = e.target.value as number | '';
-            setSelectedTemplateId(id);
-            const tpl = settingsTemplates.find(t => t.id === id);
-            if (tpl) applyTemplate(tpl);
-          }}
-          displayEmpty
-          size="small"
-          sx={{ mr:2 }}
-        >
-          <MenuItem value="">
-            <em>Custom</em>
-          </MenuItem>
+        <Stack direction="row" spacing={2} sx={{ overflowX: 'auto', pb: 1 }}>
           {settingsTemplates.map(t => (
-            <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>
+            <Card
+              key={t.id}
+              sx={{
+                minWidth: 200,
+                cursor: 'pointer',
+                border: previewTemplate?.id === t.id ? '2px solid #1976d2' : '1px solid #ccc'
+              }}
+              onClick={() => setPreviewTemplate(t)}
+            >
+              <CardActionArea>
+                <CardContent>
+                  <Typography variant="subtitle1" gutterBottom>{t.name}</Typography>
+                  <Typography variant="body2" noWrap>{t.description}</Typography>
+                </CardContent>
+              </CardActionArea>
+            </Card>
           ))}
-        </Select>
+        </Stack>
+        {previewTemplate && (
+          <Box mt={2}>
+            <Typography variant="subtitle1" gutterBottom>Preview</Typography>
+            <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
+              {previewTemplate.data.greeting_template}
+            </Typography>
+            {Array.isArray(previewTemplate.follow_up_templates) && previewTemplate.follow_up_templates.length > 0 && (
+              <Typography variant="body2" sx={{ whiteSpace: 'pre-line', mt: 1 }}>
+                {previewTemplate.follow_up_templates[0].template}
+              </Typography>
+            )}
+            <Button
+              variant="contained"
+              sx={{ mt: 1 }}
+              onClick={() => {
+                applyTemplate(previewTemplate);
+                setSelectedTemplateId(previewTemplate.id);
+              }}
+            >
+              Apply Template
+            </Button>
+          </Box>
+        )}
+
         <Select
           value={selectedBusiness}
           onChange={e => setSelectedBusiness(e.target.value as string)}
           displayEmpty
           size="small"
+          sx={{ mt: 2 }}
         >
           <MenuItem value="">
             <em>Default Settings</em>
