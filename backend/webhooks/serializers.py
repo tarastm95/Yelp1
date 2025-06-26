@@ -37,10 +37,14 @@ class AutoResponseSettingsSerializer(serializers.ModelSerializer):
             'refresh_token',
             'token_expires_at',
             'greeting_template',
+            'greeting_open_from',
+            'greeting_open_to',
             'include_name',
             'include_jobs',
             'follow_up_template',
             'follow_up_delay',
+            'follow_up_open_from',
+            'follow_up_open_to',
             'export_to_sheets',
         ]
         read_only_fields = ['id', 'token_expires_at']

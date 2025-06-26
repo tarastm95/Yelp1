@@ -102,6 +102,23 @@ class AutoResponseSettings(models.Model):
         help_text="Записувати нові ліди в Google Sheets"
     )
 
+    greeting_open_from = models.TimeField(
+        default=time(8, 0),
+        help_text="Час початку робочих годин для привітання (локальний час)"
+    )
+    greeting_open_to = models.TimeField(
+        default=time(20, 0),
+        help_text="Час завершення робочих годин для привітання (локальний час)"
+    )
+    follow_up_open_from = models.TimeField(
+        default=time(8, 0),
+        help_text="Час початку робочих годин для built-in follow-up (локальний час)"
+    )
+    follow_up_open_to = models.TimeField(
+        default=time(20, 0),
+        help_text="Час завершення робочих годин для built-in follow-up (локальний час)"
+    )
+
     def __str__(self):
         return f"AutoResponseSettings(id={self.id}, enabled={self.enabled})"
 

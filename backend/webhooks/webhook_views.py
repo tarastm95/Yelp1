@@ -214,59 +214,84 @@ class WebhookView(APIView):
         name = ld.user_display_name if auto_settings.include_name else ""
         jobs = ", ".join(ld.project.get("job_names", [])) if auto_settings.include_jobs else ""
         sep = ", " if name and jobs else ""
+        biz_id = ld.business_id if ld else None
+        business = YelpBusiness.objects.filter(business_id=biz_id).first()
+
         greeting = auto_settings.greeting_template.format(name=name, jobs=jobs, sep=sep)
 
-        resp = requests.post(
-            f"{detail_url}/events",
-            headers=headers,
-            json={"request_content": greeting, "request_type": "TEXT"},
-            timeout=10,
+        now = timezone.now()
+        due = adjust_due_time(
+            now,
+            business.time_zone if business else None,
+            auto_settings.greeting_open_from,
+            auto_settings.greeting_open_to,
         )
-        logger.info(f"[AUTO-RESPONSE] Greeting send status: {resp.status_code}")
 
-        if 200 <= resp.status_code < 300:
-            now = timezone.now()
-            if auto_settings.follow_up_template and auto_settings.follow_up_delay:
-                built_in = auto_settings.follow_up_template.format(name=name, jobs=jobs, sep=sep)
-                send_follow_up.apply_async(
-                    args=[lead_id, built_in, token],
-                    headers={"business_id": ld.business_id if ld else None},
-                    countdown=auto_settings.follow_up_delay,
-                )
-                logger.info("[AUTO-RESPONSE] Built-in follow-up scheduled")
-
-            biz_id = ld.business_id if ld else None
-            tpls = FollowUpTemplate.objects.filter(active=True, business__business_id=biz_id)
-            if not tpls.exists():
-                tpls = FollowUpTemplate.objects.filter(active=True, business__isnull=True)
-            business = YelpBusiness.objects.filter(business_id=biz_id).first()
-            for tmpl in tpls:
-                delay = int(tmpl.delay.total_seconds())
-                text = tmpl.template.format(name=name, jobs=jobs, sep=sep)
-                due = adjust_due_time(
-                    now + timedelta(seconds=delay),
-                    business.time_zone if business else None,
-                    tmpl.open_from,
-                    tmpl.open_to,
-                )
-                countdown = max((due - now).total_seconds(), 0)
-                send_follow_up.apply_async(
-                    args=[lead_id, text, token],
-                    headers={"business_id": ld.business_id if ld else None},
-                    countdown=countdown,
-                )
-                logger.info(
-                    f"[AUTO-RESPONSE] Custom follow-up “{tmpl.name}” scheduled at {due.isoformat()}"
-                )
-
-            for sm in ScheduledMessage.objects.filter(lead_id=lead_id, active=True):
-                delay = max((sm.next_run - now).total_seconds(), 0)
-                send_scheduled_message.apply_async(
-                    args=[lead_id, sm.id],
-                    headers={"business_id": ld.business_id if ld else None},
-                    countdown=delay,
-                )
-                logger.info(f"[SCHEDULED] Message #{sm.id} scheduled in {delay:.0f}s")
-                sm.schedule_next()
+        if due <= now:
+            resp = requests.post(
+                f"{detail_url}/events",
+                headers=headers,
+                json={"request_content": greeting, "request_type": "TEXT"},
+                timeout=10,
+            )
+            logger.info(f"[AUTO-RESPONSE] Greeting send status: {resp.status_code}")
         else:
-            logger.error(f"[AUTO-RESPONSE] Failed to send greeting, status={resp.status_code}")
+            countdown = (due - now).total_seconds()
+            send_follow_up.apply_async(
+                args=[lead_id, greeting, token],
+                headers={"business_id": biz_id},
+                countdown=countdown,
+            )
+            logger.info(f"[AUTO-RESPONSE] Greeting scheduled at {due.isoformat()}")
+
+        now = timezone.now()
+        if auto_settings.follow_up_template and auto_settings.follow_up_delay:
+            built_in = auto_settings.follow_up_template.format(name=name, jobs=jobs, sep=sep)
+            due2 = adjust_due_time(
+                now + timedelta(seconds=auto_settings.follow_up_delay),
+                business.time_zone if business else None,
+                auto_settings.follow_up_open_from,
+                auto_settings.follow_up_open_to,
+            )
+            countdown = max((due2 - now).total_seconds(), 0)
+            send_follow_up.apply_async(
+                args=[lead_id, built_in, token],
+                headers={"business_id": biz_id},
+                countdown=countdown,
+            )
+            logger.info(
+                f"[AUTO-RESPONSE] Built-in follow-up scheduled at {due2.isoformat()}"
+            )
+
+        tpls = FollowUpTemplate.objects.filter(active=True, business__business_id=biz_id)
+        if not tpls.exists():
+            tpls = FollowUpTemplate.objects.filter(active=True, business__isnull=True)
+        business = YelpBusiness.objects.filter(business_id=biz_id).first()
+        for tmpl in tpls:
+            delay = int(tmpl.delay.total_seconds())
+            text = tmpl.template.format(name=name, jobs=jobs, sep=sep)
+            due = adjust_due_time(
+                now + timedelta(seconds=delay),
+                business.time_zone if business else None,
+                tmpl.open_from,
+                tmpl.open_to,
+            )
+            countdown = max((due - now).total_seconds(), 0)
+            send_follow_up.apply_async(
+                args=[lead_id, text, token],
+                headers={"business_id": biz_id},
+                countdown=countdown,
+            )
+            logger.info(
+                f"[AUTO-RESPONSE] Custom follow-up “{tmpl.name}” scheduled at {due.isoformat()}"
+            )
+
+        for sm in ScheduledMessage.objects.filter(lead_id=lead_id, active=True):
+            delay = max((sm.next_run - now).total_seconds(), 0)
+            send_scheduled_message.apply_async(
+                args=[lead_id, sm.id],
+                headers={"business_id": biz_id},
+                countdown=delay,
+            )
+            logger.info(f"[SCHEDULED] Message #{sm.id} scheduled in {delay:.0f}s")
+            sm.schedule_next()
