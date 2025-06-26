@@ -43,10 +43,14 @@ interface AutoResponse {
   id: number;
   enabled: boolean;
   greeting_template: string;
+  greeting_open_from: string;
+  greeting_open_to: string;
   include_name: boolean;
   include_jobs: boolean;
   follow_up_template: string;
   follow_up_delay: number;
+  follow_up_open_from: string;
+  follow_up_open_to: string;
   export_to_sheets: boolean;
 }
 
@@ -76,6 +80,10 @@ const AutoResponseSettings: FC = () => {
   const [followDelayHours, setFollowDelayHours] = useState(1);
   const [followDelayMinutes, setFollowDelayMinutes] = useState(0);
   const [followDelaySeconds, setFollowDelaySeconds] = useState(0);
+  const [greetingOpenFrom, setGreetingOpenFrom] = useState('08:00:00');
+  const [greetingOpenTo, setGreetingOpenTo] = useState('20:00:00');
+  const [followOpenFrom, setFollowOpenFrom] = useState('08:00:00');
+  const [followOpenTo, setFollowOpenTo] = useState('20:00:00');
   const [exportToSheets, setExportToSheets] = useState(false);
 
   // follow-up templates
@@ -160,6 +168,8 @@ const AutoResponseSettings: FC = () => {
         setSettingsId(d.id);
         setEnabled(d.enabled);
         setGreetingTemplate(d.greeting_template);
+        setGreetingOpenFrom(d.greeting_open_from || '08:00:00');
+        setGreetingOpenTo(d.greeting_open_to || '20:00:00');
         setIncludeName(d.include_name);
         setIncludeJobs(d.include_jobs);
         setFollowUpTemplate(d.follow_up_template);
@@ -170,6 +180,8 @@ const AutoResponseSettings: FC = () => {
         secs %= 3600;
         setFollowDelayMinutes(Math.floor(secs / 60));
         setFollowDelaySeconds(secs % 60);
+        setFollowOpenFrom(d.follow_up_open_from || '08:00:00');
+        setFollowOpenTo(d.follow_up_open_to || '20:00:00');
         setExportToSheets(d.export_to_sheets);
       })
       .catch(() => setError('Failed to load settings.'))
@@ -245,10 +257,14 @@ const AutoResponseSettings: FC = () => {
     axios.put<AutoResponse>(url, {
       enabled,
       greeting_template: greetingTemplate,
+      greeting_open_from: greetingOpenFrom,
+      greeting_open_to: greetingOpenTo,
       include_name: includeName,
       include_jobs: includeJobs,
       follow_up_template: followUpTemplate,
       follow_up_delay: delaySecs,
+      follow_up_open_from: followOpenFrom,
+      follow_up_open_to: followOpenTo,
       export_to_sheets: exportToSheets,
     })
       .then(res => {
@@ -379,6 +395,27 @@ const AutoResponseSettings: FC = () => {
                   label="Include Jobs"
                 />
               </Stack>
+              <Box sx={{ mt: 1 }}>
+                <Typography variant="body2" gutterBottom>Business Hours</Typography>
+                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                  <TextField
+                    label="From"
+                    type="time"
+                    inputProps={{ step: 1 }}
+                    value={greetingOpenFrom}
+                    onChange={e => setGreetingOpenFrom(e.target.value)}
+                    size="small"
+                  />
+                  <TextField
+                    label="To"
+                    type="time"
+                    inputProps={{ step: 1 }}
+                    value={greetingOpenTo}
+                    onChange={e => setGreetingOpenTo(e.target.value)}
+                    size="small"
+                  />
+                </Stack>
+              </Box>
             </Box>
 
             {/* Built-in Follow-up */}
@@ -434,6 +471,27 @@ const AutoResponseSettings: FC = () => {
                   onChange={e => setFollowDelaySeconds(Number(e.target.value))}
                 />
               </Stack>
+              <Box sx={{ mt: 1 }}>
+                <Typography variant="body2" gutterBottom>Business Hours</Typography>
+                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                  <TextField
+                    label="From"
+                    type="time"
+                    inputProps={{ step: 1 }}
+                    value={followOpenFrom}
+                    onChange={e => setFollowOpenFrom(e.target.value)}
+                    size="small"
+                  />
+                  <TextField
+                    label="To"
+                    type="time"
+                    inputProps={{ step: 1 }}
+                    value={followOpenTo}
+                    onChange={e => setFollowOpenTo(e.target.value)}
+                    size="small"
+                  />
+                </Stack>
+              </Box>
             </Box>
 
             {/* Global Follow-up Templates */}
