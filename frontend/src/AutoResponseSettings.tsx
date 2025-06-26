@@ -151,7 +151,7 @@ const AutoResponseSettings: FC = () => {
 
   // saved settings templates
   const [settingsTemplates, setSettingsTemplates] = useState<SettingsTemplate[]>([]);
-  const [selectedTemplateId, setSelectedTemplateId] = useState<number | ''>('');
+  const [selectedTemplateId, setSelectedTemplateId] = useState<number | 'current' | ''>('');
   const [previewTemplate, setPreviewTemplate] = useState<SettingsTemplate | null>(null);
 
   // track initial settings and applied template
@@ -367,7 +367,12 @@ const AutoResponseSettings: FC = () => {
   };
 
   const applyTemplate = (tpl: SettingsTemplate) => {
-    if (appliedTemplateId === tpl.id) {
+    if (tpl.id === -1) {
+      if (initialSettings.current) {
+        applySettingsData(initialSettings.current);
+      }
+      setAppliedTemplateId(null);
+    } else if (appliedTemplateId === tpl.id) {
       if (initialSettings.current) {
         applySettingsData(initialSettings.current);
       }
@@ -568,10 +573,25 @@ const AutoResponseSettings: FC = () => {
           <Select
             value={selectedTemplateId}
             onChange={e => {
-              const id = e.target.value as number;
-              setSelectedTemplateId(id);
-              const tpl = settingsTemplates.find(t => t.id === id) || null;
-              setPreviewTemplate(tpl);
+              const val = e.target.value as any;
+              if (val === 'current' || val === '') {
+                setSelectedTemplateId(val);
+                if (val === 'current' && initialSettings.current) {
+                  setPreviewTemplate({
+                    id: -1,
+                    name: 'Current',
+                    description: '',
+                    data: initialSettings.current,
+                  });
+                } else {
+                  setPreviewTemplate(null);
+                }
+              } else {
+                const id = val as number;
+                setSelectedTemplateId(id);
+                const tpl = settingsTemplates.find(t => t.id === id) || null;
+                setPreviewTemplate(tpl);
+              }
             }}
             displayEmpty
             size="small"
@@ -580,6 +600,7 @@ const AutoResponseSettings: FC = () => {
             <MenuItem value="">
               <em>Select Template</em>
             </MenuItem>
+            <MenuItem value="current">Current</MenuItem>
             {settingsTemplates.map(t => (
               <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>
             ))}
