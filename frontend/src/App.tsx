@@ -11,12 +11,22 @@ import {
   AppBar,
   Toolbar,
   Typography,
-
   Button,
   CssBaseline,
   ThemeProvider,
   createTheme,
+  Drawer,
+  IconButton,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Box,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
+import MenuIcon from '@mui/icons-material/Menu';
 
 // --- Material-UI Icons ---
 import HomeIcon from '@mui/icons-material/Home';
@@ -55,42 +65,132 @@ axios.defaults.baseURL = process.env.REACT_APP_API_BASE_URL
 
 
 // ---------------------------------------------
-// Main component with all routes
+// Main component with all routes and responsive drawer
 // ---------------------------------------------
-const App: React.FC = () => (
-  <ThemeProvider theme={theme}>
-    <CssBaseline />
-    <Router>
-      <AppBar position="static">
-        <Toolbar>
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            Yelp Integration Dashboard
-          </Typography>
-          <Button color="inherit" component={RouterLink} to="/" startIcon={<HomeIcon />}>Home</Button>
-          <Button color="inherit" component={RouterLink} to="/events" startIcon={<EventIcon />}>Events</Button>
-          <Button color="inherit" component={RouterLink} to="/businesses" startIcon={<BusinessIcon />}>Businesses</Button>
-          <Button color="inherit" component={RouterLink} to="/tokens" startIcon={<VpnKeyIcon />}>Tokens</Button>
-          <Button color="inherit" component={RouterLink} to="/tasks" startIcon={<ListAltIcon />}>Tasks</Button>
-          <Button color="inherit" component={RouterLink} to="/templates" startIcon={<ListAltIcon />}>Templates</Button>
-        </Toolbar>
-      </AppBar>
-      <main>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/events" element={<EventsPage />} />
-          <Route path="/events/:id" element={<EventDetail />} />
-          <Route path="/leads/:id" element={<ClientDetails />} />
-          <Route path="/auth" element={<YelpAuth />} />
-          <Route path="/callback" element={<YelpCallback />} />
-          <Route path="/businesses" element={<BusinessSelector />} />
-          <Route path="/settings" element={<AutoResponseSettings />} />
-          <Route path="/tokens" element={<TokenStatus />} />
-          <Route path="/tasks" element={<TaskLogs />} />
-          <Route path="/templates" element={<SettingsTemplates />} />
-        </Routes>
-      </main>
-    </Router>
-  </ThemeProvider>
-);
+const drawerWidth = 240;
+
+const App: React.FC = () => {
+  const [mobileOpen, setMobileOpen] = React.useState(false);
+  const themeHook = useTheme();
+  const isMobile = useMediaQuery(themeHook.breakpoints.down('sm'));
+
+  const handleDrawerToggle = () => {
+    setMobileOpen(prev => !prev);
+  };
+
+  const drawer = (
+    <div>
+      <Toolbar />
+      <List>
+        <ListItem disablePadding>
+          <ListItemButton component={RouterLink} to="/" onClick={() => setMobileOpen(false)}>
+            <ListItemIcon>
+              <HomeIcon />
+            </ListItemIcon>
+            <ListItemText primary="Home" />
+          </ListItemButton>
+        </ListItem>
+        <ListItem disablePadding>
+          <ListItemButton component={RouterLink} to="/events" onClick={() => setMobileOpen(false)}>
+            <ListItemIcon>
+              <EventIcon />
+            </ListItemIcon>
+            <ListItemText primary="Events" />
+          </ListItemButton>
+        </ListItem>
+        <ListItem disablePadding>
+          <ListItemButton component={RouterLink} to="/businesses" onClick={() => setMobileOpen(false)}>
+            <ListItemIcon>
+              <BusinessIcon />
+            </ListItemIcon>
+            <ListItemText primary="Businesses" />
+          </ListItemButton>
+        </ListItem>
+        <ListItem disablePadding>
+          <ListItemButton component={RouterLink} to="/tokens" onClick={() => setMobileOpen(false)}>
+            <ListItemIcon>
+              <VpnKeyIcon />
+            </ListItemIcon>
+            <ListItemText primary="Tokens" />
+          </ListItemButton>
+        </ListItem>
+        <ListItem disablePadding>
+          <ListItemButton component={RouterLink} to="/tasks" onClick={() => setMobileOpen(false)}>
+            <ListItemIcon>
+              <ListAltIcon />
+            </ListItemIcon>
+            <ListItemText primary="Tasks" />
+          </ListItemButton>
+        </ListItem>
+        <ListItem disablePadding>
+          <ListItemButton component={RouterLink} to="/templates" onClick={() => setMobileOpen(false)}>
+            <ListItemIcon>
+              <ListAltIcon />
+            </ListItemIcon>
+            <ListItemText primary="Templates" />
+          </ListItemButton>
+        </ListItem>
+      </List>
+    </div>
+  );
+
+  return (
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <Router>
+        <Box sx={{ display: 'flex' }}>
+          <AppBar position="fixed" sx={{ zIndex: themeHook.zIndex.drawer + 1 }}>
+            <Toolbar>
+              {isMobile && (
+                <IconButton
+                  color="inherit"
+                  edge="start"
+                  onClick={handleDrawerToggle}
+                  sx={{ mr: 2, display: { sm: 'none' } }}
+                >
+                  <MenuIcon />
+                </IconButton>
+              )}
+              <Typography variant="h6" noWrap component="div">
+                Yelp Integration Dashboard
+              </Typography>
+            </Toolbar>
+          </AppBar>
+
+          <Box component="nav" sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }} aria-label="mailbox folders">
+            <Drawer
+              variant={isMobile ? 'temporary' : 'permanent'}
+              open={isMobile ? mobileOpen : true}
+              onClose={handleDrawerToggle}
+              ModalProps={{ keepMounted: true }}
+              sx={{
+                '& .MuiDrawer-paper': { width: drawerWidth, boxSizing: 'border-box' },
+              }}
+            >
+              {drawer}
+            </Drawer>
+          </Box>
+
+          <Box component="main" sx={{ flexGrow: 1, p: 3, width: { sm: `calc(100% - ${drawerWidth}px)` } }}>
+            <Toolbar />
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/events" element={<EventsPage />} />
+              <Route path="/events/:id" element={<EventDetail />} />
+              <Route path="/leads/:id" element={<ClientDetails />} />
+              <Route path="/auth" element={<YelpAuth />} />
+              <Route path="/callback" element={<YelpCallback />} />
+              <Route path="/businesses" element={<BusinessSelector />} />
+              <Route path="/settings" element={<AutoResponseSettings />} />
+              <Route path="/tokens" element={<TokenStatus />} />
+              <Route path="/tasks" element={<TaskLogs />} />
+              <Route path="/templates" element={<SettingsTemplates />} />
+            </Routes>
+          </Box>
+        </Box>
+      </Router>
+    </ThemeProvider>
+  );
+};
 
 export default App;
