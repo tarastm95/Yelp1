@@ -445,7 +445,6 @@ const AutoResponseSettings: FC = () => {
 
   // save settings
   const handleSaveSettings = async () => {
-    if (settingsId === null) return;
     setLoading(true);
     const url = selectedBusiness ? `/settings/auto-response/?business_id=${selectedBusiness}` : '/settings/auto-response/';
     const delaySecs =
