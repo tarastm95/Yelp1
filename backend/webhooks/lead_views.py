@@ -1,4 +1,5 @@
 import logging
+from django.db.models import Q
 from rest_framework import generics, mixins, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -155,9 +156,9 @@ class FollowUpTemplateListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         bid = self.request.query_params.get('business_id')
         if bid:
-            qs = FollowUpTemplate.objects.filter(business__business_id=bid)
-            if qs.exists():
-                return qs
+            return FollowUpTemplate.objects.filter(
+                Q(business__business_id=bid) | Q(business__isnull=True)
+            )
         return FollowUpTemplate.objects.filter(business__isnull=True)
 
     def create(self, request, *args, **kwargs):
@@ -178,9 +179,9 @@ class FollowUpTemplateDetailView(generics.RetrieveUpdateDestroyAPIView):
     def get_queryset(self):
         bid = self.request.query_params.get('business_id')
         if bid:
-            qs = FollowUpTemplate.objects.filter(business__business_id=bid)
-            if qs.exists():
-                return qs
+            return FollowUpTemplate.objects.filter(
+                Q(business__business_id=bid) | Q(business__isnull=True)
+            )
         return FollowUpTemplate.objects.filter(business__isnull=True)
 
     def perform_update(self, serializer):
