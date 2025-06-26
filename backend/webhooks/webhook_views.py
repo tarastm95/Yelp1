@@ -221,7 +221,7 @@ class WebhookView(APIView):
 
         now = timezone.now()
         due = adjust_due_time(
-            now,
+            now + timedelta(seconds=auto_settings.greeting_delay),
             business.time_zone if business else None,
             auto_settings.greeting_open_from,
             auto_settings.greeting_open_to,

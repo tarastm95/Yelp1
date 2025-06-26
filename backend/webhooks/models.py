@@ -87,6 +87,11 @@ class AutoResponseSettings(models.Model):
         help_text="Включати список робіт у вітальне повідомлення"
     )
 
+    greeting_delay = models.PositiveIntegerField(
+        default=0,
+        help_text="Затримка перед привітанням, в секундах",
+    )
+
     # Вбудований follow-up
     follow_up_template = models.TextField(
         default="Just checking back in{sep}{name} — any questions about “{jobs}”?",
