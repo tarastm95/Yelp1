@@ -154,6 +154,10 @@ const AutoResponseSettings: FC = () => {
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | ''>('');
   const [previewTemplate, setPreviewTemplate] = useState<SettingsTemplate | null>(null);
 
+  // track initial settings and applied template
+  const initialSettings = useRef<AutoResponseSettingsData | null>(null);
+  const [appliedTemplateId, setAppliedTemplateId] = useState<number | null>(null);
+
   // local time of selected business
   const [localTime, setLocalTime] = useState('');
 
@@ -246,6 +250,22 @@ const AutoResponseSettings: FC = () => {
         setFollowOpenFrom(d.follow_up_open_from || '08:00:00');
         setFollowOpenTo(d.follow_up_open_to || '20:00:00');
         setExportToSheets(d.export_to_sheets);
+        initialSettings.current = {
+          enabled: d.enabled,
+          greeting_template: d.greeting_template,
+          greeting_delay: d.greeting_delay,
+          greeting_open_from: d.greeting_open_from || '08:00:00',
+          greeting_open_to: d.greeting_open_to || '20:00:00',
+          include_name: d.include_name,
+          include_jobs: d.include_jobs,
+          follow_up_template: d.follow_up_template,
+          follow_up_delay: d.follow_up_delay,
+          follow_up_open_from: d.follow_up_open_from || '08:00:00',
+          follow_up_open_to: d.follow_up_open_to || '20:00:00',
+          export_to_sheets: d.export_to_sheets,
+          follow_up_templates: initialSettings.current?.follow_up_templates || [],
+        };
+        setAppliedTemplateId(null);
       })
       .catch(() => setError('Failed to load settings.'))
       .finally(() => setLoading(false));
@@ -264,13 +284,40 @@ const AutoResponseSettings: FC = () => {
           setNewOpenFrom('08:00:00');
           setNewOpenTo('20:00:00');
         }
+        const mapped = res.data.map(t => ({
+          template: t.template,
+          delay: t.delay,
+          open_from: t.open_from,
+          open_to: t.open_to,
+        }));
+        if (!initialSettings.current) {
+          initialSettings.current = {
+            enabled: false,
+            greeting_template: '',
+            greeting_delay: 0,
+            greeting_open_from: '08:00:00',
+            greeting_open_to: '20:00:00',
+            include_name: true,
+            include_jobs: true,
+            follow_up_template: '',
+            follow_up_delay: 0,
+            follow_up_open_from: '08:00:00',
+            follow_up_open_to: '20:00:00',
+            export_to_sheets: false,
+            follow_up_templates: mapped,
+          };
+        } else {
+          initialSettings.current = {
+            ...initialSettings.current,
+            follow_up_templates: mapped,
+          };
+        }
       })
       .catch(() => setError('Failed to load follow-up templates.'))
       .finally(() => setTplLoading(false));
   };
 
-  const applyTemplate = (tpl: SettingsTemplate) => {
-    const d = tpl.data;
+  const applySettingsData = (d: AutoResponseSettingsData) => {
     setEnabled(d.enabled);
     setGreetingTemplate(d.greeting_template);
     let gsecs = d.greeting_delay || 0;
@@ -294,7 +341,6 @@ const AutoResponseSettings: FC = () => {
     setFollowOpenTo(d.follow_up_open_to || '20:00:00');
     setExportToSheets(d.export_to_sheets);
 
-    // load additional follow-up templates from the selected preset
     if (Array.isArray(d.follow_up_templates)) {
       const mapped = d.follow_up_templates.map((t: any, idx: number) => ({
         id: -(idx + 1),
@@ -317,6 +363,18 @@ const AutoResponseSettings: FC = () => {
       setTemplates([]);
       setNewOpenFrom('08:00:00');
       setNewOpenTo('20:00:00');
+    }
+  };
+
+  const applyTemplate = (tpl: SettingsTemplate) => {
+    if (appliedTemplateId === tpl.id) {
+      if (initialSettings.current) {
+        applySettingsData(initialSettings.current);
+      }
+      setAppliedTemplateId(null);
+    } else {
+      applySettingsData(tpl.data);
+      setAppliedTemplateId(tpl.id);
     }
   };
 
