@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { useState, FC } from 'react';
 import {
   BrowserRouter as Router,
   Routes,
@@ -69,8 +70,8 @@ axios.defaults.baseURL = process.env.REACT_APP_API_BASE_URL
 // ---------------------------------------------
 const drawerWidth = 240;
 
-const App: React.FC = () => {
-  const [mobileOpen, setMobileOpen] = React.useState(false);
+const App: FC = () => {
+  const [mobileOpen, setMobileOpen] = useState(false);
   const themeHook = useTheme();
   const isMobile = useMediaQuery(themeHook.breakpoints.down('sm'));
 
