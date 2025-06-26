@@ -34,7 +34,6 @@ import ClientDetails from "./ClientDetails/ClientDetails";
 import BusinessSelector from "./BusinessSelector";
 import TokenStatus from "./TokenStatus";
 import TaskLogs from "./TaskLogs";
-import SettingsTemplates from "./SettingsTemplates";
 
 // A default theme for the application
 const theme = createTheme({
@@ -86,7 +85,7 @@ const App: React.FC = () => (
           <Route path="/settings" element={<AutoResponseSettings />} />
           <Route path="/tokens" element={<TokenStatus />} />
           <Route path="/tasks" element={<TaskLogs />} />
-          <Route path="/templates" element={<SettingsTemplates />} />
+          <Route path="/templates" element={<AutoResponseSettings />} />
         </Routes>
       </main>
     </Router>

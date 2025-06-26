@@ -43,6 +43,11 @@ urlpatterns = [
         name='auto-response-settings'
     ),
     path(
+        'templates/auto-response/',
+        AutoResponseSettingsView.as_view(),
+        name='templates-auto-response-settings'
+    ),
+    path(
         'yelp/leads/<str:lead_id>/events/',
         LeadEventsProxyView.as_view(),
         name='proxy-lead-events'
