@@ -73,11 +73,34 @@ interface FollowUpTemplate {
   active: boolean;
 }
 
+interface FollowUpTplData {
+  template: string;
+  delay: number;
+  open_from: string;
+  open_to: string;
+}
+
+interface AutoResponseSettingsData {
+  enabled: boolean;
+  greeting_template: string;
+  greeting_delay: number;
+  greeting_open_from: string;
+  greeting_open_to: string;
+  include_name: boolean;
+  include_jobs: boolean;
+  follow_up_template: string;
+  follow_up_delay: number;
+  follow_up_open_from: string;
+  follow_up_open_to: string;
+  export_to_sheets: boolean;
+  follow_up_templates: FollowUpTplData[];
+}
+
 interface SettingsTemplate {
   id: number;
   name: string;
   description: string;
-  data: any;
+  data: AutoResponseSettingsData;
 }
 
 const AutoResponseSettings: FC = () => {
@@ -483,43 +506,44 @@ const AutoResponseSettings: FC = () => {
   return (
     <Container maxWidth={false} sx={{ mt:4, mb:4, maxWidth: 1000, mx: 'auto' }}>
       <Box sx={{ mb: 2 }}>
-        <Stack direction="row" spacing={2} sx={{ overflowX: 'auto', pb: 1 }}>
-          {settingsTemplates.map(t => (
-            <Card
-              key={t.id}
-              sx={{
-                minWidth: 200,
-                cursor: 'pointer',
-                border: previewTemplate?.id === t.id ? '2px solid #1976d2' : '1px solid #ccc'
-              }}
-              onClick={() => setPreviewTemplate(t)}
-            >
-              <CardActionArea>
-                <CardContent>
-                  <Typography variant="subtitle1" gutterBottom>{t.name}</Typography>
-                  <Typography variant="body2" noWrap>{t.description}</Typography>
-                </CardContent>
-              </CardActionArea>
-            </Card>
-          ))}
-        </Stack>
+        <Box>
+          <Select
+            value={selectedTemplateId}
+            onChange={e => {
+              const id = e.target.value as number;
+              setSelectedTemplateId(id);
+              const tpl = settingsTemplates.find(t => t.id === id) || null;
+              setPreviewTemplate(tpl);
+            }}
+            displayEmpty
+            size="small"
+            sx={{ minWidth: 200 }}
+          >
+            <MenuItem value="">
+              <em>Select Template</em>
+            </MenuItem>
+            {settingsTemplates.map(t => (
+              <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>
+            ))}
+          </Select>
+        </Box>
         {previewTemplate && (
           <Box mt={2}>
             <Typography variant="subtitle1" gutterBottom>Preview</Typography>
             <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
               {previewTemplate.data.greeting_template}
             </Typography>
-            {Array.isArray(previewTemplate.follow_up_templates) && previewTemplate.follow_up_templates.length > 0 && (
-              <Typography variant="body2" sx={{ whiteSpace: 'pre-line', mt: 1 }}>
-                {previewTemplate.follow_up_templates[0].template}
-              </Typography>
-            )}
+            {Array.isArray(previewTemplate.data.follow_up_templates) &&
+              previewTemplate.data.follow_up_templates.length > 0 && (
+                <Typography variant="body2" sx={{ whiteSpace: 'pre-line', mt: 1 }}>
+                  {previewTemplate.data.follow_up_templates[0].template}
+                </Typography>
+              )}
             <Button
               variant="contained"
               sx={{ mt: 1 }}
               onClick={() => {
                 applyTemplate(previewTemplate);
-                setSelectedTemplateId(previewTemplate.id);
               }}
             >
               Apply Template
