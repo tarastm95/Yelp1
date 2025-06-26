@@ -290,6 +290,17 @@ const AutoResponseSettings: FC = () => {
     loadTemplates(selectedBusiness || undefined);
   }, [selectedBusiness]);
 
+  // reload templates when other tabs modify them
+  useEffect(() => {
+    const handler = (e: StorageEvent) => {
+      if (e.key === 'followTemplateUpdated') {
+        loadTemplates(selectedBusiness || undefined);
+      }
+    };
+    window.addEventListener('storage', handler);
+    return () => window.removeEventListener('storage', handler);
+  }, [selectedBusiness]);
+
   // update local time for selected business
   useEffect(() => {
     let timer: ReturnType<typeof setInterval> | undefined;
