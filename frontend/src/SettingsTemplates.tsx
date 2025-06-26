@@ -86,6 +86,10 @@ const SettingsTemplates: React.FC = () => {
   const [greetingDelayHours, setGreetingDelayHours] = useState(0);
   const [greetingDelayMinutes, setGreetingDelayMinutes] = useState(0);
   const [greetingDelaySeconds, setGreetingDelaySeconds] = useState(0);
+  const [followDelayDays, setFollowDelayDays] = useState(0);
+  const [followDelayHours, setFollowDelayHours] = useState(0);
+  const [followDelayMinutes, setFollowDelayMinutes] = useState(0);
+  const [followDelaySeconds, setFollowDelaySeconds] = useState(0);
 
   const greetingRef = useRef<HTMLTextAreaElement | null>(null);
   const followRef = useRef<HTMLTextAreaElement | null>(null);
@@ -156,6 +160,13 @@ const SettingsTemplates: React.FC = () => {
         gsecs %= 3600;
         setGreetingDelayMinutes(Math.floor(gsecs / 60));
         setGreetingDelaySeconds(gsecs % 60);
+        let fsecs = t.data.follow_up_delay || 0;
+        setFollowDelayDays(Math.floor(fsecs / 86400));
+        fsecs %= 86400;
+        setFollowDelayHours(Math.floor(fsecs / 3600));
+        fsecs %= 3600;
+        setFollowDelayMinutes(Math.floor(fsecs / 60));
+        setFollowDelaySeconds(fsecs % 60);
         setSaved(false);
         setError('');
         setOpen(true);
@@ -171,6 +182,12 @@ const SettingsTemplates: React.FC = () => {
     setGreetingDelayHours(0);
     setGreetingDelayMinutes(0);
     setGreetingDelaySeconds(0);
+    setFollowDelayDays(Math.floor(defaultData.follow_up_delay / 86400));
+    let fsecs = defaultData.follow_up_delay % 86400;
+    setFollowDelayHours(Math.floor(fsecs / 3600));
+    fsecs %= 3600;
+    setFollowDelayMinutes(Math.floor(fsecs / 60));
+    setFollowDelaySeconds(fsecs % 60);
     setSaved(false);
     setError('');
     setOpen(true);
@@ -181,7 +198,12 @@ const SettingsTemplates: React.FC = () => {
       greetingDelayHours * 3600 +
       greetingDelayMinutes * 60 +
       greetingDelaySeconds;
-    const payload = {name, description, data: {...data, greeting_delay: greetDelaySecs}};
+    const followDelaySecs =
+      followDelayDays * 86400 +
+      followDelayHours * 3600 +
+      followDelayMinutes * 60 +
+      followDelaySeconds;
+    const payload = {name, description, data: {...data, greeting_delay: greetDelaySecs, follow_up_delay: followDelaySecs}};
     if (editing) {
       axios.put<SettingsTemplate>(`/settings-templates/${editing.id}/`, payload)
         .then(() => {
@@ -316,10 +338,31 @@ const SettingsTemplates: React.FC = () => {
               value={data.follow_up_template}
               onChange={e=>setData({...data, follow_up_template:e.target.value})}
             />
-            <Stack direction="row" spacing={1}>
-              <TextField type="number" label="Follow-up Delay (sec)" value={data.follow_up_delay}
-                onChange={e=>setData({...data, follow_up_delay:Number(e.target.value)})}
-              />
+            <Stack direction="row" spacing={1} alignItems="center">
+              <TextField label="Days" type="number" inputProps={{min:0}} sx={{ width:80 }}
+                value={followDelayDays} onChange={e=>{
+                  const v = Number(e.target.value);
+                  setFollowDelayDays(v);
+                  setData({...data, follow_up_delay: v*86400 + followDelayHours*3600 + followDelayMinutes*60 + followDelaySeconds});
+                }}/>
+              <TextField label="Hours" type="number" inputProps={{min:0}} sx={{ width:80 }}
+                value={followDelayHours} onChange={e=>{
+                  const v = Number(e.target.value);
+                  setFollowDelayHours(v);
+                  setData({...data, follow_up_delay: followDelayDays*86400 + v*3600 + followDelayMinutes*60 + followDelaySeconds});
+                }}/>
+              <TextField label="Min" type="number" inputProps={{min:0}} sx={{ width:80 }}
+                value={followDelayMinutes} onChange={e=>{
+                  const v = Number(e.target.value);
+                  setFollowDelayMinutes(v);
+                  setData({...data, follow_up_delay: followDelayDays*86400 + followDelayHours*3600 + v*60 + followDelaySeconds});
+                }}/>
+              <TextField label="Sec" type="number" inputProps={{min:0}} sx={{ width:80 }}
+                value={followDelaySeconds} onChange={e=>{
+                  const v = Number(e.target.value);
+                  setFollowDelaySeconds(v);
+                  setData({...data, follow_up_delay: followDelayDays*86400 + followDelayHours*3600 + followDelayMinutes*60 + v});
+                }}/>
               <TextField label="Open From" type="time" value={data.follow_up_open_from}
                 onChange={e=>setData({...data, follow_up_open_from:e.target.value})}
                 inputProps={{ step:1 }} size="small"/>
