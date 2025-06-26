@@ -16,6 +16,8 @@ import {
   Switch,
   FormControlLabel,
   Stack,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
@@ -65,6 +67,8 @@ const SettingsTemplates: React.FC = () => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [data, setData] = useState<AutoResponseSettingsData>(defaultData);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState('');
 
   const load = () => {
     axios.get<SettingsTemplate[]>('/settings-templates/')
@@ -77,11 +81,18 @@ const SettingsTemplates: React.FC = () => {
   }, []);
 
   const handleEdit = (tpl: SettingsTemplate) => {
-    setEditing(tpl);
-    setName(tpl.name);
-    setDescription(tpl.description);
-    setData(tpl.data);
-    setOpen(true);
+    axios.get<SettingsTemplate>(`/settings-templates/${tpl.id}/`)
+      .then(r => {
+        const t = r.data;
+        setEditing(t);
+        setName(t.name);
+        setDescription(t.description);
+        setData(t.data);
+        setSaved(false);
+        setError('');
+        setOpen(true);
+      })
+      .catch(() => setError('Failed to load template.'));
   };
 
   const handleAdd = () => {
@@ -89,6 +100,8 @@ const SettingsTemplates: React.FC = () => {
     setName('');
     setDescription('');
     setData(defaultData);
+    setSaved(false);
+    setError('');
     setOpen(true);
   };
 
@@ -96,16 +109,30 @@ const SettingsTemplates: React.FC = () => {
     const payload = {name, description, data};
     if (editing) {
       axios.put<SettingsTemplate>(`/settings-templates/${editing.id}/`, payload)
-        .then(() => load());
+        .then(() => {
+          load();
+          setSaved(true);
+          setOpen(false);
+        })
+        .catch(() => setError('Failed to save template.'));
     } else {
       axios.post<SettingsTemplate>('/settings-templates/', payload)
-        .then(() => load());
+        .then(() => {
+          load();
+          setSaved(true);
+          setOpen(false);
+        })
+        .catch(() => setError('Failed to save template.'));
     }
-    setOpen(false);
   };
 
   const handleDelete = (id: number) => {
     axios.delete(`/settings-templates/${id}/`).then(() => load());
+  };
+
+  const handleCloseSnackbar = () => {
+    setSaved(false);
+    setError('');
   };
 
   return (
@@ -186,6 +213,22 @@ const SettingsTemplates: React.FC = () => {
           <Button variant="contained" onClick={handleSave}>Save</Button>
         </DialogActions>
       </Dialog>
+      <Snackbar
+        open={saved || Boolean(error)}
+        autoHideDuration={4000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        {saved ? (
+          <Alert onClose={handleCloseSnackbar} severity="success" sx={{ width: '100%' }}>
+            Template saved!
+          </Alert>
+        ) : error ? (
+          <Alert onClose={handleCloseSnackbar} severity="error" sx={{ width: '100%' }}>
+            {error}
+          </Alert>
+        ) : undefined}
+      </Snackbar>
     </Container>
   );
 };
