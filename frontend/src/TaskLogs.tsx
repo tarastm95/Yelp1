@@ -16,10 +16,12 @@ import {
 
 interface TaskLog {
   task_id: string;
+  name: string;
   args: any[];
   eta: string | null;
   status: string;
   result?: string | null;
+  traceback?: string | null;
   business_id?: string | null;
 }
 
@@ -62,6 +64,19 @@ const TaskLogs: React.FC = () => {
     return map;
   }, [businesses]);
 
+  const bizNameMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    businesses.forEach(b => {
+      map[b.business_id] = b.name;
+    });
+    return map;
+  }, [businesses]);
+
+  const getBusinessName = (bid?: string | null) => {
+    if (!bid) return '';
+    return bizNameMap[bid] || bid;
+  };
+
   const formatEta = (eta: string | null, bizId?: string | null) => {
     if (!eta) return '—';
     const date = new Date(eta);
@@ -99,6 +114,8 @@ const TaskLogs: React.FC = () => {
           <TableHead>
             <TableRow>
               <TableCell>Lead ID</TableCell>
+              <TableCell>Business</TableCell>
+              <TableCell>Task</TableCell>
               <TableCell>Run Time</TableCell>
               <TableCell>Message</TableCell>
               <TableCell>Status</TableCell>
@@ -109,15 +126,21 @@ const TaskLogs: React.FC = () => {
             {completedTasks.map(t => (
               <TableRow key={t.task_id}>
                 <TableCell>{getLeadId(t.args)}</TableCell>
+                <TableCell>{getBusinessName(t.business_id)}</TableCell>
+                <TableCell>{t.name}</TableCell>
                 <TableCell>{formatEta(t.eta, t.business_id)}</TableCell>
                 <TableCell>{getMessage(t.args)}</TableCell>
                 <TableCell>{t.status}</TableCell>
-                <TableCell>{t.status === 'FAILURE' ? t.result || '' : ''}</TableCell>
+                <TableCell sx={{ whiteSpace: 'pre-wrap' }}>
+                  {t.status === 'FAILURE'
+                    ? [t.result, t.traceback].filter(Boolean).join('\n')
+                    : ''}
+                </TableCell>
               </TableRow>
             ))}
             {completedTasks.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} align="center">
+                <TableCell colSpan={7} align="center">
                   No completed or failed tasks
                 </TableCell>
               </TableRow>
@@ -129,6 +152,8 @@ const TaskLogs: React.FC = () => {
           <TableHead>
             <TableRow>
               <TableCell>Lead ID</TableCell>
+              <TableCell>Business</TableCell>
+              <TableCell>Task</TableCell>
               <TableCell>Run Time</TableCell>
               <TableCell>Message</TableCell>
             </TableRow>
@@ -137,13 +162,15 @@ const TaskLogs: React.FC = () => {
             {scheduledTasks.map(t => (
               <TableRow key={t.task_id}>
                 <TableCell>{getLeadId(t.args)}</TableCell>
+                <TableCell>{getBusinessName(t.business_id)}</TableCell>
+                <TableCell>{t.name}</TableCell>
                 <TableCell>{formatEta(t.eta, t.business_id)}</TableCell>
                 <TableCell>{getMessage(t.args)}</TableCell>
               </TableRow>
             ))}
             {scheduledTasks.length === 0 && (
               <TableRow>
-                <TableCell colSpan={3} align="center">
+                <TableCell colSpan={5} align="center">
                   No scheduled tasks
                 </TableCell>
               </TableRow>

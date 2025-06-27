@@ -3,7 +3,12 @@ import logging
 from datetime import datetime, timezone as dt_timezone
 
 from celery import Celery
-from celery.signals import before_task_publish, task_prerun, task_postrun
+from celery.signals import (
+    before_task_publish,
+    task_prerun,
+    task_postrun,
+    task_failure,
+)
 from django.db import transaction
 from django.utils import timezone
 from django.apps import apps
@@ -154,3 +159,25 @@ def log_task_done(
             result=str(retval),
             business_id=business_id,
         )
+
+
+@task_failure.connect
+def log_task_failure(
+    sender=None,
+    task_id=None,
+    exception=None,
+    args=None,
+    kwargs=None,
+    traceback=None,
+    einfo=None,
+    **other,
+):
+    """Store exception details for failed tasks."""
+    if not _should_log(sender, args):
+        return
+
+    model = get_task_log_model()
+    tb = getattr(einfo, "traceback", None) if einfo else traceback
+    model.objects.filter(task_id=task_id).update(
+        result=str(exception), traceback=tb
+    )
