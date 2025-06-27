@@ -10,4 +10,5 @@ gspread
 google-auth
 cryptography
 django-filter
+psycopg2-binary
 
