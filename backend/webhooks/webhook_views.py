@@ -134,6 +134,8 @@ class WebhookView(APIView):
                 logger.info(f"[WEBHOOK] Upserting LeadEvent id={eid} for lead={lid}")
                 obj, created = safe_update_or_create(LeadEvent, defaults=defaults, event_id=eid)
                 logger.info(f"[WEBHOOK] LeadEvent saved pk={obj.pk}, created={created}")
+                if e.get("event_type") == "CONSUMER_PHONE_NUMBER_OPT_IN_EVENT":
+                    LeadDetail.objects.filter(lead_id=lid).update(phone_opt_in=True)
 
         return Response({"status": "received"}, status=status.HTTP_201_CREATED)
 

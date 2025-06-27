@@ -197,6 +197,7 @@ class LeadDetailSerializer(serializers.ModelSerializer):
             'last_event_time',
             'user_display_name',
             'project',
+            'phone_opt_in',
             'created_at',
             'updated_at',
         ]
