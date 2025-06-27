@@ -15,6 +15,8 @@ import {
   Box,
   Select,
   MenuItem,
+  Tabs,
+  Tab,
   Card,
   CardActionArea,
   CardContent,
@@ -694,15 +696,14 @@ const AutoResponseSettings: FC = () => {
           ))}
         </Select>
 
-        <Select
+        <Tabs
           value={phoneOptIn ? 'yes' : 'no'}
-          onChange={e => setPhoneOptIn(e.target.value === 'yes')}
-          size="small"
+          onChange={(_, v) => setPhoneOptIn(v === 'yes')}
           sx={{ mt: 2, ml: 2 }}
         >
-          <MenuItem value="no">Phone not provided</MenuItem>
-          <MenuItem value="yes">Phone available</MenuItem>
-        </Select>
+          <Tab label="Phone not provided" value="no" />
+          <Tab label="Phone available" value="yes" />
+        </Tabs>
       </Box>
 
       {selectedBusiness && (() => {
