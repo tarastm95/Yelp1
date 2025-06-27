@@ -27,6 +27,17 @@ The script dumps all data using the SQLite configuration and then loads it into
 the Postgres database after applying migrations. Ensure the Postgres service is
 running before executing the script.
 
+After seeding the `AutoResponseSettings` table with the initial row (`id=1`),
+update the PostgreSQL sequence so new records receive the next available ID:
+
+```sql
+SELECT setval(pg_get_serial_sequence('webhooks_autoresponsesettings','id'),
+              (SELECT MAX(id) FROM webhooks_autoresponsesettings));
+```
+
+Migration `0035_update_autoresponsesettings_sequence` runs this query
+automatically when migrations are applied.
+
 ## Connecting from outside Docker
 
 If you want to use a local psql client or GUI to access the database, expose
