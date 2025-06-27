@@ -417,6 +417,12 @@ const AutoResponseSettings: FC = () => {
     loadTemplates(selectedBusiness || undefined);
   }, [selectedBusiness, phoneOptIn]);
 
+  // reset template selection when switching phone opt-in tab
+  useEffect(() => {
+    setSelectedTemplateId('current');
+    setAppliedTemplateId(null);
+  }, [phoneOptIn]);
+
   // reload templates when other tabs modify them
   useEffect(() => {
     const handler = (e: StorageEvent) => {
