@@ -290,9 +290,17 @@ class WebhookView(APIView):
                 f"[AUTO-RESPONSE] Built-in follow-up scheduled at {due2.isoformat()}"
             )
 
-        tpls = FollowUpTemplate.objects.filter(active=True, business__business_id=biz_id)
+        tpls = FollowUpTemplate.objects.filter(
+            active=True,
+            phone_opt_in=phone_opt_in,
+            business__business_id=biz_id,
+        )
         if not tpls.exists():
-            tpls = FollowUpTemplate.objects.filter(active=True, business__isnull=True)
+            tpls = FollowUpTemplate.objects.filter(
+                active=True,
+                phone_opt_in=phone_opt_in,
+                business__isnull=True,
+            )
         business = YelpBusiness.objects.filter(business_id=biz_id).first()
         for tmpl in tpls:
             delay = int(tmpl.delay.total_seconds())

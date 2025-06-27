@@ -166,11 +166,11 @@ class FollowUpTemplateListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         bid = self.request.query_params.get('business_id')
+        phone_opt_in = self.request.query_params.get('phone_opt_in') == 'true'
+        qs = FollowUpTemplate.objects.filter(phone_opt_in=phone_opt_in)
         if bid:
-            return FollowUpTemplate.objects.filter(
-                Q(business__business_id=bid) | Q(business__isnull=True)
-            )
-        return FollowUpTemplate.objects.filter(business__isnull=True)
+            return qs.filter(Q(business__business_id=bid) | Q(business__isnull=True))
+        return qs.filter(business__isnull=True)
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -178,8 +178,9 @@ class FollowUpTemplateListCreateView(generics.ListCreateAPIView):
             logger.error(f"[FollowUpTemplate] validation errors: {serializer.errors}")
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         bid = request.query_params.get('business_id')
+        phone_opt_in = request.query_params.get('phone_opt_in') == 'true'
         business = YelpBusiness.objects.filter(business_id=bid).first() if bid else None
-        serializer.save(business=business)
+        serializer.save(business=business, phone_opt_in=phone_opt_in)
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
@@ -189,14 +190,17 @@ class FollowUpTemplateDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         bid = self.request.query_params.get('business_id')
+        phone_opt_in = self.request.query_params.get('phone_opt_in') == 'true'
+        qs = FollowUpTemplate.objects.filter(phone_opt_in=phone_opt_in)
         if bid:
-            return FollowUpTemplate.objects.filter(
-                Q(business__business_id=bid) | Q(business__isnull=True)
-            )
-        return FollowUpTemplate.objects.filter(business__isnull=True)
+            return qs.filter(Q(business__business_id=bid) | Q(business__isnull=True))
+        return qs.filter(business__isnull=True)
 
     def perform_update(self, serializer):
-        instance = serializer.save()
+        bid = self.request.query_params.get('business_id')
+        phone_opt_in = self.request.query_params.get('phone_opt_in') == 'true'
+        business = YelpBusiness.objects.filter(business_id=bid).first() if bid else None
+        instance = serializer.save(business=business, phone_opt_in=phone_opt_in)
         reschedule_follow_up_tasks(instance)
 
 

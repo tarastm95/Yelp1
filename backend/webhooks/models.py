@@ -140,6 +140,10 @@ class FollowUpTemplate(models.Model):
         on_delete=models.CASCADE,
         help_text="Який бізнес використовує цей шаблон. Null → шаблон за замовчуванням",
     )
+    phone_opt_in = models.BooleanField(
+        default=False,
+        help_text="Use this template when consumer phone number is available",
+    )
     name = models.CharField(
         max_length=100,
         help_text="Лаконічна назва шаблону"

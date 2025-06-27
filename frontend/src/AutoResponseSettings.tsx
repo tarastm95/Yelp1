@@ -281,7 +281,10 @@ const AutoResponseSettings: FC = () => {
 
   const loadTemplates = (biz?: string) => {
     setTplLoading(true);
-    const url = biz ? `/follow-up-templates/?business_id=${biz}` : '/follow-up-templates/';
+    const params = new URLSearchParams();
+    params.append('phone_opt_in', phoneOptIn ? 'true' : 'false');
+    if (biz) params.append('business_id', biz);
+    const url = `/follow-up-templates/?${params.toString()}`;
     axios.get<FollowUpTemplate[]>(url)
       .then(res => {
         setTemplates(res.data);
@@ -497,7 +500,10 @@ const AutoResponseSettings: FC = () => {
         follow_up_templates: initialSettings.current?.follow_up_templates || [],
       };
 
-      const bizParam = selectedBusiness ? `?business_id=${selectedBusiness}` : '';
+      const params = new URLSearchParams();
+      params.append('phone_opt_in', phoneOptIn ? 'true' : 'false');
+      if (selectedBusiness) params.append('business_id', selectedBusiness);
+      const bizParam = `?${params.toString()}`;
 
       // remove templates that were loaded initially but no longer present
       const toDelete = loadedTemplateIds.current.filter(
@@ -547,7 +553,10 @@ const AutoResponseSettings: FC = () => {
   // add new template
   const handleAddTemplate = () => {
     setTplLoading(true);
-    const url = selectedBusiness ? `/follow-up-templates/?business_id=${selectedBusiness}` : '/follow-up-templates/';
+    const params = new URLSearchParams();
+    params.append('phone_opt_in', phoneOptIn ? 'true' : 'false');
+    if (selectedBusiness) params.append('business_id', selectedBusiness);
+    const url = `/follow-up-templates/?${params.toString()}`;
     const delaySecs =
       newDelayDays * 86400 +
       newDelayHours * 3600 +
@@ -594,9 +603,10 @@ const AutoResponseSettings: FC = () => {
   const handleUpdateTemplate = () => {
     if (!editingTpl) return;
     setTplLoading(true);
-    const url = selectedBusiness
-      ? `/follow-up-templates/${editingTpl.id}/?business_id=${selectedBusiness}`
-      : `/follow-up-templates/${editingTpl.id}/`;
+    const params = new URLSearchParams();
+    params.append('phone_opt_in', phoneOptIn ? 'true' : 'false');
+    if (selectedBusiness) params.append('business_id', selectedBusiness);
+    const url = `/follow-up-templates/${editingTpl.id}/?${params.toString()}`;
     const delaySecs =
       editDelayDays * 86400 +
       editDelayHours * 3600 +
@@ -622,7 +632,10 @@ const AutoResponseSettings: FC = () => {
 
   // delete a template
   const handleDeleteTemplate = (tplId: number) => {
-    const url = selectedBusiness ? `/follow-up-templates/${tplId}/?business_id=${selectedBusiness}` : `/follow-up-templates/${tplId}/`;
+    const params = new URLSearchParams();
+    params.append('phone_opt_in', phoneOptIn ? 'true' : 'false');
+    if (selectedBusiness) params.append('business_id', selectedBusiness);
+    const url = `/follow-up-templates/${tplId}/?${params.toString()}`;
     axios.delete(url)
       .then(() => {
         setTemplates(prev => prev.filter(t => t.id !== tplId));
