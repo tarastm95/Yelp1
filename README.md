@@ -36,9 +36,9 @@ the Postgres port in `backend/docker-compose.yml`:
   db:
     image: postgres:16
     ports:
-      - "5432:5432"
+      - "5433:5432"
 ```
 
 Restart the stack with `docker compose up -d`. The database is then available
-at `localhost:5432` with the credentials listed above.
+at `localhost:5433` with the credentials listed above.
 
