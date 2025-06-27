@@ -24,3 +24,18 @@ The script dumps all data using the SQLite configuration and then loads it into
 the Postgres database after applying migrations. Ensure the Postgres service is
 running before executing the script.
 
+## Connecting from outside Docker
+
+If you want to use a local psql client or GUI to access the database, expose
+the Postgres port in `backend/docker-compose.yml`:
+
+```yaml
+  db:
+    image: postgres:16
+    ports:
+      - "5432:5432"
+```
+
+Restart the stack with `docker compose up -d`. The database is then available
+at `localhost:5432` with the credentials listed above.
+
