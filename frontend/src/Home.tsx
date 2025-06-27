@@ -13,7 +13,6 @@ import {
   ListItemText,
   Snackbar,
   Alert,
-  Grid,
   Card,
   CardContent,
   Dialog,
@@ -23,6 +22,7 @@ import {
   useMediaQuery,
   useTheme,
   Grow,
+  Box,
 } from '@mui/material';
 
 // --- Material-UI Icons ---
@@ -64,9 +64,9 @@ const Home: FC = () => {
 
   return (
     <Container maxWidth="lg" sx={{ mt: isMobile ? 2 : 4 }}>
-      <Grid container spacing={2}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr' }, gap: 2 }}>
         <Grow in timeout={500}>
-          <Grid item xs={12} md={8}>
+          <Box>
             <Card sx={{ p: 3, mb: 2 }}>
               <CardContent>
                 <Typography variant="h4" gutterBottom>
@@ -77,10 +77,10 @@ const Home: FC = () => {
                 </Typography>
               </CardContent>
             </Card>
-          </Grid>
+          </Box>
         </Grow>
         <Grow in timeout={700}>
-          <Grid item xs={12} md={4}>
+          <Box>
             <Card sx={{ p: 3, mb: 2 }}>
               <CardContent>
                 <List>
@@ -127,9 +127,9 @@ const Home: FC = () => {
                 </List>
               </CardContent>
             </Card>
-          </Grid>
+          </Box>
         </Grow>
-      </Grid>
+      </Box>
       <Snackbar
         open={alertOpen}
         onClose={handleCloseAlert}
