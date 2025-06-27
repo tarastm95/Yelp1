@@ -290,6 +290,7 @@ class CeleryTaskLogSerializer(serializers.ModelSerializer):
             "finished_at",
             "status",
             "result",
+            "traceback",
             "business_id",
         ]
         read_only_fields = fields
