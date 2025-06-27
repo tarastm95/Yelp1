@@ -87,6 +87,8 @@ class WebhookView(APIView):
                 if upd.get("event_type") != "NEW_LEAD" and not ProcessedLead.objects.filter(lead_id=lid).exists():
                     upd["event_type"] = "NEW_LEAD"
                     logger.info(f"[WEBHOOK] Marked lead={lid} as NEW_LEAD")
+                if upd.get("event_type") == "CONSUMER_PHONE_NUMBER_OPT_IN_EVENT":
+                    LeadDetail.objects.filter(lead_id=lid).update(phone_opt_in=True)
         logger.info(f"[WEBHOOK] Lead IDs to process: {lead_ids}")
 
         for upd in updates:
