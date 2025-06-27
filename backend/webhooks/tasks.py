@@ -2,6 +2,7 @@
 
 import logging
 import requests
+from requests import HTTPError
 from celery import shared_task
 from django.utils import timezone
 
@@ -39,7 +40,15 @@ def send_follow_up(self, lead_id: str, text: str, access_token: str):
         resp.raise_for_status()
         logger.info(f"[FOLLOW-UP] Sent to lead={lead_id}")
     except Exception as exc:
-        logger.error(f"[FOLLOW-UP] Error sending to lead={lead_id}: {exc}")
+        if isinstance(exc, HTTPError) and exc.response is not None:
+            logger.error(
+                (
+                    f"[FOLLOW-UP] HTTP {exc.response.status_code} for lead={lead_id}: "
+                    f"{exc.response.text}"
+                )
+            )
+        else:
+            logger.error(f"[FOLLOW-UP] Error sending to lead={lead_id}: {exc}")
         raise self.retry(exc=exc)
 
 
@@ -105,7 +114,15 @@ def send_scheduled_message(self, lead_id: str, scheduled_id: int):
         sm.save(update_fields=['next_run'])
     except Exception as exc:
         error = str(exc)
-        logger.error(f"[SCHEDULED] Error sending msg #{sm.id}: {exc}")
+        if isinstance(exc, HTTPError) and exc.response is not None:
+            logger.error(
+                (
+                    f"[SCHEDULED] HTTP {exc.response.status_code} for lead={lead_id}: "
+                    f"{exc.response.text}"
+                )
+            )
+        else:
+            logger.error(f"[SCHEDULED] Error sending msg #{sm.id}: {exc}")
 
         # Деактивуємо, щоб не спамити помилками
         sm.active = False
@@ -176,7 +193,15 @@ def send_lead_scheduled_message(self, scheduled_id: int):
         msg.save(update_fields=['active'])
     except Exception as exc:
         error = str(exc)
-        logger.error(f"[LEAD SCHEDULED] Error #{msg.id}: {exc}")
+        if isinstance(exc, HTTPError) and exc.response is not None:
+            logger.error(
+                (
+                    f"[LEAD SCHEDULED] HTTP {exc.response.status_code} for lead={msg.lead_id}: "
+                    f"{exc.response.text}"
+                )
+            )
+        else:
+            logger.error(f"[LEAD SCHEDULED] Error #{msg.id}: {exc}")
         # дезактивуємо, щоб не спамити помилками
         msg.active = False
         msg.save(update_fields=['active'])
