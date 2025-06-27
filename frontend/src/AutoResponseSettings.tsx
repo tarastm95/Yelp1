@@ -228,6 +228,29 @@ const AutoResponseSettings: FC = () => {
     return parts.join(' ') || '0s';
   };
 
+  const emptySettings: AutoResponseSettingsData = {
+    enabled: false,
+    greeting_template: '',
+    greeting_delay: 0,
+    greeting_open_from: '08:00:00',
+    greeting_open_to: '20:00:00',
+    include_name: true,
+    include_jobs: true,
+    follow_up_template: '',
+    follow_up_delay: 0,
+    follow_up_open_from: '08:00:00',
+    follow_up_open_to: '20:00:00',
+    export_to_sheets: false,
+    follow_up_templates: [],
+  };
+
+  const resetSettings = () => {
+    applySettingsData(emptySettings);
+    setSettingsId(null);
+    initialSettings.current = null;
+    loadedTemplateIds.current = [];
+  };
+
   // load settings
   const loadSettings = (biz?: string) => {
     setLoading(true);
@@ -409,15 +432,19 @@ const AutoResponseSettings: FC = () => {
       .then(res => setBusinesses(res.data))
       .catch(() => setBusinesses([]));
 
-    loadTemplates();
-    loadSettings();
     loadSettingsTemplates();
   }, []);
 
 
   useEffect(() => {
-    loadSettings(selectedBusiness || undefined);
-    loadTemplates(selectedBusiness || undefined);
+    if (selectedBusiness) {
+      loadSettings(selectedBusiness);
+      loadTemplates(selectedBusiness);
+    } else {
+      resetSettings();
+      setLoading(false);
+      setTplLoading(false);
+    }
   }, [selectedBusiness, phoneOptIn]);
 
   // reset selected template dropdown when switching businesses
@@ -706,8 +733,8 @@ const AutoResponseSettings: FC = () => {
           size="small"
           sx={{ mt: 2 }}
         >
-          <MenuItem value="">
-            <em>Default Settings</em>
+          <MenuItem value="" disabled>
+            <em>Choose business</em>
           </MenuItem>
           {businesses.map(b => (
             <MenuItem key={b.business_id} value={b.business_id}>

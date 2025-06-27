@@ -74,6 +74,16 @@ class AutoResponseSettingsView(APIView):
             obj = qs.filter(business__business_id=business_id).first()
             if obj:
                 return obj
+            biz = YelpBusiness.objects.filter(business_id=business_id).first()
+            return AutoResponseSettings(
+                business=biz,
+                phone_opt_in=phone_opt_in,
+                enabled=False,
+                greeting_template='',
+                follow_up_template='',
+                greeting_delay=0,
+                follow_up_delay=0,
+            )
         return self._get_default_settings(phone_opt_in)
 
     def get(self, request, *args, **kwargs):
