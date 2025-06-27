@@ -156,6 +156,10 @@ const NewLeads: FC<Props> = ({
                   </Typography>
                 )}
 
+                {detail.phone_opt_in && (
+                  <Chip label="Phone Opt-In" color="success" size="small" />
+                )}
+
                 {/* Buttons */}
                 <Box sx={{ display: 'flex', gap: 2, mt: 1 }}>
                   <Button

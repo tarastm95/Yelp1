@@ -12,6 +12,7 @@ import {
   Stack,
   Divider,
   CircularProgress,
+  Chip,
 } from '@mui/material';
 
 interface Props {
@@ -135,6 +136,10 @@ const NewEvents: FC<Props> = ({
                       {detail.project.job_names.join(', ')}
                     </Typography>
                   )}
+
+                {detail?.phone_opt_in && (
+                  <Chip label="Phone Opt-In" color="success" size="small" />
+                )}
 
                 {upd.event_type && (
                   <Typography variant="body2">
