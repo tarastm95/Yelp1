@@ -420,6 +420,12 @@ const AutoResponseSettings: FC = () => {
     loadTemplates(selectedBusiness || undefined);
   }, [selectedBusiness, phoneOptIn]);
 
+  // reset selected template dropdown when switching businesses
+  useEffect(() => {
+    setSelectedTemplateIdNoPhone('current');
+    setSelectedTemplateIdWithPhone('current');
+  }, [selectedBusiness]);
+
   // reload templates when other tabs modify them
   useEffect(() => {
     const handler = (e: StorageEvent) => {
