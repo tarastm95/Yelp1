@@ -107,6 +107,7 @@ const AutoResponseSettings: FC = () => {
   // businesses
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [selectedBusiness, setSelectedBusiness] = useState('');
+  const [phoneOptIn, setPhoneOptIn] = useState(false);
 
   // auto-response state
   const [settingsId, setSettingsId] = useState<number | null>(null);
@@ -225,7 +226,10 @@ const AutoResponseSettings: FC = () => {
   // load settings
   const loadSettings = (biz?: string) => {
     setLoading(true);
-    const url = biz ? `/settings/auto-response/?business_id=${biz}` : '/settings/auto-response/';
+    const params = new URLSearchParams();
+    params.append('phone_opt_in', phoneOptIn ? 'true' : 'false');
+    if (biz) params.append('business_id', biz);
+    const url = `/settings/auto-response/?${params.toString()}`;
     axios.get<AutoResponse>(url)
       .then(res => {
         const d = res.data;
@@ -406,7 +410,7 @@ const AutoResponseSettings: FC = () => {
   useEffect(() => {
     loadSettings(selectedBusiness || undefined);
     loadTemplates(selectedBusiness || undefined);
-  }, [selectedBusiness]);
+  }, [selectedBusiness, phoneOptIn]);
 
   // reload templates when other tabs modify them
   useEffect(() => {
@@ -445,7 +449,10 @@ const AutoResponseSettings: FC = () => {
   // save settings
   const handleSaveSettings = async () => {
     setLoading(true);
-    const url = selectedBusiness ? `/settings/auto-response/?business_id=${selectedBusiness}` : '/settings/auto-response/';
+    const params = new URLSearchParams();
+    params.append('phone_opt_in', phoneOptIn ? 'true' : 'false');
+    if (selectedBusiness) params.append('business_id', selectedBusiness);
+    const url = `/settings/auto-response/?${params.toString()}`;
     const delaySecs =
       followDelayDays * 86400 +
       followDelayHours * 3600 +
@@ -685,6 +692,16 @@ const AutoResponseSettings: FC = () => {
               {b.time_zone ? ` - ${b.time_zone}` : ''}
             </MenuItem>
           ))}
+        </Select>
+
+        <Select
+          value={phoneOptIn ? 'yes' : 'no'}
+          onChange={e => setPhoneOptIn(e.target.value === 'yes')}
+          size="small"
+          sx={{ mt: 2, ml: 2 }}
+        >
+          <MenuItem value="no">Phone not provided</MenuItem>
+          <MenuItem value="yes">Phone available</MenuItem>
         </Select>
       </Box>
 

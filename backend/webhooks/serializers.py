@@ -33,6 +33,7 @@ class AutoResponseSettingsSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'business_id',
+            'phone_opt_in',
             'enabled',
             'access_token',
             'refresh_token',

@@ -63,6 +63,10 @@ class AutoResponseSettings(models.Model):
         on_delete=models.CASCADE,
         help_text="Який бізнес використовує ці налаштування. Null → налаштування за замовчуванням",
     )
+    phone_opt_in = models.BooleanField(
+        default=False,
+        help_text="Use these settings when consumer phone number is available",
+    )
     enabled = models.BooleanField(
         default=False,
         help_text="Увімкнути/вимкнути автoвідповіді"
