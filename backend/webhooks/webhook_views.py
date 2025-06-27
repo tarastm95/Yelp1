@@ -2,6 +2,7 @@ import logging
 import time
 from datetime import timedelta
 import requests
+from config import celery as config
 from django.utils import timezone
 from django.db import transaction, OperationalError
 from rest_framework import status
@@ -16,6 +17,8 @@ from .models import (
     LeadEvent,
     LeadDetail,
     FollowUpTemplate,
+    LeadPendingTask,
+    CeleryTaskLog,
     YelpBusiness,
 )
 from .serializers import EventSerializer
@@ -155,7 +158,23 @@ class WebhookView(APIView):
 
     def handle_phone_available(self, lead_id: str):
         logger.info(f"[AUTO-RESPONSE] Handling phone available for lead: {lead_id}")
+        self._cancel_no_phone_tasks(lead_id)
         self._process_auto_response(lead_id, phone_opt_in=True)
+
+    def _cancel_no_phone_tasks(self, lead_id: str):
+        pending = LeadPendingTask.objects.filter(
+            lead_id=lead_id, phone_opt_in=False, active=True
+        )
+        for p in pending:
+            try:
+                config.app.control.revoke(p.task_id)
+            except Exception as exc:
+                logger.error(
+                    f"[AUTO-RESPONSE] Error revoking task {p.task_id}: {exc}"
+                )
+            p.active = False
+            p.save(update_fields=["active"])
+            CeleryTaskLog.objects.filter(task_id=p.task_id).update(status="REVOKED")
 
     def _process_auto_response(self, lead_id: str, phone_opt_in: bool):
         default_settings = AutoResponseSettings.objects.filter(
@@ -264,10 +283,15 @@ class WebhookView(APIView):
             logger.info(f"[AUTO-RESPONSE] Greeting send status: {resp.status_code}")
         else:
             countdown = (due - now).total_seconds()
-            send_follow_up.apply_async(
+            res = send_follow_up.apply_async(
                 args=[lead_id, greeting, token],
                 headers={"business_id": biz_id},
                 countdown=countdown,
+            )
+            LeadPendingTask.objects.create(
+                lead_id=lead_id,
+                task_id=res.id,
+                phone_opt_in=phone_opt_in,
             )
             logger.info(f"[AUTO-RESPONSE] Greeting scheduled at {due.isoformat()}")
 
@@ -281,10 +305,15 @@ class WebhookView(APIView):
                 auto_settings.follow_up_open_to,
             )
             countdown = max((due2 - now).total_seconds(), 0)
-            send_follow_up.apply_async(
+            res = send_follow_up.apply_async(
                 args=[lead_id, built_in, token],
                 headers={"business_id": biz_id},
                 countdown=countdown,
+            )
+            LeadPendingTask.objects.create(
+                lead_id=lead_id,
+                task_id=res.id,
+                phone_opt_in=phone_opt_in,
             )
             logger.info(
                 f"[AUTO-RESPONSE] Built-in follow-up scheduled at {due2.isoformat()}"
@@ -312,10 +341,15 @@ class WebhookView(APIView):
                 tmpl.open_to,
             )
             countdown = max((due - now).total_seconds(), 0)
-            send_follow_up.apply_async(
+            res = send_follow_up.apply_async(
                 args=[lead_id, text, token],
                 headers={"business_id": biz_id},
                 countdown=countdown,
+            )
+            LeadPendingTask.objects.create(
+                lead_id=lead_id,
+                task_id=res.id,
+                phone_opt_in=phone_opt_in,
             )
             logger.info(
                 f"[AUTO-RESPONSE] Custom follow-up “{tmpl.name}” scheduled at {due.isoformat()}"
@@ -323,10 +357,15 @@ class WebhookView(APIView):
 
         for sm in ScheduledMessage.objects.filter(lead_id=lead_id, active=True):
             delay = max((sm.next_run - now).total_seconds(), 0)
-            send_scheduled_message.apply_async(
+            res = send_scheduled_message.apply_async(
                 args=[lead_id, sm.id],
                 headers={"business_id": biz_id},
                 countdown=delay,
+            )
+            LeadPendingTask.objects.create(
+                lead_id=lead_id,
+                task_id=res.id,
+                phone_opt_in=phone_opt_in,
             )
             logger.info(f"[SCHEDULED] Message #{sm.id} scheduled in {delay:.0f}s")
             sm.schedule_next()
