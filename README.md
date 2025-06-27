@@ -8,6 +8,9 @@ credentials are:
 - **Password**: `yelproot`
 - **Database**: `postgres`
 
+The `db` service sets `POSTGRES_HOST_AUTH_METHOD=md5` so host connections always
+require a password.
+
 The Django services read these credentials via environment variables and use
 PostgreSQL when `DB_ENGINE=postgres`.
 
