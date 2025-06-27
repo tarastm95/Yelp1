@@ -43,6 +43,7 @@ services:
       POSTGRES_USER: "yelproot"
       POSTGRES_PASSWORD: "yelproot"
       POSTGRES_DB: "postgres"
+      POSTGRES_HOST_AUTH_METHOD: "md5"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
