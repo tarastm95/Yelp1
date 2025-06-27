@@ -154,7 +154,10 @@ const AutoResponseSettings: FC = () => {
 
   // saved settings templates
   const [settingsTemplates, setSettingsTemplates] = useState<SettingsTemplate[]>([]);
-  const [selectedTemplateId, setSelectedTemplateId] = useState<number | 'current' | ''>('');
+  const [selectedTemplateIdNoPhone, setSelectedTemplateIdNoPhone] =
+    useState<number | 'current' | ''>('current');
+  const [selectedTemplateIdWithPhone, setSelectedTemplateIdWithPhone] =
+    useState<number | 'current' | ''>('current');
 
   // track initial settings and applied template
   const initialSettings = useRef<AutoResponseSettingsData | null>(null);
@@ -654,10 +657,14 @@ const AutoResponseSettings: FC = () => {
       <Box sx={{ mb: 2 }}>
         <Box>
           <Select
-            value={selectedTemplateId}
+            value={phoneOptIn ? selectedTemplateIdWithPhone : selectedTemplateIdNoPhone}
             onChange={e => {
               const val = e.target.value as any;
-              setSelectedTemplateId(val);
+              if (phoneOptIn) {
+                setSelectedTemplateIdWithPhone(val);
+              } else {
+                setSelectedTemplateIdNoPhone(val);
+              }
 
               if (initialSettings.current) {
                 if (val === 'current' || val === '') {
