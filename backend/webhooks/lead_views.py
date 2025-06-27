@@ -62,30 +62,37 @@ class EventRetrieveView(generics.RetrieveAPIView):
 
 
 class AutoResponseSettingsView(APIView):
-    def _get_default_settings(self):
-        obj, _ = AutoResponseSettings.objects.get_or_create(id=1)
+    def _get_default_settings(self, phone_opt_in: bool):
+        obj, _ = AutoResponseSettings.objects.get_or_create(
+            business=None, phone_opt_in=phone_opt_in
+        )
         return obj
 
-    def _get_settings_for_business(self, business_id: str | None):
+    def _get_settings_for_business(self, business_id: str | None, phone_opt_in: bool):
+        qs = AutoResponseSettings.objects.filter(phone_opt_in=phone_opt_in)
         if business_id:
-            obj = AutoResponseSettings.objects.filter(business__business_id=business_id).first()
+            obj = qs.filter(business__business_id=business_id).first()
             if obj:
                 return obj
-        return self._get_default_settings()
+        return self._get_default_settings(phone_opt_in)
 
     def get(self, request, *args, **kwargs):
         bid = request.query_params.get('business_id')
-        obj = self._get_settings_for_business(bid)
+        phone_opt_in = request.query_params.get('phone_opt_in') == 'true'
+        obj = self._get_settings_for_business(bid, phone_opt_in)
         serializer = AutoResponseSettingsSerializer(obj)
         return Response(serializer.data)
 
     def put(self, request, *args, **kwargs):
         bid = request.query_params.get('business_id')
+        phone_opt_in = request.query_params.get('phone_opt_in') == 'true'
         if bid:
             business = YelpBusiness.objects.filter(business_id=bid).first()
-            obj, _ = AutoResponseSettings.objects.get_or_create(business=business)
+            obj, _ = AutoResponseSettings.objects.get_or_create(
+                business=business, phone_opt_in=phone_opt_in
+            )
         else:
-            obj = self._get_default_settings()
+            obj = self._get_default_settings(phone_opt_in)
         serializer = AutoResponseSettingsSerializer(obj, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()

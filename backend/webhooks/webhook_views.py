@@ -88,7 +88,11 @@ class WebhookView(APIView):
                     upd["event_type"] = "NEW_LEAD"
                     logger.info(f"[WEBHOOK] Marked lead={lid} as NEW_LEAD")
                 if upd.get("event_type") == "CONSUMER_PHONE_NUMBER_OPT_IN_EVENT":
-                    LeadDetail.objects.filter(lead_id=lid).update(phone_opt_in=True)
+                    updated = LeadDetail.objects.filter(
+                        lead_id=lid, phone_opt_in=False
+                    ).update(phone_opt_in=True)
+                    if updated:
+                        self.handle_phone_available(lid)
         logger.info(f"[WEBHOOK] Lead IDs to process: {lead_ids}")
 
         for upd in updates:
@@ -137,17 +141,33 @@ class WebhookView(APIView):
                 obj, created = safe_update_or_create(LeadEvent, defaults=defaults, event_id=eid)
                 logger.info(f"[WEBHOOK] LeadEvent saved pk={obj.pk}, created={created}")
                 if e.get("event_type") == "CONSUMER_PHONE_NUMBER_OPT_IN_EVENT":
-                    LeadDetail.objects.filter(lead_id=lid).update(phone_opt_in=True)
+                    updated = LeadDetail.objects.filter(
+                        lead_id=lid, phone_opt_in=False
+                    ).update(phone_opt_in=True)
+                    if updated:
+                        self.handle_phone_available(lid)
 
         return Response({"status": "received"}, status=status.HTTP_201_CREATED)
 
     def handle_new_lead(self, lead_id: str):
         logger.info(f"[AUTO-RESPONSE] Handling new lead: {lead_id}")
-        default_settings = AutoResponseSettings.objects.filter(id=1).first()
+        self._process_auto_response(lead_id, phone_opt_in=False)
+
+    def handle_phone_available(self, lead_id: str):
+        logger.info(f"[AUTO-RESPONSE] Handling phone available for lead: {lead_id}")
+        self._process_auto_response(lead_id, phone_opt_in=True)
+
+    def _process_auto_response(self, lead_id: str, phone_opt_in: bool):
+        default_settings = AutoResponseSettings.objects.filter(
+            business__isnull=True, phone_opt_in=phone_opt_in
+        ).first()
         pl = ProcessedLead.objects.filter(lead_id=lead_id).first()
         biz_settings = None
         if pl:
-            biz_settings = AutoResponseSettings.objects.filter(business__business_id=pl.business_id).first()
+            biz_settings = AutoResponseSettings.objects.filter(
+                business__business_id=pl.business_id,
+                phone_opt_in=phone_opt_in,
+            ).first()
             token = get_valid_business_token(pl.business_id)
         else:
             token = get_valid_yelp_token()
