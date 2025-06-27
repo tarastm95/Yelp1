@@ -180,6 +180,10 @@ class WebhookView(APIView):
         default_settings = AutoResponseSettings.objects.filter(
             business__isnull=True, phone_opt_in=phone_opt_in
         ).first()
+        if default_settings is None:
+            default_settings = AutoResponseSettings.objects.filter(
+                business__isnull=True, phone_opt_in=not phone_opt_in
+            ).first()
         pl = ProcessedLead.objects.filter(lead_id=lead_id).first()
         biz_settings = None
         if pl:
@@ -187,6 +191,11 @@ class WebhookView(APIView):
                 business__business_id=pl.business_id,
                 phone_opt_in=phone_opt_in,
             ).first()
+            if biz_settings is None:
+                biz_settings = AutoResponseSettings.objects.filter(
+                    business__business_id=pl.business_id,
+                    phone_opt_in=not phone_opt_in,
+                ).first()
             token = get_valid_business_token(pl.business_id)
         else:
             token = get_valid_yelp_token()
@@ -328,6 +337,18 @@ class WebhookView(APIView):
             tpls = FollowUpTemplate.objects.filter(
                 active=True,
                 phone_opt_in=phone_opt_in,
+                business__isnull=True,
+            )
+        if not tpls.exists():
+            tpls = FollowUpTemplate.objects.filter(
+                active=True,
+                phone_opt_in=not phone_opt_in,
+                business__business_id=biz_id,
+            )
+        if not tpls.exists():
+            tpls = FollowUpTemplate.objects.filter(
+                active=True,
+                phone_opt_in=not phone_opt_in,
                 business__isnull=True,
             )
         business = YelpBusiness.objects.filter(business_id=biz_id).first()
