@@ -689,13 +689,9 @@ const AutoResponseSettings: FC = () => {
                 }
               }
             }}
-            displayEmpty
             size="small"
             sx={{ minWidth: 200 }}
           >
-            <MenuItem value="">
-              <em>Select Template</em>
-            </MenuItem>
             <MenuItem value="current">Current</MenuItem>
             {settingsTemplates.map(t => (
               <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>
