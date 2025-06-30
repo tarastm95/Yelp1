@@ -71,3 +71,37 @@ class WebhookEventProcessingTests(TestCase):
         self._post()
         mock_cancel.assert_called_once()
 
+    @patch("webhooks.webhook_views.requests.get")
+    @patch.object(WebhookView, "_cancel_no_phone_tasks")
+    @patch.object(WebhookView, "handle_phone_available")
+    @patch.object(WebhookView, "handle_new_lead")
+    @patch("webhooks.webhook_views.get_token_for_lead", return_value="tok")
+    def test_initial_event_with_phone_triggers_phone_available(
+        self, mock_token, mock_new_lead, mock_phone_available, mock_cancel, mock_get
+    ):
+        event_time = (self.proc.processed_at - timedelta(seconds=5)).isoformat()
+        mock_get.return_value = type(
+            "R",
+            (),
+            {
+                "status_code": 200,
+                "json": lambda self: {
+                    "events": [
+                        {
+                            "id": "e3",
+                            "event_type": "NEW_EVENT",
+                            "user_type": "CONSUMER",
+                            "user_id": "u",
+                            "user_display_name": "d",
+                            "event_content": {"text": "+380111111111"},
+                            "cursor": "c3",
+                            "time_created": event_time,
+                        }
+                    ]
+                },
+            },
+        )()
+        self._post()
+        mock_phone_available.assert_called_once()
+        mock_cancel.assert_not_called()
+

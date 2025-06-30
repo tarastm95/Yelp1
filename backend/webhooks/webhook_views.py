@@ -199,12 +199,14 @@ class WebhookView(APIView):
                     .first()
                 )
                 event_dt = parse_datetime(defaults.get("time_created"))
+                text = defaults.get("text", "")
+                has_phone = bool(text and PHONE_RE.search(text))
                 is_new = created
                 if processed_at and event_dt:
                     is_new = is_new and event_dt > processed_at
 
-                if not is_new:
-                    logger.info("[WEBHOOK] Skipping phone logic for old/existing event")
+                if not is_new and not has_phone:
+                    logger.info("[WEBHOOK] Skipping old event without phone")
                     continue
 
                 if e.get("event_type") == "CONSUMER_PHONE_NUMBER_OPT_IN_EVENT":
@@ -213,13 +215,13 @@ class WebhookView(APIView):
                     ).update(phone_opt_in=True)
                     if updated:
                         self.handle_phone_available(lid)
+
                 if e.get("user_type") == "CONSUMER":
-                    text = defaults.get("text", "")
-                    has_phone = bool(text and PHONE_RE.search(text))
                     pending = LeadPendingTask.objects.filter(
                         lead_id=lid, phone_opt_in=False, active=True
                     ).exists()
                     if has_phone:
+                        LeadDetail.objects.filter(lead_id=lid).update(phone_in_text=True)
                         if pending:
                             LeadDetail.objects.filter(lead_id=lid).update(phone_in_dialog=True)
                             reason = (
@@ -227,12 +229,8 @@ class WebhookView(APIView):
                             )
                             self.handle_phone_available(lid, reason=reason)
                         else:
-                            updated = LeadDetail.objects.filter(
-                                lead_id=lid, phone_in_text=False
-                            ).update(phone_in_text=True)
-                            if updated:
-                                self.handle_phone_available(lid)
-                    elif pending:
+                            self.handle_phone_available(lid)
+                    elif pending and is_new:
                         reason = "Клієнт відповів, але номеру не знайдено"
                         self._cancel_no_phone_tasks(lid, reason=reason)
 
