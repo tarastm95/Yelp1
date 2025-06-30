@@ -31,7 +31,7 @@ const NewEvents: FC<Props> = ({
   loadingMore,
 }) => {
   const [viewedEvents, setViewedEvents] = useState<Set<string>>(new Set());
-  const [eventIds, setEventIds] = useState<Record<string, string>>({});
+  const [eventInfo, setEventInfo] = useState<Record<string, { id: string; text: string }>>({});
   const theme = useTheme();
   useEffect(() => {
     const stored = localStorage.getItem('viewedEvents');
@@ -46,13 +46,16 @@ const NewEvents: FC<Props> = ({
     (async () => {
       for (const e of events) {
         const lid = e.payload?.data?.updates?.[0]?.lead_id;
-        if (!lid || eventIds[e.id] != null) continue;
+        if (!lid || eventInfo[e.id] != null) continue;
         try {
           const { data } = await axios.get<LeadEvent>(
             `/lead-events/${encodeURIComponent(lid)}/latest/`
           );
           if (data.event_id) {
-            setEventIds(prev => ({ ...prev, [e.id]: String(data.event_id) }));
+            setEventInfo(prev => ({
+              ...prev,
+              [e.id]: { id: String(data.event_id), text: data.text || '' },
+            }));
           }
         } catch (err) {
           console.error('[new events] failed for', lid, err);
@@ -76,7 +79,7 @@ const NewEvents: FC<Props> = ({
           const detail = leadDetails[upd.lead_id];
           const isNew = !viewedEvents.has(String(e.id));
 
-          if (!eventIds[e.id]) {
+          if (!eventInfo[e.id]) {
             return (
               <Paper
                 key={e.id}
@@ -114,7 +117,7 @@ const NewEvents: FC<Props> = ({
               }}
             >
               <Stack spacing={1}>
-                <Typography variant="h6">Event #{eventIds[e.id]}</Typography>
+                <Typography variant="h6">Event #{eventInfo[e.id].id}</Typography>
                 <Typography variant="body2" color="text.secondary">
                   {new Date(e.created_at).toLocaleString()}
                 </Typography>
@@ -147,10 +150,10 @@ const NewEvents: FC<Props> = ({
                   </Typography>
                 )}
 
-                {(upd.event_content?.text || upd.event_content?.fallback_text) && (
+                {(upd.event_content?.text || upd.event_content?.fallback_text || eventInfo[e.id].text) && (
                   <Typography variant="body2">
                     <strong>Message:</strong>{' '}
-                    {upd.event_content?.text || upd.event_content?.fallback_text}
+                    {upd.event_content?.text || upd.event_content?.fallback_text || eventInfo[e.id].text}
                   </Typography>
                 )}
 
@@ -159,7 +162,7 @@ const NewEvents: FC<Props> = ({
                 <Box>
                   <Button
                     component={RouterLink}
-                    to={`/events/${eventIds[e.id]}`}
+                    to={`/events/${eventInfo[e.id].id}`}
                     variant="outlined"
                     size="small"
                   >
