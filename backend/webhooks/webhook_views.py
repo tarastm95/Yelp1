@@ -1,6 +1,7 @@
 import logging
 import time
 from datetime import timedelta
+from django.utils.dateparse import parse_datetime
 import re
 import requests
 from config import celery as config
@@ -171,6 +172,11 @@ class WebhookView(APIView):
             logger.info(f"[WEBHOOK] Received {len(events)} events for lead={lid}")
 
             for e in events:
+                # Store every event but process phone logic only for new ones
+                # The first consumer message that created the lead often lacks
+                # a phone number.  We don't want that initial message to cancel
+                # auto-response tasks, so we compare the event time with the
+                # moment the lead was processed and skip older events.
                 eid = e["id"]
                 defaults = {
                     "lead_id": lid,
@@ -186,6 +192,21 @@ class WebhookView(APIView):
                 logger.info(f"[WEBHOOK] Upserting LeadEvent id={eid} for lead={lid}")
                 obj, created = safe_update_or_create(LeadEvent, defaults=defaults, event_id=eid)
                 logger.info(f"[WEBHOOK] LeadEvent saved pk={obj.pk}, created={created}")
+
+                processed_at = (
+                    ProcessedLead.objects.filter(lead_id=lid)
+                    .values_list("processed_at", flat=True)
+                    .first()
+                )
+                event_dt = parse_datetime(defaults.get("time_created"))
+                is_new = created
+                if processed_at and event_dt:
+                    is_new = is_new and event_dt > processed_at
+
+                if not is_new:
+                    logger.info("[WEBHOOK] Skipping phone logic for old/existing event")
+                    continue
+
                 if e.get("event_type") == "CONSUMER_PHONE_NUMBER_OPT_IN_EVENT":
                     updated = LeadDetail.objects.filter(
                         lead_id=lid, phone_opt_in=False

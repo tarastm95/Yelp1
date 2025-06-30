@@ -53,3 +53,10 @@ the Postgres port in `backend/docker-compose.yml`:
 Restart the stack with `docker compose up -d`. The database is then available
 at `localhost:5433` with the credentials listed above.
 
+## Webhook event processing
+
+When events are fetched from Yelp after a lead is created, the backend ignores
+consumer messages that occurred **before** the lead was processed. This prevents
+the initial lead message from cancelling pending auto-response tasks. Only events
+created after `ProcessedLead.processed_at` trigger phone number logic.
+
