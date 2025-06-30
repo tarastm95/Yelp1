@@ -110,6 +110,7 @@ const AutoResponseSettings: FC = () => {
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [selectedBusiness, setSelectedBusiness] = useState('');
   const [phoneOptIn, setPhoneOptIn] = useState(false);
+  const [phoneAvailable, setPhoneAvailable] = useState(false);
 
   // auto-response state
   const [settingsId, setSettingsId] = useState<number | null>(null);
@@ -157,6 +158,8 @@ const AutoResponseSettings: FC = () => {
   const [selectedTemplateIdNoPhone, setSelectedTemplateIdNoPhone] =
     useState<number | 'current' | ''>('current');
   const [selectedTemplateIdWithPhone, setSelectedTemplateIdWithPhone] =
+    useState<number | 'current' | ''>('current');
+  const [selectedTemplateIdAvailable, setSelectedTemplateIdAvailable] =
     useState<number | 'current' | ''>('current');
 
   // track initial settings and applied template
@@ -256,6 +259,7 @@ const AutoResponseSettings: FC = () => {
     setLoading(true);
     const params = new URLSearchParams();
     params.append('phone_opt_in', phoneOptIn ? 'true' : 'false');
+    params.append('phone_available', phoneAvailable ? 'true' : 'false');
     if (biz) params.append('business_id', biz);
     const url = `/settings/auto-response/?${params.toString()}`;
     axios.get<AutoResponse>(url)
@@ -309,6 +313,7 @@ const AutoResponseSettings: FC = () => {
     setTplLoading(true);
     const params = new URLSearchParams();
     params.append('phone_opt_in', phoneOptIn ? 'true' : 'false');
+    params.append('phone_available', phoneAvailable ? 'true' : 'false');
     if (biz) params.append('business_id', biz);
     const url = `/follow-up-templates/?${params.toString()}`;
     axios.get<FollowUpTemplate[]>(url)
@@ -445,12 +450,13 @@ const AutoResponseSettings: FC = () => {
       setLoading(false);
       setTplLoading(false);
     }
-  }, [selectedBusiness, phoneOptIn]);
+  }, [selectedBusiness, phoneOptIn, phoneAvailable]);
 
   // reset selected template dropdown when switching businesses
   useEffect(() => {
     setSelectedTemplateIdNoPhone('current');
     setSelectedTemplateIdWithPhone('current');
+    setSelectedTemplateIdAvailable('current');
   }, [selectedBusiness]);
 
   // reload templates when other tabs modify them
@@ -492,6 +498,7 @@ const AutoResponseSettings: FC = () => {
     setLoading(true);
     const params = new URLSearchParams();
     params.append('phone_opt_in', phoneOptIn ? 'true' : 'false');
+    params.append('phone_available', phoneAvailable ? 'true' : 'false');
     if (selectedBusiness) params.append('business_id', selectedBusiness);
     const url = `/settings/auto-response/?${params.toString()}`;
     const delaySecs =
@@ -538,6 +545,7 @@ const AutoResponseSettings: FC = () => {
 
       const params = new URLSearchParams();
       params.append('phone_opt_in', phoneOptIn ? 'true' : 'false');
+      params.append('phone_available', phoneAvailable ? 'true' : 'false');
       if (selectedBusiness) params.append('business_id', selectedBusiness);
       const bizParam = `?${params.toString()}`;
 
@@ -591,6 +599,7 @@ const AutoResponseSettings: FC = () => {
     setTplLoading(true);
     const params = new URLSearchParams();
     params.append('phone_opt_in', phoneOptIn ? 'true' : 'false');
+    params.append('phone_available', phoneAvailable ? 'true' : 'false');
     if (selectedBusiness) params.append('business_id', selectedBusiness);
     const url = `/follow-up-templates/?${params.toString()}`;
     const delaySecs =
@@ -641,6 +650,7 @@ const AutoResponseSettings: FC = () => {
     setTplLoading(true);
     const params = new URLSearchParams();
     params.append('phone_opt_in', phoneOptIn ? 'true' : 'false');
+    params.append('phone_available', phoneAvailable ? 'true' : 'false');
     if (selectedBusiness) params.append('business_id', selectedBusiness);
     const url = `/follow-up-templates/${editingTpl.id}/?${params.toString()}`;
     const delaySecs =
@@ -670,6 +680,7 @@ const AutoResponseSettings: FC = () => {
   const handleDeleteTemplate = (tplId: number) => {
     const params = new URLSearchParams();
     params.append('phone_opt_in', phoneOptIn ? 'true' : 'false');
+    params.append('phone_available', phoneAvailable ? 'true' : 'false');
     if (selectedBusiness) params.append('business_id', selectedBusiness);
     const url = `/follow-up-templates/${tplId}/?${params.toString()}`;
     axios.delete(url)
@@ -690,11 +701,13 @@ const AutoResponseSettings: FC = () => {
       <Box sx={{ mb: 2 }}>
         <Box>
           <Select
-            value={phoneOptIn ? selectedTemplateIdWithPhone : selectedTemplateIdNoPhone}
+            value={phoneOptIn ? selectedTemplateIdWithPhone : phoneAvailable ? selectedTemplateIdAvailable : selectedTemplateIdNoPhone}
             onChange={e => {
               const val = e.target.value as any;
               if (phoneOptIn) {
                 setSelectedTemplateIdWithPhone(val);
+              } else if (phoneAvailable) {
+                setSelectedTemplateIdAvailable(val);
               } else {
                 setSelectedTemplateIdNoPhone(val);
               }
@@ -746,12 +759,24 @@ const AutoResponseSettings: FC = () => {
         </Select>
 
         <Tabs
-          value={phoneOptIn ? 'yes' : 'no'}
-          onChange={(_, v) => setPhoneOptIn(v === 'yes')}
+          value={phoneOptIn ? 'opt' : phoneAvailable ? 'text' : 'no'}
+          onChange={(_, v) => {
+            if (v === 'opt') {
+              setPhoneOptIn(true);
+              setPhoneAvailable(false);
+            } else if (v === 'text') {
+              setPhoneOptIn(false);
+              setPhoneAvailable(true);
+            } else {
+              setPhoneOptIn(false);
+              setPhoneAvailable(false);
+            }
+          }}
           sx={{ mt: 2, ml: 2 }}
         >
           <Tab label="Phone not provided" value="no" />
-          <Tab label="No Phone Number availble" value="yes" />
+          <Tab label="No Phone Number available" value="opt" />
+          <Tab label="Phone available" value="text" />
         </Tabs>
       </Box>
 
