@@ -60,6 +60,12 @@ const NewEvents: FC<Props> = ({
           }
         } catch (err) {
           console.error('[new events] failed for', eventId, err);
+          const fallbackText =
+            upd?.event_content?.text || upd?.event_content?.fallback_text || '';
+          setEventInfo(prev => ({
+            ...prev,
+            [e.id]: { id: String(eventId), text: fallbackText },
+          }));
         }
       }
     })();
