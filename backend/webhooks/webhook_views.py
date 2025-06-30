@@ -1,6 +1,7 @@
 import logging
 import time
 from datetime import timedelta
+import re
 import requests
 from config import celery as config
 from django.utils import timezone
@@ -32,6 +33,10 @@ from .tasks import send_follow_up
 from .tasks import send_scheduled_message
 
 logger = logging.getLogger(__name__)
+
+# Simple pattern to detect phone numbers like +380XXXXXXXXX or other
+# international formats with optional spaces or dashes.
+PHONE_RE = re.compile(r"\+?\d[\d\s\-\(\)]{8,}\d")
 
 
 def safe_update_or_create(model, defaults=None, **kwargs):
@@ -149,6 +154,14 @@ class WebhookView(APIView):
                     ).update(phone_opt_in=True)
                     if updated:
                         self.handle_phone_available(lid)
+                if e.get("user_type") == "CONSUMER":
+                    text = defaults.get("text", "")
+                    if text and PHONE_RE.search(text):
+                        updated = LeadDetail.objects.filter(
+                            lead_id=lid, phone_in_text=False
+                        ).update(phone_in_text=True)
+                        if updated:
+                            self.handle_phone_available(lid)
 
         return Response({"status": "received"}, status=status.HTTP_201_CREATED)
 
