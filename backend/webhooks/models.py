@@ -228,6 +228,10 @@ class LeadDetail(models.Model):
     user_display_name              = models.CharField(max_length=100, blank=True)
     project                        = models.JSONField()
     phone_opt_in                   = models.BooleanField(default=False)
+    phone_in_text                  = models.BooleanField(
+        default=False,
+        help_text="Consumer provided phone number inside a text message",
+    )
     created_at                     = models.DateTimeField(auto_now_add=True)
     updated_at                     = models.DateTimeField(auto_now=True)
 
