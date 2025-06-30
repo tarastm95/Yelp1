@@ -1,9 +1,9 @@
 import React, { FC, useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import {
-  EventItem,
   LeadDetail as LeadDetailType,
   ProcessedLead,
+  LeadEvent,
 } from './types';
 import NewLeads from './NewLeads';
 import NewEvents from './NewEvents';
@@ -120,7 +120,7 @@ const EventsPage: FC = () => {
   const [leadsNextUrl, setLeadsNextUrl] = useState<string | null>(null);
 
   // Events
-  const [events, setEvents] = useState<EventItem[]>([]);
+  const [events, setEvents] = useState<LeadEvent[]>([]);
   const [eventsNextUrl, setEventsNextUrl] = useState<string | null>(null);
   const lastEventIdRef = useRef<number | null>(null);
 
@@ -177,16 +177,16 @@ const EventsPage: FC = () => {
   };
 
   // Load a page of events
-  const loadEvents = async (url = 'http://localhost:8000/api/events/') => {
+  const loadEvents = async (url = 'http://localhost:8000/api/lead-events/') => {
     try {
       console.log('[loadEvents] request', url);
-      const { data } = await axios.get<PaginatedResponse<EventItem>>(url);
+      const { data } = await axios.get<PaginatedResponse<LeadEvent>>(url);
       console.log('[loadEvents] received', data.results.length, 'events');
       setTotalEventsCount(data.count);
       setEvents(prev => [...prev, ...data.results]);
       setEventsNextUrl(data.next);
       if (data.results.length) {
-        const maxId = Math.max(...data.results.map(e => Number(e.id)));
+        const maxId = Math.max(...data.results.map(e => e.id));
         lastEventIdRef.current = Math.max(lastEventIdRef.current || 0, maxId);
       }
     } catch {
@@ -199,13 +199,13 @@ const EventsPage: FC = () => {
   const pollEvents = async () => {
     if (lastEventIdRef.current == null) return;
     try {
-      const url = `http://localhost:8000/api/events?after_id=${lastEventIdRef.current}`;
+      const url = `http://localhost:8000/api/lead-events?after_id=${lastEventIdRef.current}`;
       console.log('[pollEvents] request', url);
-      const { data } = await axios.get<EventItem[]>(url);
+      const { data } = await axios.get<LeadEvent[]>(url);
       console.log('[pollEvents] received', data.length, 'events');
       if (data.length) {
-        const sorted = [...data].sort((a, b) => Number(a.id) - Number(b.id));
-        const maxId = Number(sorted[sorted.length - 1].id);
+        const sorted = [...data].sort((a, b) => a.id - b.id);
+        const maxId = sorted[sorted.length - 1].id;
         setEvents(prev => [...sorted, ...prev]);
         setTotalEventsCount(prev => prev + data.length);
         lastEventIdRef.current = Math.max(lastEventIdRef.current || 0, maxId);
@@ -247,15 +247,14 @@ const EventsPage: FC = () => {
 
   const filteredEvents = selectedBusiness
     ? events.filter(e => {
-        const leadId = e.payload?.data?.updates?.[0]?.lead_id;
-        const biz = leadDetails[leadId]?.business_id;
+        const biz = leadDetails[e.lead_id]?.business_id;
         return biz === selectedBusiness;
       })
     : events;
 
   const newEvents = filteredEvents
-    .filter(e => e.payload?.data?.updates?.[0]?.event_type === 'NEW_EVENT')
-    .sort((a, b) => Number(b.id) - Number(a.id));
+    .filter(e => e.event_type === 'NEW_EVENT')
+    .sort((a, b) => b.id - a.id);
   const unreadEventsCount = Math.max(0, totalEventsCount - viewedEvents.size);
 
   return (

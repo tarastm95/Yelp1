@@ -176,6 +176,7 @@ class LeadEventSerializer(serializers.ModelSerializer):
     class Meta:
         model = LeadEvent
         fields = [
+            'id',
             'event_id',
             'lead_id',
             'event_type',
@@ -189,7 +190,7 @@ class LeadEventSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
         ]
-        read_only_fields = ['event_id', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'event_id', 'created_at', 'updated_at']
 
 
 class LeadDetailSerializer(serializers.ModelSerializer):
