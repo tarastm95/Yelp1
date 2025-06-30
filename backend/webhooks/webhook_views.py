@@ -107,12 +107,26 @@ class WebhookView(APIView):
                 ):
                     content = upd.get("event_content", {}) or {}
                     text = content.get("text") or content.get("fallback_text", "")
-                    if text and PHONE_RE.search(text):
-                        updated = LeadDetail.objects.filter(
-                            lead_id=lid, phone_in_text=False
-                        ).update(phone_in_text=True)
-                        if updated:
-                            self.handle_phone_available(lid)
+                    has_phone = bool(text and PHONE_RE.search(text))
+                    pending = LeadPendingTask.objects.filter(
+                        lead_id=lid, phone_opt_in=False, active=True
+                    ).exists()
+                    if has_phone:
+                        if pending:
+                            LeadDetail.objects.filter(lead_id=lid).update(phone_in_dialog=True)
+                            reason = (
+                                "Клієнт відповів із номером → переключено на сценарій phone available"
+                            )
+                            self.handle_phone_available(lid, reason=reason)
+                        else:
+                            updated = LeadDetail.objects.filter(
+                                lead_id=lid, phone_in_text=False
+                            ).update(phone_in_text=True)
+                            if updated:
+                                self.handle_phone_available(lid)
+                    elif pending:
+                        reason = "Клієнт відповів, але номеру не знайдено"
+                        self._cancel_no_phone_tasks(lid, reason=reason)
         logger.info(f"[WEBHOOK] Lead IDs to process: {lead_ids}")
 
         for upd in updates:
@@ -168,12 +182,26 @@ class WebhookView(APIView):
                         self.handle_phone_available(lid)
                 if e.get("user_type") == "CONSUMER":
                     text = defaults.get("text", "")
-                    if text and PHONE_RE.search(text):
-                        updated = LeadDetail.objects.filter(
-                            lead_id=lid, phone_in_text=False
-                        ).update(phone_in_text=True)
-                        if updated:
-                            self.handle_phone_available(lid)
+                    has_phone = bool(text and PHONE_RE.search(text))
+                    pending = LeadPendingTask.objects.filter(
+                        lead_id=lid, phone_opt_in=False, active=True
+                    ).exists()
+                    if has_phone:
+                        if pending:
+                            LeadDetail.objects.filter(lead_id=lid).update(phone_in_dialog=True)
+                            reason = (
+                                "Клієнт відповів із номером → переключено на сценарій phone available"
+                            )
+                            self.handle_phone_available(lid, reason=reason)
+                        else:
+                            updated = LeadDetail.objects.filter(
+                                lead_id=lid, phone_in_text=False
+                            ).update(phone_in_text=True)
+                            if updated:
+                                self.handle_phone_available(lid)
+                    elif pending:
+                        reason = "Клієнт відповів, але номеру не знайдено"
+                        self._cancel_no_phone_tasks(lid, reason=reason)
 
         return Response({"status": "received"}, status=status.HTTP_201_CREATED)
 
@@ -181,12 +209,12 @@ class WebhookView(APIView):
         logger.info(f"[AUTO-RESPONSE] Handling new lead: {lead_id}")
         self._process_auto_response(lead_id, phone_opt_in=False)
 
-    def handle_phone_available(self, lead_id: str):
+    def handle_phone_available(self, lead_id: str, reason: str | None = None):
         logger.info(f"[AUTO-RESPONSE] Handling phone available for lead: {lead_id}")
-        self._cancel_no_phone_tasks(lead_id)
+        self._cancel_no_phone_tasks(lead_id, reason)
         self._process_auto_response(lead_id, phone_opt_in=True)
 
-    def _cancel_no_phone_tasks(self, lead_id: str):
+    def _cancel_no_phone_tasks(self, lead_id: str, reason: str | None = None):
         pending = LeadPendingTask.objects.filter(
             lead_id=lead_id, phone_opt_in=False, active=True
         )
@@ -199,7 +227,9 @@ class WebhookView(APIView):
                 )
             p.active = False
             p.save(update_fields=["active"])
-            CeleryTaskLog.objects.filter(task_id=p.task_id).update(status="REVOKED")
+            CeleryTaskLog.objects.filter(task_id=p.task_id).update(
+                status="REVOKED", result=reason
+            )
 
     def _process_auto_response(self, lead_id: str, phone_opt_in: bool):
         default_settings = AutoResponseSettings.objects.filter(

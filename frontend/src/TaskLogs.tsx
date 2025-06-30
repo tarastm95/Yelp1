@@ -132,7 +132,7 @@ const TaskLogs: React.FC = () => {
                 <TableCell>{getMessage(t.args)}</TableCell>
                 <TableCell>{t.status}</TableCell>
                 <TableCell sx={{ whiteSpace: 'pre-wrap' }}>
-                  {t.status === 'FAILURE'
+                  {['FAILURE', 'REVOKED'].includes(t.status)
                     ? [t.result, t.traceback].filter(Boolean).join('\n')
                     : ''}
                 </TableCell>
