@@ -253,7 +253,6 @@ const EventsPage: FC = () => {
     : events;
 
   const newEvents = filteredEvents
-    .filter(e => e.event_type === 'NEW_EVENT')
     .sort((a, b) => b.id - a.id);
   const unreadEventsCount = Math.max(0, totalEventsCount - viewedEvents.size);
 
