@@ -154,6 +154,9 @@ const NewLeads: FC<Props> = ({
                 {detail.phone_opt_in && (
                   <Chip label="Phone Opt-In" color="success" size="small" />
                 )}
+                {detail.phone_in_text && (
+                  <Chip label="Phone in text" color="info" size="small" />
+                )}
 
                 {/* Buttons */}
                 <Box sx={{ display: 'flex', gap: 2, mt: 1 }}>

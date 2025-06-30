@@ -51,6 +51,7 @@ export interface LeadDetail {
     [key: string]: any;
   };
   phone_opt_in?: boolean;
+  phone_in_text?: boolean;
   created_at?: string;
   updated_at?: string;
   // Add other fields here if needed

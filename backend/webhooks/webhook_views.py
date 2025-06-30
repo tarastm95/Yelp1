@@ -101,6 +101,18 @@ class WebhookView(APIView):
                     ).update(phone_opt_in=True)
                     if updated:
                         self.handle_phone_available(lid)
+                if (
+                    upd.get("event_type") == "NEW_EVENT"
+                    and upd.get("user_type") == "CONSUMER"
+                ):
+                    content = upd.get("event_content", {}) or {}
+                    text = content.get("text") or content.get("fallback_text", "")
+                    if text and PHONE_RE.search(text):
+                        updated = LeadDetail.objects.filter(
+                            lead_id=lid, phone_in_text=False
+                        ).update(phone_in_text=True)
+                        if updated:
+                            self.handle_phone_available(lid)
         logger.info(f"[WEBHOOK] Lead IDs to process: {lead_ids}")
 
         for upd in updates:
