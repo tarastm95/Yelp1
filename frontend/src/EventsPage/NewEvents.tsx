@@ -98,6 +98,9 @@ const NewEvents: FC<Props> = ({
                 {detail?.phone_in_text && (
                   <Chip label="Phone in text" color="info" size="small" />
                 )}
+                {detail?.phone_in_dialog && (
+                  <Chip label="Phone in dialog" color="info" size="small" />
+                )}
 
                 {e.event_type && (
                   <Typography variant="body2">
