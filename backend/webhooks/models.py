@@ -232,6 +232,10 @@ class LeadDetail(models.Model):
         default=False,
         help_text="Consumer provided phone number inside a text message",
     )
+    phone_in_dialog                = models.BooleanField(
+        default=False,
+        help_text="Consumer provided phone number in reply to auto message",
+    )
     created_at                     = models.DateTimeField(auto_now_add=True)
     updated_at                     = models.DateTimeField(auto_now=True)
 
