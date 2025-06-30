@@ -45,11 +45,12 @@ const NewEvents: FC<Props> = ({
   useEffect(() => {
     (async () => {
       for (const e of events) {
-        const lid = e.payload?.data?.updates?.[0]?.lead_id;
-        if (!lid || eventInfo[e.id] != null) continue;
+        const upd = e.payload?.data?.updates?.[0];
+        const eventId = upd?.id;
+        if (!eventId || eventInfo[e.id] != null) continue;
         try {
           const { data } = await axios.get<LeadEvent>(
-            `/lead-events/${encodeURIComponent(lid)}/latest/`
+            `/lead-events/${encodeURIComponent(eventId)}/`
           );
           if (data.event_id) {
             setEventInfo(prev => ({
@@ -58,7 +59,7 @@ const NewEvents: FC<Props> = ({
             }));
           }
         } catch (err) {
-          console.error('[new events] failed for', lid, err);
+          console.error('[new events] failed for', eventId, err);
         }
       }
     })();
