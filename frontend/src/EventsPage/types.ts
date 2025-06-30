@@ -63,6 +63,7 @@ export interface ProcessedLead {
 }
 
 export interface LeadEvent {
+  id: number;
   event_id: string;
   lead_id: string;
   event_type: string;

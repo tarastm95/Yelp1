@@ -117,6 +117,30 @@ class ProcessedLeadListView(generics.ListAPIView):
     pagination_class = FivePerPagePagination
 
 
+class LeadEventListAPIView(mixins.ListModelMixin, generics.GenericAPIView):
+    queryset = LeadEvent.objects.all().order_by("-id")
+    serializer_class = LeadEventSerializer
+    pagination_class = FivePerPagePagination
+
+    def get(self, request, *args, **kwargs):
+        after_id = request.query_params.get("after_id")
+        logger.info(
+            f"[LEAD EVENT LIST] GET after_id={after_id} path={request.path}"
+        )
+        if after_id is not None:
+            qs = self.get_queryset().filter(id__gt=after_id).order_by("id")
+            serializer = self.get_serializer(qs, many=True)
+            logger.info(
+                f"[LEAD EVENT LIST] returning {len(serializer.data)} events after_id={after_id}"
+            )
+            return Response(serializer.data)
+        response = self.list(request, *args, **kwargs)
+        logger.info(
+            f"[LEAD EVENT LIST] paginated response with {len(response.data.get('results', []))} events"
+        )
+        return response
+
+
 class LeadDetailListAPIView(APIView):
     """Return list of all LeadDetail records"""
 

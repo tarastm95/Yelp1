@@ -1,7 +1,7 @@
 import React, { FC, useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { ProcessedLead, LeadDetail as LeadDetailType, EventItem, LeadEvent } from './types';
+import { ProcessedLead, LeadDetail as LeadDetailType, LeadEvent } from './types';
 import {
   Box,
   Typography,
@@ -16,7 +16,7 @@ import {
 interface Props {
   leads: ProcessedLead[];
   leadDetails: Record<string, Partial<LeadDetailType>>;
-  events: EventItem[];
+  events: LeadEvent[];
   visibleCount: number;
   onLoadMore: () => void;
   hasMore: boolean;
@@ -52,9 +52,7 @@ const NewLeads: FC<Props> = ({
       const toFetch = leads
         .map(l => l.lead_id)
         .filter(lid => {
-          const inEvents = events.some(e =>
-            e.payload?.data?.updates?.some(u => u.lead_id === lid && (u as any).id)
-          );
+          const inEvents = events.some(e => e.lead_id === lid);
           return !inEvents && fetchedEvents[lid] == null;
         });
       for (const lid of toFetch) {
@@ -103,11 +101,8 @@ const NewLeads: FC<Props> = ({
       <Stack spacing={2}>
         {leads.slice(0, visibleCount).map(({ lead_id, business_id, processed_at }) => {
           const detail = leadDetails[lead_id] || {};
-          const matchedEvent = events.find(e =>
-            e.payload?.data?.updates?.some(u => u.lead_id === lead_id)
-          );
-          const update = matchedEvent?.payload?.data?.updates?.find(u => u.lead_id === lead_id) as any;
-          const eventId = update?.id ? String(update.id) : fetchedEvents[lead_id];
+          const matchedEvent = events.find(e => e.lead_id === lead_id);
+          const eventId = matchedEvent ? String(matchedEvent.event_id) : fetchedEvents[lead_id];
           const isNew = !viewedLeads.has(lead_id);
 
           return (

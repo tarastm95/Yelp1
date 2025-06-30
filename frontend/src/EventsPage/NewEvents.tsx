@@ -1,8 +1,7 @@
 import React, { FC, useEffect, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
-import axios from 'axios';
 import { useTheme } from '@mui/material';
-import { EventItem, LeadDetail as LeadDetailType, LeadEvent } from './types';
+import { LeadDetail as LeadDetailType, LeadEvent } from './types';
 
 import {
   Box,
@@ -16,7 +15,7 @@ import {
 } from '@mui/material';
 
 interface Props {
-  events: EventItem[];
+  events: LeadEvent[];
   leadDetails: Record<string, Partial<LeadDetailType>>;
   onLoadMore: () => void;
   hasMore: boolean;
@@ -31,7 +30,6 @@ const NewEvents: FC<Props> = ({
   loadingMore,
 }) => {
   const [viewedEvents, setViewedEvents] = useState<Set<string>>(new Set());
-  const [eventInfo, setEventInfo] = useState<Record<string, { id: string; text: string }>>({});
   const theme = useTheme();
   useEffect(() => {
     const stored = localStorage.getItem('viewedEvents');
@@ -41,35 +39,6 @@ const NewEvents: FC<Props> = ({
       } catch {}
     }
   }, []);
-
-  useEffect(() => {
-    (async () => {
-      for (const e of events) {
-        const upd = e.payload?.data?.updates?.[0];
-        const eventId = upd?.id;
-        if (!eventId || eventInfo[e.id] != null) continue;
-        try {
-          const { data } = await axios.get<LeadEvent>(
-            `/lead-events/${encodeURIComponent(eventId)}/`
-          );
-          if (data.event_id) {
-            setEventInfo(prev => ({
-              ...prev,
-              [e.id]: { id: String(data.event_id), text: data.text || '' },
-            }));
-          }
-        } catch (err) {
-          console.error('[new events] failed for', eventId, err);
-          const fallbackText =
-            upd?.event_content?.text || upd?.event_content?.fallback_text || '';
-          setEventInfo(prev => ({
-            ...prev,
-            [e.id]: { id: String(eventId), text: fallbackText },
-          }));
-        }
-      }
-    })();
-  }, [events]);
   if (!events.length) {
     return (
       <Typography variant="body1" sx={{ mt: 2 }}>
@@ -82,36 +51,12 @@ const NewEvents: FC<Props> = ({
     <Box sx={{ mt: 1 }}>
       <Stack spacing={2}>
         {events.map((e) => {
-          const upd = e.payload!.data!.updates![0];
-          const detail = leadDetails[upd.lead_id];
-          const isNew = !viewedEvents.has(String(e.id));
-
-          if (!eventInfo[e.id]) {
-            return (
-              <Paper
-                key={e.id}
-                elevation={2}
-                sx={{
-                  p: 2,
-                  backgroundColor: isNew
-                    ? theme.palette.action.hover
-                    : theme.palette.background.paper,
-                  borderLeft: isNew
-                    ? `4px solid ${theme.palette.primary.main}`
-                    : 'none',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Typography>Loading...</Typography>
-              </Paper>
-            );
-          }
+          const detail = leadDetails[e.lead_id];
+          const isNew = !viewedEvents.has(String(e.event_id));
 
           return (
             <Paper
-              key={e.id}
+              key={e.event_id}
               elevation={2}
               sx={{
                 p: 2,
@@ -124,13 +69,13 @@ const NewEvents: FC<Props> = ({
               }}
             >
               <Stack spacing={1}>
-                <Typography variant="h6">Event #{eventInfo[e.id].id}</Typography>
+                <Typography variant="h6">Event #{e.event_id}</Typography>
                 <Typography variant="body2" color="text.secondary">
                   {new Date(e.created_at).toLocaleString()}
                 </Typography>
 
                 <Typography variant="body2">
-                  <strong>Lead ID:</strong> {upd.lead_id}
+                  <strong>Lead ID:</strong> {e.lead_id}
                 </Typography>
 
                 {detail?.user_display_name && (
@@ -151,25 +96,67 @@ const NewEvents: FC<Props> = ({
                   <Chip label="Phone Opt-In" color="success" size="small" />
                 )}
 
-                {upd.event_type && (
+                {e.event_type && (
                   <Typography variant="body2">
-                    <strong>Event Type:</strong> {upd.event_type}
+                    <strong>Event Type:</strong> {e.event_type}
                   </Typography>
                 )}
 
-                {(upd.event_content?.text || upd.event_content?.fallback_text || eventInfo[e.id].text) && (
+                {e.user_type && (
                   <Typography variant="body2">
-                    <strong>Message:</strong>{' '}
-                    {upd.event_content?.text || upd.event_content?.fallback_text || eventInfo[e.id].text}
+                    <strong>User Type:</strong> {e.user_type}
                   </Typography>
                 )}
+
+                {e.user_id && (
+                  <Typography variant="body2">
+                    <strong>User ID:</strong> {e.user_id}
+                  </Typography>
+                )}
+
+                {e.user_display_name && (
+                  <Typography variant="body2">
+                    <strong>User Display Name:</strong> {e.user_display_name}
+                  </Typography>
+                )}
+
+                {e.text && (
+                  <Typography variant="body2">
+                    <strong>Text:</strong> {e.text}
+                  </Typography>
+                )}
+
+                {e.cursor && (
+                  <Typography variant="body2">
+                    <strong>Cursor:</strong> {e.cursor}
+                  </Typography>
+                )}
+
+                <Typography variant="body2">
+                  <strong>Time Created:</strong>{' '}
+                  {new Date(e.time_created).toLocaleString()}
+                </Typography>
+
+                <Typography variant="body2">
+                  <strong>Created At:</strong>{' '}
+                  {new Date(e.created_at).toLocaleString()}
+                </Typography>
+
+                <Typography variant="body2">
+                  <strong>Updated At:</strong>{' '}
+                  {new Date(e.updated_at).toLocaleString()}
+                </Typography>
+
+                <Typography variant="body2">
+                  <strong>Raw:</strong> {JSON.stringify(e.raw)}
+                </Typography>
 
                 <Divider />
 
                 <Box>
                   <Button
                     component={RouterLink}
-                    to={`/events/${eventInfo[e.id].id}`}
+                    to={`/events/${e.event_id}`}
                     variant="outlined"
                     size="small"
                   >
