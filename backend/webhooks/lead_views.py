@@ -62,14 +62,14 @@ class EventRetrieveView(generics.RetrieveAPIView):
 
 
 class AutoResponseSettingsView(APIView):
-    def _get_default_settings(self, phone_opt_in: bool):
+    def _get_default_settings(self, phone_opt_in: bool, phone_available: bool):
         obj, _ = AutoResponseSettings.objects.get_or_create(
-            business=None, phone_opt_in=phone_opt_in
+            business=None, phone_opt_in=phone_opt_in, phone_available=phone_available
         )
         return obj
 
-    def _get_settings_for_business(self, business_id: str | None, phone_opt_in: bool):
-        qs = AutoResponseSettings.objects.filter(phone_opt_in=phone_opt_in)
+    def _get_settings_for_business(self, business_id: str | None, phone_opt_in: bool, phone_available: bool):
+        qs = AutoResponseSettings.objects.filter(phone_opt_in=phone_opt_in, phone_available=phone_available)
         if business_id:
             obj = qs.filter(business__business_id=business_id).first()
             if obj:
@@ -78,31 +78,34 @@ class AutoResponseSettingsView(APIView):
             return AutoResponseSettings(
                 business=biz,
                 phone_opt_in=phone_opt_in,
+                phone_available=phone_available,
                 enabled=False,
                 greeting_template='',
                 follow_up_template='',
                 greeting_delay=0,
                 follow_up_delay=0,
             )
-        return self._get_default_settings(phone_opt_in)
+        return self._get_default_settings(phone_opt_in, phone_available)
 
     def get(self, request, *args, **kwargs):
         bid = request.query_params.get('business_id')
         phone_opt_in = request.query_params.get('phone_opt_in') == 'true'
-        obj = self._get_settings_for_business(bid, phone_opt_in)
+        phone_available = request.query_params.get('phone_available') == 'true'
+        obj = self._get_settings_for_business(bid, phone_opt_in, phone_available)
         serializer = AutoResponseSettingsSerializer(obj)
         return Response(serializer.data)
 
     def put(self, request, *args, **kwargs):
         bid = request.query_params.get('business_id')
         phone_opt_in = request.query_params.get('phone_opt_in') == 'true'
+        phone_available = request.query_params.get('phone_available') == 'true'
         if bid:
             business = YelpBusiness.objects.filter(business_id=bid).first()
             obj, _ = AutoResponseSettings.objects.get_or_create(
-                business=business, phone_opt_in=phone_opt_in
+                business=business, phone_opt_in=phone_opt_in, phone_available=phone_available
             )
         else:
-            obj = self._get_default_settings(phone_opt_in)
+            obj = self._get_default_settings(phone_opt_in, phone_available)
         serializer = AutoResponseSettingsSerializer(obj, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
@@ -201,7 +204,8 @@ class FollowUpTemplateListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         bid = self.request.query_params.get('business_id')
         phone_opt_in = self.request.query_params.get('phone_opt_in') == 'true'
-        qs = FollowUpTemplate.objects.filter(phone_opt_in=phone_opt_in)
+        phone_available = self.request.query_params.get('phone_available') == 'true'
+        qs = FollowUpTemplate.objects.filter(phone_opt_in=phone_opt_in, phone_available=phone_available)
         if bid:
             return qs.filter(Q(business__business_id=bid) | Q(business__isnull=True))
         return qs.filter(business__isnull=True)
@@ -213,8 +217,9 @@ class FollowUpTemplateListCreateView(generics.ListCreateAPIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         bid = request.query_params.get('business_id')
         phone_opt_in = request.query_params.get('phone_opt_in') == 'true'
+        phone_available = request.query_params.get('phone_available') == 'true'
         business = YelpBusiness.objects.filter(business_id=bid).first() if bid else None
-        serializer.save(business=business, phone_opt_in=phone_opt_in)
+        serializer.save(business=business, phone_opt_in=phone_opt_in, phone_available=phone_available)
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
@@ -225,7 +230,8 @@ class FollowUpTemplateDetailView(generics.RetrieveUpdateDestroyAPIView):
     def get_queryset(self):
         bid = self.request.query_params.get('business_id')
         phone_opt_in = self.request.query_params.get('phone_opt_in') == 'true'
-        qs = FollowUpTemplate.objects.filter(phone_opt_in=phone_opt_in)
+        phone_available = self.request.query_params.get('phone_available') == 'true'
+        qs = FollowUpTemplate.objects.filter(phone_opt_in=phone_opt_in, phone_available=phone_available)
         if bid:
             return qs.filter(Q(business__business_id=bid) | Q(business__isnull=True))
         return qs.filter(business__isnull=True)
@@ -233,8 +239,9 @@ class FollowUpTemplateDetailView(generics.RetrieveUpdateDestroyAPIView):
     def perform_update(self, serializer):
         bid = self.request.query_params.get('business_id')
         phone_opt_in = self.request.query_params.get('phone_opt_in') == 'true'
+        phone_available = self.request.query_params.get('phone_available') == 'true'
         business = YelpBusiness.objects.filter(business_id=bid).first() if bid else None
-        instance = serializer.save(business=business, phone_opt_in=phone_opt_in)
+        instance = serializer.save(business=business, phone_opt_in=phone_opt_in, phone_available=phone_available)
         reschedule_follow_up_tasks(instance)
 
 

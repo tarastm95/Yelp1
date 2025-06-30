@@ -67,6 +67,10 @@ class AutoResponseSettings(models.Model):
         default=False,
         help_text="Use these settings when consumer phone number is available",
     )
+    phone_available = models.BooleanField(
+        default=False,
+        help_text="Use these settings when phone number was provided in text",
+    )
     enabled = models.BooleanField(
         default=False,
         help_text="Увімкнути/вимкнути автoвідповіді"
@@ -143,6 +147,10 @@ class FollowUpTemplate(models.Model):
     phone_opt_in = models.BooleanField(
         default=False,
         help_text="Use this template when consumer phone number is available",
+    )
+    phone_available = models.BooleanField(
+        default=False,
+        help_text="Use this template when phone number was provided in text",
     )
     name = models.CharField(
         max_length=100,
@@ -297,6 +305,7 @@ class LeadPendingTask(models.Model):
     lead_id = models.CharField(max_length=64, db_index=True)
     task_id = models.CharField(max_length=128, unique=True)
     phone_opt_in = models.BooleanField()
+    phone_available = models.BooleanField(default=False)
     active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

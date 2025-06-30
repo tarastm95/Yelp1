@@ -113,7 +113,7 @@ class WebhookView(APIView):
                         lead_id=lid, phone_opt_in=False
                     ).update(phone_opt_in=True)
                     if updated:
-                        self.handle_phone_available(lid)
+                        self.handle_phone_opt_in(lid)
                 if (
                     upd.get("event_type") == "NEW_EVENT"
                     and upd.get("user_type") == "CONSUMER"
@@ -122,7 +122,7 @@ class WebhookView(APIView):
                     text = content.get("text") or content.get("fallback_text", "")
                     has_phone = bool(text and PHONE_RE.search(text))
                     pending = LeadPendingTask.objects.filter(
-                        lead_id=lid, phone_opt_in=False, active=True
+                        lead_id=lid, phone_opt_in=False, phone_available=False, active=True
                     ).exists()
                     if has_phone:
                         if pending:
@@ -214,11 +214,11 @@ class WebhookView(APIView):
                         lead_id=lid, phone_opt_in=False
                     ).update(phone_opt_in=True)
                     if updated:
-                        self.handle_phone_available(lid)
+                        self.handle_phone_opt_in(lid)
 
                 if e.get("user_type") == "CONSUMER":
                     pending = LeadPendingTask.objects.filter(
-                        lead_id=lid, phone_opt_in=False, active=True
+                        lead_id=lid, phone_opt_in=False, phone_available=False, active=True
                     ).exists()
                     if has_phone:
                         LeadDetail.objects.filter(lead_id=lid).update(phone_in_text=True)
@@ -238,16 +238,21 @@ class WebhookView(APIView):
 
     def handle_new_lead(self, lead_id: str):
         logger.info(f"[AUTO-RESPONSE] Handling new lead: {lead_id}")
-        self._process_auto_response(lead_id, phone_opt_in=False)
+        self._process_auto_response(lead_id, phone_opt_in=False, phone_available=False)
+
+    def handle_phone_opt_in(self, lead_id: str, reason: str | None = None):
+        logger.info(f"[AUTO-RESPONSE] Handling phone opt-in for lead: {lead_id}")
+        self._cancel_no_phone_tasks(lead_id, reason)
+        self._process_auto_response(lead_id, phone_opt_in=True, phone_available=False)
 
     def handle_phone_available(self, lead_id: str, reason: str | None = None):
         logger.info(f"[AUTO-RESPONSE] Handling phone available for lead: {lead_id}")
         self._cancel_no_phone_tasks(lead_id, reason)
-        self._process_auto_response(lead_id, phone_opt_in=True)
+        self._process_auto_response(lead_id, phone_opt_in=False, phone_available=True)
 
     def _cancel_no_phone_tasks(self, lead_id: str, reason: str | None = None):
         pending = LeadPendingTask.objects.filter(
-            lead_id=lead_id, phone_opt_in=False, active=True
+            lead_id=lead_id, phone_opt_in=False, phone_available=False, active=True
         )
         for p in pending:
             try:
@@ -262,9 +267,11 @@ class WebhookView(APIView):
                 status="REVOKED", result=reason
             )
 
-    def _process_auto_response(self, lead_id: str, phone_opt_in: bool):
+    def _process_auto_response(self, lead_id: str, phone_opt_in: bool, phone_available: bool):
         default_settings = AutoResponseSettings.objects.filter(
-            business__isnull=True, phone_opt_in=phone_opt_in
+            business__isnull=True,
+            phone_opt_in=phone_opt_in,
+            phone_available=phone_available,
         ).first()
         pl = ProcessedLead.objects.filter(lead_id=lead_id).first()
         biz_settings = None
@@ -272,6 +279,7 @@ class WebhookView(APIView):
             biz_settings = AutoResponseSettings.objects.filter(
                 business__business_id=pl.business_id,
                 phone_opt_in=phone_opt_in,
+                phone_available=phone_available,
             ).first()
             token = get_valid_business_token(pl.business_id)
         else:
@@ -381,6 +389,7 @@ class WebhookView(APIView):
                     lead_id=lead_id,
                     task_id=res.id,
                     phone_opt_in=phone_opt_in,
+                    phone_available=phone_available,
                 )
                 logger.info(
                     f"[AUTO-RESPONSE] Greeting scheduled at {due.isoformat()}"
@@ -408,6 +417,7 @@ class WebhookView(APIView):
                     lead_id=lead_id,
                     task_id=res.id,
                     phone_opt_in=phone_opt_in,
+                    phone_available=phone_available,
                 )
                 logger.info(
                     f"[AUTO-RESPONSE] Built-in follow-up scheduled at {due2.isoformat()}"
@@ -416,12 +426,14 @@ class WebhookView(APIView):
         tpls = FollowUpTemplate.objects.filter(
             active=True,
             phone_opt_in=phone_opt_in,
+            phone_available=phone_available,
             business__business_id=biz_id,
         )
         if not tpls.exists():
             tpls = FollowUpTemplate.objects.filter(
                 active=True,
                 phone_opt_in=phone_opt_in,
+                phone_available=phone_available,
                 business__isnull=True,
             )
         business = YelpBusiness.objects.filter(business_id=biz_id).first()
@@ -449,6 +461,7 @@ class WebhookView(APIView):
                     lead_id=lead_id,
                     task_id=res.id,
                     phone_opt_in=phone_opt_in,
+                    phone_available=phone_available,
                 )
                 logger.info(
                     f"[AUTO-RESPONSE] Custom follow-up “{tmpl.name}” scheduled at {due.isoformat()}"
@@ -465,6 +478,7 @@ class WebhookView(APIView):
                 lead_id=lead_id,
                 task_id=res.id,
                 phone_opt_in=phone_opt_in,
+                phone_available=phone_available,
             )
             logger.info(f"[SCHEDULED] Message #{sm.id} scheduled in {delay:.0f}s")
             sm.schedule_next()

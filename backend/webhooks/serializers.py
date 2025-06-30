@@ -34,6 +34,7 @@ class AutoResponseSettingsSerializer(serializers.ModelSerializer):
             'id',
             'business_id',
             'phone_opt_in',
+            'phone_available',
             'enabled',
             'access_token',
             'refresh_token',
@@ -85,6 +86,7 @@ class FollowUpTemplateSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(read_only=True)
     business_id = serializers.CharField(source='business.business_id', allow_null=True, required=False)
     phone_opt_in = serializers.BooleanField(required=False)
+    phone_available = serializers.BooleanField(required=False)
     delay = DurationSecondsField(
         help_text="Затримка перед першим follow-up в секундах",
         write_only=False  # дозволяємо як читати, так і писати
@@ -96,6 +98,7 @@ class FollowUpTemplateSerializer(serializers.ModelSerializer):
             'id',
             'business_id',
             'phone_opt_in',
+            'phone_available',
             'name',
             'template',
             'delay',
@@ -109,6 +112,7 @@ class FollowUpTemplateSerializer(serializers.ModelSerializer):
         secs = validated_data.pop('delay')
         biz_info = validated_data.pop('business', None)
         phone_opt_in = validated_data.pop('phone_opt_in', False)
+        phone_available = validated_data.pop('phone_available', False)
         if isinstance(biz_info, dict):
             bid = biz_info.get('business_id')
             validated_data['business'] = YelpBusiness.objects.filter(business_id=bid).first() if bid else None
@@ -118,6 +122,7 @@ class FollowUpTemplateSerializer(serializers.ModelSerializer):
             validated_data['business'] = None
         validated_data['delay'] = timedelta(seconds=secs)
         validated_data['phone_opt_in'] = phone_opt_in
+        validated_data['phone_available'] = phone_available
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
@@ -126,6 +131,7 @@ class FollowUpTemplateSerializer(serializers.ModelSerializer):
             validated_data['delay'] = timedelta(seconds=secs)
         biz_info = validated_data.pop('business', None)
         phone_opt_in = validated_data.pop('phone_opt_in', None)
+        phone_available = validated_data.pop('phone_available', None)
         if biz_info is not None:
             if isinstance(biz_info, dict):
                 bid = biz_info.get('business_id')
@@ -136,6 +142,8 @@ class FollowUpTemplateSerializer(serializers.ModelSerializer):
                 instance.business = None
         if phone_opt_in is not None:
             instance.phone_opt_in = phone_opt_in
+        if phone_available is not None:
+            instance.phone_available = phone_available
         return super().update(instance, validated_data)
 
 
