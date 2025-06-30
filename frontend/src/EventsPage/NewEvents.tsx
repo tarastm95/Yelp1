@@ -147,9 +147,6 @@ const NewEvents: FC<Props> = ({
                   {new Date(e.updated_at).toLocaleString()}
                 </Typography>
 
-                <Typography variant="body2">
-                  <strong>Raw:</strong> {JSON.stringify(e.raw)}
-                </Typography>
 
                 <Divider />
 
