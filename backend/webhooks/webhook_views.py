@@ -65,6 +65,18 @@ def safe_update_or_create(model, defaults=None, **kwargs):
     return model.objects.update_or_create(defaults=defaults or {}, **kwargs)
 
 
+def _already_sent(lead_id: str, text: str) -> bool:
+    """Return True if this lead already received exactly this text."""
+    if LeadEvent.objects.filter(lead_id=lead_id, text=text).exists():
+        return True
+    return CeleryTaskLog.objects.filter(
+        name="send_follow_up",
+        args__0=lead_id,
+        args__1=text,
+        status="SUCCESS",
+    ).exists()
+
+
 class WebhookView(APIView):
     """Handle incoming webhook events from Yelp."""
 
@@ -338,17 +350,22 @@ class WebhookView(APIView):
             logger.info(f"[AUTO-RESPONSE] Greeting send status: {resp.status_code}")
         else:
             countdown = (due - now).total_seconds()
-            res = send_follow_up.apply_async(
-                args=[lead_id, greeting, token],
-                headers={"business_id": biz_id},
-                countdown=countdown,
-            )
-            LeadPendingTask.objects.create(
-                lead_id=lead_id,
-                task_id=res.id,
-                phone_opt_in=phone_opt_in,
-            )
-            logger.info(f"[AUTO-RESPONSE] Greeting scheduled at {due.isoformat()}")
+            if _already_sent(lead_id, greeting):
+                logger.info("[AUTO-RESPONSE] Greeting already sent → skipping")
+            else:
+                res = send_follow_up.apply_async(
+                    args=[lead_id, greeting, token],
+                    headers={"business_id": biz_id},
+                    countdown=countdown,
+                )
+                LeadPendingTask.objects.create(
+                    lead_id=lead_id,
+                    task_id=res.id,
+                    phone_opt_in=phone_opt_in,
+                )
+                logger.info(
+                    f"[AUTO-RESPONSE] Greeting scheduled at {due.isoformat()}"
+                )
 
         now = timezone.now()
         if auto_settings.follow_up_template and auto_settings.follow_up_delay:
@@ -360,19 +377,22 @@ class WebhookView(APIView):
                 auto_settings.follow_up_open_to,
             )
             countdown = max((due2 - now).total_seconds(), 0)
-            res = send_follow_up.apply_async(
-                args=[lead_id, built_in, token],
-                headers={"business_id": biz_id},
-                countdown=countdown,
-            )
-            LeadPendingTask.objects.create(
-                lead_id=lead_id,
-                task_id=res.id,
-                phone_opt_in=phone_opt_in,
-            )
-            logger.info(
-                f"[AUTO-RESPONSE] Built-in follow-up scheduled at {due2.isoformat()}"
-            )
+            if _already_sent(lead_id, built_in):
+                logger.info("[AUTO-RESPONSE] Built-in follow-up already sent → skipping")
+            else:
+                res = send_follow_up.apply_async(
+                    args=[lead_id, built_in, token],
+                    headers={"business_id": biz_id},
+                    countdown=countdown,
+                )
+                LeadPendingTask.objects.create(
+                    lead_id=lead_id,
+                    task_id=res.id,
+                    phone_opt_in=phone_opt_in,
+                )
+                logger.info(
+                    f"[AUTO-RESPONSE] Built-in follow-up scheduled at {due2.isoformat()}"
+                )
 
         tpls = FollowUpTemplate.objects.filter(
             active=True,
@@ -396,19 +416,24 @@ class WebhookView(APIView):
                 tmpl.open_to,
             )
             countdown = max((due - now).total_seconds(), 0)
-            res = send_follow_up.apply_async(
-                args=[lead_id, text, token],
-                headers={"business_id": biz_id},
-                countdown=countdown,
-            )
-            LeadPendingTask.objects.create(
-                lead_id=lead_id,
-                task_id=res.id,
-                phone_opt_in=phone_opt_in,
-            )
-            logger.info(
-                f"[AUTO-RESPONSE] Custom follow-up “{tmpl.name}” scheduled at {due.isoformat()}"
-            )
+            if _already_sent(lead_id, text):
+                logger.info(
+                    f"[AUTO-RESPONSE] Custom follow-up '{tmpl.name}' already sent → skipping"
+                )
+            else:
+                res = send_follow_up.apply_async(
+                    args=[lead_id, text, token],
+                    headers={"business_id": biz_id},
+                    countdown=countdown,
+                )
+                LeadPendingTask.objects.create(
+                    lead_id=lead_id,
+                    task_id=res.id,
+                    phone_opt_in=phone_opt_in,
+                )
+                logger.info(
+                    f"[AUTO-RESPONSE] Custom follow-up “{tmpl.name}” scheduled at {due.isoformat()}"
+                )
 
         for sm in ScheduledMessage.objects.filter(lead_id=lead_id, active=True):
             delay = max((sm.next_run - now).total_seconds(), 0)
