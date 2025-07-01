@@ -92,7 +92,7 @@ def log_task_schedule(sender=None, headers=None, **kwargs):
             get_task_log_model().objects.update_or_create(
                 task_id=task_id,
                 defaults={
-                    "name": sender,
+                    "name": _short_name(sender),
                     "args": args,
                     "kwargs": kargs,
                     "eta": schedule_time,
@@ -115,7 +115,7 @@ def log_task_start(sender=None, task_id=None, args=None, kwargs=None, **other):
     if updated == 0:
         model.objects.create(
             task_id=task_id,
-            name=getattr(sender, "name", str(sender)),
+            name=_short_name(getattr(sender, "name", str(sender))),
             args=args,
             kwargs=kwargs,
             started_at=timezone.now(),
@@ -150,7 +150,7 @@ def log_task_done(
             pass
         model.objects.create(
             task_id=task_id,
-            name=getattr(sender, "name", str(sender)),
+            name=_short_name(getattr(sender, "name", str(sender))),
             args=args,
             kwargs=kwargs,
             started_at=timezone.now(),

@@ -73,7 +73,7 @@ def _already_sent(lead_id: str, text: str) -> bool:
     # Consider tasks that are already scheduled or in progress to
     # avoid queuing duplicates while the first one hasn't finished yet
     return CeleryTaskLog.objects.filter(
-        name="send_follow_up",
+        name__endswith="send_follow_up",
         args__0=lead_id,
         args__1=text,
         status__in=["SCHEDULED", "STARTED", "SUCCESS"],
