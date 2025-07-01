@@ -99,7 +99,7 @@ const TaskLogs: React.FC = () => {
   return (
     <Container sx={{ mt: 4 }}>
       <Typography variant="h4" gutterBottom>
-        Celery Tasks
+        Planned Tasks
       </Typography>
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
         <Tab label="Completed" value="completed" />
