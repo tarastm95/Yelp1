@@ -70,11 +70,13 @@ def _already_sent(lead_id: str, text: str) -> bool:
     """Return True if this lead already received exactly this text."""
     if LeadEvent.objects.filter(lead_id=lead_id, text=text).exists():
         return True
+    # Consider tasks that are already scheduled or in progress to
+    # avoid queuing duplicates while the first one hasn't finished yet
     return CeleryTaskLog.objects.filter(
         name="send_follow_up",
         args__0=lead_id,
         args__1=text,
-        status="SUCCESS",
+        status__in=["SCHEDULED", "STARTED", "SUCCESS"],
     ).exists()
 
 
