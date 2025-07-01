@@ -70,3 +70,14 @@ Before marking an incoming update as a new lead, the backend queries
 seen. Only when the ID is missing from this list is the event treated as
 `"NEW_LEAD"`.
 
+## Frontend API configuration
+
+When building the React frontend for production, point it at your deployed
+backend by setting the `REACT_APP_API_BASE_URL` environment variable:
+
+```bash
+REACT_APP_API_BASE_URL=http://46.62.139.177:8000 npm run build
+```
+
+If this variable is omitted, the app falls back to `http://localhost:8000/api`.
+

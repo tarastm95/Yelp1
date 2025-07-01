@@ -26,7 +26,12 @@ SECRET_KEY = 'django-insecure-_8)i-uy_l-lq%@swb75enu8e4s)wumz1ap*f-hth9gxm)k3%lg
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['77e2-194-44-109-244.ngrok-free.app', '127.0.0.1', 'localhost']
+ALLOWED_HOSTS = [
+    '77e2-194-44-109-244.ngrok-free.app',
+    '127.0.0.1',
+    'localhost',
+    '46.62.139.177',
+]
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/1")
 CACHES = {
@@ -222,6 +227,7 @@ GOOGLE_SERVICE_ACCOUNT_FILE = BASE_DIR / "service_account.json"
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:3000',
     'http://localhost:3001',
+    'http://46.62.139.177:3000',
 ]
 
 CELERY_BEAT_SCHEDULE = {
