@@ -9,7 +9,7 @@ from .views import (
     FollowUpTemplateListCreateView, FollowUpTemplateDetailView,
     AutoResponseSettingsTemplateListCreateView, AutoResponseSettingsTemplateDetailView,
     BusinessListView, BusinessLeadsView, BusinessEventsView,
-    YelpTokenListView,
+    SubscriptionProxyView, YelpTokenListView,
 )
 from .task_views import TaskLogListView, MessageTaskListView
 
@@ -74,6 +74,7 @@ urlpatterns = [
     path('businesses/', BusinessListView.as_view(), name='business-list'),
     path('leads/', BusinessLeadsView.as_view(), name='business-leads'),
     path('events/', BusinessEventsView.as_view(), name='business-events'),
+    path('businesses/subscriptions/', SubscriptionProxyView.as_view(), name='business-subscriptions'),
     path('yelp/leads/<str:lead_id>/', LeadDetailProxyView.as_view()),
     path(
         'yelp/leads/<str:lead_id>/attachments/<str:attachment_id>/',

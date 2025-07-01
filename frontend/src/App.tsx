@@ -35,6 +35,7 @@ import EventIcon from '@mui/icons-material/Event';
 import BusinessIcon from '@mui/icons-material/Business';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import ListAltIcon from '@mui/icons-material/ListAlt';
+import SubscriptionsIcon from '@mui/icons-material/Subscriptions';
 import EventDetail from "./Events/EventDetail";
 import EventsPage from "./EventsPage/EventsPage";
 import Home from "./Home";
@@ -46,6 +47,7 @@ import BusinessSelector from "./BusinessSelector";
 import TokenStatus from "./TokenStatus";
 import TaskLogs from "./TaskLogs";
 import SettingsTemplates from "./SettingsTemplates";
+import Subscriptions from "./Subscriptions";
 
 // A default theme for the application
 const theme = createTheme({
@@ -113,6 +115,14 @@ const App: FC = () => {
               <VpnKeyIcon />
             </ListItemIcon>
             <ListItemText primary="Tokens" />
+          </ListItemButton>
+        </ListItem>
+        <ListItem disablePadding>
+          <ListItemButton component={RouterLink} to="/subscriptions" onClick={() => setMobileOpen(false)}>
+            <ListItemIcon>
+              <SubscriptionsIcon />
+            </ListItemIcon>
+            <ListItemText primary="Subscriptions" />
           </ListItemButton>
         </ListItem>
         <ListItem disablePadding>
@@ -184,6 +194,7 @@ const App: FC = () => {
               <Route path="/businesses" element={<BusinessSelector />} />
               <Route path="/settings" element={<AutoResponseSettings />} />
               <Route path="/tokens" element={<TokenStatus />} />
+              <Route path="/subscriptions" element={<Subscriptions />} />
               <Route path="/tasks" element={<TaskLogs />} />
               <Route path="/templates" element={<SettingsTemplates />} />
             </Routes>

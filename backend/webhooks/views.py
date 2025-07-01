@@ -11,6 +11,7 @@ from .proxy_views import (
     BusinessListView,
     BusinessLeadsView,
     BusinessEventsView,
+    SubscriptionProxyView,
 )
 from .webhook_views import WebhookView, safe_update_or_create
 from .oauth_views import (
@@ -69,4 +70,5 @@ __all__ = [
     "YelpTokenListView",
     "AttachmentProxyView",
     "TaskLogListView",
+    "SubscriptionProxyView",
 ]

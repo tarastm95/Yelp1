@@ -1,6 +1,7 @@
 import logging
 import requests
 from django.http import HttpResponse
+from django.conf import settings
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -189,3 +190,60 @@ class AttachmentProxyView(APIView):
 
         content_type = resp.headers.get("Content-Type", "application/octet-stream")
         return HttpResponse(resp.content, content_type=content_type)
+
+class SubscriptionProxyView(APIView):
+    """Proxy for Yelp business subscriptions."""
+
+    base_url = "https://api.yelp.com/v3/businesses/subscriptions"
+
+    def get(self, request):
+        sub_type = request.query_params.get("subscription_type", "WEBHOOK")
+        headers = {"Authorization": f"Bearer {settings.YELP_API_KEY}"}
+        resp = requests.get(self.base_url, headers=headers, params={"subscription_type": sub_type})
+        if resp.status_code != 200:
+            try:
+                err = resp.json()
+            except ValueError:
+                err = {"detail": resp.text}
+            return Response(err, status=resp.status_code)
+        return Response(resp.json(), status=status.HTTP_200_OK)
+
+    def post(self, request):
+        headers = {"Authorization": f"Bearer {settings.YELP_API_KEY}", "Content-Type": "application/json"}
+        payload = {
+            "subscription_types": request.data.get("subscription_types", ["WEBHOOK"]),
+            "business_ids": request.data.get("business_ids", []),
+        }
+        resp = requests.post(self.base_url, json=payload, headers=headers, timeout=10)
+        if resp.status_code not in (200, 201, 202):
+            try:
+                err = resp.json()
+            except ValueError:
+                err = {"detail": resp.text}
+            return Response(err, status=resp.status_code)
+        try:
+            data = resp.json()
+        except ValueError:
+            data = {}
+        return Response(data, status=resp.status_code)
+
+    def delete(self, request):
+        headers = {"Authorization": f"Bearer {settings.YELP_API_KEY}", "Content-Type": "application/json"}
+        payload = {
+            "subscription_types": request.data.get("subscription_types", ["WEBHOOK"]),
+            "business_ids": request.data.get("business_ids", []),
+        }
+        resp = requests.delete(self.base_url, json=payload, headers=headers, timeout=10)
+        if resp.status_code not in (200, 204):
+            try:
+                err = resp.json()
+            except ValueError:
+                err = {"detail": resp.text}
+            return Response(err, status=resp.status_code)
+        if resp.text:
+            try:
+                data = resp.json()
+            except ValueError:
+                data = {}
+            return Response(data, status=resp.status_code)
+        return Response(status=resp.status_code)
