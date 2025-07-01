@@ -105,6 +105,67 @@ class WebhookEventProcessingTests(TestCase):
         mock_phone_available.assert_called_once()
         mock_cancel.assert_not_called()
 
+
+class LeadIdVerificationTests(TestCase):
+    def setUp(self):
+        self.factory = APIRequestFactory()
+        self.view = WebhookView.as_view()
+        self.lead_id = "n1"
+        self.biz_id = "b1"
+
+    def _post(self):
+        payload = {
+            "data": {
+                "id": self.biz_id,
+                "updates": [{"lead_id": self.lead_id, "event_type": "NEW_EVENT"}],
+            }
+        }
+        request = self.factory.post("/webhook/", {"payload": payload}, format="json")
+        return self.view(request)
+
+    @patch("webhooks.webhook_views.requests.get")
+    @patch("webhooks.webhook_views.get_token_for_lead", return_value="tok")
+    @patch("webhooks.webhook_views.get_valid_business_token", return_value="tok")
+    @patch.object(WebhookView, "handle_new_lead")
+    def test_mark_new_lead_when_not_listed(
+        self, mock_new_lead, mock_biz_token, mock_lead_token, mock_get
+    ):
+        lead_list_resp = type(
+            "R",
+            (),
+            {"status_code": 200, "json": lambda self: {"lead_ids": []}},
+        )()
+        events_resp = type(
+            "E",
+            (),
+            {"status_code": 200, "json": lambda self: {"events": []}},
+        )()
+        mock_get.side_effect = [lead_list_resp, events_resp]
+        self._post()
+        mock_new_lead.assert_called_once_with(self.lead_id)
+
+    @patch("webhooks.webhook_views.requests.get")
+    @patch("webhooks.webhook_views.get_token_for_lead", return_value="tok")
+    @patch("webhooks.webhook_views.get_valid_business_token", return_value="tok")
+    @patch.object(WebhookView, "handle_new_lead")
+    def test_existing_lead_not_marked(
+        self, mock_new_lead, mock_biz_token, mock_lead_token, mock_get
+    ):
+        lead_list_resp = type(
+            "R",
+            (),
+            {"status_code": 200, "json": lambda self: {"lead_ids": [self.lead_id]}}
+        )()
+        events_resp = type(
+            "E",
+            (),
+            {"status_code": 200, "json": lambda self: {"events": []}},
+        )()
+        mock_get.side_effect = [lead_list_resp, events_resp]
+        self._post()
+        mock_new_lead.assert_not_called()
+        self.assertFalse(ProcessedLead.objects.filter(lead_id=self.lead_id).exists())
+
     @patch("webhooks.webhook_views.requests.get")
     @patch.object(WebhookView, "_cancel_no_phone_tasks")
     @patch.object(WebhookView, "handle_phone_available")
