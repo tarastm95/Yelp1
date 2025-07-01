@@ -113,7 +113,7 @@ const Home: FC = () => {
                       <ListItemIcon>
                         <ListAltIcon />
                       </ListItemIcon>
-                      <ListItemText primary="Celery Tasks" />
+                      <ListItemText primary="Planned Tasks" />
                     </ListItemButton>
                   </ListItem>
                   <ListItem disablePadding>
