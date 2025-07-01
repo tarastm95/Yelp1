@@ -108,8 +108,33 @@ class WebhookView(APIView):
             if lid:
                 lead_ids.add(lid)
                 if upd.get("event_type") != "NEW_LEAD" and not ProcessedLead.objects.filter(lead_id=lid).exists():
-                    upd["event_type"] = "NEW_LEAD"
-                    logger.info(f"[WEBHOOK] Marked lead={lid} as NEW_LEAD")
+                    token = get_valid_business_token(payload["data"]["id"])
+                    url = f"https://api.yelp.com/v3/businesses/{payload['data']['id']}/lead_ids"
+                    try:
+                        resp = requests.get(
+                            url,
+                            headers={"Authorization": f"Bearer {token}"},
+                            timeout=10,
+                        )
+                    except Exception as exc:
+                        resp = None
+                        logger.warning(
+                            f"[WEBHOOK] Error fetching lead_ids for business={payload['data']['id']}: {exc}"
+                        )
+                    lead_list = (
+                        resp.json().get("lead_ids", []) if resp and resp.status_code == 200 else []
+                    )
+                    if resp is not None and resp.status_code != 200:
+                        logger.warning(
+                            f"[WEBHOOK] Lead ID check failed status={resp.status_code}"
+                        )
+                    if lid not in lead_list:
+                        upd["event_type"] = "NEW_LEAD"
+                        logger.info(f"[WEBHOOK] Marked lead={lid} as NEW_LEAD")
+                    else:
+                        logger.info(
+                            f"[WEBHOOK] Lead {lid} already present in Yelp list; not marking as NEW_LEAD"
+                        )
                 if upd.get("event_type") == "CONSUMER_PHONE_NUMBER_OPT_IN_EVENT":
                     updated = LeadDetail.objects.filter(
                         lead_id=lid, phone_opt_in=False

@@ -65,3 +65,8 @@ might appear in that first message. Events created after
 Phone numbers found in a lead's `additional_info` field also trigger the "real
 phone provided" flow when the lead is first processed.
 
+Before marking an incoming update as a new lead, the backend queries
+`/businesses/{business_id}/lead_ids` to check whether the ID has already been
+seen. Only when the ID is missing from this list is the event treated as
+`"NEW_LEAD"`.
+
