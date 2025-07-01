@@ -775,8 +775,8 @@ const AutoResponseSettings: FC = () => {
           sx={{ mt: 2, ml: 2 }}
         >
           <Tab label="Phone not provided" value="no" />
-          <Tab label="No phone number available (Phone Opt-In)" value="opt" />
-          <Tab label="Phone available" value="text" />
+          <Tab label="phone available (Phone Opt-In)" value="opt" />
+          <Tab label="real phone provided" value="text" />
         </Tabs>
       </Box>
 
