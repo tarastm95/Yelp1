@@ -345,6 +345,22 @@ class WebhookView(APIView):
         ld, created = safe_update_or_create(LeadDetail, defaults=detail_data, lead_id=lead_id)
         logger.info(f"[AUTO-RESPONSE] LeadDetail {'created' if created else 'updated'} pk={ld.pk}")
 
+        # If a phone number is present in additional_info when the lead detail is
+        # fetched for the first time, treat it as a real phone provided by the
+        # consumer and switch to the phone available flow.
+        if (
+            not phone_available
+            and PHONE_RE.search(detail_data["project"].get("additional_info", ""))
+        ):
+            if not ld.phone_in_text:
+                ld.phone_in_text = True
+                ld.save(update_fields=["phone_in_text"])
+            logger.info("[AUTO-RESPONSE] Phone found in additional_info")
+            self.handle_phone_available(
+                lead_id, reason="phone number found in additional_info"
+            )
+            return
+
         if auto_settings.export_to_sheets:
             try:
                 from .utils import append_lead_to_sheet

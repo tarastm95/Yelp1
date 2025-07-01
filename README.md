@@ -62,3 +62,6 @@ cancelling pending auto-response tasks, while still capturing phone numbers that
 might appear in that first message. Events created after
 `ProcessedLead.processed_at` always trigger phone number logic.
 
+Phone numbers found in a lead's `additional_info` field also trigger the "real
+phone provided" flow when the lead is first processed.
+
