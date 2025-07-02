@@ -83,6 +83,30 @@ def _already_sent(lead_id: str, text: str) -> bool:
 class WebhookView(APIView):
     """Handle incoming webhook events from Yelp."""
 
+    def _is_new_lead(self, lead_id: str) -> dict:
+        """Check Yelp events to verify if this lead is new.
+
+        Returns a JSON-like dict ``{"new_lead": bool}`` where ``new_lead`` is
+        ``True`` when only a single consumer event exists.
+        """
+        token = get_token_for_lead(lead_id)
+        url = f"https://api.yelp.com/v3/leads/{lead_id}/events"
+        resp = requests.get(
+            url,
+            headers={"Authorization": f"Bearer {token}"},
+            params={"limit": 2},
+            timeout=10,
+        )
+        if resp.status_code != 200:
+            logger.error(
+                f"[WEBHOOK] Failed to verify new lead {lead_id}: {resp.status_code}"
+            )
+            return {"new_lead": False}
+
+        events = resp.json().get("events", [])
+        is_new = len(events) == 1 and events[0].get("user_type") == "CONSUMER"
+        return {"new_lead": is_new}
+
     def post(self, request, *args, **kwargs):
         logger.info("[WEBHOOK] Received POST /webhook/")
         raw = request.data or {}
@@ -108,8 +132,10 @@ class WebhookView(APIView):
             if lid:
                 lead_ids.add(lid)
                 if upd.get("event_type") != "NEW_LEAD" and not ProcessedLead.objects.filter(lead_id=lid).exists():
-                    upd["event_type"] = "NEW_LEAD"
-                    logger.info(f"[WEBHOOK] Marked lead={lid} as NEW_LEAD")
+                    check = self._is_new_lead(lid)
+                    if check.get("new_lead"):
+                        upd["event_type"] = "NEW_LEAD"
+                        logger.info(f"[WEBHOOK] Marked lead={lid} as NEW_LEAD via events check")
                 if upd.get("event_type") == "CONSUMER_PHONE_NUMBER_OPT_IN_EVENT":
                     updated = LeadDetail.objects.filter(
                         lead_id=lid, phone_opt_in=False
