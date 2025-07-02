@@ -213,6 +213,8 @@ YELP_OAUTH_SCOPES = [
 ]
 YELP_API_KEY = os.getenv("YELP_API_KEY", "KTqXwkcW5t4EwUN-8SusEfrSfctwVDIJ65FXXR3T72xYS-ZEuKORWvtvT1OQ8zBIcCXsP7nyrcXFuL_93988JoPpezu1Or4mE25_tSA8zVKji_4NI6_EbHJMbOYRZHYx")
 YELP_TOKEN_SECRET = os.getenv("YELP_TOKEN_SECRET", "0123456789ABCDEF0123456789ABCDEF")
+# When true, tokens are stored and logged in plain text without encryption
+DISABLE_TOKEN_ENCRYPTION = os.getenv("DISABLE_TOKEN_ENCRYPTION", "false").lower() in ("1", "true", "yes")
 GOOGLE_TIMEZONE_API_KEY = os.getenv("GOOGLE_TIMEZONE_API_KEY", "AIzaSyC3TB24rn-fp7IJ2m_T3PyMKLXuDSNOL9k")
 
 # Frontend URL
