@@ -190,13 +190,20 @@ class WebhookView(APIView):
                 else:
                     logger.info(f"[WEBHOOK] Lead {lid} already processed; skipping handle_new_lead")
 
+        biz_id = payload["data"].get("id")
         for lid in lead_ids:
-            token = get_token_for_lead(lid)
-            logger.info(f"[WEBHOOK] Using token for lead={lid} ending ...{token[-4:]}")
+            token = get_valid_business_token(biz_id)
+            logger.info(
+                f"[WEBHOOK] Using business token for lead={lid} ending ...{token[-4:]}"
+            )
             url = f"https://api.yelp.com/v3/leads/{lid}/events"
             params = {"limit": 20}
-            resp = requests.get(url, headers={"Authorization": f"Bearer {token}"}, params=params)
-            logger.info(f"[WEBHOOK] Yelp response status for lead={lid}: {resp.status_code}")
+            resp = requests.get(
+                url, headers={"Authorization": f"Bearer {token}"}, params=params
+            )
+            logger.info(
+                f"[WEBHOOK] Yelp response status for lead={lid}: {resp.status_code}"
+            )
 
             if resp.status_code != 200:
                 logger.error(f"[WEBHOOK] Failed to fetch events for lead={lid}: {resp.text}")
