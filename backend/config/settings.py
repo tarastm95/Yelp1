@@ -201,7 +201,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Yelp OAuth Settings
 YELP_CLIENT_ID = 'aqlct9xjUJHu0Lu5I0zW0Q'
 YELP_CLIENT_SECRET = 'obKNrCDl4i7Pgt8tjNmWA7Nq162QqPc2RvNqjS3BaGRBSRdkhO4rrR32o50UxYKq'
-YELP_OAUTH_REDIRECT_URI = 'http://localhost:8000/yelp/auth/callback/'
+YELP_OAUTH_REDIRECT_URI = 'http://46.62.139.177:8000/yelp/auth/callback/'
 YELP_AUTHORIZATION_URL = 'https://biz.yelp.com/oauth2/authorize'
 YELP_TOKEN_URL = 'https://api.yelp.com/oauth2/token'
 YELP_PARTNER_API_URL = 'https://partner-api.yelp.com/v3/businesses'
@@ -216,7 +216,7 @@ YELP_TOKEN_SECRET = os.getenv("YELP_TOKEN_SECRET", "0123456789ABCDEF0123456789AB
 GOOGLE_TIMEZONE_API_KEY = os.getenv("GOOGLE_TIMEZONE_API_KEY", "AIzaSyC3TB24rn-fp7IJ2m_T3PyMKLXuDSNOL9k")
 
 # Frontend URL
-FRONTEND_URL = 'http://localhost:3000'
+FRONTEND_URL = 'http://46.62.139.177:3000'
 
 # Google sheets
 GS_SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
