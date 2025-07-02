@@ -27,9 +27,16 @@ class WebhookEventProcessingTests(TestCase):
     @patch.object(WebhookView, "_cancel_no_phone_tasks")
     @patch.object(WebhookView, "handle_phone_available")
     @patch.object(WebhookView, "handle_new_lead")
+    @patch("webhooks.webhook_views.get_valid_business_token", return_value="tok")
     @patch("webhooks.webhook_views.get_token_for_lead", return_value="tok")
     def test_initial_event_does_not_cancel_tasks(
-        self, mock_token, mock_new_lead, mock_phone_available, mock_cancel, mock_get
+        self,
+        mock_lead_token,
+        mock_business_token,
+        mock_new_lead,
+        mock_phone_available,
+        mock_cancel,
+        mock_get,
     ):
         event_time = (self.proc.processed_at - timedelta(seconds=5)).isoformat()
         mock_get.return_value = type("R", (), {"status_code": 200, "json": lambda self: {"events": [
@@ -51,9 +58,16 @@ class WebhookEventProcessingTests(TestCase):
     @patch.object(WebhookView, "_cancel_no_phone_tasks")
     @patch.object(WebhookView, "handle_phone_available")
     @patch.object(WebhookView, "handle_new_lead")
+    @patch("webhooks.webhook_views.get_valid_business_token", return_value="tok")
     @patch("webhooks.webhook_views.get_token_for_lead", return_value="tok")
     def test_late_event_without_phone_cancels_tasks(
-        self, mock_token, mock_new_lead, mock_phone_available, mock_cancel, mock_get
+        self,
+        mock_lead_token,
+        mock_business_token,
+        mock_new_lead,
+        mock_phone_available,
+        mock_cancel,
+        mock_get,
     ):
         event_time = (self.proc.processed_at + timedelta(minutes=1)).isoformat()
         mock_get.return_value = type("R", (), {"status_code": 200, "json": lambda self: {"events": [
@@ -75,9 +89,16 @@ class WebhookEventProcessingTests(TestCase):
     @patch.object(WebhookView, "_cancel_no_phone_tasks")
     @patch.object(WebhookView, "handle_phone_available")
     @patch.object(WebhookView, "handle_new_lead")
+    @patch("webhooks.webhook_views.get_valid_business_token", return_value="tok")
     @patch("webhooks.webhook_views.get_token_for_lead", return_value="tok")
     def test_initial_event_with_phone_triggers_phone_available(
-        self, mock_token, mock_new_lead, mock_phone_available, mock_cancel, mock_get
+        self,
+        mock_lead_token,
+        mock_business_token,
+        mock_new_lead,
+        mock_phone_available,
+        mock_cancel,
+        mock_get,
     ):
         event_time = (self.proc.processed_at - timedelta(seconds=5)).isoformat()
         mock_get.return_value = type(
@@ -124,10 +145,15 @@ class LeadIdVerificationTests(TestCase):
         return self.view(request)
 
     @patch("webhooks.webhook_views.requests.get")
+    @patch("webhooks.webhook_views.get_valid_business_token", return_value="tok")
     @patch("webhooks.webhook_views.get_token_for_lead", return_value="tok")
     @patch.object(WebhookView, "handle_new_lead")
     def test_mark_new_lead_when_not_listed(
-        self, mock_new_lead, mock_lead_token, mock_get
+        self,
+        mock_new_lead,
+        mock_lead_token,
+        mock_business_token,
+        mock_get
     ):
         events_resp = type(
             "E",
@@ -149,10 +175,15 @@ class LeadIdVerificationTests(TestCase):
         mock_new_lead.assert_called_once_with(self.lead_id)
 
     @patch("webhooks.webhook_views.requests.get")
+    @patch("webhooks.webhook_views.get_valid_business_token", return_value="tok")
     @patch("webhooks.webhook_views.get_token_for_lead", return_value="tok")
     @patch.object(WebhookView, "handle_new_lead")
     def test_existing_lead_not_marked(
-        self, mock_new_lead, mock_lead_token, mock_get
+        self,
+        mock_new_lead,
+        mock_lead_token,
+        mock_business_token,
+        mock_get
     ):
         ProcessedLead.objects.create(business_id=self.biz_id, lead_id=self.lead_id)
         events_resp = type(
@@ -179,9 +210,16 @@ class LeadIdVerificationTests(TestCase):
     @patch.object(WebhookView, "_cancel_no_phone_tasks")
     @patch.object(WebhookView, "handle_phone_available")
     @patch.object(WebhookView, "handle_new_lead")
+    @patch("webhooks.webhook_views.get_valid_business_token", return_value="tok")
     @patch("webhooks.webhook_views.get_token_for_lead", return_value="tok")
     def test_phone_in_additional_info_triggers_phone_available(
-        self, mock_token, mock_new_lead, mock_phone_available, mock_cancel, mock_get
+        self,
+        mock_lead_token,
+        mock_business_token,
+        mock_new_lead,
+        mock_phone_available,
+        mock_cancel,
+        mock_get
     ):
         events_resp = type(
             "E",
