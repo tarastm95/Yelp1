@@ -333,9 +333,14 @@ class WebhookView(APIView):
 
         detail_url = f"https://api.yelp.com/v3/leads/{lead_id}"
         headers = {"Authorization": f"Bearer {token}"}
+        logger.debug(
+            f"[AUTO-RESPONSE] Fetching lead details from {detail_url} using token ending ...{token[-4:]}"
+        )
         resp = requests.get(detail_url, headers=headers, timeout=10)
         if resp.status_code != 200:
-            logger.error(f"[AUTO-RESPONSE] DETAIL ERROR lead={lead_id}, status={resp.status_code}")
+            logger.error(
+                f"[AUTO-RESPONSE] DETAIL ERROR lead={lead_id}, status={resp.status_code}, body={resp.text}"
+            )
             return
         d = resp.json()
 
