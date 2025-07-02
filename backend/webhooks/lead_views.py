@@ -134,7 +134,12 @@ class LeadEventListAPIView(mixins.ListModelMixin, generics.GenericAPIView):
         qs = LeadEvent.objects.all().order_by("-id")
         bid = self.request.query_params.get("business_id")
         if bid:
-            qs = qs.filter(business_id=bid)
+            lead_ids = (
+                LeadDetail.objects
+                .filter(business_id=bid)
+                .values_list("lead_id", flat=True)
+            )
+            qs = qs.filter(lead_id__in=lead_ids)
         return qs
 
     def get(self, request, *args, **kwargs):
