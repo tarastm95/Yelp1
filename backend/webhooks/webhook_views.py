@@ -159,18 +159,19 @@ class WebhookView(APIView):
                         lead_id=lid, phone_opt_in=False, phone_available=False, active=True
                     ).exists()
                     if has_phone:
+                        updated = LeadDetail.objects.filter(
+                            lead_id=lid, phone_in_text=False
+                        ).update(phone_in_text=True)
+                        trigger = updated or pending
                         if pending:
                             LeadDetail.objects.filter(lead_id=lid).update(phone_in_dialog=True)
+                        if trigger:
                             reason = (
                                 "Клієнт відповів із номером → переключено на сценарій phone available"
+                                if pending
+                                else None
                             )
                             self.handle_phone_available(lid, reason=reason)
-                        else:
-                            updated = LeadDetail.objects.filter(
-                                lead_id=lid, phone_in_text=False
-                            ).update(phone_in_text=True)
-                            if updated:
-                                self.handle_phone_available(lid)
                     elif pending:
                         reason = "Клієнт відповів, але номеру не знайдено"
                         self._cancel_no_phone_tasks(lid, reason=reason)
