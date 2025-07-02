@@ -1,6 +1,7 @@
 import logging
 import time
 from datetime import timedelta
+from zoneinfo import ZoneInfo
 from django.utils.dateparse import parse_datetime
 import re
 import requests
@@ -419,20 +420,47 @@ class WebhookView(APIView):
         business = YelpBusiness.objects.filter(business_id=biz_id).first()
 
         greeting = auto_settings.greeting_template.format(name=name, jobs=jobs, sep=sep)
+        off_greeting = auto_settings.greeting_off_hours_template.format(name=name, jobs=jobs, sep=sep)
 
         now = timezone.now()
-        due = adjust_due_time(
-            now + timedelta(seconds=auto_settings.greeting_delay),
-            business.time_zone if business else None,
-            auto_settings.greeting_open_from,
-            auto_settings.greeting_open_to,
-        )
+        tz_name = business.time_zone if business else None
+        within_hours = True
+        if tz_name:
+            tz = ZoneInfo(tz_name)
+            local_now = now.astimezone(tz)
+            open_dt = local_now.replace(
+                hour=auto_settings.greeting_open_from.hour,
+                minute=auto_settings.greeting_open_from.minute,
+                second=auto_settings.greeting_open_from.second,
+                microsecond=0,
+            )
+            close_dt = local_now.replace(
+                hour=auto_settings.greeting_open_to.hour,
+                minute=auto_settings.greeting_open_to.minute,
+                second=auto_settings.greeting_open_to.second,
+                microsecond=0,
+            )
+            if close_dt <= open_dt:
+                close_dt += timedelta(days=1)
+            within_hours = open_dt <= local_now < close_dt
 
-        if _already_sent(lead_id, greeting):
+        if within_hours:
+            due = adjust_due_time(
+                now + timedelta(seconds=auto_settings.greeting_delay),
+                tz_name,
+                auto_settings.greeting_open_from,
+                auto_settings.greeting_open_to,
+            )
+            greet_text = greeting
+        else:
+            due = now + timedelta(seconds=auto_settings.greeting_delay)
+            greet_text = off_greeting
+
+        if _already_sent(lead_id, greet_text):
             logger.info("[AUTO-RESPONSE] Greeting already sent → skipping")
         elif due <= now:
             send_follow_up.apply_async(
-                args=[lead_id, greeting, token],
+                args=[lead_id, greet_text, token],
                 headers={"business_id": biz_id},
                 countdown=0,
             )
@@ -440,7 +468,7 @@ class WebhookView(APIView):
         else:
             countdown = (due - now).total_seconds()
             res = send_follow_up.apply_async(
-                args=[lead_id, greeting, token],
+                args=[lead_id, greet_text, token],
                 headers={"business_id": biz_id},
                 countdown=countdown,
             )
@@ -453,6 +481,9 @@ class WebhookView(APIView):
             logger.info(
                 f"[AUTO-RESPONSE] Greeting scheduled at {due.isoformat()}"
             )
+
+        if phone_available:
+            return
 
         now = timezone.now()
         if auto_settings.follow_up_template and auto_settings.follow_up_delay:

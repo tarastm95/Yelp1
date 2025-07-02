@@ -81,6 +81,7 @@ class AutoResponseSettingsView(APIView):
                 phone_available=phone_available,
                 enabled=False,
                 greeting_template='',
+                greeting_off_hours_template='',
                 follow_up_template='',
                 greeting_delay=0,
                 follow_up_delay=0,
