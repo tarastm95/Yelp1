@@ -52,12 +52,14 @@ def rotate_refresh_token(refresh_token: str) -> dict:
     return resp.json()
 
 def get_valid_yelp_token():
+    """Return a fresh global access_token."""
     s, _ = AutoResponseSettings.objects.get_or_create(id=1)
     # якщо токен протух або не заданий
     if not s.access_token or (s.token_expires_at and s.token_expires_at <= timezone.now()):
+        logger.info("[TOKEN] Refreshing global Yelp token")
         tok = rotate_refresh_token(s.refresh_token)
-        s.access_token    = tok['access_token']
-        s.refresh_token   = tok.get('refresh_token', s.refresh_token)
+        s.access_token = tok['access_token']
+        s.refresh_token = tok.get('refresh_token', s.refresh_token)
         s.token_expires_at = timezone.now() + timedelta(seconds=tok['expires_in'])
         s.save()
     return s.access_token
@@ -65,12 +67,14 @@ def get_valid_yelp_token():
 
 def get_valid_business_token(business_id: str) -> str:
     """Return a fresh access_token for the given business_id."""
+    logger.debug(f"[TOKEN] Fetching token for business={business_id}")
     try:
         yt = YelpToken.objects.get(business_id=business_id)
     except YelpToken.DoesNotExist:
         raise ValueError(f"No token for business {business_id}")
 
     if yt.expires_at and yt.expires_at <= timezone.now():
+        logger.info(f"[TOKEN] Refreshing expired token for business={business_id}")
         data = rotate_refresh_token(yt.refresh_token)
         yt.access_token = data["access_token"]
         yt.refresh_token = data.get("refresh_token", yt.refresh_token)
