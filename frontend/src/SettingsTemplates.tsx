@@ -19,6 +19,7 @@ import {
   Box,
   Snackbar,
   Alert,
+  Chip,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
@@ -348,6 +349,14 @@ const SettingsTemplates: React.FC = () => {
                 </Button>
               ))}
             </Stack>
+            {!data.follow_up_template.trim() && (
+              <Chip
+                label="Field is inactive"
+                color="error"
+                size="small"
+                sx={{ mb: 1 }}
+              />
+            )}
             <TextField
               inputRef={followRef}
               multiline
