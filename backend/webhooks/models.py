@@ -229,7 +229,7 @@ class LeadDetail(models.Model):
     lead_id                        = models.CharField(max_length=64, unique=True, db_index=True)
     business_id                    = models.CharField(max_length=64)
     conversation_id                = models.CharField(max_length=64, blank=True)
-    temporary_email_address        = models.EmailField(max_length=200, blank=True)
+    temporary_email_address        = models.EmailField(max_length=200, blank=True, null=True)
     temporary_email_address_expiry = models.DateTimeField(null=True, blank=True)
     time_created                   = models.DateTimeField()
     last_event_time                = models.DateTimeField(null=True, blank=True)
