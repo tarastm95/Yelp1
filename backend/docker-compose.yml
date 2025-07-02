@@ -13,7 +13,7 @@ services:
     environment:
       DEBUG: "1"
       SECRET_KEY: "super-secret-key"
-      ALLOWED_HOSTS: "127.0.0.1,localhost"
+      ALLOWED_HOSTS: "127.0.0.1,localhost,46.62.139.177"
       CELERY_BROKER_URL: "redis://redis:6379/0"
       CELERY_RESULT_BACKEND: "redis://redis:6379/0"
       DB_ENGINE: "postgres"

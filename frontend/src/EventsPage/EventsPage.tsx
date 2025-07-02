@@ -29,6 +29,8 @@ import EventNoteIcon from '@mui/icons-material/EventNote';
 
 const POLL_INTERVAL = 30000;
 
+const API_BASE = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+
 interface PaginatedResponse<T> {
   count: number;
   next: string | null;
@@ -143,7 +145,7 @@ const EventsPage: FC = () => {
 
 
   // Load a page of leads and their details
-  const loadLeads = async (url = 'http://localhost:8000/api/processed_leads/') => {
+  const loadLeads = async (url = `${API_BASE}/api/processed_leads/`) => {
     try {
       console.log('[loadLeads] request', url);
       const { data } = await axios.get<PaginatedResponse<ProcessedLead>>(url);
@@ -156,7 +158,7 @@ const EventsPage: FC = () => {
         data.results.map(l =>
           axios
             .get<Partial<LeadDetailType>>(
-              `http://localhost:8000/api/lead-details/${encodeURIComponent(l.lead_id)}/`
+              `${API_BASE}/api/lead-details/${encodeURIComponent(l.lead_id)}/`
             )
             .then(res => ({ ...res.data, lead_id: l.lead_id }))
             .catch(() => ({ lead_id: l.lead_id, user_display_name: '—' }))
@@ -177,7 +179,7 @@ const EventsPage: FC = () => {
   };
 
   // Load a page of events
-  const loadEvents = async (url = 'http://localhost:8000/api/lead-events/') => {
+  const loadEvents = async (url = `${API_BASE}/api/lead-events/`) => {
     try {
       console.log('[loadEvents] request', url);
       const { data } = await axios.get<PaginatedResponse<LeadEvent>>(url);
@@ -199,7 +201,7 @@ const EventsPage: FC = () => {
   const pollEvents = async () => {
     if (lastEventIdRef.current == null) return;
     try {
-      const url = `http://localhost:8000/api/lead-events?after_id=${lastEventIdRef.current}`;
+        const url = `${API_BASE}/api/lead-events?after_id=${lastEventIdRef.current}`;
       console.log('[pollEvents] request', url);
       const { data } = await axios.get<LeadEvent[]>(url);
       console.log('[pollEvents] received', data.length, 'events');
