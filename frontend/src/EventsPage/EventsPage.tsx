@@ -133,22 +133,26 @@ const EventsPage: FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [tabValue, setTabValue] = useState(0);
 
-  // Number of unread leads among the filtered ones
-  const filteredLeads = selectedBusiness
-    ? leads.filter(l => l.business_id === selectedBusiness)
-    : leads;
+  // Number of unread leads among the loaded ones
   const loadedLeadIds = new Set(leads.map(l => l.lead_id));
   const viewedLoadedIdsCount = Array.from(viewedLeads).filter(id =>
     loadedLeadIds.has(id)
   ).length;
   const unreadLeadsCount = Math.max(0, totalLeadsCount - viewedLoadedIdsCount);
 
+  const filteredLeads = leads;
+
 
   // Load a page of leads and their details
-  const loadLeads = async (url = `${API_BASE}/api/processed_leads/`) => {
+  const loadLeads = async (url?: string) => {
+    const reqUrl =
+      url ||
+      `${API_BASE}/api/processed_leads/${
+        selectedBusiness ? `?business_id=${encodeURIComponent(selectedBusiness)}` : ''
+      }`;
     try {
-      console.log('[loadLeads] request', url);
-      const { data } = await axios.get<PaginatedResponse<ProcessedLead>>(url);
+      console.log('[loadLeads] request', reqUrl);
+      const { data } = await axios.get<PaginatedResponse<ProcessedLead>>(reqUrl);
       console.log('[loadLeads] received', data.results.length, 'leads');
       setTotalLeadsCount(data.count);
       setLeads(prev => [...prev, ...data.results]);
@@ -179,10 +183,15 @@ const EventsPage: FC = () => {
   };
 
   // Load a page of events
-  const loadEvents = async (url = `${API_BASE}/api/lead-events/`) => {
+  const loadEvents = async (url?: string) => {
+    const reqUrl =
+      url ||
+      `${API_BASE}/api/lead-events/${
+        selectedBusiness ? `?business_id=${encodeURIComponent(selectedBusiness)}` : ''
+      }`;
     try {
-      console.log('[loadEvents] request', url);
-      const { data } = await axios.get<PaginatedResponse<LeadEvent>>(url);
+      console.log('[loadEvents] request', reqUrl);
+      const { data } = await axios.get<PaginatedResponse<LeadEvent>>(reqUrl);
       console.log('[loadEvents] received', data.results.length, 'events');
       setTotalEventsCount(data.count);
       setEvents(prev => [...prev, ...data.results]);
@@ -201,7 +210,8 @@ const EventsPage: FC = () => {
   const pollEvents = async () => {
     if (lastEventIdRef.current == null) return;
     try {
-        const url = `${API_BASE}/api/lead-events?after_id=${lastEventIdRef.current}`;
+      const url = `${API_BASE}/api/lead-events?after_id=${lastEventIdRef.current}$
+{selectedBusiness ? `&business_id=${encodeURIComponent(selectedBusiness)}` : ''}`;
       console.log('[pollEvents] request', url);
       const { data } = await axios.get<LeadEvent[]>(url);
       console.log('[pollEvents] received', data.length, 'events');
@@ -217,20 +227,26 @@ const EventsPage: FC = () => {
     }
   };
 
-  // Load the first pages on start
-  const initializedRef = useRef(false);
+  // Load the first pages and whenever business selection changes
   useEffect(() => {
-    if (initializedRef.current) {
-      return;
-    }
-    initializedRef.current = true;
+    setLoading(true);
+    setLeads([]);
+    setLeadDetails({});
+    setEvents([]);
+    setLeadsNextUrl(null);
+    setEventsNextUrl(null);
+    lastEventIdRef.current = null;
 
     Promise.all([loadLeads(), loadEvents()]).finally(() => setLoading(false));
+  }, [selectedBusiness]);
+
+  // Poll for new events
+  useEffect(() => {
     const timer = setInterval(() => {
       pollEvents();
     }, POLL_INTERVAL);
     return () => clearInterval(timer);
-  }, []);
+  }, [selectedBusiness]);
 
   if (loading) {
     return (
@@ -247,15 +263,8 @@ const EventsPage: FC = () => {
     );
   }
 
-  const filteredEvents = selectedBusiness
-    ? events.filter(e => {
-        const biz = leadDetails[e.lead_id]?.business_id;
-        return biz === selectedBusiness;
-      })
-    : events;
-
-  const newEvents = filteredEvents
-    .sort((a, b) => b.id - a.id);
+  const filteredEvents = events;
+  const newEvents = [...filteredEvents].sort((a, b) => b.id - a.id);
   const unreadEventsCount = Math.max(0, totalEventsCount - viewedEvents.size);
 
   return (

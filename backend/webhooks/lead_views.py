@@ -115,15 +115,27 @@ class AutoResponseSettingsView(APIView):
 
 
 class ProcessedLeadListView(generics.ListAPIView):
-    queryset = ProcessedLead.objects.order_by("-processed_at")
     serializer_class = ProcessedLeadSerializer
     pagination_class = FivePerPagePagination
 
+    def get_queryset(self):
+        qs = ProcessedLead.objects.order_by("-processed_at")
+        bid = self.request.query_params.get("business_id")
+        if bid:
+            qs = qs.filter(business_id=bid)
+        return qs
+
 
 class LeadEventListAPIView(mixins.ListModelMixin, generics.GenericAPIView):
-    queryset = LeadEvent.objects.all().order_by("-id")
     serializer_class = LeadEventSerializer
     pagination_class = FivePerPagePagination
+
+    def get_queryset(self):
+        qs = LeadEvent.objects.all().order_by("-id")
+        bid = self.request.query_params.get("business_id")
+        if bid:
+            qs = qs.filter(business_id=bid)
+        return qs
 
     def get(self, request, *args, **kwargs):
         after_id = request.query_params.get("after_id")
