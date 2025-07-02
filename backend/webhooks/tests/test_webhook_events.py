@@ -125,43 +125,32 @@ class LeadIdVerificationTests(TestCase):
 
     @patch("webhooks.webhook_views.requests.get")
     @patch("webhooks.webhook_views.get_token_for_lead", return_value="tok")
-    @patch("webhooks.webhook_views.get_valid_business_token", return_value="tok")
     @patch.object(WebhookView, "handle_new_lead")
     def test_mark_new_lead_when_not_listed(
-        self, mock_new_lead, mock_biz_token, mock_lead_token, mock_get
+        self, mock_new_lead, mock_lead_token, mock_get
     ):
-        lead_list_resp = type(
-            "R",
-            (),
-            {"status_code": 200, "json": lambda self: {"lead_ids": []}},
-        )()
         events_resp = type(
             "E",
             (),
             {"status_code": 200, "json": lambda self: {"events": []}},
         )()
-        mock_get.side_effect = [lead_list_resp, events_resp]
+        mock_get.return_value = events_resp
         self._post()
         mock_new_lead.assert_called_once_with(self.lead_id)
 
     @patch("webhooks.webhook_views.requests.get")
     @patch("webhooks.webhook_views.get_token_for_lead", return_value="tok")
-    @patch("webhooks.webhook_views.get_valid_business_token", return_value="tok")
     @patch.object(WebhookView, "handle_new_lead")
     def test_existing_lead_not_marked(
-        self, mock_new_lead, mock_biz_token, mock_lead_token, mock_get
+        self, mock_new_lead, mock_lead_token, mock_get
     ):
-        lead_list_resp = type(
-            "R",
-            (),
-            {"status_code": 200, "json": lambda self: {"lead_ids": [self.lead_id]}}
-        )()
+        ProcessedLead.objects.create(business_id=self.biz_id, lead_id=self.lead_id)
         events_resp = type(
             "E",
             (),
             {"status_code": 200, "json": lambda self: {"events": []}},
         )()
-        mock_get.side_effect = [lead_list_resp, events_resp]
+        mock_get.return_value = events_resp
         self._post()
         mock_new_lead.assert_not_called()
         self.assertFalse(ProcessedLead.objects.filter(lead_id=self.lead_id).exists())

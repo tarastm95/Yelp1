@@ -65,10 +65,14 @@ might appear in that first message. Events created after
 Phone numbers found in a lead's `additional_info` field also trigger the "real
 phone provided" flow when the lead is first processed.
 
-Before marking an incoming update as a new lead, the backend queries
-`/businesses/{business_id}/lead_ids` to check whether the ID has already been
-seen. Only when the ID is missing from this list is the event treated as
-`"NEW_LEAD"`.
+When a business account is authorized, the callback fetches
+`/businesses/{business_id}/lead_ids` for each connected business and stores the
+returned IDs in the local `ProcessedLead` table.
+
+During webhook processing the backend no longer queries Yelp. Instead it checks
+if the incoming `lead_id` exists in `ProcessedLead`. If not, the update is
+tagged as `"NEW_LEAD"` and the ID is saved so subsequent events are treated as
+already processed.
 
 ## Frontend API configuration
 
