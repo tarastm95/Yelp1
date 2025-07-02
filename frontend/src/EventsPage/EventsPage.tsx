@@ -210,8 +210,9 @@ const EventsPage: FC = () => {
   const pollEvents = async () => {
     if (lastEventIdRef.current == null) return;
     try {
-      const url = `${API_BASE}/api/lead-events?after_id=${lastEventIdRef.current}$
-{selectedBusiness ? `&business_id=${encodeURIComponent(selectedBusiness)}` : ''}`;
+      const url = `${API_BASE}/api/lead-events?after_id=${lastEventIdRef.current}${
+        selectedBusiness ? `&business_id=${encodeURIComponent(selectedBusiness)}` : ''
+      }`;
       console.log('[pollEvents] request', url);
       const { data } = await axios.get<LeadEvent[]>(url);
       console.log('[pollEvents] received', data.length, 'events');
