@@ -20,11 +20,86 @@ from .models import (
     YelpToken,
     YelpBusiness,
     ProcessedLead,
+    LeadDetail,
+    LeadEvent,
 )
+from .webhook_views import safe_update_or_create
 
 DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 logger = logging.getLogger(__name__)
+
+
+def fetch_and_store_lead(access_token: str, lead_id: str) -> None:
+    """Fetch lead detail and latest events from Yelp and store them."""
+    headers = {"Authorization": f"Bearer {access_token}"}
+    detail_url = f"https://api.yelp.com/v3/leads/{lead_id}"
+    try:
+        d_resp = requests.get(detail_url, headers=headers, timeout=10)
+        if d_resp.status_code != 200:
+            logger.error(
+                f"Failed to fetch lead detail for {lead_id}: status={d_resp.status_code}"
+            )
+            return
+        detail = d_resp.json()
+
+        ev_resp = requests.get(
+            f"{detail_url}/events",
+            headers=headers,
+            params={"limit": 20},
+            timeout=10,
+        )
+        events = ev_resp.json().get("events", []) if ev_resp.status_code == 200 else []
+        last_time = events[0]["time_created"] if events else None
+
+        raw_proj = detail.get("project", {}) or {}
+        raw_answers = raw_proj.get("survey_answers", []) or []
+        if isinstance(raw_answers, dict):
+            survey_list = [
+                {"question_text": q, "answer_text": a if isinstance(a, list) else [a]}
+                for q, a in raw_answers.items()
+            ]
+        else:
+            survey_list = raw_answers
+
+        detail_data = {
+            "lead_id": lead_id,
+            "business_id": detail.get("business_id"),
+            "conversation_id": detail.get("conversation_id"),
+            "temporary_email_address": detail.get("temporary_email_address"),
+            "temporary_email_address_expiry": detail.get("temporary_email_address_expiry"),
+            "time_created": detail.get("time_created"),
+            "last_event_time": last_time,
+            "user_display_name": detail.get("user", {}).get("display_name", ""),
+            "project": {
+                "survey_answers": survey_list,
+                "location": raw_proj.get("location", {}),
+                "additional_info": raw_proj.get("additional_info", ""),
+                "availability": raw_proj.get("availability", {}),
+                "job_names": raw_proj.get("job_names", []),
+                "attachments": raw_proj.get("attachments", []),
+            },
+        }
+
+        safe_update_or_create(LeadDetail, defaults=detail_data, lead_id=lead_id)
+
+        for e in events:
+            defaults = {
+                "lead_id": lead_id,
+                "event_type": e.get("event_type"),
+                "user_type": e.get("user_type"),
+                "user_id": e.get("user_id"),
+                "user_display_name": e.get("user_display_name", ""),
+                "text": e.get("event_content", {}).get("text")
+                or e.get("event_content", {}).get("fallback_text", ""),
+                "cursor": e.get("cursor", ""),
+                "time_created": e.get("time_created"),
+                "raw": e,
+            }
+            safe_update_or_create(LeadEvent, defaults=defaults, event_id=e.get("id"))
+    except requests.RequestException as exc:
+        logger.error(f"Failed to fetch lead data for {lead_id}: {exc}")
+
 
 
 @csrf_exempt
@@ -219,6 +294,7 @@ class YelpAuthCallbackView(APIView):
                                     ProcessedLead.objects.get_or_create(
                                         business_id=bid, lead_id=lid
                                     )
+                                    fetch_and_store_lead(access_token, lid)
                             else:
                                 logger.error(
                                     f"Failed to fetch lead_ids for {bid}: status={lid_resp.status_code}"
