@@ -83,13 +83,19 @@ def _already_sent(lead_id: str, text: str) -> bool:
 class WebhookView(APIView):
     """Handle incoming webhook events from Yelp."""
 
-    def _is_new_lead(self, lead_id: str) -> dict:
+    def _is_new_lead(self, lead_id: str, business_id: str | None = None) -> dict:
         """Check Yelp events to verify if this lead is new.
+
+        When ``business_id`` is provided the access token is obtained for that
+        business.  Otherwise it falls back to :func:`get_token_for_lead`.
 
         Returns a JSON-like dict ``{"new_lead": bool}`` where ``new_lead`` is
         ``True`` when only a single consumer event exists.
         """
-        token = get_token_for_lead(lead_id)
+        if business_id:
+            token = get_valid_business_token(business_id)
+        else:
+            token = get_token_for_lead(lead_id)
         url = f"https://api.yelp.com/v3/leads/{lead_id}/events"
         resp = requests.get(
             url,
@@ -132,7 +138,7 @@ class WebhookView(APIView):
             if lid:
                 lead_ids.add(lid)
                 if upd.get("event_type") != "NEW_LEAD" and not ProcessedLead.objects.filter(lead_id=lid).exists():
-                    check = self._is_new_lead(lid)
+                    check = self._is_new_lead(lid, payload["data"].get("id"))
                     if check.get("new_lead"):
                         upd["event_type"] = "NEW_LEAD"
                         logger.info(f"[WEBHOOK] Marked lead={lid} as NEW_LEAD via events check")
