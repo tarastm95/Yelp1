@@ -31,6 +31,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Chip,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
@@ -882,7 +883,17 @@ const AutoResponseSettings: FC = () => {
 
             {/* Built-in Follow-up */}
             <Box>
-              <Typography variant="h6">Built-in Follow-up</Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <Typography variant="h6">Built-in Follow-up</Typography>
+                {!followUpTemplate.trim() && (
+                  <Chip
+                    label="Field is inactive"
+                    color="error"
+                    size="small"
+                    sx={{ ml: 1 }}
+                  />
+                )}
+              </Box>
               <Stack direction="row" spacing={1} mb={1}>
                 {PLACEHOLDERS.map(ph => (
                   <Button key={ph} size="small" variant="outlined"
