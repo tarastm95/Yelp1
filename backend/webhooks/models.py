@@ -87,6 +87,11 @@ class AutoResponseSettings(models.Model):
         default="Hello{sep}{name}! Thank you for your inquiry regarding “{jobs}”.",
         help_text="Шаблон першого повідомлення з плейсхолдерами {name}, {jobs}, {sep}",
     )
+    greeting_off_hours_template = models.TextField(
+        default="",
+        blank=True,
+        help_text="Шаблон привітання для неробочих годин",
+    )
     include_name = models.BooleanField(
         default=True, help_text="Включати ім’я клієнта у вітальне повідомлення"
     )

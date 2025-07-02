@@ -54,6 +54,7 @@ interface AutoResponse {
   id: number;
   enabled: boolean;
   greeting_template: string;
+  greeting_off_hours_template: string;
   greeting_delay: number;
   greeting_open_from: string;
   greeting_open_to: string;
@@ -86,6 +87,7 @@ interface FollowUpTplData {
 interface AutoResponseSettingsData {
   enabled: boolean;
   greeting_template: string;
+  greeting_off_hours_template: string;
   greeting_delay: number;
   greeting_open_from: string;
   greeting_open_to: string;
@@ -117,6 +119,7 @@ const AutoResponseSettings: FC = () => {
   const [settingsId, setSettingsId] = useState<number | null>(null);
   const [enabled, setEnabled] = useState(false);
   const [greetingTemplate, setGreetingTemplate] = useState('');
+  const [greetingAfterTemplate, setGreetingAfterTemplate] = useState('');
   const [greetingDelayHours, setGreetingDelayHours] = useState(0);
   const [greetingDelayMinutes, setGreetingDelayMinutes] = useState(0);
   const [greetingDelaySeconds, setGreetingDelaySeconds] = useState(0);
@@ -182,13 +185,14 @@ const AutoResponseSettings: FC = () => {
 
   // refs for placeholder insertion
   const greetingRef = useRef<HTMLTextAreaElement | null>(null);
+  const greetingAfterRef = useRef<HTMLTextAreaElement | null>(null);
   const followRef = useRef<HTMLTextAreaElement | null>(null);
   const tplRef = useRef<HTMLTextAreaElement | null>(null);
 
   // helper to insert placeholder
   const insertPlaceholder = (
     ph: Placeholder,
-    target: 'greeting' | 'follow' | 'template'
+    target: 'greeting' | 'follow' | 'template' | 'after'
   ) => {
     let ref: HTMLTextAreaElement | null = null;
     let base = '';
@@ -197,6 +201,10 @@ const AutoResponseSettings: FC = () => {
       ref = greetingRef.current;
       base = greetingTemplate;
       setter = setGreetingTemplate;
+    } else if (target === 'after') {
+      ref = greetingAfterRef.current;
+      base = greetingAfterTemplate;
+      setter = setGreetingAfterTemplate;
     } else if (target === 'follow') {
       ref = followRef.current;
       base = followUpTemplate;
@@ -235,6 +243,7 @@ const AutoResponseSettings: FC = () => {
   const emptySettings: AutoResponseSettingsData = {
     enabled: false,
     greeting_template: '',
+    greeting_off_hours_template: '',
     greeting_delay: 0,
     greeting_open_from: '08:00:00',
     greeting_open_to: '20:00:00',
@@ -269,6 +278,7 @@ const AutoResponseSettings: FC = () => {
         setSettingsId(d.id);
         setEnabled(d.enabled);
         setGreetingTemplate(d.greeting_template);
+        setGreetingAfterTemplate(d.greeting_off_hours_template || '');
         let gsecs = d.greeting_delay || 0;
         setGreetingDelayHours(Math.floor(gsecs / 3600));
         gsecs %= 3600;
@@ -292,6 +302,7 @@ const AutoResponseSettings: FC = () => {
         initialSettings.current = {
           enabled: d.enabled,
           greeting_template: d.greeting_template,
+          greeting_off_hours_template: d.greeting_off_hours_template || '',
           greeting_delay: d.greeting_delay,
           greeting_open_from: d.greeting_open_from || '08:00:00',
           greeting_open_to: d.greeting_open_to || '20:00:00',
@@ -338,6 +349,7 @@ const AutoResponseSettings: FC = () => {
           initialSettings.current = {
             enabled: false,
             greeting_template: '',
+            greeting_off_hours_template: '',
             greeting_delay: 0,
             greeting_open_from: '08:00:00',
             greeting_open_to: '20:00:00',
@@ -353,6 +365,8 @@ const AutoResponseSettings: FC = () => {
         } else {
           initialSettings.current = {
             ...initialSettings.current,
+            greeting_off_hours_template:
+              initialSettings.current?.greeting_off_hours_template || '',
             follow_up_templates: mapped,
           };
         }
@@ -364,6 +378,7 @@ const AutoResponseSettings: FC = () => {
   const applySettingsData = (d: AutoResponseSettingsData) => {
     setEnabled(d.enabled);
     setGreetingTemplate(d.greeting_template);
+    setGreetingAfterTemplate(d.greeting_off_hours_template || '');
     let gsecs = d.greeting_delay || 0;
     setGreetingDelayHours(Math.floor(gsecs / 3600));
     gsecs %= 3600;
@@ -515,6 +530,7 @@ const AutoResponseSettings: FC = () => {
       const res = await axios.put<AutoResponse>(url, {
         enabled,
         greeting_template: greetingTemplate,
+        greeting_off_hours_template: greetingAfterTemplate,
         greeting_delay: greetDelaySecs,
         greeting_open_from: greetingOpenFrom,
         greeting_open_to: greetingOpenTo,
@@ -531,6 +547,7 @@ const AutoResponseSettings: FC = () => {
       initialSettings.current = {
         enabled,
         greeting_template: greetingTemplate,
+        greeting_off_hours_template: greetingAfterTemplate,
         greeting_delay: greetDelaySecs,
         greeting_open_from: greetingOpenFrom,
         greeting_open_to: greetingOpenTo,
@@ -795,6 +812,11 @@ const AutoResponseSettings: FC = () => {
         <Typography variant="h5" gutterBottom>
           Auto-response Settings
         </Typography>
+        {localTime && (
+          <Typography variant="body2" sx={{ mb:2 }}>
+            Current time: {localTime}
+          </Typography>
+        )}
 
         {loading ? (
           <Box display="flex" justifyContent="center" mt={4}>
@@ -805,7 +827,9 @@ const AutoResponseSettings: FC = () => {
 
             {/* Greeting */}
             <Box>
-              <Typography variant="h6">Greeting Message</Typography>
+              <Typography variant="h6">
+                {phoneAvailable ? 'Greeting Message (робочі години)' : 'Greeting Message'}
+              </Typography>
               <Stack direction="row" spacing={1} mb={1}>
                 {PLACEHOLDERS.map(ph => (
                   <Button key={ph} size="small" variant="outlined"
@@ -881,7 +905,29 @@ const AutoResponseSettings: FC = () => {
               </Box>
             </Box>
 
+            {phoneAvailable && (
+              <Box>
+                <Typography variant="h6">Greeting Message (не робочі години)</Typography>
+                <Stack direction="row" spacing={1} mb={1}>
+                  {PLACEHOLDERS.map(ph => (
+                    <Button key={ph} size="small" variant="outlined" onClick={() => insertPlaceholder(ph, 'after')}>
+                      {ph}
+                    </Button>
+                  ))}
+                </Stack>
+                <TextField
+                  inputRef={greetingAfterRef}
+                  multiline
+                  minRows={4}
+                  fullWidth
+                  value={greetingAfterTemplate}
+                  onChange={e => setGreetingAfterTemplate(e.target.value)}
+                />
+              </Box>
+            )}
+
             {/* Built-in Follow-up */}
+            {!phoneAvailable && (
             <Box>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
                 <Typography variant="h6">Built-in Follow-up</Typography>
@@ -966,15 +1012,12 @@ const AutoResponseSettings: FC = () => {
                 </Stack>
               </Box>
             </Box>
+            )}
 
             {/* Global Follow-up Templates */}
+            {!phoneAvailable && (
             <Box>
               <Typography variant="h6">Additional Follow-up Templates</Typography>
-              {localTime && (
-                <Typography variant="body2" sx={{ mt: 0.5 }}>
-                  Current time: {localTime}
-                </Typography>
-              )}
               {tplLoading ? (
                 <CircularProgress size={24} />
               ) : (
@@ -1133,6 +1176,7 @@ const AutoResponseSettings: FC = () => {
                 </DialogActions>
               </Dialog>
             </Box>
+            )}
 
             {/* Controls */}
             <Stack direction="row" spacing={2} alignItems="center">
