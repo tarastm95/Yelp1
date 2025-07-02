@@ -423,33 +423,31 @@ class WebhookView(APIView):
             auto_settings.greeting_open_to,
         )
 
-        if due <= now:
-            resp = requests.post(
-                f"{detail_url}/events",
-                headers=headers,
-                json={"request_content": greeting, "request_type": "TEXT"},
-                timeout=10,
+        if _already_sent(lead_id, greeting):
+            logger.info("[AUTO-RESPONSE] Greeting already sent → skipping")
+        elif due <= now:
+            send_follow_up.apply_async(
+                args=[lead_id, greeting, token],
+                headers={"business_id": biz_id},
+                countdown=0,
             )
-            logger.info(f"[AUTO-RESPONSE] Greeting send status: {resp.status_code}")
+            logger.info("[AUTO-RESPONSE] Greeting dispatched immediately via Celery")
         else:
             countdown = (due - now).total_seconds()
-            if _already_sent(lead_id, greeting):
-                logger.info("[AUTO-RESPONSE] Greeting already sent → skipping")
-            else:
-                res = send_follow_up.apply_async(
-                    args=[lead_id, greeting, token],
-                    headers={"business_id": biz_id},
-                    countdown=countdown,
-                )
-                LeadPendingTask.objects.create(
-                    lead_id=lead_id,
-                    task_id=res.id,
-                    phone_opt_in=phone_opt_in,
-                    phone_available=phone_available,
-                )
-                logger.info(
-                    f"[AUTO-RESPONSE] Greeting scheduled at {due.isoformat()}"
-                )
+            res = send_follow_up.apply_async(
+                args=[lead_id, greeting, token],
+                headers={"business_id": biz_id},
+                countdown=countdown,
+            )
+            LeadPendingTask.objects.create(
+                lead_id=lead_id,
+                task_id=res.id,
+                phone_opt_in=phone_opt_in,
+                phone_available=phone_available,
+            )
+            logger.info(
+                f"[AUTO-RESPONSE] Greeting scheduled at {due.isoformat()}"
+            )
 
         now = timezone.now()
         if auto_settings.follow_up_template and auto_settings.follow_up_delay:
