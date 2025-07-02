@@ -74,6 +74,9 @@ if the incoming `lead_id` exists in `ProcessedLead`. If not, the update is
 tagged as `"NEW_LEAD"` and the ID is saved so subsequent events are treated as
 already processed.
 
+Lead details and events are recorded for every lead even when automatic
+responses are disabled for a business.
+
 ## Frontend API configuration
 
 When building the React frontend for production, point it at your deployed

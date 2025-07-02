@@ -319,16 +319,10 @@ class WebhookView(APIView):
         else:
             token = get_valid_yelp_token()
 
-        if biz_settings is not None:
-            if not biz_settings.enabled:
-                logger.info("[AUTO-RESPONSE] Disabled for this business")
-                return
-            auto_settings = biz_settings
-        else:
-            if not (default_settings and default_settings.enabled):
-                logger.info("[AUTO-RESPONSE] AutoResponseSettings not configured or disabled")
-                return
-            auto_settings = default_settings
+        auto_settings = biz_settings if biz_settings is not None else default_settings
+        if auto_settings is None:
+            logger.info("[AUTO-RESPONSE] AutoResponseSettings not configured")
+
         detail_url = f"https://api.yelp.com/v3/leads/{lead_id}"
         headers = {"Authorization": f"Bearer {token}"}
         resp = requests.get(detail_url, headers=headers, timeout=10)
@@ -393,13 +387,17 @@ class WebhookView(APIView):
             )
             return
 
-        if auto_settings.export_to_sheets:
+        if auto_settings and auto_settings.export_to_sheets:
             try:
                 from .utils import append_lead_to_sheet
                 append_lead_to_sheet(detail_data)
                 logger.info(f"[AUTO-RESPONSE] Lead {lead_id} exported to Google Sheets")
             except Exception as e:
                 logger.error(f"[AUTO-RESPONSE] Sheets export error: {e}")
+
+        if not auto_settings or not auto_settings.enabled:
+            logger.info("[AUTO-RESPONSE] Auto responses disabled; skipping messages")
+            return
 
         name = ld.user_display_name if auto_settings.include_name else ""
         jobs = ", ".join(ld.project.get("job_names", [])) if auto_settings.include_jobs else ""
