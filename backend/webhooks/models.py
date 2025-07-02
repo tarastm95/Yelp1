@@ -215,7 +215,7 @@ class LeadEvent(models.Model):
     user_id           = models.CharField(max_length=64)
     user_display_name = models.CharField(max_length=100, blank=True)
     text              = models.TextField(blank=True)
-    cursor            = models.CharField(max_length=128, blank=True)
+    cursor            = models.TextField(blank=True)
     time_created      = models.DateTimeField()
     raw               = models.JSONField()
     created_at        = models.DateTimeField(auto_now_add=True)
