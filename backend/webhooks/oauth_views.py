@@ -14,7 +14,13 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 
-from .models import YelpOAuthState, AutoResponseSettings, YelpToken, YelpBusiness
+from .models import (
+    YelpOAuthState,
+    AutoResponseSettings,
+    YelpToken,
+    YelpBusiness,
+    ProcessedLead,
+)
 
 DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
@@ -202,6 +208,23 @@ class YelpAuthCallbackView(APIView):
                                     "details": det,
                                 },
                             )
+                        try:
+                            lid_resp = requests.get(
+                                f"https://api.yelp.com/v3/businesses/{bid}/lead_ids",
+                                headers={"Authorization": f"Bearer {access_token}"},
+                                timeout=10,
+                            )
+                            if lid_resp.status_code == 200:
+                                for lid in lid_resp.json().get("lead_ids", []):
+                                    ProcessedLead.objects.get_or_create(
+                                        business_id=bid, lead_id=lid
+                                    )
+                            else:
+                                logger.error(
+                                    f"Failed to fetch lead_ids for {bid}: status={lid_resp.status_code}"
+                                )
+                        except requests.RequestException as e:
+                            logger.error(f"Failed to fetch lead_ids for {bid}: {e}")
                     except requests.RequestException as e:
                         logger.error(f"Failed to fetch business details for {bid}: {e}")
 
