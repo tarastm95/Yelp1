@@ -64,7 +64,7 @@ const theme = createTheme({
 // Base URL for the API
 axios.defaults.baseURL = process.env.REACT_APP_API_BASE_URL
   ? `${process.env.REACT_APP_API_BASE_URL}/api`
-  : 'http://localhost:8000/api';
+  : 'http://46.62.139.177:8000/api';
 
 
 // ---------------------------------------------

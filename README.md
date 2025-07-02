@@ -79,5 +79,5 @@ backend by setting the `REACT_APP_API_BASE_URL` environment variable:
 REACT_APP_API_BASE_URL=http://46.62.139.177:8000 npm run build
 ```
 
-If this variable is omitted, the app falls back to `http://localhost:8000/api`.
+If this variable is omitted, the app falls back to `http://46.62.139.177:8000/api`.
 

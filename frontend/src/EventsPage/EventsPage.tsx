@@ -29,7 +29,7 @@ import EventNoteIcon from '@mui/icons-material/EventNote';
 
 const POLL_INTERVAL = 30000;
 
-const API_BASE = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+const API_BASE = process.env.REACT_APP_API_BASE_URL || 'http://46.62.139.177:8000';
 
 interface PaginatedResponse<T> {
   count: number;
