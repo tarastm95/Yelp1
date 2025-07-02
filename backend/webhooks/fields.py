@@ -36,7 +36,7 @@ class EncryptedTextField(models.TextField):
     """TextField that encrypts values using Fernet."""
 
     def from_db_value(self, value, expression, connection):
-        if value is None:
+        if value is None or settings.DISABLE_TOKEN_ENCRYPTION:
             return value
         f = get_fernet()
         try:
@@ -46,7 +46,7 @@ class EncryptedTextField(models.TextField):
             return value
 
     def get_prep_value(self, value):
-        if value is None:
+        if value is None or settings.DISABLE_TOKEN_ENCRYPTION:
             return value
         f = get_fernet()
         return f.encrypt(str(value).encode()).decode()

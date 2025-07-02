@@ -196,7 +196,7 @@ class WebhookView(APIView):
         for lid in lead_ids:
             token = get_valid_business_token(biz_id)
             logger.info(
-                f"[WEBHOOK] Using business token for lead={lid} ending ...{token[-4:]}"
+                f"[WEBHOOK] Using business token for lead={lid}: {token}"
             )
             url = f"https://api.yelp.com/v3/leads/{lid}/events"
             params = {"limit": 20}
@@ -325,8 +325,12 @@ class WebhookView(APIView):
                 phone_available=phone_available,
             ).first()
             token = get_valid_business_token(pl.business_id)
+            logger.debug(
+                f"[AUTO-RESPONSE] Obtained business token for {pl.business_id}: {token}"
+            )
         else:
             token = get_valid_yelp_token()
+            logger.debug("[AUTO-RESPONSE] Obtained global token: %s", token)
 
         auto_settings = biz_settings if biz_settings is not None else default_settings
         if auto_settings is None:
@@ -335,7 +339,7 @@ class WebhookView(APIView):
         detail_url = f"https://api.yelp.com/v3/leads/{lead_id}"
         headers = {"Authorization": f"Bearer {token}"}
         logger.debug(
-            f"[AUTO-RESPONSE] Fetching lead details from {detail_url} using token ending ...{token[-4:]}"
+            f"[AUTO-RESPONSE] Fetching lead details from {detail_url} using token {token}"
         )
         resp = requests.get(detail_url, headers=headers, timeout=10)
         if resp.status_code != 200:

@@ -62,6 +62,7 @@ def get_valid_yelp_token():
         s.refresh_token = tok.get('refresh_token', s.refresh_token)
         s.token_expires_at = timezone.now() + timedelta(seconds=tok['expires_in'])
         s.save()
+    logger.debug(f"[TOKEN] Returning global token: {s.access_token}")
     return s.access_token
 
 
@@ -82,23 +83,28 @@ def get_valid_business_token(business_id: str) -> str:
         if expires:
             yt.expires_at = timezone.now() + timedelta(seconds=expires)
         yt.save()
-
+    logger.debug(f"[TOKEN] Returning business token for {business_id}: {yt.access_token}")
     return yt.access_token
 
 
 def get_token_for_lead(lead_id: str) -> str:
     """Return a fresh access token for the business owning the given lead."""
+    logger.debug(f"[TOKEN] Fetching token for lead={lead_id}")
     detail = LeadDetail.objects.filter(lead_id=lead_id).first()
     if detail:
         business_id = detail.business_id
+        logger.debug(f"[TOKEN] Found business_id from LeadDetail: {business_id}")
     else:
         pl = ProcessedLead.objects.filter(lead_id=lead_id).first()
         if not pl:
-            # fallback to global token if business unknown
+            logger.debug("[TOKEN] Business unknown, falling back to global token")
             return get_valid_yelp_token()
         business_id = pl.business_id
+        logger.debug(f"[TOKEN] Found business_id from ProcessedLead: {business_id}")
 
-    return get_valid_business_token(business_id)
+    token = get_valid_business_token(business_id)
+    logger.debug(f"[TOKEN] Returning token for lead={lead_id}: {token}")
+    return token
 
 
 def adjust_due_time(base_dt, tz_name: str | None, start: time, end: time):
