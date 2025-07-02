@@ -4,7 +4,13 @@ from unittest.mock import patch
 from datetime import timedelta
 
 from webhooks.webhook_views import WebhookView
-from webhooks.models import ProcessedLead, LeadPendingTask
+from webhooks.models import (
+    ProcessedLead,
+    LeadPendingTask,
+    YelpBusiness,
+    AutoResponseSettings,
+    LeadDetail,
+)
 
 
 class WebhookEventProcessingTests(TestCase):
@@ -230,4 +236,52 @@ class LeadIdVerificationTests(TestCase):
         self._post()
         mock_phone_available.assert_called_once()
         mock_cancel.assert_not_called()
+
+
+class AutoResponseDisabledTests(TestCase):
+    def setUp(self):
+        self.view = WebhookView()
+        self.lead_id = "d1"
+        self.biz = YelpBusiness.objects.create(business_id="b2", name="biz")
+        ProcessedLead.objects.create(business_id=self.biz.business_id, lead_id=self.lead_id)
+        AutoResponseSettings.objects.create(
+            business=self.biz,
+            phone_opt_in=False,
+            phone_available=False,
+            enabled=False,
+            access_token="a",
+            refresh_token="r",
+        )
+
+    @patch("webhooks.webhook_views.send_scheduled_message.apply_async")
+    @patch("webhooks.webhook_views.send_follow_up.apply_async")
+    @patch("webhooks.webhook_views.requests.get")
+    @patch("webhooks.webhook_views.get_valid_business_token", return_value="tok")
+    def test_lead_detail_saved_when_disabled(
+        self,
+        mock_token,
+        mock_get,
+        mock_follow_up,
+        mock_sched,
+    ):
+        detail_resp = {
+            "business_id": self.biz.business_id,
+            "conversation_id": "c",
+            "temporary_email_address": "t@example.com",
+            "temporary_email_address_expiry": "2023-01-01T00:00:00Z",
+            "time_created": "2023-01-01T00:00:00Z",
+            "user": {"display_name": "John"},
+            "project": {},
+        }
+        events_resp = {"events": []}
+        mock_get.side_effect = [
+            type("R", (), {"status_code": 200, "json": lambda self: detail_resp})(),
+            type("R", (), {"status_code": 200, "json": lambda self: events_resp})(),
+        ]
+
+        self.view._process_auto_response(self.lead_id, phone_opt_in=False, phone_available=False)
+
+        self.assertTrue(LeadDetail.objects.filter(lead_id=self.lead_id).exists())
+        mock_follow_up.assert_not_called()
+        mock_sched.assert_not_called()
 
