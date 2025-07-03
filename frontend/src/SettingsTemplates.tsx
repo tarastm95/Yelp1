@@ -37,6 +37,7 @@ interface FollowUpTemplate {
 interface AutoResponseSettingsData {
   enabled: boolean;
   greeting_template: string;
+  greeting_off_hours_template: string;
   greeting_delay: number;
   greeting_open_from: string;
   greeting_open_to: string;
@@ -60,6 +61,7 @@ interface SettingsTemplate {
 const defaultData: AutoResponseSettingsData = {
   enabled: false,
   greeting_template: '',
+  greeting_off_hours_template: '',
   greeting_delay: 0,
   greeting_open_from: '08:00:00',
   greeting_open_to: '20:00:00',
