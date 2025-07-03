@@ -714,7 +714,6 @@ const AutoResponseSettings: FC = () => {
   return (
     <Container maxWidth={false} sx={{ mt:4, mb:4, maxWidth: 1000, mx: 'auto' }}>
       <Box sx={{ mb: 2 }}>
-        {!phoneAvailable && (
         <Box>
           <Select
             value={phoneOptIn ? selectedTemplateIdWithPhone : selectedTemplateIdNoPhone}
@@ -746,13 +745,12 @@ const AutoResponseSettings: FC = () => {
             size="small"
             sx={{ minWidth: 200 }}
           >
-            <MenuItem value="current">Current</MenuItem>
+            <MenuItem value="current" disabled={phoneAvailable}>Current</MenuItem>
             {settingsTemplates.map(t => (
               <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>
             ))}
           </Select>
         </Box>
-        )}
 
         <Select
           value={selectedBusiness}
