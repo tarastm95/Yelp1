@@ -233,6 +233,10 @@ class LeadDetail(models.Model):
         default=False,
         help_text="Consumer provided phone number inside a text message",
     )
+    phone_in_additional_info = models.BooleanField(
+        default=False,
+        help_text="Consumer provided phone number inside additional_info",
+    )
     phone_in_dialog = models.BooleanField(
         default=False,
         help_text="Consumer provided phone number in reply to auto message",
