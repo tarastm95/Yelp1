@@ -14,7 +14,6 @@ from celery.signals import (
 from django.db import transaction
 from django.utils import timezone
 from django.apps import apps
-from webhooks.models import LeadPendingTask
 
 # Fallback UTC constant for older Django versions without timezone.utc
 
@@ -52,6 +51,11 @@ def _should_log(sender, args) -> bool:
 def get_task_log_model():
     """Return the CeleryTaskLog model when apps are ready."""
     return apps.get_model("webhooks", "CeleryTaskLog")
+
+
+def get_lead_pending_task_model():
+    """Return the LeadPendingTask model when apps are ready."""
+    return apps.get_model("webhooks", "LeadPendingTask")
 
 
 @before_task_publish.connect
@@ -124,7 +128,7 @@ def log_task_start(sender=None, task_id=None, args=None, kwargs=None, **other):
             status="STARTED",
         )
 
-    LeadPendingTask.objects.filter(task_id=task_id).update(active=False)
+    get_lead_pending_task_model().objects.filter(task_id=task_id).update(active=False)
 
 
 @task_postrun.connect
