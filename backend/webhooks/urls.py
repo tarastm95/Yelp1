@@ -11,7 +11,7 @@ from .views import (
     BusinessListView, BusinessLeadsView, BusinessEventsView,
     SubscriptionProxyView, YelpTokenListView,
 )
-from .task_views import TaskLogListView, MessageTaskListView
+from .task_views import TaskLogListView, MessageTaskListView, TaskRevokeView
 
 urlpatterns = [
     path('webhook/', WebhookView.as_view(), name='webhook'),
@@ -93,5 +93,6 @@ urlpatterns = [
     path('settings-templates/<int:pk>/', AutoResponseSettingsTemplateDetailView.as_view(), name='settings-template-detail'),
     path('tokens/', YelpTokenListView.as_view(), name='token-list'),
     path('tasks/', TaskLogListView.as_view(), name='task-log-list'),
+    path('tasks/<str:task_id>/cancel/', TaskRevokeView.as_view(), name='task-revoke'),
     path('message_tasks/', MessageTaskListView.as_view(), name='message-task-list'),
 ]

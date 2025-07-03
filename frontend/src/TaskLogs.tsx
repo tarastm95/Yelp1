@@ -34,9 +34,10 @@ interface Business {
 const TaskLogs: React.FC = () => {
   const [completedTasks, setCompletedTasks] = useState<TaskLog[]>([]);
   const [scheduledTasks, setScheduledTasks] = useState<TaskLog[]>([]);
+  const [canceledTasks, setCanceledTasks] = useState<TaskLog[]>([]);
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<'completed' | 'scheduled'>('completed');
+  const [tab, setTab] = useState<'completed' | 'scheduled' | 'canceled'>('completed');
 
   useEffect(() => {
     axios
@@ -49,6 +50,11 @@ const TaskLogs: React.FC = () => {
       .get<TaskLog[]>('/tasks/?status=scheduled')
       .then(res => setScheduledTasks(res.data))
       .catch(() => setScheduledTasks([]));
+
+    axios
+      .get<TaskLog[]>('/tasks/?status=revoked')
+      .then(res => setCanceledTasks(res.data))
+      .catch(() => setCanceledTasks([]));
 
     axios
       .get<Business[]>('/businesses/')
@@ -96,6 +102,15 @@ const TaskLogs: React.FC = () => {
     return String(args[1]);
   };
 
+  const cancelTask = (taskId: string) => {
+    axios
+      .post(`/tasks/${taskId}/cancel/`, { reason: 'Cancelled via UI' })
+      .then(() => {
+        setScheduledTasks(tasks => tasks.filter(t => t.task_id !== taskId));
+      })
+      .catch(() => {});
+  };
+
   return (
     <Container sx={{ mt: 4 }}>
       <Typography variant="h4" gutterBottom>
@@ -104,6 +119,7 @@ const TaskLogs: React.FC = () => {
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
         <Tab label="Completed" value="completed" />
         <Tab label="Scheduled" value="scheduled" />
+        <Tab label="Canceled" value="canceled" />
       </Tabs>
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
@@ -147,7 +163,7 @@ const TaskLogs: React.FC = () => {
             )}
           </TableBody>
         </Table>
-      ) : (
+      ) : tab === 'scheduled' ? (
         <Table size="small">
           <TableHead>
             <TableRow>
@@ -166,12 +182,47 @@ const TaskLogs: React.FC = () => {
                 <TableCell>{t.name}</TableCell>
                 <TableCell>{formatEta(t.eta, t.business_id)}</TableCell>
                 <TableCell>{getMessage(t.args)}</TableCell>
+                <TableCell>
+                  <button onClick={() => cancelTask(t.task_id)}>Cancel</button>
+                </TableCell>
               </TableRow>
             ))}
             {scheduledTasks.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} align="center">
+                <TableCell colSpan={6} align="center">
                   No scheduled tasks
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      ) : (
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>Lead ID</TableCell>
+              <TableCell>Business</TableCell>
+              <TableCell>Task</TableCell>
+              <TableCell>Run Time</TableCell>
+              <TableCell>Message</TableCell>
+              <TableCell>Reason</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {canceledTasks.map(t => (
+              <TableRow key={t.task_id}>
+                <TableCell>{getLeadId(t.args)}</TableCell>
+                <TableCell>{getBusinessName(t.business_id)}</TableCell>
+                <TableCell>{t.name}</TableCell>
+                <TableCell>{formatEta(t.eta, t.business_id)}</TableCell>
+                <TableCell>{getMessage(t.args)}</TableCell>
+                <TableCell sx={{ whiteSpace: 'pre-wrap' }}>{t.result}</TableCell>
+              </TableRow>
+            ))}
+            {canceledTasks.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={6} align="center">
+                  No canceled tasks
                 </TableCell>
               </TableRow>
             )}
