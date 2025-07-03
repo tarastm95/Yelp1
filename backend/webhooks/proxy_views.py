@@ -7,7 +7,6 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 
 from .utils import (
-    get_valid_yelp_token,
     get_valid_business_token,
     get_token_for_lead,
 )
@@ -22,6 +21,8 @@ class LeadEventsProxyView(APIView):
 
     def get(self, request, lead_id):
         token = get_token_for_lead(lead_id)
+        if not token:
+            return Response({"detail": "unknown business"}, status=400)
         url = f"https://api.yelp.com/v3/leads/{lead_id}/events"
         headers = {"Authorization": f"Bearer {token}"}
         params = {"limit": request.query_params.get("limit", 20)}
@@ -52,6 +53,8 @@ class LeadEventsProxyView(APIView):
 
     def post(self, request, lead_id):
         token = get_token_for_lead(lead_id)
+        if not token:
+            return Response({"detail": "unknown business"}, status=400)
         url = f"https://api.yelp.com/v3/leads/{lead_id}/events"
         headers = {
             "Authorization": f"Bearer {token}",
@@ -108,6 +111,8 @@ class LeadDetailProxyView(APIView):
 
     def get(self, request, lead_id):
         token = get_token_for_lead(lead_id)
+        if not token:
+            return Response({"detail": "unknown business"}, status=400)
         url = f"https://api.yelp.com/v3/leads/{lead_id}"
         headers = {"Authorization": f"Bearer {token}"}
         resp = requests.get(url, headers=headers)
@@ -177,6 +182,8 @@ class AttachmentProxyView(APIView):
 
     def get(self, request, lead_id: str, attachment_id: str):
         token = get_token_for_lead(lead_id)
+        if not token:
+            return Response({"detail": "unknown business"}, status=400)
         url = f"https://api.yelp.com/v3/leads/{lead_id}/attachments/{attachment_id}"
         headers = {"Authorization": f"Bearer {token}"}
 

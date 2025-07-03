@@ -249,8 +249,6 @@ class AutoResponseDisabledTests(TestCase):
             phone_opt_in=False,
             phone_available=False,
             enabled=False,
-            access_token="a",
-            refresh_token="r",
         )
 
     @patch("webhooks.webhook_views.send_scheduled_message.apply_async")

@@ -26,7 +26,6 @@ from .models import (
 )
 from .serializers import EventSerializer
 from .utils import (
-    get_valid_yelp_token,
     get_valid_business_token,
     get_token_for_lead,
     adjust_due_time,
@@ -97,6 +96,9 @@ class WebhookView(APIView):
             token = get_valid_business_token(business_id)
         else:
             token = get_token_for_lead(lead_id)
+        if not token:
+            logger.error("[WEBHOOK] No token available for lead=%s", lead_id)
+            return {"new_lead": False}
         url = f"https://api.yelp.com/v3/leads/{lead_id}/events"
         resp = requests.get(
             url,
@@ -324,13 +326,21 @@ class WebhookView(APIView):
                 phone_opt_in=phone_opt_in,
                 phone_available=phone_available,
             ).first()
-            token = get_valid_business_token(pl.business_id)
-            logger.debug(
-                f"[AUTO-RESPONSE] Obtained business token for {pl.business_id}: {token}"
-            )
+            try:
+                token = get_valid_business_token(pl.business_id)
+                logger.debug(
+                    f"[AUTO-RESPONSE] Obtained business token for {pl.business_id}: {token}"
+                )
+            except ValueError:
+                logger.error(
+                    f"[AUTO-RESPONSE] No token for business {pl.business_id}; skipping"
+                )
+                return
         else:
-            token = get_valid_yelp_token()
-            logger.debug("[AUTO-RESPONSE] Obtained global token: %s", token)
+            logger.error(
+                "[AUTO-RESPONSE] Cannot determine business for lead=%s", lead_id
+            )
+            return
 
         auto_settings = biz_settings if biz_settings is not None else default_settings
         if auto_settings is None:
@@ -343,7 +353,7 @@ class WebhookView(APIView):
         )
         resp = requests.get(detail_url, headers=headers, timeout=10)
         if resp.status_code != 200:
-            source = f"business {pl.business_id}" if pl else "global token"
+            source = f"business {pl.business_id}" if pl else "unknown"
             logger.error(
                 f"[AUTO-RESPONSE] DETAIL ERROR lead={lead_id}, business_id={pl.business_id if pl else 'N/A'}, "
                 f"token_source={source}, token={token}, status={resp.status_code}, body={resp.text}"

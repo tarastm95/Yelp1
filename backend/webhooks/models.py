@@ -74,13 +74,6 @@ class AutoResponseSettings(models.Model):
     enabled = models.BooleanField(
         default=False, help_text="Увімкнути/вимкнути автoвідповіді"
     )
-    access_token = EncryptedTextField(help_text="Yelp API access token")
-    refresh_token = EncryptedTextField(
-        blank=True, help_text="Yelp API refresh token (дійсний 365 днів)"
-    )
-    token_expires_at = models.DateTimeField(
-        null=True, blank=True, help_text="Коли access_token перестане бути дійсним"
-    )
 
     # Вітальне повідомлення
     greeting_template = models.TextField(

@@ -5,7 +5,7 @@ from django.utils import timezone
 from zoneinfo import ZoneInfo
 from django.conf import settings
 import logging
-from .models import AutoResponseSettings, YelpToken, LeadDetail, ProcessedLead
+from .models import YelpToken, LeadDetail, ProcessedLead
 import gspread
 from google.oauth2.service_account import Credentials
 from django.conf import settings
@@ -51,19 +51,6 @@ def rotate_refresh_token(refresh_token: str) -> dict:
     resp.raise_for_status()
     return resp.json()
 
-def get_valid_yelp_token():
-    """Return a fresh global access_token."""
-    s, _ = AutoResponseSettings.objects.get_or_create(id=1)
-    # якщо токен протух або не заданий
-    if not s.access_token or (s.token_expires_at and s.token_expires_at <= timezone.now()):
-        logger.info("[TOKEN] Refreshing global Yelp token")
-        tok = rotate_refresh_token(s.refresh_token)
-        s.access_token = tok['access_token']
-        s.refresh_token = tok.get('refresh_token', s.refresh_token)
-        s.token_expires_at = timezone.now() + timedelta(seconds=tok['expires_in'])
-        s.save()
-    logger.debug(f"[TOKEN] Returning global token: {s.access_token}")
-    return s.access_token
 
 
 def get_valid_business_token(business_id: str) -> str:
@@ -87,8 +74,11 @@ def get_valid_business_token(business_id: str) -> str:
     return yt.access_token
 
 
-def get_token_for_lead(lead_id: str) -> str:
-    """Return a fresh access token for the business owning the given lead."""
+def get_token_for_lead(lead_id: str) -> str | None:
+    """Return a fresh access token for the business owning the given lead.
+
+    Returns ``None`` when the business is unknown or no token exists.
+    """
     logger.debug(f"[TOKEN] Fetching token for lead={lead_id}")
     detail = LeadDetail.objects.filter(lead_id=lead_id).first()
     if detail:
@@ -97,12 +87,16 @@ def get_token_for_lead(lead_id: str) -> str:
     else:
         pl = ProcessedLead.objects.filter(lead_id=lead_id).first()
         if not pl:
-            logger.debug("[TOKEN] Business unknown, falling back to global token")
-            return get_valid_yelp_token()
+            logger.error(f"[TOKEN] Business unknown for lead={lead_id}")
+            return None
         business_id = pl.business_id
         logger.debug(f"[TOKEN] Found business_id from ProcessedLead: {business_id}")
 
-    token = get_valid_business_token(business_id)
+    try:
+        token = get_valid_business_token(business_id)
+    except ValueError:
+        logger.error(f"[TOKEN] No token for business {business_id}")
+        return None
     logger.debug(f"[TOKEN] Returning token for lead={lead_id}: {token}")
     return token
 

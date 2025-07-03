@@ -15,7 +15,6 @@ from .models import (
     YelpToken,
 )
 from .utils import (
-    get_valid_yelp_token,
     get_token_for_lead,
     rotate_refresh_token,
 )
