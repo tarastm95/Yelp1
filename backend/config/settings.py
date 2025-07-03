@@ -11,6 +11,9 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 import os
 
+# Default to plain-text storage of tokens unless explicitly overridden
+os.environ.setdefault("DISABLE_TOKEN_ENCRYPTION", "true")
+
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
