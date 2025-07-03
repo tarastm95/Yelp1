@@ -1,8 +1,12 @@
 import logging
 from django_filters.rest_framework import DjangoFilterBackend, FilterSet, filters
-from rest_framework import generics
+from rest_framework import generics, status
+from rest_framework.views import APIView
+from rest_framework.response import Response
 
-from .models import CeleryTaskLog
+from config.celery import app as celery_app
+
+from .models import CeleryTaskLog, LeadPendingTask
 from .serializers import CeleryTaskLogSerializer, MessageTaskSerializer
 
 logger = logging.getLogger(__name__)
@@ -61,4 +65,22 @@ class MessageTaskListView(generics.ListAPIView):
             )
             .order_by("-finished_at")
         )
+
+
+class TaskRevokeView(APIView):
+    """Revoke a scheduled Celery task and log the reason."""
+
+    def post(self, request, task_id: str):
+        reason = request.data.get("reason", "")
+        try:
+            celery_app.control.revoke(task_id)
+        except Exception as exc:
+            logger.error(f"[TASK] Error revoking {task_id}: {exc}")
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        CeleryTaskLog.objects.filter(task_id=task_id).update(
+            status="REVOKED", result=reason
+        )
+        LeadPendingTask.objects.filter(task_id=task_id).update(active=False)
+        return Response({"status": "revoked"})
 
