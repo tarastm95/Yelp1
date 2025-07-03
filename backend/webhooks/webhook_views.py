@@ -408,9 +408,9 @@ class WebhookView(APIView):
             not phone_available
             and PHONE_RE.search(detail_data["project"].get("additional_info", ""))
         ):
-            if not ld.phone_in_text:
-                ld.phone_in_text = True
-                ld.save(update_fields=["phone_in_text"])
+            if not ld.phone_in_additional_info:
+                ld.phone_in_additional_info = True
+                ld.save(update_fields=["phone_in_additional_info"])
             logger.info("[AUTO-RESPONSE] Phone found in additional_info")
             self.handle_phone_available(
                 lead_id, reason="phone number found in additional_info"
