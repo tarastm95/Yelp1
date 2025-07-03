@@ -337,9 +337,17 @@ class WebhookView(APIView):
                 )
                 return
         else:
+            qs = ProcessedLead.objects.filter(lead_id=lead_id)
             logger.error(
-                "[AUTO-RESPONSE] Cannot determine business for lead=%s", lead_id
+                "[AUTO-RESPONSE] Cannot determine business for lead=%s (found %s ProcessedLead records)",
+                lead_id,
+                qs.count(),
             )
+            if qs.exists():
+                logger.error(
+                    "[AUTO-RESPONSE] Sample ProcessedLead records: %s",
+                    list(qs.values("id", "business_id", "processed_at")[:3]),
+                )
             return
 
         auto_settings = biz_settings if biz_settings is not None else default_settings
