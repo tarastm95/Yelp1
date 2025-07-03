@@ -343,8 +343,10 @@ class WebhookView(APIView):
         )
         resp = requests.get(detail_url, headers=headers, timeout=10)
         if resp.status_code != 200:
+            source = f"business {pl.business_id}" if pl else "global token"
             logger.error(
-                f"[AUTO-RESPONSE] DETAIL ERROR lead={lead_id}, status={resp.status_code}, body={resp.text}"
+                f"[AUTO-RESPONSE] DETAIL ERROR lead={lead_id}, business_id={pl.business_id if pl else 'N/A'}, "
+                f"token_source={source}, token={token}, status={resp.status_code}, body={resp.text}"
             )
             return
         d = resp.json()
