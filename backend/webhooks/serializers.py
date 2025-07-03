@@ -39,9 +39,6 @@ class AutoResponseSettingsSerializer(serializers.ModelSerializer):
             "phone_opt_in",
             "phone_available",
             "enabled",
-            "access_token",
-            "refresh_token",
-            "token_expires_at",
             "greeting_template",
             "greeting_off_hours_template",
             "greeting_delay",
@@ -55,7 +52,7 @@ class AutoResponseSettingsSerializer(serializers.ModelSerializer):
             "follow_up_open_to",
             "export_to_sheets",
         ]
-        read_only_fields = ["id", "token_expires_at"]
+        read_only_fields = ["id"]
 
     def create(self, validated_data):
         business_id = (

@@ -16,7 +16,6 @@ from rest_framework.decorators import api_view
 
 from .models import (
     YelpOAuthState,
-    AutoResponseSettings,
     YelpToken,
     YelpBusiness,
     ProcessedLead,
@@ -198,12 +197,6 @@ class YelpAuthCallbackView(APIView):
             if not access_token:
                 return redirect(f"{settings.FRONTEND_URL}/callback?error=token_error")
 
-            settings_obj, _ = AutoResponseSettings.objects.get_or_create(id=1)
-            settings_obj.access_token = access_token
-            settings_obj.refresh_token = refresh_token or settings_obj.refresh_token
-            settings_obj.token_expires_at = timezone.now() + timedelta(seconds=expires_in)
-            settings_obj.enabled = True
-            settings_obj.save()
 
             biz_resp = requests.get(
                 "https://partner-api.yelp.com/token/v1/businesses",
