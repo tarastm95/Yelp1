@@ -828,7 +828,7 @@ const AutoResponseSettings: FC = () => {
             {/* Greeting */}
             <Box>
               <Typography variant="h6">
-                {phoneAvailable ? 'Greeting Message (робочі години)' : 'Greeting Message'}
+                {phoneAvailable ? 'Greeting Message (Business Hours)' : 'Greeting Message'}
               </Typography>
               <Stack direction="row" spacing={1} mb={1}>
                 {PLACEHOLDERS.map(ph => (
@@ -907,7 +907,7 @@ const AutoResponseSettings: FC = () => {
 
             {phoneAvailable && (
               <Box>
-                <Typography variant="h6">Greeting Message (не робочі години)</Typography>
+              <Typography variant="h6">Greeting Message (Off Hours)</Typography>
                 <Stack direction="row" spacing={1} mb={1}>
                   {PLACEHOLDERS.map(ph => (
                     <Button key={ph} size="small" variant="outlined" onClick={() => insertPlaceholder(ph, 'after')}>
