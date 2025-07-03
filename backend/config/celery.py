@@ -2,6 +2,8 @@ import os
 import logging
 from datetime import datetime, timezone as dt_timezone
 
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
+
 from celery import Celery
 from celery.signals import (
     before_task_publish,
@@ -15,9 +17,8 @@ from django.apps import apps
 from webhooks.models import LeadPendingTask
 
 # Fallback UTC constant for older Django versions without timezone.utc
-UTC = getattr(timezone, "utc", dt_timezone.utc)
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
+UTC = getattr(timezone, "utc", dt_timezone.utc)
 
 app = Celery('config')
 app.config_from_object('django.conf:settings', namespace='CELERY')
