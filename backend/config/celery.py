@@ -12,6 +12,7 @@ from celery.signals import (
 from django.db import transaction
 from django.utils import timezone
 from django.apps import apps
+from webhooks.models import LeadPendingTask
 
 # Fallback UTC constant for older Django versions without timezone.utc
 UTC = getattr(timezone, "utc", dt_timezone.utc)
@@ -121,6 +122,8 @@ def log_task_start(sender=None, task_id=None, args=None, kwargs=None, **other):
             started_at=timezone.now(),
             status="STARTED",
         )
+
+    LeadPendingTask.objects.filter(task_id=task_id).update(active=False)
 
 
 @task_postrun.connect
