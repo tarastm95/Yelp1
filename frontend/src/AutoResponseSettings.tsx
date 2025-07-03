@@ -163,8 +163,6 @@ const AutoResponseSettings: FC = () => {
     useState<number | 'current' | ''>('current');
   const [selectedTemplateIdWithPhone, setSelectedTemplateIdWithPhone] =
     useState<number | 'current' | ''>('current');
-  const [selectedTemplateIdAvailable, setSelectedTemplateIdAvailable] =
-    useState<number | 'current' | ''>('current');
 
   // track initial settings and applied template
   const initialSettings = useRef<AutoResponseSettingsData | null>(null);
@@ -472,7 +470,6 @@ const AutoResponseSettings: FC = () => {
   useEffect(() => {
     setSelectedTemplateIdNoPhone('current');
     setSelectedTemplateIdWithPhone('current');
-    setSelectedTemplateIdAvailable('current');
   }, [selectedBusiness]);
 
   // reload templates when other tabs modify them
@@ -717,15 +714,14 @@ const AutoResponseSettings: FC = () => {
   return (
     <Container maxWidth={false} sx={{ mt:4, mb:4, maxWidth: 1000, mx: 'auto' }}>
       <Box sx={{ mb: 2 }}>
+        {!phoneAvailable && (
         <Box>
           <Select
-            value={phoneOptIn ? selectedTemplateIdWithPhone : phoneAvailable ? selectedTemplateIdAvailable : selectedTemplateIdNoPhone}
+            value={phoneOptIn ? selectedTemplateIdWithPhone : selectedTemplateIdNoPhone}
             onChange={e => {
               const val = e.target.value as any;
               if (phoneOptIn) {
                 setSelectedTemplateIdWithPhone(val);
-              } else if (phoneAvailable) {
-                setSelectedTemplateIdAvailable(val);
               } else {
                 setSelectedTemplateIdNoPhone(val);
               }
@@ -756,6 +752,7 @@ const AutoResponseSettings: FC = () => {
             ))}
           </Select>
         </Box>
+        )}
 
         <Select
           value={selectedBusiness}
