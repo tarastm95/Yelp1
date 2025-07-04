@@ -5,6 +5,7 @@ import {
   Routes,
   Route,
   Link as RouterLink,
+  Navigate,
 } from 'react-router-dom';
 
 // --- Material-UI Imports ---
@@ -48,6 +49,7 @@ import TokenStatus from "./TokenStatus";
 import TaskLogs from "./TaskLogs";
 import SettingsTemplates from "./SettingsTemplates";
 import Subscriptions from "./Subscriptions";
+import LoginPage from "./LoginPage";
 
 // A default theme for the application
 const theme = createTheme({
@@ -74,12 +76,32 @@ const drawerWidth = 240;
 
 const App: FC = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [authenticated, setAuthenticated] = useState(
+    localStorage.getItem('isAuthenticated') === 'true'
+  );
   const themeHook = useTheme();
   const isMobile = useMediaQuery(themeHook.breakpoints.down('sm'));
 
   const handleDrawerToggle = () => {
     setMobileOpen(prev => !prev);
   };
+
+  if (!authenticated) {
+    return (
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <Router>
+          <Routes>
+            <Route
+              path="/login"
+              element={<LoginPage onLogin={() => setAuthenticated(true)} />}
+            />
+            <Route path="*" element={<Navigate to="/login" replace />} />
+          </Routes>
+        </Router>
+      </ThemeProvider>
+    );
+  }
 
   const drawer = (
     <div>
@@ -162,9 +184,18 @@ const App: FC = () => {
                   <MenuIcon />
                 </IconButton>
               )}
-              <Typography variant="h6" noWrap component="div">
+              <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
                 Yelp Integration Dashboard
               </Typography>
+              <Button
+                color="inherit"
+                onClick={() => {
+                  localStorage.removeItem('isAuthenticated');
+                  setAuthenticated(false);
+                }}
+              >
+                Logout
+              </Button>
             </Toolbar>
           </AppBar>
 
