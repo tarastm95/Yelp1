@@ -95,7 +95,6 @@ const SettingsTemplates: React.FC = () => {
   const [followDelaySeconds, setFollowDelaySeconds] = useState(0);
 
   const greetingRef = useRef<HTMLTextAreaElement | null>(null);
-  const afterRef = useRef<HTMLTextAreaElement | null>(null);
   const followRef = useRef<HTMLTextAreaElement | null>(null);
   const tplRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -109,7 +108,7 @@ const SettingsTemplates: React.FC = () => {
 
   const insertPlaceholder = (
     ph: Placeholder,
-    target: 'greeting' | 'follow' | 'template' | 'after'
+    target: 'greeting' | 'follow' | 'template'
   ) => {
     let ref: HTMLTextAreaElement | null = null;
     let base = '';
@@ -118,10 +117,6 @@ const SettingsTemplates: React.FC = () => {
       ref = greetingRef.current;
       base = data.greeting_template;
       setter = (v: string) => setData({...data, greeting_template: v});
-    } else if (target === 'after') {
-      ref = afterRef.current;
-      base = data.greeting_off_hours_template;
-      setter = (v: string) => setData({...data, greeting_off_hours_template: v});
     } else if (target === 'follow') {
       ref = followRef.current;
       base = data.follow_up_template;
@@ -330,22 +325,6 @@ const SettingsTemplates: React.FC = () => {
               fullWidth
               value={data.greeting_template}
               onChange={e=>setData({...data, greeting_template:e.target.value})}
-            />
-            <Stack direction="row" spacing={1} mb={1}>
-              {PLACEHOLDERS.map(ph => (
-                <Button key={ph} size="small" variant="outlined" onClick={() => insertPlaceholder(ph, 'after')}>
-                  {ph}
-                </Button>
-              ))}
-            </Stack>
-            <TextField
-              inputRef={afterRef}
-              multiline
-              minRows={3}
-              label="Greeting Template (off hours)"
-              fullWidth
-              value={data.greeting_off_hours_template}
-              onChange={e=>setData({...data, greeting_off_hours_template:e.target.value})}
             />
             <Stack direction="row" spacing={1} alignItems="center">
               <TextField label="Hours" type="number" inputProps={{min:0}} sx={{ width:80 }}
