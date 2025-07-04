@@ -95,7 +95,7 @@ const NewEvents: FC<Props> = ({
                 {detail?.phone_opt_in && (
                   <Chip label="Phone Opt-In" color="success" size="small" />
                 )}
-                {detail?.phone_in_text && (
+                {detail?.phone_in_text && !detail?.phone_in_additional_info && (
                   <Chip label="Phone in text" color="info" size="small" />
                 )}
                 {detail?.phone_in_additional_info && (
