@@ -121,10 +121,9 @@ GS_SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 
 
 def append_lead_to_sheet(detail_data: dict):
-    """
-    Додає новий рядок до Google Sheets із полями detail_data.
-    Використовує облікові дані із settings.GOOGLE_SERVICE_ACCOUNT_INFO.
-    Логує успіх чи помилку.
+    """Append a new row to Google Sheets using detail_data.
+
+    Logs the outcome and re-raises any exception so callers can handle it.
     """
     try:
         if getattr(settings, "GOOGLE_SERVICE_ACCOUNT_FILE", None):
@@ -174,8 +173,8 @@ def append_lead_to_sheet(detail_data: dict):
             f"to spreadsheet {settings.GS_SPREADSHEET_ID}"
         )
     except Exception as e:
-        logger.error(
+        logger.exception(
             f"[SHEETS] Failed to append lead {detail_data.get('lead_id')} "
-            f"to spreadsheet {settings.GS_SPREADSHEET_ID}: {e}",
-            exc_info=True
+            f"to spreadsheet {settings.GS_SPREADSHEET_ID}: {e}"
         )
+        raise
