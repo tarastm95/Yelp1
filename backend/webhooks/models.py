@@ -227,6 +227,7 @@ class LeadDetail(models.Model):
     time_created = models.DateTimeField()
     last_event_time = models.DateTimeField(null=True, blank=True)
     user_display_name = models.CharField(max_length=100, blank=True)
+    phone_number = models.CharField(max_length=32, blank=True)
     project = models.JSONField()
     phone_opt_in = models.BooleanField(default=False)
     phone_in_text = models.BooleanField(

@@ -22,7 +22,7 @@ from .models import (
     LeadDetail,
     LeadEvent,
 )
-from .webhook_views import safe_update_or_create
+from .webhook_views import safe_update_or_create, _extract_phone
 
 DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
@@ -61,6 +61,8 @@ def fetch_and_store_lead(access_token: str, lead_id: str) -> None:
         else:
             survey_list = raw_answers
 
+        phone_number = _extract_phone(raw_proj.get("additional_info", "")) or ""
+
         detail_data = {
             "lead_id": lead_id,
             "business_id": detail.get("business_id"),
@@ -70,6 +72,7 @@ def fetch_and_store_lead(access_token: str, lead_id: str) -> None:
             "time_created": detail.get("time_created"),
             "last_event_time": last_time,
             "user_display_name": detail.get("user", {}).get("display_name", ""),
+            "phone_number": phone_number,
             "project": {
                 "survey_answers": survey_list,
                 "location": raw_proj.get("location", {}),
@@ -95,6 +98,14 @@ def fetch_and_store_lead(access_token: str, lead_id: str) -> None:
                 "time_created": e.get("time_created"),
                 "raw": e,
             }
+            phone = _extract_phone(defaults["text"])
+            if phone:
+                LeadDetail.objects.filter(lead_id=lead_id).update(phone_number=phone)
+                try:
+                    from .utils import update_phone_in_sheet
+                    update_phone_in_sheet(lead_id, phone)
+                except Exception:
+                    logger.exception("[WEBHOOK] Failed to update phone in sheet")
             safe_update_or_create(LeadEvent, defaults=defaults, event_id=e.get("id"))
     except requests.RequestException as exc:
         logger.error(f"Failed to fetch lead data for {lead_id}: {exc}")

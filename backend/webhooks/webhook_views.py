@@ -40,6 +40,14 @@ logger = logging.getLogger(__name__)
 PHONE_RE = re.compile(r"\+?\d[\d\s\-\(\)]{8,}\d")
 
 
+def _extract_phone(text: str) -> str | None:
+    """Return first phone number found in text, if any."""
+    if not text:
+        return None
+    m = PHONE_RE.search(text)
+    return m.group() if m else None
+
+
 def safe_update_or_create(model, defaults=None, **kwargs):
     """Retry update_or_create with simple retry logic."""
     for attempt in range(1, 6):
@@ -157,14 +165,21 @@ class WebhookView(APIView):
                 ):
                     content = upd.get("event_content", {}) or {}
                     text = content.get("text") or content.get("fallback_text", "")
-                    has_phone = bool(text and PHONE_RE.search(text))
+                    phone = _extract_phone(text)
+                    has_phone = bool(phone)
                     pending = LeadPendingTask.objects.filter(
                         lead_id=lid, phone_opt_in=False, phone_available=False, active=True
                     ).exists()
                     if has_phone:
-                        updated = LeadDetail.objects.filter(
-                            lead_id=lid, phone_in_text=False
-                        ).update(phone_in_text=True)
+                        LeadDetail.objects.filter(lead_id=lid).update(
+                            phone_in_text=True, phone_number=phone
+                        )
+                        try:
+                            from .utils import update_phone_in_sheet
+                            update_phone_in_sheet(lid, phone)
+                        except Exception:
+                            logger.exception("[WEBHOOK] Failed to update phone in sheet")
+                        updated = True
                         trigger = updated or pending
                         if pending:
                             LeadDetail.objects.filter(lead_id=lid).update(phone_in_dialog=True)
@@ -245,7 +260,8 @@ class WebhookView(APIView):
                 )
                 event_dt = parse_datetime(defaults.get("time_created"))
                 text = defaults.get("text", "")
-                has_phone = bool(text and PHONE_RE.search(text))
+                phone = _extract_phone(text)
+                has_phone = bool(phone)
                 is_new = created
                 if processed_at and event_dt:
                     is_new = is_new and event_dt > processed_at
@@ -266,7 +282,14 @@ class WebhookView(APIView):
                         lead_id=lid, phone_opt_in=False, phone_available=False, active=True
                     ).exists()
                     if has_phone:
-                        LeadDetail.objects.filter(lead_id=lid).update(phone_in_text=True)
+                        LeadDetail.objects.filter(lead_id=lid).update(
+                            phone_in_text=True, phone_number=phone
+                        )
+                        try:
+                            from .utils import update_phone_in_sheet
+                            update_phone_in_sheet(lid, phone)
+                        except Exception:
+                            logger.exception("[WEBHOOK] Failed to update phone in sheet")
                         if pending:
                             LeadDetail.objects.filter(lead_id=lid).update(phone_in_dialog=True)
                             reason = (
@@ -387,6 +410,8 @@ class WebhookView(APIView):
         else:
             survey_list = raw_answers
 
+        phone_number = _extract_phone(raw_proj.get("additional_info", "")) or ""
+
         detail_data = {
             "lead_id": lead_id,
             "business_id": d.get("business_id"),
@@ -396,6 +421,7 @@ class WebhookView(APIView):
             "time_created": d.get("time_created"),
             "last_event_time": last_time,
             "user_display_name": d.get("user", {}).get("display_name", ""),
+            "phone_number": phone_number,
             "project": {
                 "survey_answers": survey_list,
                 "location": raw_proj.get("location", {}),
@@ -419,6 +445,14 @@ class WebhookView(APIView):
             if not ld.phone_in_additional_info:
                 ld.phone_in_additional_info = True
                 ld.save(update_fields=["phone_in_additional_info"])
+            if phone_number:
+                ld.phone_number = phone_number
+                ld.save(update_fields=["phone_number"])
+                try:
+                    from .utils import update_phone_in_sheet
+                    update_phone_in_sheet(lead_id, phone_number)
+                except Exception:
+                    logger.exception("[WEBHOOK] Failed to update phone in sheet")
             logger.info("[AUTO-RESPONSE] Phone found in additional_info")
             self.handle_phone_available(
                 lead_id, reason="phone number found in additional_info"
