@@ -164,6 +164,7 @@ def append_lead_to_sheet(detail_data: dict):
             json.dumps(detail_data["project"].get("location", {}), ensure_ascii=False),
             json.dumps(detail_data["project"].get("availability", {}), ensure_ascii=False),
             ", ".join(detail_data["project"].get("job_names", [])),
+            detail_data.get("phone_number", ""),
             json.dumps(detail_data["project"].get("attachments", []), ensure_ascii=False),
         ]
 
@@ -178,3 +179,41 @@ def append_lead_to_sheet(detail_data: dict):
             f"to spreadsheet {settings.GS_SPREADSHEET_ID}: {e}"
         )
         raise
+
+
+def update_phone_in_sheet(lead_id: str, phone_number: str):
+    """Update phone number for a lead in Google Sheets."""
+    try:
+        if getattr(settings, "GOOGLE_SERVICE_ACCOUNT_FILE", None):
+            creds = Credentials.from_service_account_file(
+                settings.GOOGLE_SERVICE_ACCOUNT_FILE,
+                scopes=settings.GS_SCOPES,
+            )
+        else:
+            info = settings.GOOGLE_SERVICE_ACCOUNT_INFO.copy()
+            pk = info.get("private_key")
+            if isinstance(pk, (list, tuple)):
+                pk = "\n".join(pk)
+            elif isinstance(pk, bytes):
+                pk = pk.decode("utf-8")
+            if isinstance(pk, str):
+                info["private_key"] = pk.replace("\\n", "\n")
+
+            creds = Credentials.from_service_account_info(info, scopes=settings.GS_SCOPES)
+        client = gspread.authorize(creds)
+        sheet = client.open_by_key(settings.GS_SPREADSHEET_ID).sheet1
+        cell = sheet.find(lead_id)
+        if not cell:
+            logger.warning(f"[SHEETS] Lead id {lead_id} not found for update")
+            return
+        row_idx = cell.row
+        # Phone number column is 14th (1-indexed)
+        phone_col = 14
+        sheet.update_cell(row_idx, phone_col, phone_number)
+        logger.info(
+            f"[SHEETS] Updated phone for lead {lead_id} in spreadsheet {settings.GS_SPREADSHEET_ID}"
+        )
+    except Exception as e:
+        logger.exception(
+            f"[SHEETS] Failed to update phone for lead {lead_id} in spreadsheet {settings.GS_SPREADSHEET_ID}: {e}"
+        )
