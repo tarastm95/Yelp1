@@ -422,6 +422,7 @@ class WebhookView(APIView):
             "last_event_time": last_time,
             "user_display_name": d.get("user", {}).get("display_name", ""),
             "phone_number": phone_number,
+            "phone_opt_in": d.get("phone_opt_in", False),
             "project": {
                 "survey_answers": survey_list,
                 "location": raw_proj.get("location", {}),

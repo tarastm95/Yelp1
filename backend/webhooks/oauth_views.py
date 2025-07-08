@@ -73,6 +73,7 @@ def fetch_and_store_lead(access_token: str, lead_id: str) -> None:
             "last_event_time": last_time,
             "user_display_name": detail.get("user", {}).get("display_name", ""),
             "phone_number": phone_number,
+            "phone_opt_in": detail.get("phone_opt_in", False),
             "project": {
                 "survey_answers": survey_list,
                 "location": raw_proj.get("location", {}),

@@ -249,6 +249,7 @@ def append_lead_to_sheet(detail_data: dict):
             _format_location(proj.get("location", {})),
             detail_data.get("phone_number", ""),
             _format_attachments(proj.get("attachments", [])),
+            detail_data.get("phone_opt_in", False),
         ]
 
         # Use USER_ENTERED so formulas like HYPERLINK() are parsed correctly
