@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 from django.conf import settings
 import logging
 from .models import YelpToken, LeadDetail, ProcessedLead
+from django.utils.dateparse import parse_datetime
 import gspread
 from google.oauth2.service_account import Credentials
 from django.conf import settings
@@ -120,6 +121,71 @@ def adjust_due_time(base_dt, tz_name: str | None, start: time, end: time):
 GS_SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 
 
+def _format_time(dt_string: str) -> str:
+    """Return human readable time like 'May 18, 2025, 08:20:37'."""
+    if not dt_string:
+        return ""
+    dt = parse_datetime(dt_string)
+    if not dt:
+        return dt_string
+    return dt.strftime("%b %d, %Y, %H:%M:%S")
+
+
+def _yelp_business_link(business_id: str) -> str:
+    """Return link to Yelp business page."""
+    if not business_id:
+        return ""
+    return f"https://biz.yelp.com/biz/{business_id}"
+
+
+def _yelp_lead_link(lead_id: str) -> str:
+    """Return link to Yelp lead page."""
+    if not lead_id:
+        return ""
+    return f"https://biz.yelp.com/leads/{lead_id}"
+
+
+def _format_survey_answers(answers) -> str:
+    """Format survey answers from JSON list to readable text."""
+    if not answers:
+        return ""
+    lines = []
+    for item in answers:
+        q = item.get("question_text", "")
+        ans = item.get("answer_text", [])
+        if isinstance(ans, list):
+            ans_text = " – ".join(ans)
+        else:
+            ans_text = str(ans)
+        lines.append(f"• {q} – {ans_text}")
+    return "\n".join(lines)
+
+
+def _format_availability(av) -> str:
+    if not av:
+        return ""
+    status = av.get("status", "")
+    dates = av.get("dates", [])
+    return f"{status} — {', '.join(dates)}" if dates else status
+
+
+def _format_location(loc) -> str:
+    if not loc:
+        return ""
+    return ", ".join(f"{k}: {v}" for k, v in loc.items())
+
+
+def _format_attachments(atts) -> str:
+    if not atts:
+        return ""
+    lines = []
+    for att in atts:
+        name = att.get("resource_name") or att.get("id")
+        url = att.get("url", "")
+        lines.append(f"• {name}: {url}")
+    return "\n".join(lines)
+
+
 def append_lead_to_sheet(detail_data: dict):
     """Append a new row to Google Sheets using detail_data.
 
@@ -149,23 +215,19 @@ def append_lead_to_sheet(detail_data: dict):
         client = gspread.authorize(creds)
         sheet = client.open_by_key(settings.GS_SPREADSHEET_ID).sheet1
 
-        # Формуємо рядок відповідно до ваших стовпців
+        # Формуємо рядок відповідно до нових стовпців
+        proj = detail_data.get("project", {}) or {}
         row = [
-            detail_data.get("lead_id"),
-            detail_data.get("business_id"),
-            detail_data.get("conversation_id"),
-            detail_data.get("temporary_email_address"),
-            detail_data.get("temporary_email_address_expiry"),
-            detail_data.get("time_created"),
-            detail_data.get("last_event_time"),
+            _format_time(detail_data.get("time_created")),
+            _yelp_business_link(detail_data.get("business_id")),
+            _yelp_lead_link(detail_data.get("lead_id")),
             detail_data.get("user_display_name"),
-            json.dumps(detail_data["project"].get("survey_answers", []), ensure_ascii=False),
-            detail_data["project"].get("additional_info", ""),
-            json.dumps(detail_data["project"].get("location", {}), ensure_ascii=False),
-            json.dumps(detail_data["project"].get("availability", {}), ensure_ascii=False),
-            ", ".join(detail_data["project"].get("job_names", [])),
+            ", ".join(proj.get("job_names", [])),
+            _format_survey_answers(proj.get("survey_answers", [])),
+            _format_availability(proj.get("availability", {})),
+            _format_location(proj.get("location", {})),
             detail_data.get("phone_number", ""),
-            json.dumps(detail_data["project"].get("attachments", []), ensure_ascii=False),
+            _format_attachments(proj.get("attachments", [])),
         ]
 
         sheet.append_row(row)
@@ -207,8 +269,8 @@ def update_phone_in_sheet(lead_id: str, phone_number: str):
             logger.warning(f"[SHEETS] Lead id {lead_id} not found for update")
             return
         row_idx = cell.row
-        # Phone number column is 14th (1-indexed)
-        phone_col = 14
+        # Phone number column is 9th (1-indexed) after reordering
+        phone_col = 9
         sheet.update_cell(row_idx, phone_col, phone_number)
         logger.info(
             f"[SHEETS] Updated phone for lead {lead_id} in spreadsheet {settings.GS_SPREADSHEET_ID}"
