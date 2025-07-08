@@ -479,18 +479,33 @@ class WebhookView(APIView):
         if not phone_available and PHONE_RE.search(
             detail_data["project"].get("additional_info", "")
         ):
+            if auto_settings and auto_settings.export_to_sheets:
+                try:
+                    from .utils import append_lead_to_sheet
+
+                    logger.info(
+                        "[AUTO-RESPONSE] Exporting lead %s (business=%s) to Google Sheets",
+                        lead_id,
+                        biz_id,
+                    )
+                    append_lead_to_sheet(detail_data)
+                    logger.info(
+                        "[AUTO-RESPONSE] Lead %s (business=%s) exported to Google Sheets",
+                        lead_id,
+                        biz_id,
+                    )
+                except Exception:
+                    logger.exception(
+                        "[AUTO-RESPONSE] Google Sheets export failed for lead=%s",
+                        lead_id,
+                    )
+
             if not ld.phone_in_additional_info:
                 ld.phone_in_additional_info = True
                 ld.save(update_fields=["phone_in_additional_info"])
             if phone_number:
                 ld.phone_number = phone_number
                 ld.save(update_fields=["phone_number"])
-                try:
-                    from .utils import update_phone_in_sheet
-
-                    update_phone_in_sheet(lead_id, phone_number)
-                except Exception:
-                    logger.exception("[WEBHOOK] Failed to update phone in sheet")
             logger.info("[AUTO-RESPONSE] Phone found in additional_info")
             self.handle_phone_available(
                 lead_id, reason="phone number found in additional_info"
