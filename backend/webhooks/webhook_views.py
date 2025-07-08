@@ -462,11 +462,22 @@ class WebhookView(APIView):
         if auto_settings and auto_settings.export_to_sheets:
             try:
                 from .utils import append_lead_to_sheet
-                logger.info("[AUTO-RESPONSE] Attempting Google Sheets export")
+                logger.info(
+                    f"[AUTO-RESPONSE] Exporting lead {lead_id} to Google Sheets"
+                )
                 append_lead_to_sheet(detail_data)
-                logger.info(f"[AUTO-RESPONSE] Lead {lead_id} exported to Google Sheets")
-            except Exception as e:
-                logger.error(f"[AUTO-RESPONSE] Sheets export error for lead {lead_id}: {e}")
+                logger.info(
+                    f"[AUTO-RESPONSE] Lead {lead_id} exported to Google Sheets"
+                )
+            except Exception:
+                logger.exception(
+                    "[AUTO-RESPONSE] Google Sheets export failed for lead=%s",
+                    lead_id,
+                )
+        elif auto_settings and not auto_settings.export_to_sheets:
+            logger.info(
+                "[AUTO-RESPONSE] Sheets export disabled in AutoResponseSettings"
+            )
 
         if not auto_settings or not auto_settings.enabled:
             logger.info("[AUTO-RESPONSE] Auto responses disabled; skipping messages")
