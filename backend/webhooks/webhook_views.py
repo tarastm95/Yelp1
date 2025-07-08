@@ -68,9 +68,7 @@ def safe_update_or_create(model, defaults=None, **kwargs):
                 f"[DB RETRY] OperationalError on attempt {attempt}/5 for {model.__name__}: {e}"
             )
             time.sleep(0.1)
-    logger.debug(
-        f"[DB RETRY] Final attempt for {model.__name__}.update_or_create"
-    )
+    logger.debug(f"[DB RETRY] Final attempt for {model.__name__}.update_or_create")
     return model.objects.update_or_create(defaults=defaults or {}, **kwargs)
 
 
@@ -148,11 +146,16 @@ class WebhookView(APIView):
             lid = upd.get("lead_id")
             if lid:
                 lead_ids.add(lid)
-                if upd.get("event_type") != "NEW_LEAD" and not ProcessedLead.objects.filter(lead_id=lid).exists():
+                if (
+                    upd.get("event_type") != "NEW_LEAD"
+                    and not ProcessedLead.objects.filter(lead_id=lid).exists()
+                ):
                     check = self._is_new_lead(lid, payload["data"].get("id"))
                     if check.get("new_lead"):
                         upd["event_type"] = "NEW_LEAD"
-                        logger.info(f"[WEBHOOK] Marked lead={lid} as NEW_LEAD via events check")
+                        logger.info(
+                            f"[WEBHOOK] Marked lead={lid} as NEW_LEAD via events check"
+                        )
                 if upd.get("event_type") == "CONSUMER_PHONE_NUMBER_OPT_IN_EVENT":
                     updated = LeadDetail.objects.filter(
                         lead_id=lid, phone_opt_in=False
@@ -168,7 +171,10 @@ class WebhookView(APIView):
                     phone = _extract_phone(text)
                     has_phone = bool(phone)
                     pending = LeadPendingTask.objects.filter(
-                        lead_id=lid, phone_opt_in=False, phone_available=False, active=True
+                        lead_id=lid,
+                        phone_opt_in=False,
+                        phone_available=False,
+                        active=True,
                     ).exists()
                     if has_phone:
                         LeadDetail.objects.filter(lead_id=lid).update(
@@ -176,13 +182,18 @@ class WebhookView(APIView):
                         )
                         try:
                             from .utils import update_phone_in_sheet
+
                             update_phone_in_sheet(lid, phone)
                         except Exception:
-                            logger.exception("[WEBHOOK] Failed to update phone in sheet")
+                            logger.exception(
+                                "[WEBHOOK] Failed to update phone in sheet"
+                            )
                         updated = True
                         trigger = updated or pending
                         if pending:
-                            LeadDetail.objects.filter(lead_id=lid).update(phone_in_dialog=True)
+                            LeadDetail.objects.filter(lead_id=lid).update(
+                                phone_in_dialog=True
+                            )
                         if trigger:
                             reason = (
                                 "Client responded with a number → switched to the 'phone available' scenario"
@@ -203,18 +214,20 @@ class WebhookView(APIView):
                     lead_id=lid,
                 )
                 if created:
-                    logger.info(f"[WEBHOOK] Created ProcessedLead id={pl.id} for lead={lid}")
+                    logger.info(
+                        f"[WEBHOOK] Created ProcessedLead id={pl.id} for lead={lid}"
+                    )
                     logger.info(f"[WEBHOOK] Calling handle_new_lead for lead={lid}")
                     self.handle_new_lead(lid)
                 else:
-                    logger.info(f"[WEBHOOK] Lead {lid} already processed; skipping handle_new_lead")
+                    logger.info(
+                        f"[WEBHOOK] Lead {lid} already processed; skipping handle_new_lead"
+                    )
 
         biz_id = payload["data"].get("id")
         for lid in lead_ids:
             token = get_valid_business_token(biz_id)
-            logger.info(
-                f"[WEBHOOK] Using business token for lead={lid}: {token}"
-            )
+            logger.info(f"[WEBHOOK] Using business token for lead={lid}: {token}")
             url = f"https://api.yelp.com/v3/leads/{lid}/events"
             params = {"limit": 20}
             resp = requests.get(
@@ -225,7 +238,9 @@ class WebhookView(APIView):
             )
 
             if resp.status_code != 200:
-                logger.error(f"[WEBHOOK] Failed to fetch events for lead={lid}: {resp.text}")
+                logger.error(
+                    f"[WEBHOOK] Failed to fetch events for lead={lid}: {resp.text}"
+                )
                 continue
 
             events = resp.json().get("events", [])
@@ -244,13 +259,16 @@ class WebhookView(APIView):
                     "user_type": e.get("user_type"),
                     "user_id": e.get("user_id"),
                     "user_display_name": e.get("user_display_name", ""),
-                    "text": e["event_content"].get("text") or e["event_content"].get("fallback_text", ""),
+                    "text": e["event_content"].get("text")
+                    or e["event_content"].get("fallback_text", ""),
                     "cursor": e.get("cursor", ""),
                     "time_created": e.get("time_created"),
                     "raw": e,
                 }
                 logger.info(f"[WEBHOOK] Upserting LeadEvent id={eid} for lead={lid}")
-                obj, created = safe_update_or_create(LeadEvent, defaults=defaults, event_id=eid)
+                obj, created = safe_update_or_create(
+                    LeadEvent, defaults=defaults, event_id=eid
+                )
                 logger.info(f"[WEBHOOK] LeadEvent saved pk={obj.pk}, created={created}")
 
                 processed_at = (
@@ -279,7 +297,10 @@ class WebhookView(APIView):
 
                 if e.get("user_type") == "CONSUMER":
                     pending = LeadPendingTask.objects.filter(
-                        lead_id=lid, phone_opt_in=False, phone_available=False, active=True
+                        lead_id=lid,
+                        phone_opt_in=False,
+                        phone_available=False,
+                        active=True,
                     ).exists()
                     if has_phone:
                         LeadDetail.objects.filter(lead_id=lid).update(
@@ -287,14 +308,17 @@ class WebhookView(APIView):
                         )
                         try:
                             from .utils import update_phone_in_sheet
+
                             update_phone_in_sheet(lid, phone)
                         except Exception:
-                            logger.exception("[WEBHOOK] Failed to update phone in sheet")
-                        if pending:
-                            LeadDetail.objects.filter(lead_id=lid).update(phone_in_dialog=True)
-                            reason = (
-                                "Client responded with a number → switched to the 'phone available' scenario"
+                            logger.exception(
+                                "[WEBHOOK] Failed to update phone in sheet"
                             )
+                        if pending:
+                            LeadDetail.objects.filter(lead_id=lid).update(
+                                phone_in_dialog=True
+                            )
+                            reason = "Client responded with a number → switched to the 'phone available' scenario"
                             self.handle_phone_available(lid, reason=reason)
                         else:
                             self.handle_phone_available(lid)
@@ -326,16 +350,16 @@ class WebhookView(APIView):
             try:
                 config.app.control.revoke(p.task_id)
             except Exception as exc:
-                logger.error(
-                    f"[AUTO-RESPONSE] Error revoking task {p.task_id}: {exc}"
-                )
+                logger.error(f"[AUTO-RESPONSE] Error revoking task {p.task_id}: {exc}")
             p.active = False
             p.save(update_fields=["active"])
             CeleryTaskLog.objects.filter(task_id=p.task_id).update(
                 status="REVOKED", result=reason
             )
 
-    def _process_auto_response(self, lead_id: str, phone_opt_in: bool, phone_available: bool):
+    def _process_auto_response(
+        self, lead_id: str, phone_opt_in: bool, phone_available: bool
+    ):
         default_settings = AutoResponseSettings.objects.filter(
             business__isnull=True,
             phone_opt_in=phone_opt_in,
@@ -376,6 +400,13 @@ class WebhookView(APIView):
         auto_settings = biz_settings if biz_settings is not None else default_settings
         if auto_settings is None:
             logger.info("[AUTO-RESPONSE] AutoResponseSettings not configured")
+        biz_id = pl.business_id if pl else None
+        logger.info(
+            "[AUTO-RESPONSE] Using AutoResponseSettings for business=%s, lead=%s, export_to_sheets=%s",
+            biz_id,
+            lead_id,
+            getattr(auto_settings, "export_to_sheets", None),
+        )
 
         detail_url = f"https://api.yelp.com/v3/leads/{lead_id}"
         headers = {"Authorization": f"Bearer {token}"}
@@ -393,7 +424,9 @@ class WebhookView(APIView):
         d = resp.json()
 
         last_time = None
-        ev_resp = requests.get(f"{detail_url}/events", headers=headers, params={"limit": 1}, timeout=10)
+        ev_resp = requests.get(
+            f"{detail_url}/events", headers=headers, params={"limit": 1}, timeout=10
+        )
         if ev_resp.status_code == 200:
             evs = ev_resp.json().get("events", [])
             if evs:
@@ -433,15 +466,18 @@ class WebhookView(APIView):
             },
         }
 
-        ld, created = safe_update_or_create(LeadDetail, defaults=detail_data, lead_id=lead_id)
-        logger.info(f"[AUTO-RESPONSE] LeadDetail {'created' if created else 'updated'} pk={ld.pk}")
+        ld, created = safe_update_or_create(
+            LeadDetail, defaults=detail_data, lead_id=lead_id
+        )
+        logger.info(
+            f"[AUTO-RESPONSE] LeadDetail {'created' if created else 'updated'} pk={ld.pk}"
+        )
 
         # If a phone number is present in additional_info when the lead detail is
         # fetched for the first time, treat it as a real phone provided by the
         # consumer and switch to the phone available flow.
-        if (
-            not phone_available
-            and PHONE_RE.search(detail_data["project"].get("additional_info", ""))
+        if not phone_available and PHONE_RE.search(
+            detail_data["project"].get("additional_info", "")
         ):
             if not ld.phone_in_additional_info:
                 ld.phone_in_additional_info = True
@@ -451,6 +487,7 @@ class WebhookView(APIView):
                 ld.save(update_fields=["phone_number"])
                 try:
                     from .utils import update_phone_in_sheet
+
                     update_phone_in_sheet(lead_id, phone_number)
                 except Exception:
                     logger.exception("[WEBHOOK] Failed to update phone in sheet")
@@ -463,12 +500,17 @@ class WebhookView(APIView):
         if auto_settings and auto_settings.export_to_sheets:
             try:
                 from .utils import append_lead_to_sheet
+
                 logger.info(
-                    f"[AUTO-RESPONSE] Exporting lead {lead_id} to Google Sheets"
+                    "[AUTO-RESPONSE] Exporting lead %s (business=%s) to Google Sheets",
+                    lead_id,
+                    biz_id,
                 )
                 append_lead_to_sheet(detail_data)
                 logger.info(
-                    f"[AUTO-RESPONSE] Lead {lead_id} exported to Google Sheets"
+                    "[AUTO-RESPONSE] Lead %s (business=%s) exported to Google Sheets",
+                    lead_id,
+                    biz_id,
                 )
             except Exception:
                 logger.exception(
@@ -477,7 +519,9 @@ class WebhookView(APIView):
                 )
         elif auto_settings and not auto_settings.export_to_sheets:
             logger.info(
-                "[AUTO-RESPONSE] Sheets export disabled in AutoResponseSettings"
+                "[AUTO-RESPONSE] Sheets export disabled in AutoResponseSettings for business=%s, lead=%s",
+                biz_id,
+                lead_id,
             )
 
         if not auto_settings or not auto_settings.enabled:
@@ -485,13 +529,19 @@ class WebhookView(APIView):
             return
 
         name = ld.user_display_name if auto_settings.include_name else ""
-        jobs = ", ".join(ld.project.get("job_names", [])) if auto_settings.include_jobs else ""
+        jobs = (
+            ", ".join(ld.project.get("job_names", []))
+            if auto_settings.include_jobs
+            else ""
+        )
         sep = ", " if name and jobs else ""
         biz_id = ld.business_id if ld else None
         business = YelpBusiness.objects.filter(business_id=biz_id).first()
 
         greeting = auto_settings.greeting_template.format(name=name, jobs=jobs, sep=sep)
-        off_greeting = auto_settings.greeting_off_hours_template.format(name=name, jobs=jobs, sep=sep)
+        off_greeting = auto_settings.greeting_off_hours_template.format(
+            name=name, jobs=jobs, sep=sep
+        )
 
         now = timezone.now()
         tz_name = business.time_zone if business else None
@@ -549,16 +599,16 @@ class WebhookView(APIView):
                 phone_opt_in=phone_opt_in,
                 phone_available=phone_available,
             )
-            logger.info(
-                f"[AUTO-RESPONSE] Greeting scheduled at {due.isoformat()}"
-            )
+            logger.info(f"[AUTO-RESPONSE] Greeting scheduled at {due.isoformat()}")
 
         if phone_available:
             return
 
         now = timezone.now()
         if auto_settings.follow_up_template and auto_settings.follow_up_delay:
-            built_in = auto_settings.follow_up_template.format(name=name, jobs=jobs, sep=sep)
+            built_in = auto_settings.follow_up_template.format(
+                name=name, jobs=jobs, sep=sep
+            )
             due2 = adjust_due_time(
                 now + timedelta(seconds=auto_settings.follow_up_delay),
                 business.time_zone if business else None,
@@ -567,7 +617,9 @@ class WebhookView(APIView):
             )
             countdown = max((due2 - now).total_seconds(), 0)
             if _already_sent(lead_id, built_in):
-                logger.info("[AUTO-RESPONSE] Built-in follow-up already sent → skipping")
+                logger.info(
+                    "[AUTO-RESPONSE] Built-in follow-up already sent → skipping"
+                )
             else:
                 res = send_follow_up.apply_async(
                     args=[lead_id, built_in, token],

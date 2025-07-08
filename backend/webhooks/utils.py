@@ -53,7 +53,6 @@ def rotate_refresh_token(refresh_token: str) -> dict:
     return resp.json()
 
 
-
 def get_valid_business_token(business_id: str) -> str:
     """Return a fresh access_token for the given business_id."""
     logger.debug(f"[TOKEN] Fetching token for business={business_id}")
@@ -71,7 +70,9 @@ def get_valid_business_token(business_id: str) -> str:
         if expires:
             yt.expires_at = timezone.now() + timedelta(seconds=expires)
         yt.save()
-    logger.debug(f"[TOKEN] Returning business token for {business_id}: {yt.access_token}")
+    logger.debug(
+        f"[TOKEN] Returning business token for {business_id}: {yt.access_token}"
+    )
     return yt.access_token
 
 
@@ -108,8 +109,12 @@ def adjust_due_time(base_dt, tz_name: str | None, start: time, end: time):
         return base_dt
     tz = ZoneInfo(tz_name)
     local = base_dt.astimezone(tz)
-    open_dt = local.replace(hour=start.hour, minute=start.minute, second=start.second, microsecond=0)
-    close_dt = local.replace(hour=end.hour, minute=end.minute, second=end.second, microsecond=0)
+    open_dt = local.replace(
+        hour=start.hour, minute=start.minute, second=start.second, microsecond=0
+    )
+    close_dt = local.replace(
+        hour=end.hour, minute=end.minute, second=end.second, microsecond=0
+    )
     if close_dt <= open_dt:
         close_dt += timedelta(days=1)
     if local < open_dt:
@@ -117,6 +122,7 @@ def adjust_due_time(base_dt, tz_name: str | None, start: time, end: time):
     elif local >= close_dt:
         local = open_dt + timedelta(days=1)
     return local.astimezone(UTC)
+
 
 GS_SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 
@@ -222,7 +228,9 @@ def append_lead_to_sheet(detail_data: dict):
             if isinstance(pk, str):
                 info["private_key"] = pk.replace("\\n", "\n")
 
-            creds = Credentials.from_service_account_info(info, scopes=settings.GS_SCOPES)
+            creds = Credentials.from_service_account_info(
+                info, scopes=settings.GS_SCOPES
+            )
         client = gspread.authorize(creds)
         sheet = client.open_by_key(settings.GS_SPREADSHEET_ID).sheet1
 
@@ -231,6 +239,12 @@ def append_lead_to_sheet(detail_data: dict):
 
         biz_id = detail_data.get("business_id")
         lead_id = detail_data.get("lead_id")
+        logger.info(
+            "[SHEETS] Appending lead %s for business %s to spreadsheet %s",
+            lead_id,
+            biz_id,
+            settings.GS_SPREADSHEET_ID,
+        )
         tz_name = None
         if biz_id:
             business = YelpBusiness.objects.filter(business_id=biz_id).first()
@@ -255,13 +269,18 @@ def append_lead_to_sheet(detail_data: dict):
         # Use USER_ENTERED so formulas like HYPERLINK() are parsed correctly
         sheet.append_row(row, value_input_option="USER_ENTERED")
         logger.info(
-            f"[SHEETS] Successfully appended lead {detail_data.get('lead_id')} "
-            f"to spreadsheet {settings.GS_SPREADSHEET_ID}"
+            "[SHEETS] Successfully appended lead %s for business %s to spreadsheet %s",
+            lead_id,
+            biz_id,
+            settings.GS_SPREADSHEET_ID,
         )
     except Exception as e:
         logger.exception(
-            f"[SHEETS] Failed to append lead {detail_data.get('lead_id')} "
-            f"to spreadsheet {settings.GS_SPREADSHEET_ID}: {e}"
+            "[SHEETS] Failed to append lead %s for business %s to spreadsheet %s: %s",
+            lead_id,
+            biz_id,
+            settings.GS_SPREADSHEET_ID,
+            e,
         )
         raise
 
@@ -284,7 +303,9 @@ def update_phone_in_sheet(lead_id: str, phone_number: str):
             if isinstance(pk, str):
                 info["private_key"] = pk.replace("\\n", "\n")
 
-            creds = Credentials.from_service_account_info(info, scopes=settings.GS_SCOPES)
+            creds = Credentials.from_service_account_info(
+                info, scopes=settings.GS_SCOPES
+            )
         client = gspread.authorize(creds)
         sheet = client.open_by_key(settings.GS_SPREADSHEET_ID).sheet1
         cell = sheet.find(lead_id)
