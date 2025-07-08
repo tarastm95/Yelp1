@@ -250,12 +250,12 @@ def append_lead_to_sheet(detail_data: dict):
             business = YelpBusiness.objects.filter(business_id=biz_id).first()
             tz_name = business.time_zone if business else None
 
+        # The export to Google Sheets omits the business and lead hyperlinks.
+        # Columns now contain only plain identifiers and lead details.
         row = [
-            _format_time(detail_data.get("time_created"), tz_name),
+            _format_time(detail_data.get("time_created"), tz_name),  # created at
             biz_id or "",
-            _yelp_business_link(biz_id),
             lead_id or "",
-            _yelp_lead_link(lead_id),
             detail_data.get("user_display_name"),
             ", ".join(proj.get("job_names", [])),
             _format_survey_answers(proj.get("survey_answers", [])),
@@ -313,8 +313,8 @@ def update_phone_in_sheet(lead_id: str, phone_number: str):
             logger.warning(f"[SHEETS] Lead id {lead_id} not found for update")
             return
         row_idx = cell.row
-        # Phone number column is 11th (1-indexed) after reordering
-        phone_col = 11
+        # Phone number column is now 9th (1-indexed) after removing hyperlinks
+        phone_col = 9
         sheet.update_cell(row_idx, phone_col, phone_number)
         logger.info(
             f"[SHEETS] Updated phone for lead {lead_id} in spreadsheet {settings.GS_SPREADSHEET_ID}"
