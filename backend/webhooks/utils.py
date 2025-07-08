@@ -145,7 +145,7 @@ def _yelp_business_link(business_id: str) -> str:
     if not business_id:
         return ""
     url = f"https://biz.yelp.com/biz/{business_id}"
-    return f'=HYPERLINK("{url}", "{business_id}")'
+    return f'=HYPERLINK("{url}"; "{business_id}")'
 
 
 def _yelp_lead_link(lead_id: str) -> str:
@@ -153,7 +153,7 @@ def _yelp_lead_link(lead_id: str) -> str:
     if not lead_id:
         return ""
     url = f"https://biz.yelp.com/leads/{lead_id}"
-    return f'=HYPERLINK("{url}", "{lead_id}")'
+    return f'=HYPERLINK("{url}"; "{lead_id}")'
 
 
 def _format_survey_answers(answers) -> str:
@@ -251,7 +251,8 @@ def append_lead_to_sheet(detail_data: dict):
             _format_attachments(proj.get("attachments", [])),
         ]
 
-        sheet.append_row(row)
+        # Use USER_ENTERED so formulas like HYPERLINK() are parsed correctly
+        sheet.append_row(row, value_input_option="USER_ENTERED")
         logger.info(
             f"[SHEETS] Successfully appended lead {detail_data.get('lead_id')} "
             f"to spreadsheet {settings.GS_SPREADSHEET_ID}"
