@@ -5,7 +5,7 @@ from django.utils import timezone
 from zoneinfo import ZoneInfo
 from django.conf import settings
 import logging
-from .models import YelpToken, LeadDetail, ProcessedLead
+from .models import YelpToken, LeadDetail, ProcessedLead, YelpBusiness
 from django.utils.dateparse import parse_datetime
 import gspread
 from google.oauth2.service_account import Credentials
@@ -121,28 +121,39 @@ def adjust_due_time(base_dt, tz_name: str | None, start: time, end: time):
 GS_SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 
 
-def _format_time(dt_string: str) -> str:
-    """Return human readable time like 'May 18, 2025, 08:20:37'."""
+def _format_time(dt_string: str, tz_name: str | None = None) -> str:
+    """Return human readable time like 'May 18, 2025, 08:20:37'.
+
+    If ``tz_name`` is provided, convert the datetime to that timezone before
+    formatting.
+    """
     if not dt_string:
         return ""
     dt = parse_datetime(dt_string)
     if not dt:
         return dt_string
+    if tz_name:
+        try:
+            dt = dt.astimezone(ZoneInfo(tz_name))
+        except Exception:
+            pass
     return dt.strftime("%b %d, %Y, %H:%M:%S")
 
 
 def _yelp_business_link(business_id: str) -> str:
-    """Return link to Yelp business page."""
+    """Return clickable link to Yelp business page."""
     if not business_id:
         return ""
-    return f"https://biz.yelp.com/biz/{business_id}"
+    url = f"https://biz.yelp.com/biz/{business_id}"
+    return f'=HYPERLINK("{url}", "{business_id}")'
 
 
 def _yelp_lead_link(lead_id: str) -> str:
-    """Return link to Yelp lead page."""
+    """Return clickable link to Yelp lead page."""
     if not lead_id:
         return ""
-    return f"https://biz.yelp.com/leads/{lead_id}"
+    url = f"https://biz.yelp.com/leads/{lead_id}"
+    return f'=HYPERLINK("{url}", "{lead_id}")'
 
 
 def _format_survey_answers(answers) -> str:
@@ -217,10 +228,20 @@ def append_lead_to_sheet(detail_data: dict):
 
         # Формуємо рядок відповідно до нових стовпців
         proj = detail_data.get("project", {}) or {}
+
+        biz_id = detail_data.get("business_id")
+        lead_id = detail_data.get("lead_id")
+        tz_name = None
+        if biz_id:
+            business = YelpBusiness.objects.filter(business_id=biz_id).first()
+            tz_name = business.time_zone if business else None
+
         row = [
-            _format_time(detail_data.get("time_created")),
-            _yelp_business_link(detail_data.get("business_id")),
-            _yelp_lead_link(detail_data.get("lead_id")),
+            _format_time(detail_data.get("time_created"), tz_name),
+            biz_id or "",
+            _yelp_business_link(biz_id),
+            lead_id or "",
+            _yelp_lead_link(lead_id),
             detail_data.get("user_display_name"),
             ", ".join(proj.get("job_names", [])),
             _format_survey_answers(proj.get("survey_answers", [])),
@@ -269,8 +290,8 @@ def update_phone_in_sheet(lead_id: str, phone_number: str):
             logger.warning(f"[SHEETS] Lead id {lead_id} not found for update")
             return
         row_idx = cell.row
-        # Phone number column is 9th (1-indexed) after reordering
-        phone_col = 9
+        # Phone number column is 11th (1-indexed) after reordering
+        phone_col = 11
         sheet.update_cell(row_idx, phone_col, phone_number)
         logger.info(
             f"[SHEETS] Updated phone for lead {lead_id} in spreadsheet {settings.GS_SPREADSHEET_ID}"
