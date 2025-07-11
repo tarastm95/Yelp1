@@ -69,7 +69,7 @@ LOGGING = {
         # ваш додаток
         'webhooks': {
             'handlers': ['console'],
-            'level': 'INFO',
+            'level': 'DEBUG',
             'propagate': False,
         },
         # щоб також бачити запити DRF, можна ввімкнути
@@ -248,6 +248,6 @@ CELERY_BEAT_SCHEDULE = {
     },
     'refresh-yelp-tokens': {
         'task': 'webhooks.tasks.refresh_expiring_tokens',
-        'schedule': 1800.0,
+        'schedule': 300.0,
     },
 }
