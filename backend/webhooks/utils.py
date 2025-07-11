@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 def refresh_yelp_token(refresh_token: str) -> dict:
     """Request new tokens using refresh_token."""
+    logger.debug("[TOKEN] Requesting new tokens via refresh_yelp_token")
     resp = requests.post(
         settings.YELP_TOKEN_URL,
         data={
@@ -30,6 +31,9 @@ def refresh_yelp_token(refresh_token: str) -> dict:
         headers={"Content-Type": "application/x-www-form-urlencoded"},
         timeout=10,
     )
+    logger.debug(
+        f"[TOKEN] refresh_yelp_token response {resp.status_code}: {resp.text}"
+    )
     resp.raise_for_status()
     return resp.json()
 
@@ -38,6 +42,7 @@ def rotate_refresh_token(refresh_token: str) -> dict:
     """Rotate refresh token via Yelp endpoint if configured."""
     if not getattr(settings, "YELP_ROTATE_URL", None):
         return refresh_yelp_token(refresh_token)
+    logger.debug("[TOKEN] Rotating refresh token via Yelp endpoint")
     resp = requests.post(
         settings.YELP_ROTATE_URL,
         data={
@@ -48,6 +53,9 @@ def rotate_refresh_token(refresh_token: str) -> dict:
         },
         headers={"Content-Type": "application/x-www-form-urlencoded"},
         timeout=10,
+    )
+    logger.debug(
+        f"[TOKEN] rotate_refresh_token response {resp.status_code}: {resp.text}"
     )
     resp.raise_for_status()
     return resp.json()
