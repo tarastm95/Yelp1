@@ -86,6 +86,16 @@ def _already_sent(lead_id: str, text: str) -> bool:
     ).exists()
 
 
+def _scheduled_message_pending(lead_id: str, sched_id: int) -> bool:
+    """Return True if a scheduled message task is already queued."""
+    return CeleryTaskLog.objects.filter(
+        name__endswith="send_scheduled_message",
+        args__0=lead_id,
+        args__1=sched_id,
+        status__in=["SCHEDULED", "STARTED"],
+    ).exists()
+
+
 class WebhookView(APIView):
     """Handle incoming webhook events from Yelp."""
 
@@ -696,6 +706,11 @@ class WebhookView(APIView):
                 )
 
         for sm in ScheduledMessage.objects.filter(lead_id=lead_id, active=True):
+            if _scheduled_message_pending(lead_id, sm.id):
+                logger.info(
+                    f"[SCHEDULED] Message #{sm.id} already queued → skipping"
+                )
+                continue
             delay = max((sm.next_run - now).total_seconds(), 0)
             res = send_scheduled_message.apply_async(
                 args=[lead_id, sm.id],
