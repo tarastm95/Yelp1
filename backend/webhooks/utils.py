@@ -61,6 +61,21 @@ def rotate_refresh_token(refresh_token: str) -> dict:
     return resp.json()
 
 
+def update_shared_refresh_token(old_refresh: str, new_data: dict):
+    """Apply new access/refresh token to every YelpToken using old_refresh."""
+    tokens = YelpToken.objects.filter(refresh_token=old_refresh)
+    if not tokens:
+        return
+    expires = new_data.get("expires_in")
+    update_data = {
+        "access_token": new_data["access_token"],
+        "refresh_token": new_data.get("refresh_token", old_refresh),
+    }
+    if expires:
+        update_data["expires_at"] = timezone.now() + timedelta(seconds=expires)
+    tokens.update(**update_data)
+
+
 def get_valid_business_token(business_id: str) -> str:
     """Return a fresh access_token for the given business_id."""
     logger.debug(f"[TOKEN] Fetching token for business={business_id}")
@@ -71,7 +86,9 @@ def get_valid_business_token(business_id: str) -> str:
 
     if yt.expires_at and yt.expires_at <= timezone.now():
         logger.info(f"[TOKEN] Refreshing expired token for business={business_id}")
-        data = rotate_refresh_token(yt.refresh_token)
+        old_refresh = yt.refresh_token
+        data = rotate_refresh_token(old_refresh)
+        update_shared_refresh_token(old_refresh, data)
         yt.access_token = data["access_token"]
         yt.refresh_token = data.get("refresh_token", yt.refresh_token)
         expires = data.get("expires_in")

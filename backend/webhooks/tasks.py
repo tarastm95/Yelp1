@@ -18,6 +18,7 @@ from .utils import (
     get_token_for_lead,
     get_valid_business_token,
     rotate_refresh_token,
+    update_shared_refresh_token,
 )
 
 logger = logging.getLogger(__name__)
@@ -262,7 +263,9 @@ def refresh_expiring_tokens():
     for tok in tokens:
         logger.info(f"[TOKEN REFRESH] Attempting refresh for {tok.business_id}")
         try:
-            data = rotate_refresh_token(tok.refresh_token)
+            old_refresh = tok.refresh_token
+            data = rotate_refresh_token(old_refresh)
+            update_shared_refresh_token(old_refresh, data)
             tok.access_token = data["access_token"]
             tok.refresh_token = data.get("refresh_token", tok.refresh_token)
             exp = data.get("expires_in")
