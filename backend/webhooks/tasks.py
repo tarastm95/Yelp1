@@ -257,7 +257,10 @@ def refresh_expiring_tokens():
     """Proactively refresh tokens expiring soon."""
     margin = timezone.now() + timezone.timedelta(minutes=10)
     tokens = YelpToken.objects.filter(expires_at__lte=margin)
+    if not tokens:
+        logger.debug("[TOKEN REFRESH] No tokens require refresh")
     for tok in tokens:
+        logger.info(f"[TOKEN REFRESH] Attempting refresh for {tok.business_id}")
         try:
             data = rotate_refresh_token(tok.refresh_token)
             tok.access_token = data["access_token"]
@@ -266,9 +269,21 @@ def refresh_expiring_tokens():
             if exp:
                 tok.expires_at = timezone.now() + timezone.timedelta(seconds=exp)
             tok.save()
-            logger.info(f"[TOKEN REFRESH] refreshed for {tok.business_id}")
+            logger.info(
+                f"[TOKEN REFRESH] refreshed for {tok.business_id}; expires_at={tok.expires_at}"
+            )
         except Exception as exc:
-            logger.error(f"[TOKEN REFRESH] failed for {tok.business_id}: {exc}")
+            if isinstance(exc, HTTPError) and exc.response is not None:
+                msg = _extract_yelp_error(exc.response)
+                logger.error(
+                    f"[TOKEN REFRESH] HTTP {exc.response.status_code} for {tok.business_id}: {msg}",
+                    exc_info=True,
+                )
+            else:
+                logger.error(
+                    f"[TOKEN REFRESH] failed for {tok.business_id}: {exc}",
+                    exc_info=True,
+                )
 
 
 def reschedule_follow_up_tasks(template: "FollowUpTemplate"):
