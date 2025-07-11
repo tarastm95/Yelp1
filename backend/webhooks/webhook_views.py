@@ -596,7 +596,7 @@ class WebhookView(APIView):
             logger.info("[AUTO-RESPONSE] Greeting already sent → skipping")
         elif due <= now:
             send_follow_up.apply_async(
-                args=[lead_id, greet_text, token],
+                args=[lead_id, greet_text],
                 headers={"business_id": biz_id},
                 countdown=0,
             )
@@ -604,7 +604,7 @@ class WebhookView(APIView):
         else:
             countdown = (due - now).total_seconds()
             res = send_follow_up.apply_async(
-                args=[lead_id, greet_text, token],
+                args=[lead_id, greet_text],
                 headers={"business_id": biz_id},
                 countdown=countdown,
             )
@@ -637,7 +637,7 @@ class WebhookView(APIView):
                 )
             else:
                 res = send_follow_up.apply_async(
-                    args=[lead_id, built_in, token],
+                    args=[lead_id, built_in],
                     headers={"business_id": biz_id},
                     countdown=countdown,
                 )
@@ -681,7 +681,7 @@ class WebhookView(APIView):
                 )
             else:
                 res = send_follow_up.apply_async(
-                    args=[lead_id, text, token],
+                    args=[lead_id, text],
                     headers={"business_id": biz_id},
                     countdown=countdown,
                 )

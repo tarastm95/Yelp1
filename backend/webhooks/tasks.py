@@ -16,6 +16,7 @@ from .models import (
 )
 from .utils import (
     get_token_for_lead,
+    get_valid_business_token,
     rotate_refresh_token,
 )
 
@@ -23,13 +24,27 @@ logger = logging.getLogger(__name__)
 
 
 @shared_task(bind=True, default_retry_delay=60, max_retries=3)
-def send_follow_up(self, lead_id: str, text: str, access_token: str):
+def send_follow_up(self, lead_id: str, text: str):
     """
     Одноразова відправка follow-up повідомлення з retry.
     """
+    biz_id = getattr(self.request, "headers", {}).get("business_id")
+    token = None
+    if biz_id:
+        try:
+            token = get_valid_business_token(biz_id)
+        except Exception as exc:
+            logger.error(
+                f"[FOLLOW-UP] Error fetching token for business={biz_id}: {exc}"
+            )
+    if not token:
+        token = get_token_for_lead(lead_id)
+    if not token:
+        logger.error(f"[FOLLOW-UP] No token available for lead={lead_id}")
+        return
     url = f"https://api.yelp.com/v3/leads/{lead_id}/events"
     headers = {
-        "Authorization": f"Bearer {access_token}",
+        "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",
     }
     payload = {"request_content": text, "request_type": "TEXT"}
