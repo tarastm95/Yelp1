@@ -23,6 +23,19 @@ from .utils import (
 logger = logging.getLogger(__name__)
 
 
+def _extract_yelp_error(resp: requests.Response) -> str:
+    """Return readable error text from a Yelp API response."""
+    try:
+        data = resp.json()
+        return (
+            data.get("error_description")
+            or data.get("description")
+            or resp.text
+        )
+    except Exception:
+        return resp.text
+
+
 @shared_task(bind=True, default_retry_delay=60, max_retries=3)
 def send_follow_up(self, lead_id: str, text: str):
     """
@@ -55,12 +68,15 @@ def send_follow_up(self, lead_id: str, text: str):
         logger.info(f"[FOLLOW-UP] Sent to lead={lead_id}")
     except Exception as exc:
         if isinstance(exc, HTTPError) and exc.response is not None:
-            logger.error(
-                (
-                    f"[FOLLOW-UP] HTTP {exc.response.status_code} for lead={lead_id}: "
-                    f"{exc.response.text}"
+            message = _extract_yelp_error(exc.response)
+            if exc.response.status_code in (401, 403):
+                logger.error(
+                    f"[FOLLOW-UP] Invalid or expired token for lead={lead_id}: {message}"
                 )
-            )
+            else:
+                logger.error(
+                    f"[FOLLOW-UP] HTTP {exc.response.status_code} for lead={lead_id}: {message}"
+                )
         else:
             logger.error(f"[FOLLOW-UP] Error sending to lead={lead_id}: {exc}")
         raise self.retry(exc=exc)
@@ -129,12 +145,16 @@ def send_scheduled_message(self, lead_id: str, scheduled_id: int):
     except Exception as exc:
         error = str(exc)
         if isinstance(exc, HTTPError) and exc.response is not None:
-            logger.error(
-                (
-                    f"[SCHEDULED] HTTP {exc.response.status_code} for lead={lead_id}: "
-                    f"{exc.response.text}"
+            message = _extract_yelp_error(exc.response)
+            error = message
+            if exc.response.status_code in (401, 403):
+                logger.error(
+                    f"[SCHEDULED] Invalid or expired token for lead={lead_id}: {message}"
                 )
-            )
+            else:
+                logger.error(
+                    f"[SCHEDULED] HTTP {exc.response.status_code} for lead={lead_id}: {message}"
+                )
         else:
             logger.error(f"[SCHEDULED] Error sending msg #{sm.id}: {exc}")
 
@@ -208,12 +228,16 @@ def send_lead_scheduled_message(self, scheduled_id: int):
     except Exception as exc:
         error = str(exc)
         if isinstance(exc, HTTPError) and exc.response is not None:
-            logger.error(
-                (
-                    f"[LEAD SCHEDULED] HTTP {exc.response.status_code} for lead={msg.lead_id}: "
-                    f"{exc.response.text}"
+            message = _extract_yelp_error(exc.response)
+            error = message
+            if exc.response.status_code in (401, 403):
+                logger.error(
+                    f"[LEAD SCHEDULED] Invalid or expired token for lead={msg.lead_id}: {message}"
                 )
-            )
+            else:
+                logger.error(
+                    f"[LEAD SCHEDULED] HTTP {exc.response.status_code} for lead={msg.lead_id}: {message}"
+                )
         else:
             logger.error(f"[LEAD SCHEDULED] Error #{msg.id}: {exc}")
         # дезактивуємо, щоб не спамити помилками
