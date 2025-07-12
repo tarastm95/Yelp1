@@ -53,6 +53,28 @@ the Postgres port in `backend/docker-compose.yml`:
 Restart the stack with `docker compose up -d`. The database is then available
 at `localhost:5433` with the credentials listed above.
 
+## Persisting Celery tasks
+
+Celery uses Redis to queue background jobs. If the stack is restarted and Redis
+is not configured with a volume, any scheduled tasks are lost. The
+`redis` service in `backend/docker-compose.yml` now mounts the named volume
+`redis_data` so Celery's queue survives container restarts:
+
+```yaml
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
+volumes:
+  postgres_data:
+  redis_data:
+```
+
+After updating the compose file, run `docker compose up -d` again to apply the
+changes. Scheduled tasks and other Redis data will persist between restarts.
+
 ## Webhook event processing
 
 When events are fetched from Yelp after a lead is created, the backend ignores
