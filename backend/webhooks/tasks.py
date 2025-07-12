@@ -13,6 +13,7 @@ from .models import (
     LeadScheduledMessageHistory,
     LeadScheduledMessage,
     YelpToken,
+    CeleryTaskLog,
 )
 from .utils import (
     get_token_for_lead,
@@ -35,6 +36,25 @@ def _extract_yelp_error(resp: requests.Response) -> str:
         )
     except Exception:
         return resp.text
+
+
+def _scheduled_message_pending(lead_id: str, sched_id: int) -> bool:
+    """Return True if a ScheduledMessage task is already queued."""
+    return CeleryTaskLog.objects.filter(
+        name__endswith="send_scheduled_message",
+        args__0=lead_id,
+        args__1=sched_id,
+        status__in=["SCHEDULED", "STARTED"],
+    ).exists()
+
+
+def _lead_scheduled_message_pending(sched_id: int) -> bool:
+    """Return True if a LeadScheduledMessage task is already queued."""
+    return CeleryTaskLog.objects.filter(
+        name__endswith="send_lead_scheduled_message",
+        args__0=sched_id,
+        status__in=["SCHEDULED", "STARTED"],
+    ).exists()
 
 
 @shared_task(bind=True)
@@ -93,11 +113,18 @@ def send_due_scheduled_messages():
     due_list = ScheduledMessage.objects.filter(active=True, next_run__lte=now)
 
     for sched in due_list:
+        if _scheduled_message_pending(sched.lead_id, sched.id):
+            logger.info(
+                f"[SCHEDULED] Message #{sched.id} already queued → skipping"
+            )
+            continue
         biz_id = (
             LeadDetail.objects.filter(lead_id=sched.lead_id)
             .values_list("business_id", flat=True)
             .first()
         )
+        sched.next_run = timezone.now() + timezone.timedelta(seconds=1)
+        sched.save(update_fields=["next_run"])
         send_scheduled_message.apply_async(
             args=[sched.lead_id, sched.id],
             headers={"business_id": biz_id},
@@ -179,11 +206,18 @@ def send_due_lead_scheduled_messages():
     now = timezone.now()
     due = LeadScheduledMessage.objects.filter(active=True, next_run__lte=now)
     for msg in due:
+        if _lead_scheduled_message_pending(msg.id):
+            logger.info(
+                f"[LEAD SCHEDULED] #{msg.id} already queued → skipping"
+            )
+            continue
         biz_id = (
             LeadDetail.objects.filter(lead_id=msg.lead_id)
             .values_list("business_id", flat=True)
             .first()
         )
+        msg.next_run = timezone.now() + timezone.timedelta(seconds=1)
+        msg.save(update_fields=["next_run"])
         send_lead_scheduled_message.apply_async(
             args=[msg.id],
             headers={"business_id": biz_id},
