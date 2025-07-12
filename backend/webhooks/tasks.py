@@ -37,10 +37,10 @@ def _extract_yelp_error(resp: requests.Response) -> str:
         return resp.text
 
 
-@shared_task(bind=True, default_retry_delay=60, max_retries=3)
+@shared_task(bind=True)
 def send_follow_up(self, lead_id: str, text: str):
     """
-    Одноразова відправка follow-up повідомлення з retry.
+    Одноразова відправка follow-up повідомлення без повторних спроб.
     """
     biz_id = getattr(self.request, "headers", {}).get("business_id")
     token = None
@@ -80,7 +80,7 @@ def send_follow_up(self, lead_id: str, text: str):
                 )
         else:
             logger.error(f"[FOLLOW-UP] Error sending to lead={lead_id}: {exc}")
-        raise self.retry(exc=exc)
+        raise
 
 
 @shared_task
