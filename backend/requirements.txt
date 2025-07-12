@@ -12,3 +12,6 @@ cryptography
 django-filter
 psycopg2-binary
 
+python-json-logger
+sentry-sdk[django]
+

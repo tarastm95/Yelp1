@@ -26,6 +26,10 @@ services:
       - .:/app
     ports:
       - "8000:8000"
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
     depends_on:
       - redis
       - db
@@ -66,6 +70,10 @@ services:
       POSTGRES_DB: "postgres"
     volumes:
       - .:/app
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
     depends_on:
       - redis
       - db
@@ -87,9 +95,30 @@ services:
       POSTGRES_DB: "postgres"
     volumes:
       - .:/app
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
     depends_on:
       - redis
       - db
+
+  loki:
+    image: grafana/loki:2.9.5
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+
+  promtail:
+    image: grafana/promtail:2.9.5
+    restart: unless-stopped
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: -config.file=/etc/promtail/docker-config.yaml
+    depends_on:
+      - loki
 
 volumes:
   postgres_data:
