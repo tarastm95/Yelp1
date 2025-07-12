@@ -179,6 +179,14 @@ class ScheduledMessage(models.Model):
     active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["lead_id", "template"],
+                name="uniq_lead_template",
+            )
+        ]
+
     def schedule_next(self):
         # Оновлюємо next_run згідно з delay із шаблону
         self.next_run = timezone.now() + self.template.delay
