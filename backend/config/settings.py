@@ -10,6 +10,11 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 import os
+import logging
+from logging.handlers import RotatingFileHandler
+from pythonjsonlogger import jsonlogger
+import sentry_sdk
+from sentry_sdk.integrations.django import DjangoIntegration
 
 # Default to plain-text storage of tokens unless explicitly overridden
 os.environ.setdefault("DISABLE_TOKEN_ENCRYPTION", "true")
@@ -29,6 +34,15 @@ SECRET_KEY = 'django-insecure-_8)i-uy_l-lq%@swb75enu8e4s)wumz1ap*f-hth9gxm)k3%lg
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
+SENTRY_DSN = os.getenv("SENTRY_DSN")
+if SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[DjangoIntegration()],
+        traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.1")),
+        send_default_pii=True,
+    )
+
 ALLOWED_HOSTS = [
     '77e2-194-44-109-244.ngrok-free.app',
     '127.0.0.1',
@@ -45,38 +59,47 @@ CACHES = {
 }
 
 # settings.py
+LOG_DIR = BASE_DIR / "logs"
+LOG_DIR.mkdir(exist_ok=True)
+LOG_FILE = os.getenv("DJANGO_LOG_FILE", LOG_DIR / "django.log")
+
 LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,   # не вимикати логери Django
-    'formatters': {
-        'simple': {
-            'format': '{asctime} [{levelname}] {name}:{lineno} {message}',
-            'style': '{',
-            'datefmt': '%Y-%m-%d %H:%M:%S %Z',
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "json": {
+            "()": "pythonjsonlogger.jsonlogger.JsonFormatter",
+            "fmt": "%(asctime)s %(levelname)s %(name)s %(lineno)d %(message)s",
         },
     },
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-            'formatter': 'simple',
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "json",
+            "stream": "ext://sys.stdout",
+        },
+        "file": {
+            "class": "logging.handlers.RotatingFileHandler",
+            "formatter": "json",
+            "filename": str(LOG_FILE),
+            "maxBytes": 1024 * 1024 * 5,  # 5 MB
+            "backupCount": 5,
         },
     },
-    'root': {
-        'handlers': ['console'],
-        'level': 'INFO',   # рівень для всіх логерів без явної конфігурації
+    "root": {
+        "handlers": ["console", "file"],
+        "level": os.getenv("DJANGO_LOG_LEVEL", "INFO"),
     },
-    'loggers': {
-        # ваш додаток
-        'webhooks': {
-            'handlers': ['console'],
-            'level': 'DEBUG',
-            'propagate': False,
+    "loggers": {
+        "webhooks": {
+            "handlers": ["console", "file"],
+            "level": "DEBUG",
+            "propagate": False,
         },
-        # щоб також бачити запити DRF, можна ввімкнути
-        'django.request': {
-            'handlers': ['console'],
-            'level': 'INFO',
-            'propagate': False,
+        "django.request": {
+            "handlers": ["console", "file"],
+            "level": "INFO",
+            "propagate": False,
         },
     },
 }

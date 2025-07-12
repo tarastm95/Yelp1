@@ -36,4 +36,5 @@ Thumbs.db
 google-credentials.json
 *.key
 *.pem
-"backend/service_account.json" 
+backend/logs/
+"backend/service_account.json"
