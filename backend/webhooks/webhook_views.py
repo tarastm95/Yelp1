@@ -627,31 +627,35 @@ class WebhookView(APIView):
 
         scheduled_texts = set()
 
-        if _already_sent(lead_id, greet_text):
-            logger.info("[AUTO-RESPONSE] Greeting already sent → skipping")
-        elif due <= now:
-            send_follow_up.apply_async(
-                args=[lead_id, greet_text],
-                headers={"business_id": biz_id},
-                countdown=0,
-            )
-            logger.info("[AUTO-RESPONSE] Greeting dispatched immediately via Celery")
-            scheduled_texts.add(greet_text)
-        else:
-            countdown = (due - now).total_seconds()
-            res = send_follow_up.apply_async(
-                args=[lead_id, greet_text],
-                headers={"business_id": biz_id},
-                countdown=countdown,
-            )
-            LeadPendingTask.objects.create(
-                lead_id=lead_id,
-                task_id=res.id,
-                phone_opt_in=phone_opt_in,
-                phone_available=phone_available,
-            )
-            logger.info(f"[AUTO-RESPONSE] Greeting scheduled at {due.isoformat()}")
-            scheduled_texts.add(greet_text)
+        with transaction.atomic():
+            if _already_sent(lead_id, greet_text) or LeadPendingTask.objects.select_for_update().filter(
+                lead_id=lead_id, text=greet_text, active=True
+            ).exists():
+                logger.info("[AUTO-RESPONSE] Greeting already sent or queued → skipping")
+            elif due <= now:
+                send_follow_up.apply_async(
+                    args=[lead_id, greet_text],
+                    headers={"business_id": biz_id},
+                    countdown=0,
+                )
+                logger.info("[AUTO-RESPONSE] Greeting dispatched immediately via Celery")
+                scheduled_texts.add(greet_text)
+            else:
+                countdown = (due - now).total_seconds()
+                res = send_follow_up.apply_async(
+                    args=[lead_id, greet_text],
+                    headers={"business_id": biz_id},
+                    countdown=countdown,
+                )
+                LeadPendingTask.objects.create(
+                    lead_id=lead_id,
+                    task_id=res.id,
+                    text=greet_text,
+                    phone_opt_in=phone_opt_in,
+                    phone_available=phone_available,
+                )
+                logger.info(f"[AUTO-RESPONSE] Greeting scheduled at {due.isoformat()}")
+                scheduled_texts.add(greet_text)
 
         if phone_available:
             return
@@ -668,26 +672,30 @@ class WebhookView(APIView):
                 auto_settings.follow_up_open_to,
             )
             countdown = max((due2 - now).total_seconds(), 0)
-            if _already_sent(lead_id, built_in) or built_in in scheduled_texts:
-                logger.info(
-                    "[AUTO-RESPONSE] Built-in follow-up already sent or duplicate → skipping"
-                )
-            else:
-                res = send_follow_up.apply_async(
-                    args=[lead_id, built_in],
-                    headers={"business_id": biz_id},
-                    countdown=countdown,
-                )
-                LeadPendingTask.objects.create(
-                    lead_id=lead_id,
-                    task_id=res.id,
-                    phone_opt_in=phone_opt_in,
-                    phone_available=phone_available,
-                )
-                logger.info(
-                    f"[AUTO-RESPONSE] Built-in follow-up scheduled at {due2.isoformat()}"
-                )
-                scheduled_texts.add(built_in)
+            with transaction.atomic():
+                if _already_sent(lead_id, built_in) or built_in in scheduled_texts or LeadPendingTask.objects.select_for_update().filter(
+                    lead_id=lead_id, text=built_in, active=True
+                ).exists():
+                    logger.info(
+                        "[AUTO-RESPONSE] Built-in follow-up already sent or duplicate → skipping"
+                    )
+                else:
+                    res = send_follow_up.apply_async(
+                        args=[lead_id, built_in],
+                        headers={"business_id": biz_id},
+                        countdown=countdown,
+                    )
+                    LeadPendingTask.objects.create(
+                        lead_id=lead_id,
+                        task_id=res.id,
+                        text=built_in,
+                        phone_opt_in=phone_opt_in,
+                        phone_available=phone_available,
+                    )
+                    logger.info(
+                        f"[AUTO-RESPONSE] Built-in follow-up scheduled at {due2.isoformat()}"
+                    )
+                    scheduled_texts.add(built_in)
 
         tpls = FollowUpTemplate.objects.filter(
             active=True,
@@ -713,33 +721,40 @@ class WebhookView(APIView):
                 tmpl.open_to,
             )
             countdown = max((due - now).total_seconds(), 0)
-            if _already_sent(lead_id, text) or text in scheduled_texts:
-                logger.info(
-                    f"[AUTO-RESPONSE] Custom follow-up '{tmpl.name}' already sent or duplicate → skipping"
-                )
-            else:
-                res = send_follow_up.apply_async(
-                    args=[lead_id, text],
-                    headers={"business_id": biz_id},
-                    countdown=countdown,
-                )
-                LeadPendingTask.objects.create(
-                    lead_id=lead_id,
-                    task_id=res.id,
-                    phone_opt_in=phone_opt_in,
-                    phone_available=phone_available,
-                )
-                logger.info(
-                    f"[AUTO-RESPONSE] Custom follow-up “{tmpl.name}” scheduled at {due.isoformat()}"
-                )
-                scheduled_texts.add(text)
+            with transaction.atomic():
+                if _already_sent(lead_id, text) or text in scheduled_texts or LeadPendingTask.objects.select_for_update().filter(
+                    lead_id=lead_id, text=text, active=True
+                ).exists():
+                    logger.info(
+                        f"[AUTO-RESPONSE] Custom follow-up '{tmpl.name}' already sent or duplicate → skipping"
+                    )
+                else:
+                    res = send_follow_up.apply_async(
+                        args=[lead_id, text],
+                        headers={"business_id": biz_id},
+                        countdown=countdown,
+                    )
+                    LeadPendingTask.objects.create(
+                        lead_id=lead_id,
+                        task_id=res.id,
+                        text=text,
+                        phone_opt_in=phone_opt_in,
+                        phone_available=phone_available,
+                    )
+                    logger.info(
+                        f"[AUTO-RESPONSE] Custom follow-up “{tmpl.name}” scheduled at {due.isoformat()}"
+                    )
+                    scheduled_texts.add(text)
 
         with transaction.atomic():
             for sm in (
                 ScheduledMessage.objects.select_for_update(skip_locked=True)
                 .filter(lead_id=lead_id, active=True)
             ):
-                if _scheduled_message_pending(lead_id, sm.id):
+                text_val = sm.template.template.format(name=name, jobs=jobs, sep=sep)
+                if _scheduled_message_pending(lead_id, sm.id) or LeadPendingTask.objects.select_for_update().filter(
+                    lead_id=lead_id, text=text_val, active=True
+                ).exists():
                     logger.info(
                         f"[SCHEDULED] Message #{sm.id} already queued → skipping"
                     )
@@ -753,6 +768,7 @@ class WebhookView(APIView):
                 LeadPendingTask.objects.create(
                     lead_id=lead_id,
                     task_id=res.id,
+                    text=text_val,
                     phone_opt_in=phone_opt_in,
                     phone_available=phone_available,
                 )
