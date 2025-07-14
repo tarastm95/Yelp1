@@ -625,6 +625,8 @@ class WebhookView(APIView):
             due = now + timedelta(seconds=auto_settings.greeting_delay)
             greet_text = off_greeting
 
+        scheduled_texts = set()
+
         if _already_sent(lead_id, greet_text):
             logger.info("[AUTO-RESPONSE] Greeting already sent → skipping")
         elif due <= now:
@@ -634,6 +636,7 @@ class WebhookView(APIView):
                 countdown=0,
             )
             logger.info("[AUTO-RESPONSE] Greeting dispatched immediately via Celery")
+            scheduled_texts.add(greet_text)
         else:
             countdown = (due - now).total_seconds()
             res = send_follow_up.apply_async(
@@ -648,6 +651,7 @@ class WebhookView(APIView):
                 phone_available=phone_available,
             )
             logger.info(f"[AUTO-RESPONSE] Greeting scheduled at {due.isoformat()}")
+            scheduled_texts.add(greet_text)
 
         if phone_available:
             return
@@ -664,9 +668,9 @@ class WebhookView(APIView):
                 auto_settings.follow_up_open_to,
             )
             countdown = max((due2 - now).total_seconds(), 0)
-            if _already_sent(lead_id, built_in):
+            if _already_sent(lead_id, built_in) or built_in in scheduled_texts:
                 logger.info(
-                    "[AUTO-RESPONSE] Built-in follow-up already sent → skipping"
+                    "[AUTO-RESPONSE] Built-in follow-up already sent or duplicate → skipping"
                 )
             else:
                 res = send_follow_up.apply_async(
@@ -683,6 +687,7 @@ class WebhookView(APIView):
                 logger.info(
                     f"[AUTO-RESPONSE] Built-in follow-up scheduled at {due2.isoformat()}"
                 )
+                scheduled_texts.add(built_in)
 
         tpls = FollowUpTemplate.objects.filter(
             active=True,
@@ -708,9 +713,9 @@ class WebhookView(APIView):
                 tmpl.open_to,
             )
             countdown = max((due - now).total_seconds(), 0)
-            if _already_sent(lead_id, text):
+            if _already_sent(lead_id, text) or text in scheduled_texts:
                 logger.info(
-                    f"[AUTO-RESPONSE] Custom follow-up '{tmpl.name}' already sent → skipping"
+                    f"[AUTO-RESPONSE] Custom follow-up '{tmpl.name}' already sent or duplicate → skipping"
                 )
             else:
                 res = send_follow_up.apply_async(
@@ -727,6 +732,7 @@ class WebhookView(APIView):
                 logger.info(
                     f"[AUTO-RESPONSE] Custom follow-up “{tmpl.name}” scheduled at {due.isoformat()}"
                 )
+                scheduled_texts.add(text)
 
         with transaction.atomic():
             for sm in (
