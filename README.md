@@ -110,3 +110,15 @@ REACT_APP_API_BASE_URL=http://46.62.139.177:8000 npm run build
 
 If this variable is omitted, the app falls back to `http://46.62.139.177:8000/api`.
 
+## Celery log cleanup
+
+Old records in `CeleryTaskLog` can grow quickly. Remove entries older than 30 days
+with the management command:
+
+```bash
+python backend/manage.py cleanup_celery_logs --days 30
+```
+
+This command is executed automatically every day via Celery beat using the
+`cleanup-celery-logs` schedule.
+

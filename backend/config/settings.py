@@ -273,4 +273,8 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'webhooks.tasks.refresh_expiring_tokens',
         'schedule': 300.0,
     },
+    'cleanup-celery-logs': {
+        'task': 'webhooks.tasks.cleanup_celery_logs',
+        'schedule': 86400.0,  # daily
+    },
 }
