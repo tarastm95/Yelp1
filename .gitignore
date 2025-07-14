@@ -37,4 +37,5 @@ google-credentials.json
 *.key
 *.pem
 backend/logs/
+backend/venv/
 "backend/service_account.json"
