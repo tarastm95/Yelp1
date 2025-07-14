@@ -21,7 +21,12 @@ class WebhookEventProcessingTests(TestCase):
         self.biz_id = "b1"
         # mark lead as already processed
         self.proc = ProcessedLead.objects.create(business_id=self.biz_id, lead_id=self.lead_id)
-        LeadPendingTask.objects.create(lead_id=self.lead_id, task_id="t1", phone_opt_in=False)
+        LeadPendingTask.objects.create(
+            lead_id=self.lead_id,
+            task_id="t1",
+            text="t",
+            phone_opt_in=False,
+        )
 
     def _post(self):
         payload = {"data": {"id": self.biz_id, "updates": [{"lead_id": self.lead_id, "event_type": "NEW_LEAD"}]}}

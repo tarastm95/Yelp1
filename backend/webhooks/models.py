@@ -316,14 +316,22 @@ class LeadPendingTask(models.Model):
     """Track Celery tasks scheduled for a lead."""
 
     lead_id = models.CharField(max_length=64, db_index=True)
+    text = models.TextField()
     task_id = models.CharField(max_length=128, unique=True)
     phone_opt_in = models.BooleanField()
     phone_available = models.BooleanField(default=False)
     active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["lead_id", "text"], name="uniq_lead_text"
+            )
+        ]
+
     def __str__(self):
-        return f"{self.task_id} for {self.lead_id}"
+        return f"{self.task_id} for {self.lead_id}: {self.text[:20]}"
 
 
 class AutoResponseSettingsTemplate(models.Model):

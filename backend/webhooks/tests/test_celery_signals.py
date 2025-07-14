@@ -12,7 +12,12 @@ class CelerySignalTests(TestCase):
 
         app.conf.task_always_eager = True
         tid = str(uuid.uuid4())
-        LeadPendingTask.objects.create(lead_id="l", task_id=tid, phone_opt_in=False)
+        LeadPendingTask.objects.create(
+            lead_id="l",
+            task_id=tid,
+            text="t",
+            phone_opt_in=False,
+        )
 
         dummy.apply(task_id=tid)
 
