@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import Q
 from django.utils import timezone
 from datetime import timedelta, time
 from .fields import EncryptedTextField
@@ -326,7 +327,9 @@ class LeadPendingTask(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=["lead_id", "text"], name="uniq_lead_text"
+                fields=["lead_id", "text"],
+                name="uniq_lead_text",
+                condition=~Q(text=""),
             )
         ]
 
