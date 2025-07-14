@@ -265,6 +265,14 @@ class LeadScheduledMessage(models.Model):
     active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["lead_id", "content"],
+                name="uniq_lead_content",
+            )
+        ]
+
     def schedule_next(self):
         self.next_run = timezone.now() + timedelta(minutes=self.interval_minutes)
         self.save(update_fields=["next_run"])

@@ -2,7 +2,11 @@ from django.test import TestCase
 from django.db import IntegrityError
 from django.utils import timezone
 
-from webhooks.models import ScheduledMessage, FollowUpTemplate
+from webhooks.models import (
+    ScheduledMessage,
+    FollowUpTemplate,
+    LeadScheduledMessage,
+)
 
 
 class ScheduledMessageUniqueConstraintTests(TestCase):
@@ -17,5 +21,20 @@ class ScheduledMessageUniqueConstraintTests(TestCase):
             ScheduledMessage.objects.create(
                 lead_id='l1',
                 template=tpl,
+                next_run=timezone.now(),
+            )
+
+    def test_lead_scheduled_unique_constraint(self):
+        LeadScheduledMessage.objects.create(
+            lead_id='l1',
+            content='hello',
+            interval_minutes=60,
+            next_run=timezone.now(),
+        )
+        with self.assertRaises(IntegrityError):
+            LeadScheduledMessage.objects.create(
+                lead_id='l1',
+                content='hello',
+                interval_minutes=60,
                 next_run=timezone.now(),
             )
