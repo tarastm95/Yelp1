@@ -705,23 +705,29 @@ class WebhookView(APIView):
                     f"[AUTO-RESPONSE] Custom follow-up “{tmpl.name}” scheduled at {due.isoformat()}"
                 )
 
-        for sm in ScheduledMessage.objects.filter(lead_id=lead_id, active=True):
-            if _scheduled_message_pending(lead_id, sm.id):
-                logger.info(
-                    f"[SCHEDULED] Message #{sm.id} already queued → skipping"
+        with transaction.atomic():
+            for sm in (
+                ScheduledMessage.objects.select_for_update(skip_locked=True)
+                .filter(lead_id=lead_id, active=True)
+            ):
+                if _scheduled_message_pending(lead_id, sm.id):
+                    logger.info(
+                        f"[SCHEDULED] Message #{sm.id} already queued → skipping"
+                    )
+                    continue
+                delay = max((sm.next_run - now).total_seconds(), 0)
+                res = send_scheduled_message.apply_async(
+                    args=[lead_id, sm.id],
+                    headers={"business_id": biz_id},
+                    countdown=delay,
                 )
-                continue
-            delay = max((sm.next_run - now).total_seconds(), 0)
-            res = send_scheduled_message.apply_async(
-                args=[lead_id, sm.id],
-                headers={"business_id": biz_id},
-                countdown=delay,
-            )
-            LeadPendingTask.objects.create(
-                lead_id=lead_id,
-                task_id=res.id,
-                phone_opt_in=phone_opt_in,
-                phone_available=phone_available,
-            )
-            logger.info(f"[SCHEDULED] Message #{sm.id} scheduled in {delay:.0f}s")
-            sm.schedule_next()
+                LeadPendingTask.objects.create(
+                    lead_id=lead_id,
+                    task_id=res.id,
+                    phone_opt_in=phone_opt_in,
+                    phone_available=phone_available,
+                )
+                logger.info(
+                    f"[SCHEDULED] Message #{sm.id} scheduled in {delay:.0f}s"
+                )
+                sm.schedule_next()
