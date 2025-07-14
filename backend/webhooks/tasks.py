@@ -15,6 +15,7 @@ from .models import (
     YelpToken,
     CeleryTaskLog,
 )
+from django.db import transaction
 from .utils import (
     get_token_for_lead,
     get_valid_business_token,
@@ -108,28 +109,34 @@ def send_due_scheduled_messages():
     """
     Знаходить усі ScheduledMessage, у яких next_run <= зараз,
     і негайно шикує їх на виконання send_scheduled_message.
+    Використовує блокування рядків, щоб уникнути дублювання між
+    одночасними викликами.
     """
     now = timezone.now()
-    due_list = ScheduledMessage.objects.filter(active=True, next_run__lte=now)
+    with transaction.atomic():
+        due_list = (
+            ScheduledMessage.objects.select_for_update(skip_locked=True)
+            .filter(active=True, next_run__lte=now)
+        )
 
-    for sched in due_list:
-        if _scheduled_message_pending(sched.lead_id, sched.id):
-            logger.info(
-                f"[SCHEDULED] Message #{sched.id} already queued → skipping"
+        for sched in due_list:
+            if _scheduled_message_pending(sched.lead_id, sched.id):
+                logger.info(
+                    f"[SCHEDULED] Message #{sched.id} already queued → skipping"
+                )
+                continue
+            biz_id = (
+                LeadDetail.objects.filter(lead_id=sched.lead_id)
+                .values_list("business_id", flat=True)
+                .first()
             )
-            continue
-        biz_id = (
-            LeadDetail.objects.filter(lead_id=sched.lead_id)
-            .values_list("business_id", flat=True)
-            .first()
-        )
-        sched.next_run = timezone.now() + timezone.timedelta(seconds=1)
-        sched.save(update_fields=["next_run"])
-        send_scheduled_message.apply_async(
-            args=[sched.lead_id, sched.id],
-            headers={"business_id": biz_id},
-            countdown=0,
-        )
+            sched.next_run = timezone.now() + timezone.timedelta(seconds=1)
+            sched.save(update_fields=["next_run"])
+            send_scheduled_message.apply_async(
+                args=[sched.lead_id, sched.id],
+                headers={"business_id": biz_id},
+                countdown=0,
+            )
 
 
 @shared_task(bind=True, default_retry_delay=60, max_retries=3)
@@ -202,27 +209,33 @@ def send_due_lead_scheduled_messages():
     """
     Знаходимо всі LeadScheduledMessage з next_run <= зараз
     і миттєво посилаємо їх на виконання send_lead_scheduled_message.
+    Використовуємо блокування рядків, щоб уникнути дублювання між
+    одночасними викликами.
     """
     now = timezone.now()
-    due = LeadScheduledMessage.objects.filter(active=True, next_run__lte=now)
-    for msg in due:
-        if _lead_scheduled_message_pending(msg.id):
-            logger.info(
-                f"[LEAD SCHEDULED] #{msg.id} already queued → skipping"
+    with transaction.atomic():
+        due = (
+            LeadScheduledMessage.objects.select_for_update(skip_locked=True)
+            .filter(active=True, next_run__lte=now)
+        )
+        for msg in due:
+            if _lead_scheduled_message_pending(msg.id):
+                logger.info(
+                    f"[LEAD SCHEDULED] #{msg.id} already queued → skipping"
+                )
+                continue
+            biz_id = (
+                LeadDetail.objects.filter(lead_id=msg.lead_id)
+                .values_list("business_id", flat=True)
+                .first()
             )
-            continue
-        biz_id = (
-            LeadDetail.objects.filter(lead_id=msg.lead_id)
-            .values_list("business_id", flat=True)
-            .first()
-        )
-        msg.next_run = timezone.now() + timezone.timedelta(seconds=1)
-        msg.save(update_fields=["next_run"])
-        send_lead_scheduled_message.apply_async(
-            args=[msg.id],
-            headers={"business_id": biz_id},
-            countdown=0,
-        )
+            msg.next_run = timezone.now() + timezone.timedelta(seconds=1)
+            msg.save(update_fields=["next_run"])
+            send_lead_scheduled_message.apply_async(
+                args=[msg.id],
+                headers={"business_id": biz_id},
+                countdown=0,
+            )
 
 
 @shared_task(bind=True, default_retry_delay=60, max_retries=3)
