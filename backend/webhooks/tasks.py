@@ -41,21 +41,46 @@ def _extract_yelp_error(resp: requests.Response) -> str:
 
 def _scheduled_message_pending(lead_id: str, sched_id: int) -> bool:
     """Return True if a ScheduledMessage task is already queued."""
-    return CeleryTaskLog.objects.filter(
+    qs = CeleryTaskLog.objects.filter(
         name__endswith="send_scheduled_message",
         args__0=lead_id,
         args__1=sched_id,
         status__in=["SCHEDULED", "STARTED"],
-    ).exists()
+    )
+    exists = qs.exists()
+    if exists:
+        logger.debug(
+            "[DUP CHECK] ScheduledMessage %s for lead=%s pending tasks=%s",
+            sched_id,
+            lead_id,
+            list(qs.values_list("task_id", "status"))[:5],
+        )
+    else:
+        logger.debug(
+            "[DUP CHECK] No pending ScheduledMessage task for lead=%s id=%s",
+            lead_id,
+            sched_id,
+        )
+    return exists
 
 
 def _lead_scheduled_message_pending(sched_id: int) -> bool:
     """Return True if a LeadScheduledMessage task is already queued."""
-    return CeleryTaskLog.objects.filter(
+    qs = CeleryTaskLog.objects.filter(
         name__endswith="send_lead_scheduled_message",
         args__0=sched_id,
         status__in=["SCHEDULED", "STARTED"],
-    ).exists()
+    )
+    exists = qs.exists()
+    if exists:
+        logger.debug(
+            "[DUP CHECK] LeadScheduledMessage %s pending tasks=%s",
+            sched_id,
+            list(qs.values_list("task_id", "status"))[:5],
+        )
+    else:
+        logger.debug("[DUP CHECK] No pending LeadScheduledMessage for id=%s", sched_id)
+    return exists
 
 
 @shared_task(bind=True)

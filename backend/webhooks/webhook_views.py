@@ -74,26 +74,49 @@ def safe_update_or_create(model, defaults=None, **kwargs):
 
 def _already_sent(lead_id: str, text: str) -> bool:
     """Return True if this lead already received exactly this text."""
-    if LeadEvent.objects.filter(lead_id=lead_id, text=text).exists():
-        return True
-    # Consider tasks that are already scheduled or in progress to
-    # avoid queuing duplicates while the first one hasn't finished yet
-    return CeleryTaskLog.objects.filter(
+    event_exists = LeadEvent.objects.filter(lead_id=lead_id, text=text).exists()
+    task_qs = CeleryTaskLog.objects.filter(
         name__endswith="send_follow_up",
         args__0=lead_id,
         args__1=text,
         status__in=["SCHEDULED", "STARTED", "SUCCESS"],
-    ).exists()
+    )
+    task_exists = task_qs.exists()
+    if event_exists or task_exists:
+        logger.debug(
+            "[DUP CHECK] Follow-up for lead=%s already sent or queued: events=%s tasks=%s",
+            lead_id,
+            event_exists,
+            list(task_qs.values_list("task_id", "status"))[:5],
+        )
+    else:
+        logger.debug("[DUP CHECK] No prior follow-up found for lead=%s", lead_id)
+    return event_exists or task_exists
 
 
 def _scheduled_message_pending(lead_id: str, sched_id: int) -> bool:
     """Return True if a scheduled message task is already queued."""
-    return CeleryTaskLog.objects.filter(
+    qs = CeleryTaskLog.objects.filter(
         name__endswith="send_scheduled_message",
         args__0=lead_id,
         args__1=sched_id,
         status__in=["SCHEDULED", "STARTED"],
-    ).exists()
+    )
+    exists = qs.exists()
+    if exists:
+        logger.debug(
+            "[DUP CHECK] ScheduledMessage %s for lead=%s pending tasks=%s",
+            sched_id,
+            lead_id,
+            list(qs.values_list("task_id", "status"))[:5],
+        )
+    else:
+        logger.debug(
+            "[DUP CHECK] No pending ScheduledMessage task for lead=%s id=%s",
+            lead_id,
+            sched_id,
+        )
+    return exists
 
 
 class WebhookView(APIView):
