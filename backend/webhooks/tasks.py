@@ -5,6 +5,7 @@ import requests
 from requests import HTTPError
 from celery import shared_task
 from django.utils import timezone
+from django.core.cache import cache
 
 from .models import (
     ScheduledMessage,
@@ -24,6 +25,9 @@ from .utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Prevent concurrent tasks for the same lead
+LOCK_TIMEOUT = 60  # seconds
 
 
 def _extract_yelp_error(resp: requests.Response) -> str:
@@ -88,33 +92,35 @@ def send_follow_up(self, lead_id: str, text: str):
     """
     Одноразова відправка follow-up повідомлення без повторних спроб.
     """
-    biz_id = getattr(self.request, "headers", {}).get("business_id")
-    token = None
-    if biz_id:
-        try:
-            token = get_valid_business_token(biz_id)
-        except Exception as exc:
-            logger.error(
-                f"[FOLLOW-UP] Error fetching token for business={biz_id}: {exc}"
-            )
-    if not token:
-        token = get_token_for_lead(lead_id)
-    if not token:
-        logger.error(f"[FOLLOW-UP] No token available for lead={lead_id}")
-        return
-    url = f"https://api.yelp.com/v3/leads/{lead_id}/events"
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json",
-    }
-    payload = {"request_content": text, "request_type": "TEXT"}
-
+    lock_id = f"lead-lock:{lead_id}"
     try:
-        resp = requests.post(url, headers=headers, json=payload, timeout=10)
-        resp.raise_for_status()
-        logger.info(f"[FOLLOW-UP] Sent to lead={lead_id}")
+        with cache.lock(lock_id, timeout=LOCK_TIMEOUT, blocking_timeout=5):
+            biz_id = getattr(self.request, "headers", {}).get("business_id")
+            token = None
+            if biz_id:
+                try:
+                    token = get_valid_business_token(biz_id)
+                except Exception as exc:
+                    logger.error(
+                        f"[FOLLOW-UP] Error fetching token for business={biz_id}: {exc}"
+                    )
+            if not token:
+                token = get_token_for_lead(lead_id)
+            if not token:
+                logger.error(f"[FOLLOW-UP] No token available for lead={lead_id}")
+                return
+            url = f"https://api.yelp.com/v3/leads/{lead_id}/events"
+            headers = {
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            }
+            payload = {"request_content": text, "request_type": "TEXT"}
+
+            resp = requests.post(url, headers=headers, json=payload, timeout=10)
+            resp.raise_for_status()
+            logger.info(f"[FOLLOW-UP] Sent to lead={lead_id}")
     except Exception as exc:
-        if isinstance(exc, HTTPError) and exc.response is not None:
+        if isinstance(exc, HTTPError) and getattr(exc, "response", None) is not None:
             message = _extract_yelp_error(exc.response)
             if exc.response.status_code in (401, 403):
                 logger.error(
@@ -124,6 +130,9 @@ def send_follow_up(self, lead_id: str, text: str):
                 logger.error(
                     f"[FOLLOW-UP] HTTP {exc.response.status_code} for lead={lead_id}: {message}"
                 )
+        elif "acquire" in str(exc):
+            logger.info(f"[FOLLOW-UP] Another task running for lead={lead_id}; skipping")
+            return
         else:
             logger.error(f"[FOLLOW-UP] Error sending to lead={lead_id}: {exc}")
         raise
@@ -170,64 +179,71 @@ def send_scheduled_message(self, lead_id: str, scheduled_id: int):
     Відправляє заплановане повідомлення з пов’язаного FollowUpTemplate,
     логуючи результат у ScheduledMessageHistory та переплановуючи next_run.
     """
+    lock_id = f"lead-lock:{lead_id}"
     try:
-        sm = ScheduledMessage.objects.get(pk=scheduled_id, active=True)
-    except ScheduledMessage.DoesNotExist:
-        logger.warning(f"[SCHEDULED] Message #{scheduled_id} not found or inactive")
-        return
+        with cache.lock(lock_id, timeout=LOCK_TIMEOUT, blocking_timeout=5):
+            try:
+                sm = ScheduledMessage.objects.get(pk=scheduled_id, active=True)
+            except ScheduledMessage.DoesNotExist:
+                logger.warning(
+                    f"[SCHEDULED] Message #{scheduled_id} not found or inactive"
+                )
+                return
 
-    # Збираємо дані для підстановки в шаблон
-    detail = LeadDetail.objects.filter(lead_id=lead_id).first()
-    name = detail.user_display_name if detail else ""
-    jobs = ", ".join(detail.project.get("job_names", [])) if detail else ""
-    sep = ", " if name and jobs else ""
+            detail = LeadDetail.objects.filter(lead_id=lead_id).first()
+            name = detail.user_display_name if detail else ""
+            jobs = ", ".join(detail.project.get("job_names", [])) if detail else ""
+            sep = ", " if name and jobs else ""
 
-    tpl = sm.template  # це FK → FollowUpTemplate
-    text = tpl.template.format(name=name, jobs=jobs, sep=sep)
+            tpl = sm.template
+            text = tpl.template.format(name=name, jobs=jobs, sep=sep)
 
-    # Виконуємо POST до Yelp
-    token = get_token_for_lead(lead_id)
-    url = f"https://api.yelp.com/v3/leads/{lead_id}/events"
-    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-    payload = {"request_content": text, "request_type": "TEXT"}
+            token = get_token_for_lead(lead_id)
+            url = f"https://api.yelp.com/v3/leads/{lead_id}/events"
+            headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+            payload = {"request_content": text, "request_type": "TEXT"}
 
-    status = "error"
-    error = ""
-    try:
-        resp = requests.post(url, headers=headers, json=payload, timeout=10)
-        resp.raise_for_status()
-        status = "success"
-        logger.info(f"[SCHEDULED] Sent msg #{sm.id} to lead={lead_id}")
+            status = "error"
+            error = ""
+            try:
+                resp = requests.post(url, headers=headers, json=payload, timeout=10)
+                resp.raise_for_status()
+                status = "success"
+                logger.info(f"[SCHEDULED] Sent msg #{sm.id} to lead={lead_id}")
 
-        # Переплановуємо next_run згідно з delay з FollowUpTemplate
-        sm.next_run = timezone.now() + tpl.delay
-        sm.save(update_fields=['next_run'])
+                sm.next_run = timezone.now() + tpl.delay
+                sm.save(update_fields=["next_run"])
+            except Exception as exc:
+                error = str(exc)
+                if isinstance(exc, HTTPError) and getattr(exc, "response", None) is not None:
+                    message = _extract_yelp_error(exc.response)
+                    error = message
+                    if exc.response.status_code in (401, 403):
+                        logger.error(
+                            f"[SCHEDULED] Invalid or expired token for lead={lead_id}: {message}"
+                        )
+                    else:
+                        logger.error(
+                            f"[SCHEDULED] HTTP {exc.response.status_code} for lead={lead_id}: {message}"
+                        )
+                else:
+                    logger.error(f"[SCHEDULED] Error sending msg #{sm.id}: {exc}")
+
+                sm.active = False
+                sm.save(update_fields=["active"])
+
+            ScheduledMessageHistory.objects.create(
+                scheduled=sm,
+                status=status,
+                error=error[:2000],
+            )
     except Exception as exc:
-        error = str(exc)
-        if isinstance(exc, HTTPError) and exc.response is not None:
-            message = _extract_yelp_error(exc.response)
-            error = message
-            if exc.response.status_code in (401, 403):
-                logger.error(
-                    f"[SCHEDULED] Invalid or expired token for lead={lead_id}: {message}"
-                )
-            else:
-                logger.error(
-                    f"[SCHEDULED] HTTP {exc.response.status_code} for lead={lead_id}: {message}"
-                )
-        else:
-            logger.error(f"[SCHEDULED] Error sending msg #{sm.id}: {exc}")
-
-        # Деактивуємо, щоб не спамити помилками
-        sm.active = False
-        sm.save(update_fields=['active'])
-
-    # Логуємо результат виконання
-    ScheduledMessageHistory.objects.create(
-        scheduled=sm,
-        status=status,
-        error=error[:2000]
-    )
+        if "acquire" in str(exc):
+            logger.info(
+                f"[SCHEDULED] Another task running for lead={lead_id}; skipping"
+            )
+            return
+        raise
 
 @shared_task
 def send_due_lead_scheduled_messages():
