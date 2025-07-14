@@ -353,3 +353,11 @@ def reschedule_follow_up_tasks(template: "FollowUpTemplate"):
         logger.info(
             f"[SCHEDULED] Rescheduled msg #{sm.id} for template {template.id}"
         )
+
+@shared_task
+def cleanup_celery_logs(days: int = 30):
+    """Remove old CeleryTaskLog entries."""
+    from django.core.management import call_command
+
+    call_command("cleanup_celery_logs", days=str(days))
+
