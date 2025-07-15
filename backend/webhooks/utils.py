@@ -110,14 +110,22 @@ def get_token_for_lead(lead_id: str) -> str | None:
     detail = LeadDetail.objects.filter(lead_id=lead_id).first()
     if detail:
         business_id = detail.business_id
-        logger.debug(f"[TOKEN] Found business_id from LeadDetail: {business_id}")
+        logger.debug(
+            f"[TOKEN] Found business_id from LeadDetail: {business_id}"
+        )
     else:
         pl = ProcessedLead.objects.filter(lead_id=lead_id).first()
         if not pl:
             logger.error(f"[TOKEN] Business unknown for lead={lead_id}")
             return None
         business_id = pl.business_id
-        logger.debug(f"[TOKEN] Found business_id from ProcessedLead: {business_id}")
+        logger.debug(
+            f"[TOKEN] Found business_id from ProcessedLead: {business_id}"
+        )
+
+    logger.info(
+        f"[TOKEN] lead={lead_id} belongs to business={business_id}"
+    )
 
     try:
         token = get_valid_business_token(business_id)
