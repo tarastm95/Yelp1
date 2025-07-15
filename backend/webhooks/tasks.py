@@ -30,6 +30,15 @@ logger = logging.getLogger(__name__)
 LOCK_TIMEOUT = 60  # seconds
 
 
+def _get_lock(lock_id: str, timeout: int = LOCK_TIMEOUT, blocking_timeout: int = 5):
+    """Return a Redis lock from the cache backend."""
+    if hasattr(cache, "lock"):
+        return cache.lock(lock_id, timeout=timeout, blocking_timeout=blocking_timeout)
+
+    client = cache.client.get_client(write=True)
+    return client.lock(lock_id, timeout=timeout, blocking_timeout=blocking_timeout)
+
+
 def _extract_yelp_error(resp: requests.Response) -> str:
     """Return readable error text from a Yelp API response."""
     try:
@@ -94,7 +103,7 @@ def send_follow_up(self, lead_id: str, text: str):
     """
     lock_id = f"lead-lock:{lead_id}"
     try:
-        with cache.lock(lock_id, timeout=LOCK_TIMEOUT, blocking_timeout=5):
+        with _get_lock(lock_id, timeout=LOCK_TIMEOUT, blocking_timeout=5):
             biz_id = getattr(self.request, "headers", {}).get("business_id")
             token = None
             if biz_id:
@@ -181,7 +190,7 @@ def send_scheduled_message(self, lead_id: str, scheduled_id: int):
     """
     lock_id = f"lead-lock:{lead_id}"
     try:
-        with cache.lock(lock_id, timeout=LOCK_TIMEOUT, blocking_timeout=5):
+        with _get_lock(lock_id, timeout=LOCK_TIMEOUT, blocking_timeout=5):
             try:
                 sm = ScheduledMessage.objects.get(pk=scheduled_id, active=True)
             except ScheduledMessage.DoesNotExist:
