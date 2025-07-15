@@ -6,6 +6,8 @@ from requests import HTTPError
 from celery import shared_task
 from django.utils import timezone
 from django.core.cache import cache
+from django.conf import settings
+import redis
 
 from .models import (
     ScheduledMessage,
@@ -30,13 +32,24 @@ logger = logging.getLogger(__name__)
 LOCK_TIMEOUT = 60  # seconds
 
 
+_redis_client = None
+
+
 def _get_lock(lock_id: str, timeout: int = LOCK_TIMEOUT, blocking_timeout: int = 5):
-    """Return a Redis lock from the cache backend."""
+    """Return a redis-py lock from the configured cache backend."""
     if hasattr(cache, "lock"):
         return cache.lock(lock_id, timeout=timeout, blocking_timeout=blocking_timeout)
 
-    client = cache.client.get_client(write=True)
-    return client.lock(lock_id, timeout=timeout, blocking_timeout=blocking_timeout)
+    client = getattr(cache, "client", None)
+    if client and hasattr(client, "get_client"):
+        redis_client = client.get_client(write=True)
+    else:
+        global _redis_client
+        if _redis_client is None:
+            _redis_client = redis.Redis.from_url(settings.REDIS_URL)
+        redis_client = _redis_client
+
+    return redis_client.lock(lock_id, timeout=timeout, blocking_timeout=blocking_timeout)
 
 
 def _extract_yelp_error(resp: requests.Response) -> str:
