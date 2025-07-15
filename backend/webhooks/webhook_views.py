@@ -7,7 +7,7 @@ import re
 import requests
 from config import celery as config
 from django.utils import timezone
-from django.db import transaction, OperationalError
+from django.db import transaction, OperationalError, IntegrityError
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -647,15 +647,23 @@ class WebhookView(APIView):
                     headers={"business_id": biz_id},
                     countdown=countdown,
                 )
-                LeadPendingTask.objects.create(
-                    lead_id=lead_id,
-                    task_id=res.id,
-                    text=greet_text,
-                    phone_opt_in=phone_opt_in,
-                    phone_available=phone_available,
-                )
-                logger.info(f"[AUTO-RESPONSE] Greeting scheduled at {due.isoformat()}")
-                scheduled_texts.add(greet_text)
+                try:
+                    LeadPendingTask.objects.create(
+                        lead_id=lead_id,
+                        task_id=res.id,
+                        text=greet_text,
+                        phone_opt_in=phone_opt_in,
+                        phone_available=phone_available,
+                    )
+                except IntegrityError:
+                    logger.info(
+                        "[AUTO-RESPONSE] Duplicate pending task already exists → skipping"
+                    )
+                else:
+                    logger.info(
+                        f"[AUTO-RESPONSE] Greeting scheduled at {due.isoformat()}"
+                    )
+                    scheduled_texts.add(greet_text)
 
         if phone_available:
             return
@@ -685,17 +693,23 @@ class WebhookView(APIView):
                         headers={"business_id": biz_id},
                         countdown=countdown,
                     )
-                    LeadPendingTask.objects.create(
-                        lead_id=lead_id,
-                        task_id=res.id,
-                        text=built_in,
-                        phone_opt_in=phone_opt_in,
-                        phone_available=phone_available,
-                    )
-                    logger.info(
-                        f"[AUTO-RESPONSE] Built-in follow-up scheduled at {due2.isoformat()}"
-                    )
-                    scheduled_texts.add(built_in)
+                    try:
+                        LeadPendingTask.objects.create(
+                            lead_id=lead_id,
+                            task_id=res.id,
+                            text=built_in,
+                            phone_opt_in=phone_opt_in,
+                            phone_available=phone_available,
+                        )
+                    except IntegrityError:
+                        logger.info(
+                            "[AUTO-RESPONSE] Duplicate pending task already exists → skipping"
+                        )
+                    else:
+                        logger.info(
+                            f"[AUTO-RESPONSE] Built-in follow-up scheduled at {due2.isoformat()}"
+                        )
+                        scheduled_texts.add(built_in)
 
         tpls = FollowUpTemplate.objects.filter(
             active=True,
@@ -734,17 +748,23 @@ class WebhookView(APIView):
                         headers={"business_id": biz_id},
                         countdown=countdown,
                     )
-                    LeadPendingTask.objects.create(
-                        lead_id=lead_id,
-                        task_id=res.id,
-                        text=text,
-                        phone_opt_in=phone_opt_in,
-                        phone_available=phone_available,
-                    )
-                    logger.info(
-                        f"[AUTO-RESPONSE] Custom follow-up “{tmpl.name}” scheduled at {due.isoformat()}"
-                    )
-                    scheduled_texts.add(text)
+                    try:
+                        LeadPendingTask.objects.create(
+                            lead_id=lead_id,
+                            task_id=res.id,
+                            text=text,
+                            phone_opt_in=phone_opt_in,
+                            phone_available=phone_available,
+                        )
+                    except IntegrityError:
+                        logger.info(
+                            "[AUTO-RESPONSE] Duplicate pending task already exists → skipping"
+                        )
+                    else:
+                        logger.info(
+                            f"[AUTO-RESPONSE] Custom follow-up “{tmpl.name}” scheduled at {due.isoformat()}"
+                        )
+                        scheduled_texts.add(text)
 
         with transaction.atomic():
             for sm in (
@@ -765,14 +785,20 @@ class WebhookView(APIView):
                     headers={"business_id": biz_id},
                     countdown=delay,
                 )
-                LeadPendingTask.objects.create(
-                    lead_id=lead_id,
-                    task_id=res.id,
-                    text=text_val,
-                    phone_opt_in=phone_opt_in,
-                    phone_available=phone_available,
-                )
-                logger.info(
-                    f"[SCHEDULED] Message #{sm.id} scheduled in {delay:.0f}s"
-                )
+                try:
+                    LeadPendingTask.objects.create(
+                        lead_id=lead_id,
+                        task_id=res.id,
+                        text=text_val,
+                        phone_opt_in=phone_opt_in,
+                        phone_available=phone_available,
+                    )
+                except IntegrityError:
+                    logger.info(
+                        "[AUTO-RESPONSE] Duplicate pending task already exists → skipping"
+                    )
+                else:
+                    logger.info(
+                        f"[SCHEDULED] Message #{sm.id} scheduled in {delay:.0f}s"
+                    )
                 sm.schedule_next()
