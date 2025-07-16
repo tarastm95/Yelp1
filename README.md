@@ -53,12 +53,12 @@ the Postgres port in `backend/docker-compose.yml`:
 Restart the stack with `docker compose up -d`. The database is then available
 at `localhost:5433` with the credentials listed above.
 
-## Persisting Celery tasks
+## Persisting RQ jobs
 
-Celery uses Redis to queue background jobs. If the stack is restarted and Redis
-is not configured with a volume, any scheduled tasks are lost. The
+RQ uses Redis to queue background jobs. If the stack is restarted and Redis
+is not configured with a volume, any scheduled jobs are lost. The
 `redis` service in `backend/docker-compose.yml` now mounts the named volume
-`redis_data` so Celery's queue survives container restarts:
+`redis_data` so RQ's queue survives container restarts:
 
 ```yaml
   redis:
@@ -110,7 +110,7 @@ REACT_APP_API_BASE_URL=http://46.62.139.177:8000 npm run build
 
 If this variable is omitted, the app falls back to `http://46.62.139.177:8000/api`.
 
-## Celery log cleanup
+## Task log cleanup
 
 Old records in `CeleryTaskLog` can grow quickly. Remove entries older than 30 days
 with the management command:
@@ -119,7 +119,7 @@ with the management command:
 python backend/manage.py cleanup_celery_logs --days 30
 ```
 
-This command is executed automatically every day via Celery beat using the
+This command is executed automatically every day via the RQ scheduler using the
 `cleanup-celery-logs` schedule.
 
 ## Grafana dashboards

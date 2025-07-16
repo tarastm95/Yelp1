@@ -1,3 +1,5 @@
-from .celery import app as celery_app
+"""Expose RQ utilities."""
 
-__all__ = ('celery_app',)
+from django_rq import get_queue
+
+__all__ = ("get_queue",)
