@@ -139,8 +139,9 @@ docker compose up -d rqdash
 
 ## RQ Scheduler Dashboard
 
-To inspect jobs scheduled with `rq-scheduler`, the compose file also includes a
-`scheduler-dashboard` service. Start it and open
+To inspect jobs scheduled with `rq-scheduler`, the compose file includes a
+`scheduler-dashboard` service built from the same Docker image as the other
+backend components. Start it and open
 <http://localhost:9182> to view scheduled tasks:
 
 ```bash
