@@ -4,6 +4,7 @@ import logging
 import requests
 from requests import HTTPError
 from celery import shared_task
+import uuid
 from django.utils import timezone
 from django.core.cache import cache
 from django.conf import settings
@@ -13,13 +14,15 @@ from .models import (
     LeadDetail,
     YelpToken,
     CeleryTaskLog,
+    LeadEvent,
 )
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from .utils import (
     get_token_for_lead,
     get_valid_business_token,
     rotate_refresh_token,
     update_shared_refresh_token,
+    _already_sent,
 )
 
 logger = logging.getLogger(__name__)
@@ -66,6 +69,10 @@ def send_follow_up(self, lead_id: str, text: str):
     """
     Одноразова відправка follow-up повідомлення без повторних спроб.
     """
+    if _already_sent(lead_id, text, exclude_task_id=self.request.id):
+        logger.info("[FOLLOW-UP] Duplicate follow-up for lead=%s; skipping", lead_id)
+        return
+
     lock_id = f"lead-lock:{lead_id}"
     try:
         with _get_lock(lock_id, timeout=LOCK_TIMEOUT, blocking_timeout=5):
@@ -93,6 +100,25 @@ def send_follow_up(self, lead_id: str, text: str):
             resp = requests.post(url, headers=headers, json=payload, timeout=10)
             resp.raise_for_status()
             logger.info(f"[FOLLOW-UP] Sent to lead={lead_id}")
+
+            try:
+                with transaction.atomic():
+                    LeadEvent.objects.create(
+                        event_id=str(uuid.uuid4()),
+                        lead_id=lead_id,
+                        event_type="FOLLOW_UP",
+                        user_type="BUSINESS",
+                        user_id=biz_id or "",
+                        user_display_name="",
+                        text=text,
+                        cursor="",
+                        time_created=timezone.now(),
+                        raw={"task_id": self.request.id},
+                    )
+            except IntegrityError:
+                logger.info(
+                    "[FOLLOW-UP] LeadEvent already recorded for lead=%s", lead_id
+                )
     except Exception as exc:
         if isinstance(exc, HTTPError) and getattr(exc, "response", None) is not None:
             message = _extract_yelp_error(exc.response)

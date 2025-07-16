@@ -5,7 +5,14 @@ from django.utils import timezone
 from zoneinfo import ZoneInfo
 from django.conf import settings
 import logging
-from .models import YelpToken, LeadDetail, ProcessedLead, YelpBusiness
+from .models import (
+    YelpToken,
+    LeadDetail,
+    ProcessedLead,
+    YelpBusiness,
+    LeadEvent,
+    CeleryTaskLog,
+)
 from django.utils.dateparse import parse_datetime
 import gspread
 from google.oauth2.service_account import Credentials
@@ -356,3 +363,34 @@ def update_phone_in_sheet(lead_id: str, phone_number: str):
         logger.exception(
             f"[SHEETS] Failed to update phone for lead {lead_id} in spreadsheet {settings.GS_SPREADSHEET_ID}: {e}"
         )
+
+
+def _already_sent(lead_id: str, text: str, exclude_task_id: str | None = None) -> bool:
+    """Return ``True`` if this lead already received exactly the given text.
+
+    ``exclude_task_id`` allows ignoring the CeleryTaskLog entry for the current
+    task when checking duplicates.
+    """
+    event_exists = LeadEvent.objects.filter(lead_id=lead_id, text=text).exists()
+
+    task_qs = CeleryTaskLog.objects.filter(
+        name__endswith="send_follow_up",
+        args__0=lead_id,
+        args__1=text,
+        status__in=["SCHEDULED", "STARTED", "SUCCESS"],
+    )
+    if exclude_task_id:
+        task_qs = task_qs.exclude(task_id=exclude_task_id)
+
+    task_exists = task_qs.exists()
+    if event_exists or task_exists:
+        logger.debug(
+            "[DUP CHECK] Follow-up for lead=%s already sent or queued: events=%s tasks=%s",
+            lead_id,
+            event_exists,
+            list(task_qs.values_list("task_id", "status"))[:5],
+        )
+    else:
+        logger.debug("[DUP CHECK] No prior follow-up found for lead=%s", lead_id)
+    return event_exists or task_exists
+

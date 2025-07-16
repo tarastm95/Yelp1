@@ -186,6 +186,15 @@ class LeadEvent(models.Model):
     def __str__(self):
         return f"{self.event_id} @ {self.lead_id}"
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["lead_id", "text"],
+                name="uniq_follow_up_lead_text",
+                condition=Q(event_type="FOLLOW_UP"),
+            )
+        ]
+
 
 class LeadDetail(models.Model):
     lead_id = models.CharField(max_length=64, unique=True, db_index=True)

@@ -28,6 +28,7 @@ from .utils import (
     get_valid_business_token,
     get_token_for_lead,
     adjust_due_time,
+    _already_sent,
 )
 from .tasks import send_follow_up
 
@@ -68,28 +69,6 @@ def safe_update_or_create(model, defaults=None, **kwargs):
             time.sleep(0.1)
     logger.debug(f"[DB RETRY] Final attempt for {model.__name__}.update_or_create")
     return model.objects.update_or_create(defaults=defaults or {}, **kwargs)
-
-
-def _already_sent(lead_id: str, text: str) -> bool:
-    """Return True if this lead already received exactly this text."""
-    event_exists = LeadEvent.objects.filter(lead_id=lead_id, text=text).exists()
-    task_qs = CeleryTaskLog.objects.filter(
-        name__endswith="send_follow_up",
-        args__0=lead_id,
-        args__1=text,
-        status__in=["SCHEDULED", "STARTED", "SUCCESS"],
-    )
-    task_exists = task_qs.exists()
-    if event_exists or task_exists:
-        logger.debug(
-            "[DUP CHECK] Follow-up for lead=%s already sent or queued: events=%s tasks=%s",
-            lead_id,
-            event_exists,
-            list(task_qs.values_list("task_id", "status"))[:5],
-        )
-    else:
-        logger.debug("[DUP CHECK] No prior follow-up found for lead=%s", lead_id)
-    return event_exists or task_exists
 
 
 class WebhookView(APIView):
