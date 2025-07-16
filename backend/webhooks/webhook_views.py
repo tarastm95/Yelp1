@@ -16,7 +16,6 @@ from .models import (
     Event,
     ProcessedLead,
     AutoResponseSettings,
-    ScheduledMessage,
     LeadEvent,
     LeadDetail,
     FollowUpTemplate,
@@ -31,7 +30,6 @@ from .utils import (
     adjust_due_time,
 )
 from .tasks import send_follow_up
-from .tasks import send_scheduled_message
 
 logger = logging.getLogger(__name__)
 
@@ -92,31 +90,6 @@ def _already_sent(lead_id: str, text: str) -> bool:
     else:
         logger.debug("[DUP CHECK] No prior follow-up found for lead=%s", lead_id)
     return event_exists or task_exists
-
-
-def _scheduled_message_pending(lead_id: str, sched_id: int) -> bool:
-    """Return True if a scheduled message task is already queued."""
-    qs = CeleryTaskLog.objects.filter(
-        name__endswith="send_scheduled_message",
-        args__0=lead_id,
-        args__1=sched_id,
-        status__in=["SCHEDULED", "STARTED"],
-    )
-    exists = qs.exists()
-    if exists:
-        logger.debug(
-            "[DUP CHECK] ScheduledMessage %s for lead=%s pending tasks=%s",
-            sched_id,
-            lead_id,
-            list(qs.values_list("task_id", "status"))[:5],
-        )
-    else:
-        logger.debug(
-            "[DUP CHECK] No pending ScheduledMessage task for lead=%s id=%s",
-            lead_id,
-            sched_id,
-        )
-    return exists
 
 
 class WebhookView(APIView):
@@ -628,17 +601,24 @@ class WebhookView(APIView):
         scheduled_texts = set()
 
         with transaction.atomic():
-            if _already_sent(lead_id, greet_text) or LeadPendingTask.objects.select_for_update().filter(
-                lead_id=lead_id, text=greet_text, active=True
-            ).exists():
-                logger.info("[AUTO-RESPONSE] Greeting already sent or queued → skipping")
+            if (
+                _already_sent(lead_id, greet_text)
+                or LeadPendingTask.objects.select_for_update()
+                .filter(lead_id=lead_id, text=greet_text, active=True)
+                .exists()
+            ):
+                logger.info(
+                    "[AUTO-RESPONSE] Greeting already sent or queued → skipping"
+                )
             elif due <= now:
                 send_follow_up.apply_async(
                     args=[lead_id, greet_text],
                     headers={"business_id": biz_id},
                     countdown=0,
                 )
-                logger.info("[AUTO-RESPONSE] Greeting dispatched immediately via Celery")
+                logger.info(
+                    "[AUTO-RESPONSE] Greeting dispatched immediately via Celery"
+                )
                 scheduled_texts.add(greet_text)
             else:
                 countdown = (due - now).total_seconds()
@@ -681,9 +661,13 @@ class WebhookView(APIView):
             )
             countdown = max((due2 - now).total_seconds(), 0)
             with transaction.atomic():
-                if _already_sent(lead_id, built_in) or built_in in scheduled_texts or LeadPendingTask.objects.select_for_update().filter(
-                    lead_id=lead_id, text=built_in, active=True
-                ).exists():
+                if (
+                    _already_sent(lead_id, built_in)
+                    or built_in in scheduled_texts
+                    or LeadPendingTask.objects.select_for_update()
+                    .filter(lead_id=lead_id, text=built_in, active=True)
+                    .exists()
+                ):
                     logger.info(
                         "[AUTO-RESPONSE] Built-in follow-up already sent or duplicate → skipping"
                     )
@@ -736,9 +720,13 @@ class WebhookView(APIView):
             )
             countdown = max((due - now).total_seconds(), 0)
             with transaction.atomic():
-                if _already_sent(lead_id, text) or text in scheduled_texts or LeadPendingTask.objects.select_for_update().filter(
-                    lead_id=lead_id, text=text, active=True
-                ).exists():
+                if (
+                    _already_sent(lead_id, text)
+                    or text in scheduled_texts
+                    or LeadPendingTask.objects.select_for_update()
+                    .filter(lead_id=lead_id, text=text, active=True)
+                    .exists()
+                ):
                     logger.info(
                         f"[AUTO-RESPONSE] Custom follow-up '{tmpl.name}' already sent or duplicate → skipping"
                     )
@@ -765,40 +753,3 @@ class WebhookView(APIView):
                             f"[AUTO-RESPONSE] Custom follow-up “{tmpl.name}” scheduled at {due.isoformat()}"
                         )
                         scheduled_texts.add(text)
-
-        with transaction.atomic():
-            for sm in (
-                ScheduledMessage.objects.select_for_update(skip_locked=True)
-                .filter(lead_id=lead_id, active=True)
-            ):
-                text_val = sm.template.template.format(name=name, jobs=jobs, sep=sep)
-                if _scheduled_message_pending(lead_id, sm.id) or LeadPendingTask.objects.select_for_update().filter(
-                    lead_id=lead_id, text=text_val, active=True
-                ).exists():
-                    logger.info(
-                        f"[SCHEDULED] Message #{sm.id} already queued → skipping"
-                    )
-                    continue
-                delay = max((sm.next_run - now).total_seconds(), 0)
-                res = send_scheduled_message.apply_async(
-                    args=[lead_id, sm.id],
-                    headers={"business_id": biz_id},
-                    countdown=delay,
-                )
-                try:
-                    LeadPendingTask.objects.create(
-                        lead_id=lead_id,
-                        task_id=res.id,
-                        text=text_val,
-                        phone_opt_in=phone_opt_in,
-                        phone_available=phone_available,
-                    )
-                except IntegrityError:
-                    logger.info(
-                        "[AUTO-RESPONSE] Duplicate pending task already exists → skipping"
-                    )
-                else:
-                    logger.info(
-                        f"[SCHEDULED] Message #{sm.id} scheduled in {delay:.0f}s"
-                    )
-                sm.schedule_next()
