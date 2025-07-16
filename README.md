@@ -75,6 +75,12 @@ volumes:
 After updating the compose file, run `docker compose up -d` again to apply the
 changes. Scheduled tasks and other Redis data will persist between restarts.
 
+If you need additional safeguards against duplicate jobs, assign deterministic
+`job_id` values when enqueuing RQ tasks. For example, hash the `lead_id` and
+message text and pass that value as the `job_id`. Attempting to enqueue the same
+task again with the identical `job_id` simply reuses the existing job and no new
+task is created.
+
 ## Webhook event processing
 
 When events are fetched from Yelp after a lead is created, the backend ignores
