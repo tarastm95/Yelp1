@@ -1,8 +1,3 @@
-from .scheduled_views import (
-    ScheduledMessageListCreate,
-    ScheduledMessageDetail,
-    ScheduledMessageHistoryList,
-)
 from .proxy_views import (
     LeadEventsProxyView,
     LeadIDsProxyView,
@@ -39,9 +34,6 @@ from .lead_views import (
 from .task_views import TaskLogListView
 
 __all__ = [
-    "ScheduledMessageListCreate",
-    "ScheduledMessageDetail",
-    "ScheduledMessageHistoryList",
     "LeadEventsProxyView",
     "LeadIDsProxyView",
     "LeadDetailProxyView",

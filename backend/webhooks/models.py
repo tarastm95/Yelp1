@@ -169,46 +169,6 @@ class FollowUpTemplate(models.Model):
         return f"{self.name} (+{self.delay})"
 
 
-class ScheduledMessage(models.Model):
-    lead_id = models.CharField(max_length=64, db_index=True)
-    template = models.ForeignKey(
-        FollowUpTemplate,
-        on_delete=models.CASCADE,
-        help_text="Який шаблон FollowUpTemplate використати",
-    )
-    next_run = models.DateTimeField(help_text="Час наступного запуску повідомлення")
-    active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=["lead_id", "template"],
-                name="uniq_lead_template",
-            )
-        ]
-
-    def schedule_next(self):
-        # Оновлюємо next_run згідно з delay із шаблону
-        self.next_run = timezone.now() + self.template.delay
-        self.save(update_fields=["next_run"])
-
-    def __str__(self):
-        return f"#{self.pk} lead={self.lead_id} template={self.template.name} at {self.next_run}"
-
-
-class ScheduledMessageHistory(models.Model):
-    scheduled = models.ForeignKey(
-        ScheduledMessage, on_delete=models.CASCADE, related_name="history"
-    )
-    executed_at = models.DateTimeField(auto_now_add=True)
-    status = models.CharField(max_length=16)  # 'success' або 'error'
-    error = models.TextField(blank=True, null=True)
-
-    def __str__(self):
-        return f"History for #{self.scheduled_id} at {self.executed_at}"
-
-
 class LeadEvent(models.Model):
     event_id = models.CharField(max_length=64, unique=True, db_index=True)
     lead_id = models.CharField(max_length=64, db_index=True)
@@ -257,41 +217,6 @@ class LeadDetail(models.Model):
     def __str__(self):
         return f"LeadDetail({self.lead_id})"
 
-
-class LeadScheduledMessage(models.Model):
-    lead_id = models.CharField(max_length=64, db_index=True)
-    content = models.TextField(help_text="Текст повідомлення")
-    interval_minutes = models.PositiveIntegerField(help_text="Інтервал у хвилинах")
-    next_run = models.DateTimeField(help_text="Час наступного виконання")
-    active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=["lead_id", "content"],
-                name="uniq_lead_content",
-            )
-        ]
-
-    def schedule_next(self):
-        self.next_run = timezone.now() + timedelta(minutes=self.interval_minutes)
-        self.save(update_fields=["next_run"])
-
-    def __str__(self):
-        return f"LeadScheduledMessage #{self.pk} to {self.lead_id} every {self.interval_minutes}min → {self.next_run}"
-
-
-class LeadScheduledMessageHistory(models.Model):
-    scheduled = models.ForeignKey(
-        LeadScheduledMessage, on_delete=models.CASCADE, related_name="history"
-    )
-    executed_at = models.DateTimeField(auto_now_add=True)
-    status = models.CharField(max_length=16, help_text="'success' або 'error'")
-    error = models.TextField(blank=True, null=True, help_text="Текст помилки, якщо є")
-
-    def __str__(self):
-        return f"History #{self.pk} for msg {self.scheduled_id} at {self.executed_at}"
 
 
 class CeleryTaskLog(models.Model):

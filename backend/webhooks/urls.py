@@ -3,8 +3,8 @@ from .views import (
     WebhookView, EventListView, EventRetrieveView,
     yelp_auth_callback_view, save_yelp_state,
     YelpAuthInitView, YelpAuthCallbackView,
-    AutoResponseSettingsView, LeadEventsProxyView, LeadIDsProxyView, LeadDetailProxyView, AttachmentProxyView, ScheduledMessageHistoryList,
-    ScheduledMessageListCreate, ScheduledMessageDetail, ProcessedLeadListView, LeadEventListAPIView, LeadDetailListAPIView,
+    AutoResponseSettingsView, LeadEventsProxyView, LeadIDsProxyView, LeadDetailProxyView, AttachmentProxyView,
+    ProcessedLeadListView, LeadEventListAPIView, LeadDetailListAPIView,
     LeadDetailRetrieveAPIView, LeadLastEventAPIView, LeadEventRetrieveAPIView,
     FollowUpTemplateListCreateView, FollowUpTemplateDetailView,
     AutoResponseSettingsTemplateListCreateView, AutoResponseSettingsTemplateDetailView,
@@ -53,22 +53,6 @@ urlpatterns = [
         name='proxy-lead-events'
     ),
 
-    # нові роуты для запланованих
-    path(
-        'yelp/leads/<str:lead_id>/scheduled_messages/',
-        ScheduledMessageListCreate.as_view(),
-        name='scheduled-messages'
-    ),
-    path(
-        'yelp/leads/<str:lead_id>/scheduled_messages/history/',
-        ScheduledMessageHistoryList.as_view(),
-        name='scheduled-messages-history'
-    ),
-    path(
-        'yelp/leads/<str:lead_id>/scheduled_messages/<int:pk>/',
-        ScheduledMessageDetail.as_view(),
-        name='scheduled-message-detail'
-    ),
 
     path('yelp/businesses/<str:business_id>/lead_ids/', LeadIDsProxyView.as_view()),
     path('businesses/', BusinessListView.as_view(), name='business-list'),

@@ -13,20 +13,16 @@ import {
   Button,
 } from '@mui/material';
 
-import { DetailedEvent, LeadDetail, ScheduledMessage, MessageHistory } from './types';
+import { DetailedEvent, LeadDetail } from './types';
 import { LeadEvent } from '../EventsPage/types';
 import EventList from './EventList';
 import InstantMessageSection from './InstantMessageSection';
-import ScheduledMessagesSection from './ScheduledMessagesSection';
-import HistorySection from './HistorySection';
 
 const EventDetail: FC = () => {
   const { id } = useParams<{ id: string }>();
   const [eventsDetail, setEventsDetail] = useState<DetailedEvent[]>([]);
   const [leadId, setLeadId] = useState<string | null>(null);
   const [leadDetail, setLeadDetail] = useState<LeadDetail | null>(null);
-  const [scheduled, setScheduled] = useState<ScheduledMessage[]>([]);
-  const [history, setHistory] = useState<MessageHistory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,21 +45,6 @@ const EventDetail: FC = () => {
     }
   }, []);
 
-  const fetchScheduled = useCallback(async () => {
-    if (!leadId) return;
-    const { data } = await axios.get<ScheduledMessage[]>(
-      `/yelp/leads/${leadId}/scheduled_messages/`
-    );
-    setScheduled(data);
-  }, [leadId]);
-
-  const fetchHistory = useCallback(async () => {
-    if (!leadId) return;
-    const { data } = await axios.get<MessageHistory[]>(
-      `/yelp/leads/${leadId}/scheduled_messages/history/`
-    );
-    setHistory(data);
-  }, [leadId]);
 
   useEffect(() => {
     if (!loading && !error && id) {
@@ -108,15 +89,13 @@ const EventDetail: FC = () => {
         setLeadId(found);
         await fetchDetails(found);
         await fetchLeadDetail(found);
-        await fetchScheduled();
-        await fetchHistory();
       } catch (e: any) {
         setError(e.message || 'Failed to load data');
       } finally {
         setLoading(false);
       }
     })();
-  }, [id, fetchDetails, fetchLeadDetail, fetchScheduled, fetchHistory]);
+  }, [id, fetchDetails, fetchLeadDetail]);
 
   // Early returns
   if (loading) {
@@ -182,32 +161,10 @@ const EventDetail: FC = () => {
           jobNames={jobNames}
           onSent={() => {
             fetchDetails(lid);
-            fetchHistory();
           }}
         />
       </Paper>
 
-      {/* Scheduled messages section */}
-      <Paper elevation={2} sx={{ p: 2, mb: 3 }}>
-        <Typography variant="h6" gutterBottom>
-          Scheduled Messages
-        </Typography>
-        <ScheduledMessagesSection
-          leadId={lid}
-          displayName={displayName}
-          jobNames={jobNames}
-          scheduled={scheduled}
-          onUpdate={fetchScheduled}
-        />
-      </Paper>
-
-      {/* Scheduled history section */}
-      <Paper elevation={2} sx={{ p: 2, mb: 3 }}>
-        <Typography variant="h6" gutterBottom>
-          History of Scheduled Messages
-        </Typography>
-        <HistorySection history={history} />
-      </Paper>
 
       {/* Back button */}
       <Box sx={{ mt: 2 }}>

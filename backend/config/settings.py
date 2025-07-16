@@ -263,16 +263,6 @@ CORS_ALLOWED_ORIGINS = [
 ]
 
 CELERY_BEAT_SCHEDULE = {
-    # для FollowUpTemplate-повідомлень
-    'send-scheduled-every-minute': {
-        'task': 'webhooks.tasks.send_due_scheduled_messages',
-        'schedule': 60.0,
-    },
-    # для одноразових LeadScheduledMessage
-    'send-lead-scheduled-every-minute': {
-        'task': 'webhooks.tasks.send_due_lead_scheduled_messages',
-        'schedule': 60.0,
-    },
     'refresh-yelp-tokens': {
         'task': 'webhooks.tasks.refresh_expiring_tokens',
         'schedule': 300.0,

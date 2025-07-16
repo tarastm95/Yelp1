@@ -42,20 +42,6 @@ export interface DetailedEvent {
   event_content: EventContent;
 }
 
-// For ScheduledMessagesSection
-export interface ScheduledMessage {
-  id: number;
-  content: string;
-  interval_minutes: number;
-  next_run: string;
-  active: boolean;
-}
-export interface MessageHistory {
-  id: number;
-  executed_at: string;
-  status: string;
-  error?: string;
-}
 
 // For LeadDetail (full response from /api/yelp/leads/:id)
 export interface SurveyAnswer {
@@ -96,14 +82,6 @@ export interface LeadDetail {
 }
 
 // Props for the scheduled messages section with placeholders for name/jobs
-export interface ScheduledSectionProps {
-  leadId: string;
-  displayName: string;
-  jobNames: string[];
-  scheduled: ScheduledMessage[];
-  history?: MessageHistory[]; 
-  onUpdate: () => void;
-}
 
 export interface InstantSectionProps {
   leadId: string;

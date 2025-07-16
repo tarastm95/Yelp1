@@ -256,7 +256,6 @@ class AutoResponseDisabledTests(TestCase):
             enabled=False,
         )
 
-    @patch("webhooks.webhook_views.send_scheduled_message.apply_async")
     @patch("webhooks.webhook_views.send_follow_up.apply_async")
     @patch("webhooks.webhook_views.requests.get")
     @patch("webhooks.webhook_views.get_valid_business_token", return_value="tok")
@@ -265,7 +264,6 @@ class AutoResponseDisabledTests(TestCase):
         mock_token,
         mock_get,
         mock_follow_up,
-        mock_sched,
     ):
         detail_resp = {
             "business_id": self.biz.business_id,
@@ -286,5 +284,4 @@ class AutoResponseDisabledTests(TestCase):
 
         self.assertTrue(LeadDetail.objects.filter(lead_id=self.lead_id).exists())
         mock_follow_up.assert_not_called()
-        mock_sched.assert_not_called()
 
