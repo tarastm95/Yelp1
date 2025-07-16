@@ -3,14 +3,10 @@ from datetime import timedelta
 from .models import (
     Event,
     AutoResponseSettings,
-    ScheduledMessage,
-    ScheduledMessageHistory,
     ProcessedLead,
     FollowUpTemplate,
     LeadEvent,
     LeadDetail,
-    LeadScheduledMessageHistory,
-    LeadScheduledMessage,
     YelpToken,
     YelpBusiness,
     CeleryTaskLog,
@@ -163,30 +159,6 @@ class FollowUpTemplateSerializer(serializers.ModelSerializer):
         return super().update(instance, validated_data)
 
 
-class ScheduledMessageSerializer(serializers.ModelSerializer):
-    id = serializers.IntegerField(read_only=True)
-
-    class Meta:
-        model = ScheduledMessage
-        fields = [
-            "id",
-            "lead_id",
-            "template",  # foreign key to FollowUpTemplate
-            "next_run",
-            "active",
-            "created_at",
-        ]
-        read_only_fields = ["id", "lead_id", "next_run", "created_at"]
-        extra_kwargs = {
-            "template": {"help_text": "ID of the FollowUpTemplate to use"},
-        }
-
-
-class ScheduledMessageHistorySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ScheduledMessageHistory
-        fields = ["id", "executed_at", "status", "error"]
-        read_only_fields = ["id", "executed_at"]
 
 
 class ProcessedLeadSerializer(serializers.ModelSerializer):
@@ -239,39 +211,6 @@ class LeadDetailSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
-class LeadScheduledMessageSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = LeadScheduledMessage
-        fields = [
-            "id",
-            "lead_id",
-            "content",
-            "interval_minutes",
-            "next_run",
-            "active",
-            "created_at",
-        ]
-        read_only_fields = [
-            "id",
-            "lead_id",
-            "next_run",
-            "created_at",
-        ]
-        extra_kwargs = {
-            "lead_id": {"read_only": True},
-        }
-
-
-class LeadScheduledMessageHistorySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = LeadScheduledMessageHistory
-        fields = [
-            "id",
-            "executed_at",
-            "status",
-            "error",
-        ]
-        read_only_fields = fields
 
 
 class YelpBusinessSerializer(serializers.ModelSerializer):
@@ -341,27 +280,7 @@ class MessageTaskSerializer(serializers.ModelSerializer):
         args = obj.args or []
         if obj.name == "send_follow_up" and len(args) >= 2:
             return args[1]
-        if obj.name == "send_scheduled_message" and len(args) >= 2:
-            lead_id, sched_id = args[0], args[1]
-            detail = LeadDetail.objects.filter(lead_id=lead_id).first()
-            name = detail.user_display_name if detail else ""
-            jobs = ", ".join(detail.project.get("job_names", [])) if detail else ""
-            sep = ", " if name and jobs else ""
-            try:
-                sm = ScheduledMessage.objects.get(pk=sched_id)
-                return sm.template.template.format(name=name, jobs=jobs, sep=sep)
-            except ScheduledMessage.DoesNotExist:
-                return ""
-        if obj.name == "send_lead_scheduled_message" and len(args) >= 1:
-            sched_id = args[0]
-            msg = LeadScheduledMessage.objects.filter(pk=sched_id).first()
-            if not msg:
-                return ""
-            detail = LeadDetail.objects.filter(lead_id=msg.lead_id).first()
-            name = detail.user_display_name if detail else ""
-            jobs = ", ".join(detail.project.get("job_names", [])) if detail else ""
-            sep = ", " if name and jobs else ""
-            return msg.content.format(name=name, jobs=jobs, sep=sep)
+        # Other task types were removed
         return ""
 
     def get_business_name(self, obj):
@@ -371,8 +290,6 @@ class MessageTaskSerializer(serializers.ModelSerializer):
     def get_task_type(self, obj):
         mapping = {
             "send_follow_up": "Built-in Follow-up",
-            "send_scheduled_message": "Additional Follow-up Template",
-            "send_lead_scheduled_message": "Greeting message",
         }
         return mapping.get(obj.name, obj.name)
 

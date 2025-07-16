@@ -27,7 +27,6 @@ from .serializers import (
     LeadEventSerializer,
     AutoResponseSettingsTemplateSerializer,
 )
-from .tasks import reschedule_follow_up_tasks
 
 logger = logging.getLogger(__name__)
 
@@ -259,8 +258,7 @@ class FollowUpTemplateDetailView(generics.RetrieveUpdateDestroyAPIView):
         phone_opt_in = self.request.query_params.get('phone_opt_in') == 'true'
         phone_available = self.request.query_params.get('phone_available') == 'true'
         business = YelpBusiness.objects.filter(business_id=bid).first() if bid else None
-        instance = serializer.save(business=business, phone_opt_in=phone_opt_in, phone_available=phone_available)
-        reschedule_follow_up_tasks(instance)
+        serializer.save(business=business, phone_opt_in=phone_opt_in, phone_available=phone_available)
 
 
 class AutoResponseSettingsTemplateListCreateView(generics.ListCreateAPIView):

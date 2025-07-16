@@ -28,8 +28,6 @@ logger = logging.getLogger(__name__)
 # Only log tasks related to sending messages which include lead data
 INTERESTING_TASKS = {
     "send_follow_up",
-    "send_scheduled_message",
-    "send_lead_scheduled_message",
 }
 
 
