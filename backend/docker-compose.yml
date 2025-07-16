@@ -120,6 +120,14 @@ services:
     depends_on:
       - loki
 
+  grafana:
+    image: grafana/grafana:latest
+    restart: unless-stopped
+    ports:
+      - "3002:3000"
+    depends_on:
+      - loki
+
 volumes:
   postgres_data:
   redis_data:
