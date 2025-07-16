@@ -7,6 +7,7 @@ requests
 django-rq
 rq-scheduler
 rq-dashboard
+rq<2.0.0
 rq-scheduler-dashboard
 uvicorn[standard]>=0.23.0
 gspread
