@@ -1,3 +1,5 @@
+version: "3.8"
+
 services:
   web:
     build:
@@ -91,9 +93,9 @@ services:
       dockerfile: ./Dockerfile
     command: >
       rq-dashboard
-      --redis-url redis://redis:6379/1
-      --host 0.0.0.0
-      --port 9181
+      -b 0.0.0.0
+      -p 9181
+      -u redis://redis:6379/1
       --queues default,high,emails,scheduled_jobs
     restart: unless-stopped
     ports:
