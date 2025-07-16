@@ -137,4 +137,14 @@ Start it and visit <http://localhost:9181> to monitor queued jobs:
 docker compose up -d rqdash
 ```
 
+## RQ Scheduler Dashboard
+
+To inspect jobs scheduled with `rq-scheduler`, the compose file also includes a
+`scheduler-dashboard` service. Start it and open
+<http://localhost:9182> to view scheduled tasks:
+
+```bash
+docker compose up -d scheduler-dashboard
+```
+
 
