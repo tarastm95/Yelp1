@@ -14,8 +14,6 @@ services:
       DEBUG: "1"
       SECRET_KEY: "super-secret-key"
       ALLOWED_HOSTS: "127.0.0.1,localhost,46.62.139.177"
-      CELERY_BROKER_URL: "redis://redis:6379/0"
-      CELERY_RESULT_BACKEND: "redis://redis:6379/0"
       DB_ENGINE: "postgres"
       POSTGRES_HOST: "db"
       POSTGRES_PORT: "5432"
@@ -53,15 +51,13 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
-  celery:
+  rqworker:
     build:
       context: .
       dockerfile: ./Dockerfile
-    command: celery -A config worker --loglevel=info --concurrency=4
+    command: python manage.py rqworker default
     restart: unless-stopped
     environment:
-      CELERY_BROKER_URL: "redis://redis:6379/0"
-      CELERY_RESULT_BACKEND: "redis://redis:6379/0"
       DB_ENGINE: "postgres"
       POSTGRES_HOST: "db"
       POSTGRES_PORT: "5432"
@@ -78,15 +74,13 @@ services:
       - redis
       - db
 
-  celery-beat:
+  rqscheduler:
     build:
       context: .
       dockerfile: ./Dockerfile
-    command: celery -A config beat --loglevel=info
+    command: python manage.py rqscheduler
     restart: unless-stopped
     environment:
-      CELERY_BROKER_URL: "redis://redis:6379/0"
-      CELERY_RESULT_BACKEND: "redis://redis:6379/0"
       DB_ENGINE: "postgres"
       POSTGRES_HOST: "db"
       POSTGRES_PORT: "5432"

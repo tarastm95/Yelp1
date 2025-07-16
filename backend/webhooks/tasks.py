@@ -3,7 +3,8 @@
 import logging
 import requests
 from requests import HTTPError
-from celery import shared_task
+from django_rq import job
+from rq import get_current_job
 import uuid
 from django.utils import timezone
 from django.core.cache import cache
@@ -15,6 +16,7 @@ from .models import (
     YelpToken,
     CeleryTaskLog,
     LeadEvent,
+    LeadPendingTask,
 )
 from django.db import transaction, IntegrityError
 from .utils import (
@@ -64,22 +66,26 @@ def _extract_yelp_error(resp: requests.Response) -> str:
         return resp.text
 
 
-@shared_task(bind=True)
-def send_follow_up(self, lead_id: str, text: str):
+@job
+def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
     """
     Одноразова відправка follow-up повідомлення без повторних спроб.
     """
-    if _already_sent(lead_id, text, exclude_task_id=self.request.id):
+    job = get_current_job()
+    job_id = job.id if job else None
+    if job_id:
+        LeadPendingTask.objects.filter(task_id=job_id).update(active=False)
+    if _already_sent(lead_id, text, exclude_task_id=job_id):
         logger.info("[FOLLOW-UP] Duplicate follow-up for lead=%s; skipping", lead_id)
         return
 
     lock_id = f"lead-lock:{lead_id}"
     try:
         with _get_lock(lock_id, timeout=LOCK_TIMEOUT, blocking_timeout=5):
-            if _already_sent(lead_id, text, exclude_task_id=self.request.id):
+            if _already_sent(lead_id, text, exclude_task_id=job_id):
                 logger.info("[FOLLOW-UP] Duplicate follow-up for lead=%s; skipping", lead_id)
                 return
-            biz_id = getattr(self.request, "headers", {}).get("business_id")
+            biz_id = business_id
             token = None
             if biz_id:
                 try:
@@ -116,7 +122,7 @@ def send_follow_up(self, lead_id: str, text: str):
                         text=text,
                         cursor="",
                         time_created=timezone.now(),
-                        raw={"task_id": self.request.id},
+                        raw={"task_id": job_id},
                     )
             except IntegrityError:
                 logger.info(
@@ -141,7 +147,7 @@ def send_follow_up(self, lead_id: str, text: str):
         raise
 
 
-@shared_task
+@job
 def refresh_expiring_tokens():
     """Proactively refresh tokens expiring soon."""
     margin = timezone.now() + timezone.timedelta(minutes=10)
@@ -178,10 +184,41 @@ def refresh_expiring_tokens():
 
 
 
-@shared_task
+@job
 def cleanup_celery_logs(days: int = 30):
     """Remove old CeleryTaskLog entries."""
     from django.core.management import call_command
 
     call_command("cleanup_celery_logs", days=str(days))
+
+
+# Compatibility helpers -----------------------------------------------------
+
+from datetime import timedelta
+from types import SimpleNamespace
+from django_rq import get_scheduler
+
+
+def _apply(func, args=None, kwargs=None):
+    args = args or []
+    kwargs = kwargs or {}
+    return func(*args, **kwargs)
+
+
+def _apply_async(func, args=None, kwargs=None, countdown=0, headers=None):
+    args = args or []
+    kwargs = kwargs or {}
+    if headers and "business_id" in headers:
+        kwargs.setdefault("business_id", headers["business_id"])
+    if countdown:
+        scheduler = get_scheduler("default")
+        job = scheduler.enqueue_in(timedelta(seconds=countdown), func, *args, **kwargs)
+    else:
+        job = func.delay(*args, **kwargs)
+    return SimpleNamespace(id=job.id)
+
+
+for _f in (send_follow_up, refresh_expiring_tokens, cleanup_celery_logs):
+    _f.apply = lambda args=None, kwargs=None, f=_f: _apply(f, args, kwargs)
+    _f.apply_async = lambda args=None, kwargs=None, countdown=0, headers=None, f=_f: _apply_async(f, args, kwargs, countdown, headers)
 

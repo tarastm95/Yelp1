@@ -4,7 +4,7 @@ from rest_framework import generics, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
-from config.celery import app as celery_app
+import django_rq
 
 from .models import CeleryTaskLog, LeadPendingTask
 from .serializers import CeleryTaskLogSerializer, MessageTaskSerializer
@@ -34,7 +34,7 @@ class TaskLogFilterSet(FilterSet):
 
 
 class TaskLogListView(generics.ListAPIView):
-    """Return Celery task logs with optional filtering."""
+    """Return task logs with optional filtering."""
 
     serializer_class = CeleryTaskLogSerializer
     filter_backends = [DjangoFilterBackend]
@@ -68,12 +68,15 @@ class MessageTaskListView(generics.ListAPIView):
 
 
 class TaskRevokeView(APIView):
-    """Revoke a scheduled Celery task and log the reason."""
+    """Revoke a scheduled task and log the reason."""
 
     def post(self, request, task_id: str):
         reason = request.data.get("reason", "")
+        queue = django_rq.get_queue("default")
+        scheduler = django_rq.get_scheduler("default")
         try:
-            celery_app.control.revoke(task_id)
+            queue.cancel_job(task_id)
+            scheduler.cancel(task_id)
         except Exception as exc:
             logger.error(f"[TASK] Error revoking {task_id}: {exc}")
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)

@@ -4,7 +4,8 @@ gunicorn
 redis                 # опційно
 django-cors-headers>=4,<5
 requests
-celery[redis]
+django-rq
+rq-scheduler
 uvicorn[standard]>=0.23.0
 gspread
 google-auth

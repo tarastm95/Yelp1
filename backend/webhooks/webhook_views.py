@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 from django.utils.dateparse import parse_datetime
 import re
 import requests
-from config import celery as config
+import django_rq
 from django.utils import timezone
 from django.db import transaction, OperationalError, IntegrityError
 from rest_framework import status
@@ -331,9 +331,12 @@ class WebhookView(APIView):
         pending = LeadPendingTask.objects.filter(
             lead_id=lead_id, phone_opt_in=False, phone_available=False, active=True
         )
+        queue = django_rq.get_queue("default")
+        scheduler = django_rq.get_scheduler("default")
         for p in pending:
             try:
-                config.app.control.revoke(p.task_id)
+                queue.cancel_job(p.task_id)
+                scheduler.cancel(p.task_id)
             except Exception as exc:
                 logger.error(f"[AUTO-RESPONSE] Error revoking task {p.task_id}: {exc}")
             p.active = False
