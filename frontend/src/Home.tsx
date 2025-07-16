@@ -70,7 +70,7 @@ const Home: FC = () => {
             <Card sx={{ p: 3, mb: 2 }}>
               <CardContent>
                 <Typography variant="h4" gutterBottom>
-                  Welcome to the Yelp Integration Dashboard!
+                  Welcome to the Yelp Integration!
                 </Typography>
                 <Typography variant="body1" color="text.secondary">
                   This dashboard helps you manage your Yelp events, leads and automated responses. Select an action from the list to get started.
