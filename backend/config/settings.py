@@ -258,7 +258,7 @@ GOOGLE_SERVICE_ACCOUNT_FILE = BASE_DIR / "service_account.json"
 
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:3000',
-    'http://localhost:3001',
+    'http://localhost:3002',
     'http://46.62.139.177:3000',
 ]
 

@@ -122,3 +122,15 @@ python backend/manage.py cleanup_celery_logs --days 30
 This command is executed automatically every day via Celery beat using the
 `cleanup-celery-logs` schedule.
 
+## Grafana dashboards
+
+The stack now includes a Grafana service for visualizing logs from Loki. Start
+the services with Docker Compose:
+
+```bash
+docker compose up -d
+```
+
+Open <http://localhost:3002> in your browser to access the Grafana UI. Configure
+Loki as a data source and set the URL to `http://loki:3100`.
+
