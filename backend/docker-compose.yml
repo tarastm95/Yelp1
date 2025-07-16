@@ -85,6 +85,19 @@ services:
       - redis
       - db
 
+  rqdash:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    command: rq-dashboard -H 0.0.0.0 -p 9181
+    restart: unless-stopped
+    environment:
+      RQ_DASHBOARD_REDIS_URL: redis://redis:6379/1
+    ports:
+      - "9181:9181"
+    depends_on:
+      - redis
+
 
 volumes:
   postgres_data:

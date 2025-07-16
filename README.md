@@ -128,4 +128,13 @@ python backend/manage.py cleanup_celery_logs --days 30
 This command is executed automatically every day via the RQ scheduler using the
 `cleanup-celery-logs` schedule.
 
+## RQ Dashboard
+
+The compose file includes a `rqdash` service running [RQ Dashboard](https://github.com/rq/rq-dashboard).
+Start it and visit <http://localhost:9181> to monitor queued jobs:
+
+```bash
+docker compose up -d rqdash
+```
+
 
