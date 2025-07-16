@@ -76,6 +76,9 @@ def send_follow_up(self, lead_id: str, text: str):
     lock_id = f"lead-lock:{lead_id}"
     try:
         with _get_lock(lock_id, timeout=LOCK_TIMEOUT, blocking_timeout=5):
+            if _already_sent(lead_id, text, exclude_task_id=self.request.id):
+                logger.info("[FOLLOW-UP] Duplicate follow-up for lead=%s; skipping", lead_id)
+                return
             biz_id = getattr(self.request, "headers", {}).get("business_id")
             token = None
             if biz_id:
