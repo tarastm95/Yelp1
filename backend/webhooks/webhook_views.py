@@ -335,7 +335,9 @@ class WebhookView(APIView):
         scheduler = django_rq.get_scheduler("default")
         for p in pending:
             try:
-                queue.cancel_job(p.task_id)
+                job = queue.fetch_job(p.task_id)
+                if job:
+                    job.cancel()
                 scheduler.cancel(p.task_id)
             except Exception as exc:
                 logger.error(f"[AUTO-RESPONSE] Error revoking task {p.task_id}: {exc}")

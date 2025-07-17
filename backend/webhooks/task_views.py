@@ -75,7 +75,9 @@ class TaskRevokeView(APIView):
         queue = django_rq.get_queue("default")
         scheduler = django_rq.get_scheduler("default")
         try:
-            queue.cancel_job(task_id)
+            job = queue.fetch_job(task_id)
+            if job:
+                job.cancel()
             scheduler.cancel(task_id)
         except Exception as exc:
             logger.error(f"[TASK] Error revoking {task_id}: {exc}")
