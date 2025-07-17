@@ -282,13 +282,16 @@ def _apply_async(func, args=None, kwargs=None, countdown=0, headers=None):
     if headers and "business_id" in headers:
         kwargs.setdefault("business_id", headers["business_id"])
     eta = timezone.now() + timedelta(seconds=countdown)
+    task_id = str(uuid.uuid4())
     if countdown:
         scheduler = get_scheduler("default")
-        job = scheduler.enqueue_in(timedelta(seconds=countdown), func, *args, **kwargs)
+        job = scheduler.enqueue_in(
+            timedelta(seconds=countdown), func, *args, job_id=task_id, **kwargs
+        )
     else:
-        job = func.delay(*args, **kwargs)
+        job = func.delay(*args, job_id=task_id, **kwargs)
     CeleryTaskLog.objects.create(
-        task_id=job.id,
+        task_id=task_id,
         name=func.__name__,
         args=list(args),
         kwargs=kwargs,
@@ -296,7 +299,7 @@ def _apply_async(func, args=None, kwargs=None, countdown=0, headers=None):
         status="SCHEDULED",
         business_id=kwargs.get("business_id"),
     )
-    return SimpleNamespace(id=job.id)
+    return SimpleNamespace(id=task_id)
 
 
 for _f in (send_follow_up, refresh_expiring_tokens, cleanup_celery_logs):
