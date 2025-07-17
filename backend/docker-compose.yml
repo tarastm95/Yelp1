@@ -103,9 +103,13 @@ services:
     build:
       context: .
       dockerfile: ./Dockerfile
-    command: >
-      rq-scheduler-dashboard
-      --redis-url redis://redis:6379/1
+    # Patch rq_scheduler_dashboard to avoid deprecated hook
+    command: >-
+      sh -c "
+        sed -i 's/before_app_first_request/before_app_request/' \
+          /usr/local/lib/python3.12/site-packages/rq_scheduler_dashboard/web.py &&
+        rq-scheduler-dashboard --redis-url redis://redis:6379/1
+      "
     restart: unless-stopped
     ports:
       - "9182:9182"

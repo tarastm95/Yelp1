@@ -141,7 +141,9 @@ docker compose up -d rqdash
 
 To inspect jobs scheduled with `rq-scheduler`, the compose file includes a
 `scheduler-dashboard` service built from the same Docker image as the other
-backend components. Start it and open
+backend components. The service automatically patches
+`rq_scheduler_dashboard` at runtime so it works with newer Flask versions.
+Start it and open
 <http://localhost:9182> to view scheduled tasks:
 
 ```bash
