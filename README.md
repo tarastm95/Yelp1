@@ -150,4 +150,13 @@ Start it and open
 docker compose up -d scheduler-dashboard
 ```
 
+## Redis Commander
+
+To inspect the Redis database through a web interface, the compose file includes
+a `redis-commander` service. Start it and visit <http://localhost:8081>:
+
+```bash
+docker compose up -d redis-commander
+```
+
 
