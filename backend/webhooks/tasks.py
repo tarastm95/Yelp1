@@ -1,15 +1,17 @@
 # webhooks/tasks.py
 
 import logging
+import traceback
+import uuid
+import functools
+
+import redis
 import requests
-from requests import HTTPError
+from django.conf import settings
+from django.core.cache import cache
+from django.utils import timezone
 from django_rq import job
 from rq import get_current_job
-import uuid
-from django.utils import timezone
-from django.core.cache import cache
-from django.conf import settings
-import redis
 
 from .models import (
     LeadDetail,
@@ -31,6 +33,47 @@ logger = logging.getLogger(__name__)
 
 # Prevent concurrent tasks for the same lead
 LOCK_TIMEOUT = 60  # seconds
+
+
+def logged_job(func):
+    """django_rq job decorator that records CeleryTaskLog entries."""
+
+    @job
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        job_obj = get_current_job()
+        task_id = job_obj.id if job_obj else str(uuid.uuid4())
+        CeleryTaskLog.objects.update_or_create(
+            task_id=task_id,
+            defaults={
+                "name": func.__name__,
+                "args": list(args),
+                "kwargs": kwargs,
+                "eta": getattr(job_obj, "enqueued_at", timezone.now()),
+                "started_at": timezone.now(),
+                "status": "STARTED",
+                "business_id": kwargs.get("business_id"),
+            },
+        )
+        try:
+            result = func(*args, **kwargs)
+        except Exception as exc:
+            CeleryTaskLog.objects.filter(task_id=task_id).update(
+                finished_at=timezone.now(),
+                status="FAILURE",
+                result=str(exc),
+                traceback=traceback.format_exc(),
+            )
+            raise
+        else:
+            CeleryTaskLog.objects.filter(task_id=task_id).update(
+                finished_at=timezone.now(),
+                status="SUCCESS",
+                result="" if result is None else str(result),
+            )
+            return result
+
+    return wrapper
 
 
 _redis_client = None
@@ -66,7 +109,7 @@ def _extract_yelp_error(resp: requests.Response) -> str:
         return resp.text
 
 
-@job
+@logged_job
 def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
     """
     Одноразова відправка follow-up повідомлення без повторних спроб.
@@ -147,7 +190,7 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
         raise
 
 
-@job
+@logged_job
 def refresh_expiring_tokens():
     """Proactively refresh tokens expiring soon."""
     margin = timezone.now() + timezone.timedelta(minutes=10)
@@ -184,7 +227,7 @@ def refresh_expiring_tokens():
 
 
 
-@job
+@logged_job
 def cleanup_celery_logs(days: int = 30):
     """Remove old CeleryTaskLog entries."""
     from django.core.management import call_command
@@ -202,7 +245,35 @@ from django_rq import get_scheduler
 def _apply(func, args=None, kwargs=None):
     args = args or []
     kwargs = kwargs or {}
-    return func(*args, **kwargs)
+    task_id = str(uuid.uuid4())
+    start = timezone.now()
+    CeleryTaskLog.objects.create(
+        task_id=task_id,
+        name=func.__name__,
+        args=list(args),
+        kwargs=kwargs,
+        eta=start,
+        started_at=start,
+        status="STARTED",
+        business_id=kwargs.get("business_id"),
+    )
+    try:
+        result = func(*args, **kwargs)
+    except Exception as exc:
+        CeleryTaskLog.objects.filter(task_id=task_id).update(
+            finished_at=timezone.now(),
+            status="FAILURE",
+            result=str(exc),
+            traceback=traceback.format_exc(),
+        )
+        raise
+    else:
+        CeleryTaskLog.objects.filter(task_id=task_id).update(
+            finished_at=timezone.now(),
+            status="SUCCESS",
+            result="" if result is None else str(result),
+        )
+        return result
 
 
 def _apply_async(func, args=None, kwargs=None, countdown=0, headers=None):
@@ -210,11 +281,21 @@ def _apply_async(func, args=None, kwargs=None, countdown=0, headers=None):
     kwargs = kwargs or {}
     if headers and "business_id" in headers:
         kwargs.setdefault("business_id", headers["business_id"])
+    eta = timezone.now() + timedelta(seconds=countdown)
     if countdown:
         scheduler = get_scheduler("default")
         job = scheduler.enqueue_in(timedelta(seconds=countdown), func, *args, **kwargs)
     else:
         job = func.delay(*args, **kwargs)
+    CeleryTaskLog.objects.create(
+        task_id=job.id,
+        name=func.__name__,
+        args=list(args),
+        kwargs=kwargs,
+        eta=eta,
+        status="SCHEDULED",
+        business_id=kwargs.get("business_id"),
+    )
     return SimpleNamespace(id=job.id)
 
 
