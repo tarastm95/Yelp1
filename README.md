@@ -131,6 +131,7 @@ This command is executed automatically every day via the RQ scheduler using the
 ## RQ Dashboard
 
 The compose file includes a `rqdash` service running [RQ Dashboard](https://github.com/rq/rq-dashboard).
+RQ uses Redis database 1, so `rqdash` connects to `redis://redis:6379/1`.
 Start it and visit <http://localhost:9181> to monitor queued jobs:
 
 ```bash
@@ -153,7 +154,8 @@ docker compose up -d scheduler-dashboard
 ## Redis Commander
 
 To inspect the Redis database through a web interface, the compose file includes
-a `redis-commander` service. Start it and visit <http://localhost:8081>:
+a `redis-commander` service. It is configured to use database 1 so it shows RQ's
+queues. Start it and visit <http://localhost:8081>:
 
 ```bash
 docker compose up -d redis-commander
