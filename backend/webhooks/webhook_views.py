@@ -131,6 +131,9 @@ class WebhookView(APIView):
             lid = upd.get("lead_id")
             if lid:
                 lead_ids.add(lid)
+                logger.debug(
+                    f"[WEBHOOK] Checking ProcessedLead for lead_id={lid}"
+                )
                 if (
                     upd.get("event_type") != "NEW_LEAD"
                     and not ProcessedLead.objects.filter(lead_id=lid).exists()
@@ -256,6 +259,9 @@ class WebhookView(APIView):
                 )
                 logger.info(f"[WEBHOOK] LeadEvent saved pk={obj.pk}, created={created}")
 
+                logger.debug(
+                    f"[WEBHOOK] Fetching processed_at for lead={lid}"
+                )
                 processed_at = (
                     ProcessedLead.objects.filter(lead_id=lid)
                     .values_list("processed_at", flat=True)
@@ -355,6 +361,9 @@ class WebhookView(APIView):
             phone_opt_in=phone_opt_in,
             phone_available=phone_available,
         ).first()
+        logger.debug(
+            f"[AUTO-RESPONSE] Looking up ProcessedLead for lead_id={lead_id}"
+        )
         pl = ProcessedLead.objects.filter(lead_id=lead_id).first()
         biz_settings = None
         if pl:
