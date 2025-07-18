@@ -104,7 +104,7 @@ class WebhookEventProcessingTests(TestCase):
     @patch.object(WebhookView, "handle_new_lead")
     @patch("webhooks.webhook_views.get_valid_business_token", return_value="tok")
     @patch("webhooks.webhook_views.get_token_for_lead", return_value="tok")
-    def test_initial_event_with_phone_triggers_phone_available(
+    def test_old_event_with_phone_ignored(
         self,
         mock_lead_token,
         mock_business_token,
@@ -136,7 +136,48 @@ class WebhookEventProcessingTests(TestCase):
             },
         )()
         self._post()
-        mock_phone_available.assert_called_once()
+        mock_phone_available.assert_not_called()
+        mock_cancel.assert_not_called()
+
+    @patch("webhooks.webhook_views.requests.get")
+    @patch.object(WebhookView, "_cancel_no_phone_tasks")
+    @patch.object(WebhookView, "handle_phone_available")
+    @patch.object(WebhookView, "handle_new_lead")
+    @patch("webhooks.webhook_views.get_valid_business_token", return_value="tok")
+    @patch("webhooks.webhook_views.get_token_for_lead", return_value="tok")
+    def test_biz_event_with_phone_ignored(
+        self,
+        mock_lead_token,
+        mock_business_token,
+        mock_new_lead,
+        mock_phone_available,
+        mock_cancel,
+        mock_get,
+    ):
+        event_time = (self.proc.processed_at + timedelta(minutes=2)).isoformat()
+        mock_get.return_value = type(
+            "R",
+            (),
+            {
+                "status_code": 200,
+                "json": lambda self: {
+                    "events": [
+                        {
+                            "id": "e4",
+                            "event_type": "NEW_EVENT",
+                            "user_type": "BIZ",
+                            "user_id": "u",
+                            "user_display_name": "d",
+                            "event_content": {"text": "+123"},
+                            "cursor": "c4",
+                            "time_created": event_time,
+                        }
+                    ]
+                },
+            },
+        )()
+        self._post()
+        mock_phone_available.assert_not_called()
         mock_cancel.assert_not_called()
 
 

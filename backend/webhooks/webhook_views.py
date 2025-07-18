@@ -288,8 +288,8 @@ class WebhookView(APIView):
                 if processed_at and event_dt:
                     is_new = is_new and event_dt > processed_at
 
-                if not is_new and not has_phone:
-                    logger.info("[WEBHOOK] Skipping old event without phone")
+                if not is_new:
+                    logger.info("[WEBHOOK] Ignoring old event")
                     continue
 
                 if e.get("event_type") == "CONSUMER_PHONE_NUMBER_OPT_IN_EVENT":
@@ -299,7 +299,7 @@ class WebhookView(APIView):
                     if updated:
                         self.handle_phone_opt_in(lid)
 
-                if e.get("user_type") == "CONSUMER":
+                if is_new and e.get("user_type") == "CONSUMER":
                     pending = LeadPendingTask.objects.filter(
                         lead_id=lid,
                         phone_opt_in=False,
@@ -326,7 +326,7 @@ class WebhookView(APIView):
                             self.handle_phone_available(lid, reason=reason)
                         else:
                             self.handle_phone_available(lid)
-                    elif pending and is_new:
+                    elif pending:
                         reason = "Client responded, but no number was found"
                         self._cancel_no_phone_tasks(lid, reason=reason)
 
