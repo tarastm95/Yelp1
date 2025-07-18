@@ -150,10 +150,19 @@ class WebhookView(APIView):
                     ).update(phone_opt_in=True)
                     if updated:
                         self.handle_phone_opt_in(lid)
+                logger.debug(
+                    f"[WEBHOOK] Update for lead_id={lid}: "
+                    f"event_type={upd.get('event_type')}, "
+                    f"user_type={upd.get('user_type')}, "
+                    f"user_display_name={upd.get('user_display_name', '')}"
+                )
                 if (
                     upd.get("event_type") == "NEW_EVENT"
                     and upd.get("user_type") == "CONSUMER"
                 ):
+                    logger.info(
+                        f"[WEBHOOK] Consumer NEW_EVENT passed check for lead_id={lid}"
+                    )
                     content = upd.get("event_content", {}) or {}
                     text = content.get("text") or content.get("fallback_text", "")
                     phone = _extract_phone(text)
@@ -192,6 +201,10 @@ class WebhookView(APIView):
                     elif pending:
                         reason = "Client responded, but no number was found"
                         self._cancel_no_phone_tasks(lid, reason=reason)
+                else:
+                    logger.debug(
+                        f"[WEBHOOK] Update did not pass consumer NEW_EVENT check for lead_id={lid}"
+                    )
         logger.info(f"[WEBHOOK] Lead IDs to process: {lead_ids}")
 
         for upd in updates:
