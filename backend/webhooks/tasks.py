@@ -7,6 +7,7 @@ import functools
 
 import redis
 import requests
+from requests.exceptions import HTTPError
 from django.conf import settings
 from django.core.cache import cache
 from django.utils import timezone
