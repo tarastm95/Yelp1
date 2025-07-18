@@ -10,7 +10,9 @@ from webhooks.models import (
     YelpBusiness,
     AutoResponseSettings,
     LeadDetail,
+    LeadEvent,
 )
+from webhooks.tasks import send_follow_up
 
 
 class WebhookEventProcessingTests(TestCase):
@@ -284,4 +286,12 @@ class AutoResponseDisabledTests(TestCase):
 
         self.assertTrue(LeadDetail.objects.filter(lead_id=self.lead_id).exists())
         mock_follow_up.assert_not_called()
+
+
+class SendFollowUpTests(TestCase):
+    def test_empty_message_skipped(self):
+        with self.assertLogs('webhooks.tasks', level='WARNING') as cm:
+            send_follow_up.__wrapped__('lead-x', '   ')
+        self.assertEqual(LeadEvent.objects.count(), 0)
+        self.assertIn('Empty follow-up text', cm.output[0])
 

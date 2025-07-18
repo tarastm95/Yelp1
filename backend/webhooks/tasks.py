@@ -123,6 +123,10 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
         logger.info("[FOLLOW-UP] Duplicate follow-up for lead=%s; skipping", lead_id)
         return
 
+    if not text.strip():
+        logger.warning("[FOLLOW-UP] Empty follow-up text for lead=%s; skipping", lead_id)
+        return
+
     lock_id = f"lead-lock:{lead_id}"
     try:
         with _get_lock(lock_id, timeout=LOCK_TIMEOUT, blocking_timeout=5):
