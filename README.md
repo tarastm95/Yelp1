@@ -84,11 +84,10 @@ task is created.
 ## Webhook event processing
 
 When events are fetched from Yelp after a lead is created, the backend ignores
-consumer messages that occurred **before** the lead was processed **unless** the
-message contains a phone number. This prevents the initial lead message from
-cancelling pending auto-response tasks, while still capturing phone numbers that
-might appear in that first message. Events created after
-`ProcessedLead.processed_at` always trigger phone number logic.
+consumer messages that occurred **before** the lead was processed. Only events
+created after `ProcessedLead.processed_at` are considered for automatic
+responses. The backend triggers phone number logic only when a new consumer
+message contains a phone number.
 
 Phone numbers found in a lead's `additional_info` field also trigger the "real
 phone provided" flow when the lead is first processed.
