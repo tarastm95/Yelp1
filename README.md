@@ -107,10 +107,10 @@ responses are disabled for a business.
 ## Frontend API configuration
 
 When building the React frontend for production, point it at your deployed
-backend by setting the `REACT_APP_API_BASE_URL` environment variable:
+backend by setting the `VITE_API_BASE_URL` environment variable:
 
 ```bash
-REACT_APP_API_BASE_URL=http://46.62.139.177:8000 npm run build
+VITE_API_BASE_URL=http://46.62.139.177:8000 npm run build
 ```
 
 If this variable is omitted, the app falls back to `http://46.62.139.177:8000/api`.
