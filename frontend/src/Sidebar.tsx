@@ -16,25 +16,18 @@ import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import SubscriptionsIcon from '@mui/icons-material/Subscriptions';
 import ChecklistIcon from '@mui/icons-material/Checklist';
 import DescriptionIcon from '@mui/icons-material/Description';
-import SettingsIcon from '@mui/icons-material/Settings';
-import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import ListIcon from '@mui/icons-material/List';
+
 
 const drawerWidth = 240;
 
 const menuItems = [
-  { text: 'Home', icon: <HomeIcon />, href: '/home' },
+  { text: 'Home', icon: <HomeIcon />, href: '/' },
   { text: 'Events', icon: <EventIcon />, href: '/events' },
   { text: 'Businesses', icon: <BusinessIcon />, href: '/businesses' },
   { text: 'Tokens', icon: <VpnKeyIcon />, href: '/tokens' },
   { text: 'Subscriptions', icon: <SubscriptionsIcon />, href: '/subscriptions' },
   { text: 'Tasks', icon: <ChecklistIcon />, href: '/tasks' },
   { text: 'Templates', icon: <DescriptionIcon />, href: '/templates' },
-  { text: 'View Events', icon: <EventIcon />, href: '/view-events' },
-  { text: 'Auto-response Settings', icon: <SettingsIcon />, href: '/auto-response-settings' },
-  { text: 'Token Status', icon: <AccessTimeIcon />, href: '/token-status' },
-  { text: 'Planned Tasks', icon: <ListIcon />, href: '/planned-tasks' },
-  { text: 'Authorize with Yelp', icon: <VpnKeyIcon />, href: '/authorize-yelp' },
 ];
 
 const Sidebar: React.FC = () => {
