@@ -185,7 +185,7 @@ const App: FC = () => {
                 </IconButton>
               )}
               <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-                Yelp Integration
+                Yelp
               </Typography>
               <Button
                 color="inherit"
