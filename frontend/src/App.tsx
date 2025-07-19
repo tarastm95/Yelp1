@@ -7,6 +7,7 @@ import {
   Link as RouterLink,
   Navigate,
 } from 'react-router-dom';
+import { cn } from '@/lib/utils';
 
 // --- Material-UI Imports ---
 import {
@@ -37,6 +38,7 @@ import BusinessIcon from '@mui/icons-material/Business';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import SubscriptionsIcon from '@mui/icons-material/Subscriptions';
+import LogoutIcon from '@mui/icons-material/Logout';
 import EventDetail from "./Events/EventDetail";
 import EventsPage from "./EventsPage/EventsPage";
 import Home from "./Home";
@@ -51,14 +53,99 @@ import SettingsTemplates from "./SettingsTemplates";
 import Subscriptions from "./Subscriptions";
 import LoginPage from "./LoginPage";
 
-// A default theme for the application
+// Modern theme with enhanced colors
 const theme = createTheme({
   palette: {
+    mode: 'light',
     primary: {
-      main: '#3f51b5',
+      main: '#4f46e5', // Indigo
+      light: '#6366f1',
+      dark: '#4338ca',
     },
     secondary: {
-      main: '#f50057',
+      main: '#ec4899', // Pink
+      light: '#f472b6',
+      dark: '#db2777',
+    },
+    background: {
+      default: '#f8fafc',
+      paper: '#ffffff',
+    },
+    success: {
+      main: '#10b981',
+    },
+    warning: {
+      main: '#f59e0b',
+    },
+    error: {
+      main: '#ef4444',
+    },
+  },
+  typography: {
+    fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    h6: {
+      fontWeight: 600,
+    },
+  },
+  shape: {
+    borderRadius: 12,
+  },
+  components: {
+    MuiAppBar: {
+      styleOverrides: {
+        root: {
+          backgroundColor: '#ffffff',
+          color: '#1f2937',
+          boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)',
+          borderBottom: '1px solid #e5e7eb',
+        },
+      },
+    },
+    MuiDrawer: {
+      styleOverrides: {
+        paper: {
+          backgroundColor: '#f8fafc',
+          borderRight: '1px solid #e5e7eb',
+        },
+      },
+    },
+    MuiListItemButton: {
+      styleOverrides: {
+        root: {
+          borderRadius: '8px',
+          margin: '0 8px',
+          '&:hover': {
+            backgroundColor: '#e5e7eb',
+          },
+          '&.Mui-selected': {
+            backgroundColor: '#4f46e5',
+            color: '#ffffff',
+            '&:hover': {
+              backgroundColor: '#4338ca',
+            },
+            '& .MuiListItemIcon-root': {
+              color: '#ffffff',
+            },
+          },
+        },
+      },
+    },
+    MuiCard: {
+      styleOverrides: {
+        root: {
+          boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)',
+          borderRadius: '12px',
+        },
+      },
+    },
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          textTransform: 'none',
+          borderRadius: '8px',
+          fontWeight: 500,
+        },
+      },
     },
   },
 });
@@ -184,14 +271,22 @@ const App: FC = () => {
                   <MenuIcon />
                 </IconButton>
               )}
-              <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-                Yelp Integration
+              <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1, fontWeight: 600 }}>
+                🎯 Yelp Dashboard
               </Typography>
               <Button
                 color="inherit"
+                startIcon={<LogoutIcon />}
                 onClick={() => {
                   localStorage.removeItem('isAuthenticated');
                   setAuthenticated(false);
+                }}
+                sx={{ 
+                  borderRadius: 2,
+                  px: 2,
+                  '&:hover': {
+                    backgroundColor: 'rgba(0,0,0,0.04)'
+                  }
                 }}
               >
                 Logout
