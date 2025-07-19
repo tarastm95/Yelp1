@@ -4,39 +4,19 @@ import {
   BrowserRouter as Router,
   Routes,
   Route,
-  Link as RouterLink,
   Navigate,
 } from 'react-router-dom';
 
 // --- Material-UI Imports ---
 import {
-  AppBar,
-  Toolbar,
-  Typography,
-  Button,
   CssBaseline,
   ThemeProvider,
   createTheme,
-  Drawer,
-  IconButton,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
   Box,
-  useMediaQuery,
-  useTheme,
 } from '@mui/material';
-import MenuIcon from '@mui/icons-material/Menu';
 
 // --- Material-UI Icons ---
-import HomeIcon from '@mui/icons-material/Home';
-import EventIcon from '@mui/icons-material/Event';
-import BusinessIcon from '@mui/icons-material/Business';
-import VpnKeyIcon from '@mui/icons-material/VpnKey';
-import ListAltIcon from '@mui/icons-material/ListAlt';
-import SubscriptionsIcon from '@mui/icons-material/Subscriptions';
+
 import EventDetail from "./Events/EventDetail";
 import EventsPage from "./EventsPage/EventsPage";
 import Home from "./Home";
@@ -50,6 +30,7 @@ import TaskLogs from "./TaskLogs";
 import SettingsTemplates from "./SettingsTemplates";
 import Subscriptions from "./Subscriptions";
 import LoginPage from "./LoginPage";
+import Sidebar from "./Sidebar";
 
 // A default theme for the application
 const theme = createTheme({
@@ -75,16 +56,9 @@ axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL
 const drawerWidth = 240;
 
 const App: FC = () => {
-  const [mobileOpen, setMobileOpen] = useState(false);
   const [authenticated, setAuthenticated] = useState(
     localStorage.getItem('isAuthenticated') === 'true'
   );
-  const themeHook = useTheme();
-  const isMobile = useMediaQuery(themeHook.breakpoints.down('sm'));
-
-  const handleDrawerToggle = () => {
-    setMobileOpen(prev => !prev);
-  };
 
   if (!authenticated) {
     return (
@@ -103,118 +77,17 @@ const App: FC = () => {
     );
   }
 
-  const drawer = (
-    <div>
-      <Toolbar />
-      <List>
-        <ListItem disablePadding>
-          <ListItemButton component={RouterLink} to="/" onClick={() => setMobileOpen(false)}>
-            <ListItemIcon>
-              <HomeIcon />
-            </ListItemIcon>
-            <ListItemText primary="Home" />
-          </ListItemButton>
-        </ListItem>
-        <ListItem disablePadding>
-          <ListItemButton component={RouterLink} to="/events" onClick={() => setMobileOpen(false)}>
-            <ListItemIcon>
-              <EventIcon />
-            </ListItemIcon>
-            <ListItemText primary="Events" />
-          </ListItemButton>
-        </ListItem>
-        <ListItem disablePadding>
-          <ListItemButton component={RouterLink} to="/businesses" onClick={() => setMobileOpen(false)}>
-            <ListItemIcon>
-              <BusinessIcon />
-            </ListItemIcon>
-            <ListItemText primary="Businesses" />
-          </ListItemButton>
-        </ListItem>
-        <ListItem disablePadding>
-          <ListItemButton component={RouterLink} to="/tokens" onClick={() => setMobileOpen(false)}>
-            <ListItemIcon>
-              <VpnKeyIcon />
-            </ListItemIcon>
-            <ListItemText primary="Tokens" />
-          </ListItemButton>
-        </ListItem>
-        <ListItem disablePadding>
-          <ListItemButton component={RouterLink} to="/subscriptions" onClick={() => setMobileOpen(false)}>
-            <ListItemIcon>
-              <SubscriptionsIcon />
-            </ListItemIcon>
-            <ListItemText primary="Subscriptions" />
-          </ListItemButton>
-        </ListItem>
-        <ListItem disablePadding>
-          <ListItemButton component={RouterLink} to="/tasks" onClick={() => setMobileOpen(false)}>
-            <ListItemIcon>
-              <ListAltIcon />
-            </ListItemIcon>
-            <ListItemText primary="Tasks" />
-          </ListItemButton>
-        </ListItem>
-        <ListItem disablePadding>
-          <ListItemButton component={RouterLink} to="/templates" onClick={() => setMobileOpen(false)}>
-            <ListItemIcon>
-              <ListAltIcon />
-            </ListItemIcon>
-            <ListItemText primary="Templates" />
-          </ListItemButton>
-        </ListItem>
-      </List>
-    </div>
-  );
 
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <Router>
         <Box sx={{ display: 'flex' }}>
-          <AppBar position="fixed" sx={{ zIndex: themeHook.zIndex.drawer + 1 }}>
-            <Toolbar>
-              {isMobile && (
-                <IconButton
-                  color="inherit"
-                  edge="start"
-                  onClick={handleDrawerToggle}
-                  sx={{ mr: 2, display: { sm: 'none' } }}
-                >
-                  <MenuIcon />
-                </IconButton>
-              )}
-              <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-                Yelp
-              </Typography>
-              <Button
-                color="inherit"
-                onClick={() => {
-                  localStorage.removeItem('isAuthenticated');
-                  setAuthenticated(false);
-                }}
-              >
-                Logout
-              </Button>
-            </Toolbar>
-          </AppBar>
+          {/* Header removed in favor of Sidebar */}
 
-          <Box component="nav" sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }} aria-label="mailbox folders">
-            <Drawer
-              variant={isMobile ? 'temporary' : 'permanent'}
-              open={isMobile ? mobileOpen : true}
-              onClose={handleDrawerToggle}
-              ModalProps={{ keepMounted: true }}
-              sx={{
-                '& .MuiDrawer-paper': { width: drawerWidth, boxSizing: 'border-box' },
-              }}
-            >
-              {drawer}
-            </Drawer>
-          </Box>
+          <Sidebar />
 
           <Box component="main" sx={{ flexGrow: 1, p: 3, width: { sm: `calc(100% - ${drawerWidth}px)` } }}>
-            <Toolbar />
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/events" element={<EventsPage />} />
