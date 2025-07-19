@@ -64,8 +64,8 @@ const theme = createTheme({
 });
 
 // Base URL for the API
-axios.defaults.baseURL = process.env.VITE_API_BASE_URL
-  ? `${process.env.VITE_API_BASE_URL}/api`
+axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL
+  ? `${import.meta.env.VITE_API_BASE_URL}/api`
   : 'http://46.62.139.177:8000/api';
 
 
