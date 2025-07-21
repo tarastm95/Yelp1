@@ -14,7 +14,7 @@ import LogoutIcon from '@mui/icons-material/Logout';
 const menuItems = [
   { text: 'Home', icon: <HomeIcon />, href: '/' },
   { text: 'Events', icon: <EventIcon />, href: '/events' },
-  { text: 'Tokens', icon: <VpnKeyIcon />, href: '/tokens' },
+  { text: 'Tokens&Business', icon: <VpnKeyIcon />, href: '/tokens' },
   { text: 'Subscriptions', icon: <SubscriptionsIcon />, href: '/subscriptions' },
   { text: 'Tasks', icon: <ChecklistIcon />, href: '/tasks' },
   { text: 'Templates', icon: <DescriptionIcon />, href: '/templates' },
