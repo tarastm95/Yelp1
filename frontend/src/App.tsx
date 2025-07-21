@@ -30,7 +30,7 @@ import TaskLogs from "./TaskLogs";
 import SettingsTemplates from "./SettingsTemplates";
 import Subscriptions from "./Subscriptions";
 import LoginPage from "./LoginPage";
-import Sidebar from "./Sidebar";
+import TopMenu from "./TopMenu";
 
 // A default theme for the application
 const theme = createTheme({
@@ -51,9 +51,8 @@ axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL
 
 
 // ---------------------------------------------
-// Main component with all routes and responsive drawer
+// Main component with top navigation menu
 // ---------------------------------------------
-const drawerWidth = 240;
 
 const App: FC = () => {
   const [authenticated, setAuthenticated] = useState(
@@ -82,13 +81,9 @@ const App: FC = () => {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <Router>
-        <Box sx={{ display: 'flex' }}>
-          {/* Header removed in favor of Sidebar */}
-
-          <Sidebar />
-
-          <Box component="main" sx={{ flexGrow: 1, p: 3, width: { sm: `calc(100% - ${drawerWidth}px)` } }}>
-            <Routes>
+        <TopMenu />
+        <Box component="main" sx={{ p: 3 }}>
+          <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/events" element={<EventsPage />} />
               <Route path="/events/:id" element={<EventDetail />} />
@@ -102,7 +97,6 @@ const App: FC = () => {
               <Route path="/tasks" element={<TaskLogs />} />
               <Route path="/templates" element={<SettingsTemplates />} />
             </Routes>
-          </Box>
         </Box>
       </Router>
     </ThemeProvider>
