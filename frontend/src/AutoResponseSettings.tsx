@@ -249,61 +249,73 @@ const AutoResponseSettings: FC = () => {
   };
 
   // load settings
-  const loadSettings = (biz?: string) => {
+  const loadSettings = (biz?: string, attempts = 2) => {
     setLoading(true);
     const params = new URLSearchParams();
     params.append('phone_opt_in', phoneOptIn ? 'true' : 'false');
     params.append('phone_available', phoneAvailable ? 'true' : 'false');
     if (biz) params.append('business_id', biz);
     const url = `/settings/auto-response/?${params.toString()}`;
-    axios.get<AutoResponse>(url)
-      .then(res => {
-        setError('');
-        const d = res.data;
-        setSettingsId(d.id);
-        setEnabled(d.enabled);
-        setGreetingTemplate(d.greeting_template);
-        setGreetingAfterTemplate(d.greeting_off_hours_template || '');
-        let gsecs = d.greeting_delay || 0;
-        setGreetingDelayHours(Math.floor(gsecs / 3600));
-        gsecs %= 3600;
-        setGreetingDelayMinutes(Math.floor(gsecs / 60));
-        setGreetingDelaySeconds(gsecs % 60);
-        setGreetingOpenFrom(d.greeting_open_from || '08:00:00');
-        setGreetingOpenTo(d.greeting_open_to || '20:00:00');
-        setIncludeName(d.include_name);
-        setIncludeJobs(d.include_jobs);
-        setFollowUpTemplate(d.follow_up_template);
-        let secs = d.follow_up_delay;
-        setFollowDelayDays(Math.floor(secs / 86400));
-        secs %= 86400;
-        setFollowDelayHours(Math.floor(secs / 3600));
-        secs %= 3600;
-        setFollowDelayMinutes(Math.floor(secs / 60));
-        setFollowDelaySeconds(secs % 60);
-        setFollowOpenFrom(d.follow_up_open_from || '08:00:00');
-        setFollowOpenTo(d.follow_up_open_to || '20:00:00');
-        setExportToSheets(d.export_to_sheets);
-        initialSettings.current = {
-          enabled: d.enabled,
-          greeting_template: d.greeting_template,
-          greeting_off_hours_template: d.greeting_off_hours_template || '',
-          greeting_delay: d.greeting_delay,
-          greeting_open_from: d.greeting_open_from || '08:00:00',
-          greeting_open_to: d.greeting_open_to || '20:00:00',
-          include_name: d.include_name,
-          include_jobs: d.include_jobs,
-          follow_up_template: d.follow_up_template,
-          follow_up_delay: d.follow_up_delay,
-          follow_up_open_from: d.follow_up_open_from || '08:00:00',
-          follow_up_open_to: d.follow_up_open_to || '20:00:00',
-          export_to_sheets: d.export_to_sheets,
-          follow_up_templates: initialSettings.current?.follow_up_templates || [],
-        };
-        setAppliedTemplateId(null);
-      })
-      .catch(() => setError('Failed to load settings.'))
-      .finally(() => setLoading(false));
+
+    const fetch = (remain: number) => {
+      axios.get<AutoResponse>(url)
+        .then(res => {
+          setError('');
+          const d = res.data;
+          setSettingsId(d.id);
+          setEnabled(d.enabled);
+          setGreetingTemplate(d.greeting_template);
+          setGreetingAfterTemplate(d.greeting_off_hours_template || '');
+          let gsecs = d.greeting_delay || 0;
+          setGreetingDelayHours(Math.floor(gsecs / 3600));
+          gsecs %= 3600;
+          setGreetingDelayMinutes(Math.floor(gsecs / 60));
+          setGreetingDelaySeconds(gsecs % 60);
+          setGreetingOpenFrom(d.greeting_open_from || '08:00:00');
+          setGreetingOpenTo(d.greeting_open_to || '20:00:00');
+          setIncludeName(d.include_name);
+          setIncludeJobs(d.include_jobs);
+          setFollowUpTemplate(d.follow_up_template);
+          let secs = d.follow_up_delay;
+          setFollowDelayDays(Math.floor(secs / 86400));
+          secs %= 86400;
+          setFollowDelayHours(Math.floor(secs / 3600));
+          secs %= 3600;
+          setFollowDelayMinutes(Math.floor(secs / 60));
+          setFollowDelaySeconds(secs % 60);
+          setFollowOpenFrom(d.follow_up_open_from || '08:00:00');
+          setFollowOpenTo(d.follow_up_open_to || '20:00:00');
+          setExportToSheets(d.export_to_sheets);
+          initialSettings.current = {
+            enabled: d.enabled,
+            greeting_template: d.greeting_template,
+            greeting_off_hours_template: d.greeting_off_hours_template || '',
+            greeting_delay: d.greeting_delay,
+            greeting_open_from: d.greeting_open_from || '08:00:00',
+            greeting_open_to: d.greeting_open_to || '20:00:00',
+            include_name: d.include_name,
+            include_jobs: d.include_jobs,
+            follow_up_template: d.follow_up_template,
+            follow_up_delay: d.follow_up_delay,
+            follow_up_open_from: d.follow_up_open_from || '08:00:00',
+            follow_up_open_to: d.follow_up_open_to || '20:00:00',
+            export_to_sheets: d.export_to_sheets,
+            follow_up_templates: initialSettings.current?.follow_up_templates || [],
+          };
+          setAppliedTemplateId(null);
+          setLoading(false);
+        })
+        .catch(() => {
+          if (remain > 0) {
+            setTimeout(() => fetch(remain - 1), 1000);
+          } else {
+            setError('Failed to load settings.');
+            setLoading(false);
+          }
+        });
+    };
+
+    fetch(attempts);
   };
 
   const loadTemplates = (biz?: string) => {
