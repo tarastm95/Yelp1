@@ -10,6 +10,7 @@ import ChecklistIcon from '@mui/icons-material/Checklist';
 import DescriptionIcon from '@mui/icons-material/Description';
 import SettingsIcon from '@mui/icons-material/Settings';
 import LoginIcon from '@mui/icons-material/Login';
+import LogoutIcon from '@mui/icons-material/Logout';
 
 const menuItems = [
   { text: 'Home', icon: <HomeIcon />, href: '/' },
@@ -23,13 +24,17 @@ const menuItems = [
   { text: 'Authorize with Yelp', icon: <LoginIcon />, href: '/auth' },
 ];
 
-const TopMenu: React.FC = () => {
+interface Props {
+  onLogout: () => void;
+}
+
+const TopMenu: React.FC<Props> = ({ onLogout }) => {
   const location = useLocation();
 
   return (
     <AppBar position="static" color="default" elevation={0}>
       <Toolbar>
-        <Box sx={{ display: 'flex', gap: 2 }}>
+        <Box sx={{ display: 'flex', gap: 2, flexGrow: 1 }}>
           {menuItems.map((item) => (
             <Button
               key={item.text}
@@ -44,6 +49,13 @@ const TopMenu: React.FC = () => {
             </Button>
           ))}
         </Box>
+        <Button
+          startIcon={<LogoutIcon />}
+          onClick={onLogout}
+          sx={{ ml: 'auto', color: 'secondary.main' }}
+        >
+          Logout
+        </Button>
       </Toolbar>
     </AppBar>
   );
