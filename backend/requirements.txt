@@ -1,5 +1,5 @@
 rq>=1.13.0,<2.0.0
-rq-scheduler-dashboard==0.4.6
+rq-scheduler-dashboard>=0.0.2,<1.0.0
 Django>=5.0,<6.0
 djangorestframework
 gunicorn
