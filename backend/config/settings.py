@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 import os
 import logging
+from decouple import config
 from logging.handlers import RotatingFileHandler
 from pythonjsonlogger import jsonlogger
 import sentry_sdk
@@ -257,4 +258,9 @@ CORS_ALLOWED_ORIGINS = [
     'http://localhost:3002',
     'http://46.62.139.177:3000',
 ]
+
+# Twilio SMS configuration
+TWILIO_ACCOUNT_SID = config('TWILIO_ACCOUNT_SID')
+TWILIO_AUTH_TOKEN = config('TWILIO_AUTH_TOKEN')
+TWILIO_PHONE_NUMBER = config('TWILIO_PHONE_NUMBER')
 

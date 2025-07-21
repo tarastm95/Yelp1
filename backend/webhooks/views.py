@@ -30,6 +30,7 @@ from .lead_views import (
     YelpTokenListView,
 )
 from .task_views import TaskLogListView
+from .sms_views import SendSMSAPIView
 
 __all__ = [
     "LeadEventsProxyView",
@@ -59,4 +60,5 @@ __all__ = [
     "AttachmentProxyView",
     "TaskLogListView",
     "SubscriptionProxyView",
+    "SendSMSAPIView",
 ]

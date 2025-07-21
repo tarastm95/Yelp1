@@ -19,3 +19,6 @@ psycopg2-binary
 python-json-logger
 sentry-sdk[django]
 
+twilio
+python-decouple
+

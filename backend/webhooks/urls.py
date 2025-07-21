@@ -11,6 +11,7 @@ from .views import (
     SubscriptionProxyView, YelpTokenListView,
 )
 from .task_views import TaskLogListView, MessageTaskListView, TaskRevokeView
+from .sms_views import SendSMSAPIView
 
 urlpatterns = [
     path('webhook/', WebhookView.as_view(), name='webhook'),
@@ -76,4 +77,5 @@ urlpatterns = [
     path('tasks/', TaskLogListView.as_view(), name='task-log-list'),
     path('tasks/<str:task_id>/cancel/', TaskRevokeView.as_view(), name='task-revoke'),
     path('message_tasks/', MessageTaskListView.as_view(), name='message-task-list'),
+    path('send-sms/', SendSMSAPIView.as_view(), name='send-sms'),
 ]
