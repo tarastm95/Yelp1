@@ -258,6 +258,7 @@ const AutoResponseSettings: FC = () => {
     const url = `/settings/auto-response/?${params.toString()}`;
     axios.get<AutoResponse>(url)
       .then(res => {
+        setError('');
         const d = res.data;
         setSettingsId(d.id);
         setEnabled(d.enabled);
@@ -314,6 +315,7 @@ const AutoResponseSettings: FC = () => {
     const url = `/follow-up-templates/?${params.toString()}`;
     axios.get<FollowUpTemplate[]>(url)
       .then(res => {
+        setError('');
         setTemplates(res.data);
         loadedTemplateIds.current = res.data.map(t => t.id);
         if (res.data.length) {
