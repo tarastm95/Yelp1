@@ -21,7 +21,7 @@ import EventDetail from "./Events/EventDetail";
 import EventsPage from "./EventsPage/EventsPage";
 import Home from "./Home";
 import YelpCallback from "./YelpCallback";
-import ChooseBusiness from "./ChooseBusiness";
+import AutoResponseSettings from "./AutoResponseSettings";
 import YelpAuth from "./YelpAuth";
 import ClientDetails from "./ClientDetails/ClientDetails";
 import TokenStatus from "./TokenStatus";
@@ -93,7 +93,7 @@ const App: FC = () => {
               <Route path="/leads/:id" element={<ClientDetails />} />
               <Route path="/auth" element={<YelpAuth />} />
               <Route path="/callback" element={<YelpCallback />} />
-              <Route path="/settings" element={<ChooseBusiness />} />
+              <Route path="/settings" element={<AutoResponseSettings />} />
               <Route path="/tokens" element={<TokenStatus />} />
               <Route path="/subscriptions" element={<Subscriptions />} />
               <Route path="/tasks" element={<TaskLogs />} />
