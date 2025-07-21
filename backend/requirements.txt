@@ -1,4 +1,4 @@
-rq==1.13.1
+rq==1.13.0
 rq-scheduler-dashboard==0.4.6
 Django>=5.0,<6.0
 djangorestframework
