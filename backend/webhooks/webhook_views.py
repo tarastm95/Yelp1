@@ -104,7 +104,13 @@ class WebhookView(APIView):
             return {"new_lead": False}
 
         events = resp.json().get("events", [])
-        is_new = len(events) == 1 and events[0].get("user_type") == "CONSUMER"
+        is_new = (
+            len(events) == 1 and events[0].get("user_type") == "CONSUMER"
+        ) or (
+            len(events) == 2
+            and events[0].get("user_type") == "CONSUMER"
+            and events[1].get("event_type") == "CONSUMER_PHONE_NUMBER_OPT_IN_EVENT"
+        )
         return {"new_lead": is_new}
 
     def post(self, request, *args, **kwargs):

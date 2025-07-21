@@ -232,6 +232,34 @@ class LeadIdVerificationTests(TestCase):
     @patch("webhooks.webhook_views.get_valid_business_token", return_value="tok")
     @patch("webhooks.webhook_views.get_token_for_lead", return_value="tok")
     @patch.object(WebhookView, "handle_new_lead")
+    def test_mark_new_lead_with_phone_opt_in(
+        self,
+        mock_new_lead,
+        mock_lead_token,
+        mock_business_token,
+        mock_get
+    ):
+        events_resp = type(
+            "E",
+            (),
+            {
+                "status_code": 200,
+                "json": lambda self: {
+                    "events": [
+                        {"id": "e0", "user_type": "CONSUMER"},
+                        {"id": "e1", "event_type": "CONSUMER_PHONE_NUMBER_OPT_IN_EVENT"},
+                    ]
+                },
+            },
+        )()
+        mock_get.return_value = events_resp
+        self._post()
+        mock_new_lead.assert_called_once_with(self.lead_id)
+
+    @patch("webhooks.webhook_views.requests.get")
+    @patch("webhooks.webhook_views.get_valid_business_token", return_value="tok")
+    @patch("webhooks.webhook_views.get_token_for_lead", return_value="tok")
+    @patch.object(WebhookView, "handle_new_lead")
     def test_existing_lead_not_marked(
         self,
         mock_new_lead,
