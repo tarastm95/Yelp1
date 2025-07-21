@@ -17,7 +17,6 @@ const menuItems = [
   { text: 'Tokens&Business', icon: <VpnKeyIcon />, href: '/tokens' },
   { text: 'Subscriptions', icon: <SubscriptionsIcon />, href: '/subscriptions' },
   { text: 'Tasks', icon: <ChecklistIcon />, href: '/tasks' },
-  { text: 'Templates', icon: <DescriptionIcon />, href: '/templates' },
   { text: 'Auto-response Settings', icon: <SettingsIcon />, href: '/settings' },
   { text: 'Authorize with Yelp', icon: <LoginIcon />, href: '/auth' },
 ];
