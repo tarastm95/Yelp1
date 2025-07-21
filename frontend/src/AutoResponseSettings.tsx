@@ -101,12 +101,6 @@ interface AutoResponseSettingsData {
   follow_up_templates: FollowUpTplData[];
 }
 
-interface SettingsTemplate {
-  id: number;
-  name: string;
-  description: string;
-  data: AutoResponseSettingsData;
-}
 
 const AutoResponseSettings: FC = () => {
   // businesses
@@ -157,16 +151,8 @@ const AutoResponseSettings: FC = () => {
   const [editOpenFrom, setEditOpenFrom] = useState('08:00:00');
   const [editOpenTo, setEditOpenTo] = useState('20:00:00');
 
-  // saved settings templates
-  const [settingsTemplates, setSettingsTemplates] = useState<SettingsTemplate[]>([]);
-  const [selectedTemplateIdNoPhone, setSelectedTemplateIdNoPhone] =
-    useState<number | 'current' | ''>('current');
-  const [selectedTemplateIdWithPhone, setSelectedTemplateIdWithPhone] =
-    useState<number | 'current' | ''>('current');
-
-  // track initial settings and applied template
+  // track initial settings
   const initialSettings = useRef<AutoResponseSettingsData | null>(null);
-  const [appliedTemplateId, setAppliedTemplateId] = useState<number | null>(null);
 
   // local time of selected business
   const [localTime, setLocalTime] = useState('');
@@ -423,35 +409,12 @@ const AutoResponseSettings: FC = () => {
     }
   };
 
-  const applyTemplate = (tpl: SettingsTemplate) => {
-    if (tpl.id === -1) {
-      if (initialSettings.current) {
-        applySettingsData(initialSettings.current);
-      }
-      setAppliedTemplateId(null);
-    } else if (appliedTemplateId === tpl.id) {
-      if (initialSettings.current) {
-        applySettingsData(initialSettings.current);
-      }
-      setAppliedTemplateId(null);
-    } else {
-      applySettingsData(tpl.data);
-      setAppliedTemplateId(tpl.id);
-    }
-  };
-
-  const loadSettingsTemplates = () => {
-    axios.get<SettingsTemplate[]>('/settings-templates/')
-      .then(res => setSettingsTemplates(res.data))
-      .catch(() => setSettingsTemplates([]));
-  };
 
   useEffect(() => {
     axios.get<Business[]>('/businesses/')
       .then(res => setBusinesses(res.data))
       .catch(() => setBusinesses([]));
 
-    loadSettingsTemplates();
   }, []);
 
 
@@ -466,11 +429,6 @@ const AutoResponseSettings: FC = () => {
     }
   }, [selectedBusiness, phoneOptIn, phoneAvailable]);
 
-  // reset selected template dropdown when switching businesses
-  useEffect(() => {
-    setSelectedTemplateIdNoPhone('current');
-    setSelectedTemplateIdWithPhone('current');
-  }, [selectedBusiness]);
 
   // reload templates when other tabs modify them
   useEffect(() => {
@@ -714,44 +672,6 @@ const AutoResponseSettings: FC = () => {
   return (
     <Container maxWidth={false} sx={{ mt:4, mb:4, maxWidth: 1000, mx: 'auto' }}>
       <Box sx={{ mb: 2 }}>
-        <Box>
-          <Select
-            value={phoneOptIn ? selectedTemplateIdWithPhone : selectedTemplateIdNoPhone}
-            onChange={e => {
-              const val = e.target.value as any;
-              if (phoneOptIn) {
-                setSelectedTemplateIdWithPhone(val);
-              } else {
-                setSelectedTemplateIdNoPhone(val);
-              }
-
-              if (initialSettings.current) {
-                if (val === 'current' || val === '') {
-                  applyTemplate({
-                    id: -1,
-                    name: 'Current',
-                    description: '',
-                    data: initialSettings.current,
-                  });
-                } else {
-                  const id = val as number;
-                  const tpl = settingsTemplates.find(t => t.id === id);
-                  if (tpl) {
-                    applyTemplate(tpl);
-                  }
-                }
-              }
-            }}
-            size="small"
-            sx={{ minWidth: 200 }}
-          >
-            <MenuItem value="current" disabled={phoneAvailable}>Current</MenuItem>
-            {settingsTemplates.map(t => (
-              <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>
-            ))}
-          </Select>
-        </Box>
-
         <Select
           value={selectedBusiness}
           onChange={e => setSelectedBusiness(e.target.value as string)}

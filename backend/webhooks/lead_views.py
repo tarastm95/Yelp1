@@ -12,7 +12,6 @@ from .models import (
     YelpBusiness,
     LeadDetail,
     FollowUpTemplate,
-    AutoResponseSettingsTemplate,
     YelpToken,
     LeadEvent,
 )
@@ -25,7 +24,6 @@ from .serializers import (
     FollowUpTemplateSerializer,
     YelpTokenInfoSerializer,
     LeadEventSerializer,
-    AutoResponseSettingsTemplateSerializer,
 )
 
 logger = logging.getLogger(__name__)
@@ -259,17 +257,6 @@ class FollowUpTemplateDetailView(generics.RetrieveUpdateDestroyAPIView):
         phone_available = self.request.query_params.get('phone_available') == 'true'
         business = YelpBusiness.objects.filter(business_id=bid).first() if bid else None
         serializer.save(business=business, phone_opt_in=phone_opt_in, phone_available=phone_available)
-
-
-class AutoResponseSettingsTemplateListCreateView(generics.ListCreateAPIView):
-    serializer_class = AutoResponseSettingsTemplateSerializer
-
-    queryset = AutoResponseSettingsTemplate.objects.all().order_by('-id')
-
-
-class AutoResponseSettingsTemplateDetailView(generics.RetrieveUpdateDestroyAPIView):
-    serializer_class = AutoResponseSettingsTemplateSerializer
-    queryset = AutoResponseSettingsTemplate.objects.all()
 
 
 class YelpTokenListView(generics.ListAPIView):

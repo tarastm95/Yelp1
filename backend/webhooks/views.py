@@ -27,8 +27,6 @@ from .lead_views import (
     LeadEventRetrieveAPIView,
     FollowUpTemplateListCreateView,
     FollowUpTemplateDetailView,
-    AutoResponseSettingsTemplateListCreateView,
-    AutoResponseSettingsTemplateDetailView,
     YelpTokenListView,
 )
 from .task_views import TaskLogListView
@@ -57,8 +55,6 @@ __all__ = [
     "LeadEventRetrieveAPIView",
     "FollowUpTemplateListCreateView",
     "FollowUpTemplateDetailView",
-    "AutoResponseSettingsTemplateListCreateView",
-    "AutoResponseSettingsTemplateDetailView",
     "YelpTokenListView",
     "AttachmentProxyView",
     "TaskLogListView",

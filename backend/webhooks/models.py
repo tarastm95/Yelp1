@@ -271,19 +271,3 @@ class LeadPendingTask(models.Model):
         return f"{self.task_id} for {self.lead_id}: {self.text[:20]}"
 
 
-class AutoResponseSettingsTemplate(models.Model):
-    """Stored presets for AutoResponseSettings."""
-
-    name = models.CharField(max_length=100)
-    description = models.TextField(blank=True)
-    data = models.JSONField(help_text="Serialized AutoResponseSettings data")
-    follow_up_templates = models.JSONField(
-        default=list,
-        blank=True,
-        help_text="Serialized list of additional FollowUpTemplate objects",
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    def __str__(self):
-        return self.name
