@@ -293,3 +293,11 @@ class MessageTaskSerializer(serializers.ModelSerializer):
         return mapping.get(obj.name, obj.name)
 
 
+class SendSMSSerializer(serializers.Serializer):
+    """Validate data for sending an SMS message."""
+
+    to = serializers.CharField()
+    body = serializers.CharField()
+
+
+
