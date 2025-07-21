@@ -60,10 +60,18 @@ class EventRetrieveView(generics.RetrieveAPIView):
 
 class AutoResponseSettingsView(APIView):
     def _get_default_settings(self, phone_opt_in: bool, phone_available: bool):
-        obj, _ = AutoResponseSettings.objects.get_or_create(
-            business=None, phone_opt_in=phone_opt_in, phone_available=phone_available
+        obj = AutoResponseSettings.objects.filter(
+            business=None,
+            phone_opt_in=phone_opt_in,
+            phone_available=phone_available,
+        ).first()
+        if obj:
+            return obj
+        return AutoResponseSettings.objects.create(
+            business=None,
+            phone_opt_in=phone_opt_in,
+            phone_available=phone_available,
         )
-        return obj
 
     def _get_settings_for_business(self, business_id: str | None, phone_opt_in: bool, phone_available: bool):
         qs = AutoResponseSettings.objects.filter(phone_opt_in=phone_opt_in, phone_available=phone_available)
