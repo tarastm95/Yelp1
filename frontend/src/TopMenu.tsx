@@ -8,6 +8,8 @@ import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import SubscriptionsIcon from '@mui/icons-material/Subscriptions';
 import ChecklistIcon from '@mui/icons-material/Checklist';
 import DescriptionIcon from '@mui/icons-material/Description';
+import SettingsIcon from '@mui/icons-material/Settings';
+import LoginIcon from '@mui/icons-material/Login';
 
 const menuItems = [
   { text: 'Home', icon: <HomeIcon />, href: '/' },
@@ -17,6 +19,8 @@ const menuItems = [
   { text: 'Subscriptions', icon: <SubscriptionsIcon />, href: '/subscriptions' },
   { text: 'Tasks', icon: <ChecklistIcon />, href: '/tasks' },
   { text: 'Templates', icon: <DescriptionIcon />, href: '/templates' },
+  { text: 'Auto-response Settings', icon: <SettingsIcon />, href: '/settings' },
+  { text: 'Authorize with Yelp', icon: <LoginIcon />, href: '/auth' },
 ];
 
 const TopMenu: React.FC = () => {
