@@ -59,6 +59,11 @@ const App: FC = () => {
     localStorage.getItem('isAuthenticated') === 'true'
   );
 
+  const handleLogout = () => {
+    localStorage.removeItem('isAuthenticated');
+    setAuthenticated(false);
+  };
+
   if (!authenticated) {
     return (
       <ThemeProvider theme={theme}>
@@ -81,7 +86,7 @@ const App: FC = () => {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <Router>
-        <TopMenu />
+        <TopMenu onLogout={handleLogout} />
         <Box component="main" sx={{ p: 3 }}>
           <Routes>
               <Route path="/" element={<Home />} />
