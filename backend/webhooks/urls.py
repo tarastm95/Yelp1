@@ -7,7 +7,6 @@ from .views import (
     ProcessedLeadListView, LeadEventListAPIView, LeadDetailListAPIView,
     LeadDetailRetrieveAPIView, LeadLastEventAPIView, LeadEventRetrieveAPIView,
     FollowUpTemplateListCreateView, FollowUpTemplateDetailView,
-    AutoResponseSettingsTemplateListCreateView, AutoResponseSettingsTemplateDetailView,
     BusinessListView, BusinessLeadsView, BusinessEventsView,
     SubscriptionProxyView, YelpTokenListView,
 )
@@ -73,8 +72,6 @@ urlpatterns = [
     path('lead-events/<str:event_id>/', LeadEventRetrieveAPIView.as_view(), name='lead-event-detail'),
     path('follow-up-templates/', FollowUpTemplateListCreateView.as_view(), name='followup-list-create'),
     path('follow-up-templates/<int:pk>/', FollowUpTemplateDetailView.as_view(), name='followup-detail'),
-    path('settings-templates/', AutoResponseSettingsTemplateListCreateView.as_view(), name='settings-template-list'),
-    path('settings-templates/<int:pk>/', AutoResponseSettingsTemplateDetailView.as_view(), name='settings-template-detail'),
     path('tokens/', YelpTokenListView.as_view(), name='token-list'),
     path('tasks/', TaskLogListView.as_view(), name='task-log-list'),
     path('tasks/<str:task_id>/cancel/', TaskRevokeView.as_view(), name='task-revoke'),
