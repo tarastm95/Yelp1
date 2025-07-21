@@ -303,7 +303,6 @@ const AutoResponseSettings: FC = () => {
             export_to_sheets: d.export_to_sheets,
             follow_up_templates: initialSettings.current?.follow_up_templates || [],
           };
-          setAppliedTemplateId(null);
           setLoading(false);
         })
         .catch(err => {
