@@ -251,6 +251,7 @@ const AutoResponseSettings: FC = () => {
   // load settings
   const loadSettings = (biz?: string, attempts = 2) => {
     setLoading(true);
+    setError('');
     const params = new URLSearchParams();
     params.append('phone_opt_in', phoneOptIn ? 'true' : 'false');
     params.append('phone_available', phoneAvailable ? 'true' : 'false');
@@ -305,11 +306,15 @@ const AutoResponseSettings: FC = () => {
           setAppliedTemplateId(null);
           setLoading(false);
         })
-        .catch(() => {
+        .catch(err => {
+          console.error('Failed to load settings:', err);
           if (remain > 0) {
             setTimeout(() => fetch(remain - 1), 1000);
           } else {
-            setError('Failed to load settings.');
+            const detail = err.response?.status
+              ? `${err.response.status} ${err.response.statusText}`
+              : '';
+            setError(`Failed to load settings.${detail ? ` (${detail})` : ''}`);
             setLoading(false);
           }
         });
@@ -320,6 +325,7 @@ const AutoResponseSettings: FC = () => {
 
   const loadTemplates = (biz?: string) => {
     setTplLoading(true);
+    setError('');
     const params = new URLSearchParams();
     params.append('phone_opt_in', phoneOptIn ? 'true' : 'false');
     params.append('phone_available', phoneAvailable ? 'true' : 'false');
@@ -369,7 +375,15 @@ const AutoResponseSettings: FC = () => {
           };
         }
       })
-      .catch(() => setError('Failed to load follow-up templates.'))
+      .catch(err => {
+        console.error('Failed to load follow-up templates:', err);
+        const detail = err.response?.status
+          ? `${err.response.status} ${err.response.statusText}`
+          : '';
+        setError(
+          `Failed to load follow-up templates.${detail ? ` (${detail})` : ''}`
+        );
+      })
       .finally(() => setTplLoading(false));
   };
 
