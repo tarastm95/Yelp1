@@ -1220,7 +1220,10 @@ const AutoResponseSettings: FC = () => {
                     </Paper>
                   ) : (
                     <Stack spacing={2}>
-                      {templates.map((t, index) => (
+                      {templates
+                        .slice()
+                        .sort((a, b) => a.delay - b.delay)
+                        .map((t, index) => (
                         <Card 
                           key={t.id}
                           elevation={1}
