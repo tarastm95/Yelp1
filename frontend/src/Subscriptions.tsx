@@ -25,6 +25,7 @@ import {
   Fade,
   IconButton,
 } from '@mui/material';
+import BusinessInfoCard from './BusinessInfoCard';
 
 // Icons
 import NotificationsIcon from '@mui/icons-material/Notifications';
@@ -45,8 +46,16 @@ interface Subscription {
   subscribed_at: string;
 }
 
+interface Business {
+  business_id: string;
+  name: string;
+  location?: string;
+  details?: any;
+}
+
 const Subscriptions: React.FC = () => {
   const [subs, setSubs] = useState<Subscription[]>([]);
+  const [businesses, setBusinesses] = useState<Business[]>([]);
   const [loading, setLoading] = useState(true);
   const [newBiz, setNewBiz] = useState('');
   const [subscribing, setSubscribing] = useState(false);
@@ -74,6 +83,8 @@ const Subscriptions: React.FC = () => {
             severity: 'success'
           });
         }
+        // Load businesses info after loading subscriptions
+        loadBusinesses();
       })
       .catch(() => {
         setSubs([]);
@@ -86,9 +97,25 @@ const Subscriptions: React.FC = () => {
       .finally(() => setLoading(false));
   };
 
+  const loadBusinesses = () => {
+    axios
+      .get<Business[]>('/businesses/')
+      .then(res => {
+        setBusinesses(res.data || []);
+      })
+      .catch(() => {
+        setBusinesses([]);
+      });
+  };
+
   useEffect(() => {
     loadSubs();
+    loadBusinesses();
   }, []);
+
+  const getBusinessInfo = (businessId: string): Business | null => {
+    return businesses.find(b => b.business_id === businessId) || null;
+  };
 
   const handleSubscribe = async () => {
     if (!newBiz.trim()) {
@@ -119,6 +146,7 @@ const Subscriptions: React.FC = () => {
       
       setNewBiz('');
       loadSubs();
+      loadBusinesses(); // Refresh businesses to get new business info
       setSnackbar({
         open: true,
         message: 'Successfully subscribed to webhook notifications',
@@ -526,6 +554,7 @@ const Subscriptions: React.FC = () => {
             {subs.map(subscription => {
               const subscriptionDate = new Date(subscription.subscribed_at);
               const isRecent = Date.now() - subscriptionDate.getTime() < 24 * 60 * 60 * 1000; // Last 24 hours
+              const businessInfo = getBusinessInfo(subscription.business_id);
               
               return (
                 <Grid item xs={12} md={6} lg={4} key={subscription.business_id}>
@@ -589,25 +618,33 @@ const Subscriptions: React.FC = () => {
                     </Box>
 
                     <CardContent sx={{ p: 3 }}>
-                      {/* Business ID */}
-                      <Box sx={{ 
-                        p: 2, 
-                        backgroundColor: 'grey.50', 
-                        borderRadius: 2,
-                        border: '1px solid',
-                        borderColor: 'grey.200',
-                        mb: 2
-                      }}>
-                        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
-                          BUSINESS ID
-                        </Typography>
-                        <Typography variant="body1" sx={{ fontWeight: 600, mt: 0.5, fontFamily: 'monospace' }}>
-                          {subscription.business_id}
-                        </Typography>
-                      </Box>
+                      {/* Business Information */}
+                      {businessInfo ? (
+                        <Box sx={{ mb: 3 }}>
+                          <BusinessInfoCard business={businessInfo} />
+                        </Box>
+                      ) : (
+                        <Box sx={{ 
+                          p: 2, 
+                          backgroundColor: 'grey.50', 
+                          borderRadius: 2,
+                          border: '1px solid',
+                          borderColor: 'grey.200',
+                          mb: 2
+                        }}>
+                          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+                            BUSINESS ID
+                          </Typography>
+                          <Typography variant="body1" sx={{ fontWeight: 600, mt: 0.5, fontFamily: 'monospace' }}>
+                            {subscription.business_id}
+                          </Typography>
+                        </Box>
+                      )}
+
+                      <Divider sx={{ my: 2 }} />
 
                       {/* Subscription Date */}
-                      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 3 }}>
+                      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
                         <AccessTimeIcon sx={{ fontSize: 16, color: 'grey.500' }} />
                         <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
                           SUBSCRIBED ON

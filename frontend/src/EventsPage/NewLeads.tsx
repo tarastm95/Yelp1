@@ -44,6 +44,17 @@ const NewLeads: FC<Props> = ({
   hasMore,
   loadingMore,
 }) => {
+  // Debug logging for received props
+  console.log('[NewLeads] Received props:', {
+    leadsLength: leads.length,
+    leadDetailsCount: Object.keys(leadDetails).length,
+    eventsCount: events.length,
+    visibleCount,
+    hasMore,
+    loadingMore,
+    leads: leads.slice(0, 3) // Show first 3 leads for debugging
+  });
+
   const theme = useTheme();
   const navigate = useNavigate();
 
@@ -101,6 +112,7 @@ const NewLeads: FC<Props> = ({
   };
 
   if (leads.length === 0) {
+    console.log('[NewLeads] No leads to display, showing empty state');
     return (
       <Paper 
         sx={{ 
@@ -123,10 +135,51 @@ const NewLeads: FC<Props> = ({
     );
   }
 
+  // Deduplicate leads before rendering to ensure no duplicates are shown
+  const uniqueLeads = leads.filter((lead, index, arr) => 
+    arr.findIndex(l => l.lead_id === lead.lead_id) === index
+  );
+  
+  if (uniqueLeads.length !== leads.length) {
+    console.log(`[NewLeads] Filtered ${leads.length - uniqueLeads.length} duplicate leads before rendering`);
+  }
+
+  if (uniqueLeads.length === 0) {
+    console.log('[NewLeads] All leads were filtered out during deduplication');
+    return (
+      <Paper 
+        sx={{ 
+          p: 6, 
+          textAlign: 'center', 
+          backgroundColor: 'warning.50',
+          borderRadius: 3,
+          border: '2px dashed',
+          borderColor: 'warning.main'
+        }}
+      >
+        <PersonAddIcon sx={{ fontSize: 64, color: 'warning.main', mb: 2 }} />
+        <Typography variant="h6" color="warning.main" sx={{ mb: 1 }}>
+          All leads filtered out
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          All leads were removed during deduplication. This might be a bug.
+        </Typography>
+      </Paper>
+    );
+  }
+  
+  console.log('[NewLeads] After deduplication:', {
+    originalLength: leads.length,
+    uniqueLength: uniqueLeads.length,
+    visibleCount,
+    sliceLength: uniqueLeads.slice(0, visibleCount).length,
+    renderingLeads: uniqueLeads.slice(0, 3) // Show what will be rendered
+  });
+
   return (
     <Box sx={{ mt: 2 }}>
       <Stack spacing={3}>
-        {leads.slice(0, visibleCount).map(({ lead_id, business_id, processed_at }) => {
+        {uniqueLeads.slice(0, visibleCount).map(({ lead_id, business_id, processed_at }) => {
           const detail = leadDetails[lead_id] || {};
           const matchedEvent = events.find(e => e.lead_id === lead_id);
           const eventId = matchedEvent ? String(matchedEvent.event_id) : fetchedEvents[lead_id];

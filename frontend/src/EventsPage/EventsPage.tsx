@@ -55,6 +55,8 @@ const TabPanel: FC<{ children?: React.ReactNode; value: number; index: number }>
   index,
 }) => {
   const theme = useTheme();
+  console.log(`[TabPanel] index=${index}, value=${value}, shouldShow=${value === index}`);
+  
   return (
     <div role="tabpanel" hidden={value !== index} id={`events-tabpanel-${index}`} aria-labelledby={`events-tab-${index}`}>
       {value === index && (
@@ -87,6 +89,64 @@ const EventsPage: FC = () => {
   // IDs of viewed leads (for the "new" badge)
   const [viewedLeads, setViewedLeads] = useState<Set<string>>(new Set());
   const [viewedEvents, setViewedEvents] = useState<Set<string>>(new Set());
+  
+  // Helper functions for deduplication
+  const deduplicateLeads = (existingLeads: ProcessedLead[], newLeads: ProcessedLead[]): ProcessedLead[] => {
+    const existingIds = new Set(existingLeads.map(l => l.lead_id));
+    const uniqueNewLeads = newLeads.filter(l => !existingIds.has(l.lead_id));
+    
+    if (newLeads.length !== uniqueNewLeads.length) {
+      console.log(`[DEDUP LEADS] Filtered ${newLeads.length - uniqueNewLeads.length} duplicate leads`);
+    }
+    
+    return [...existingLeads, ...uniqueNewLeads];
+  };
+
+  const deduplicateEvents = (existingEvents: LeadEvent[], newEvents: LeadEvent[]): LeadEvent[] => {
+    const existingIds = new Set(existingEvents.map(e => e.event_id));
+    const uniqueNewEvents = newEvents.filter(e => !existingIds.has(e.event_id));
+    
+    if (newEvents.length !== uniqueNewEvents.length) {
+      console.log(`[DEDUP EVENTS] Filtered ${newEvents.length - uniqueNewEvents.length} duplicate events`);
+    }
+    
+    return [...existingEvents, ...uniqueNewEvents];
+  };
+
+  const deduplicateEventsAtStart = (existingEvents: LeadEvent[], newEvents: LeadEvent[]): LeadEvent[] => {
+    const existingIds = new Set(existingEvents.map(e => e.event_id));
+    const uniqueNewEvents = newEvents.filter(e => !existingIds.has(e.event_id));
+    
+    if (newEvents.length !== uniqueNewEvents.length) {
+      console.log(`[DEDUP EVENTS START] Filtered ${newEvents.length - uniqueNewEvents.length} duplicate events`);
+    }
+    
+    return [...uniqueNewEvents, ...existingEvents];
+  };
+
+  // Function to clean up any existing duplicates in state
+  const cleanupExistingDuplicates = React.useCallback(() => {
+    setLeads(prev => {
+      const uniqueLeads = prev.filter((lead, index, arr) => 
+        arr.findIndex(l => l.lead_id === lead.lead_id) === index
+      );
+      if (prev.length !== uniqueLeads.length) {
+        console.log(`[CLEANUP] Removed ${prev.length - uniqueLeads.length} duplicate leads from state`);
+      }
+      return uniqueLeads;
+    });
+
+    setEvents(prev => {
+      const uniqueEvents = prev.filter((event, index, arr) => 
+        arr.findIndex(e => e.event_id === event.event_id) === index
+      );
+      if (prev.length !== uniqueEvents.length) {
+        console.log(`[CLEANUP] Removed ${prev.length - uniqueEvents.length} duplicate events from state`);
+      }
+      return uniqueEvents;
+    });
+  }, []);
+
   useEffect(() => {
     const storedLeads = localStorage.getItem('viewedLeads');
     if (storedLeads) {
@@ -135,6 +195,10 @@ const EventsPage: FC = () => {
   const [loadingMoreEvents, setLoadingMoreEvents] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tabValue, setTabValue] = useState(0);
+  
+  // Track last request to avoid race conditions
+  const lastLeadsRequestRef = useRef<string>('');
+  const lastEventsRequestRef = useRef<string>('');
 
   // Number of unread leads among the loaded ones
   const loadedLeadIds = new Set(leads.map(l => l.lead_id));
@@ -144,21 +208,63 @@ const EventsPage: FC = () => {
   const unreadLeadsCount = Math.max(0, totalLeadsCount - viewedLoadedIdsCount);
 
   const filteredLeads = leads;
+  
+  // Debug logging for leads state
+  console.log('[EventsPage] Current state:', {
+    leadsLength: leads.length,
+    filteredLeadsLength: filteredLeads.length,
+    totalLeadsCount,
+    loading,
+    selectedBusiness,
+    tabValue,
+    leads: leads.slice(0, 3) // Show first 3 leads for debugging
+  });
 
 
   // Load a page of leads and their details
   const loadLeads = async (url?: string) => {
     const reqUrl =
       url ||
-      `${API_BASE}/api/processed_leads/${
+      `${API_BASE}/api/processed_leads${
         selectedBusiness ? `?business_id=${encodeURIComponent(selectedBusiness)}` : ''
       }`;
+    
+    const requestId = `leads-${Date.now()}-${Math.random()}`;
+    lastLeadsRequestRef.current = requestId;
+    
     try {
       console.log('[loadLeads] request', reqUrl);
+      console.log('[loadLeads] selectedBusiness:', selectedBusiness);
+      console.log('[loadLeads] API_BASE:', API_BASE);
+      
       const { data } = await axios.get<PaginatedResponse<ProcessedLead>>(reqUrl);
+      
+      // Check if this is still the latest request
+      if (lastLeadsRequestRef.current !== requestId) {
+        console.log('[loadLeads] Ignoring stale request - current:', lastLeadsRequestRef.current, 'received:', requestId);
+        return;
+      }
+      
       console.log('[loadLeads] received', data.results.length, 'leads');
+      console.log('[loadLeads] total count:', data.count);
+      console.log('[loadLeads] next url:', data.next);
+      console.log('[loadLeads] data:', data);
+      
       setTotalLeadsCount(data.count);
-      setLeads(prev => [...prev, ...data.results]);
+      console.log('[loadLeads] Set totalLeadsCount to:', data.count);
+      
+      setLeads(prev => {
+        const newLeads = deduplicateLeads(prev, data.results);
+        console.log('[loadLeads] Setting leads state:', {
+          previousCount: prev.length,
+          newDataCount: data.results.length,
+          resultingCount: newLeads.length,
+          deduplicationWorked: prev.length + data.results.length >= newLeads.length,
+          newLeads: newLeads.slice(0, 3) // Show first 3 for debugging
+        });
+        console.log('[loadLeads] About to return newLeads with length:', newLeads.length);
+        return newLeads;
+      });
       setLeadsNextUrl(data.next);
 
       const detailsArr = await Promise.all(
@@ -181,7 +287,14 @@ const EventsPage: FC = () => {
       });
     } catch (err: any) {
       console.error('[loadLeads] error', err);
-      setError(`Failed to load leads: ${err.message}`);
+      console.error('[loadLeads] error details:', {
+        message: err.message,
+        status: err.response?.status,
+        statusText: err.response?.statusText,
+        data: err.response?.data,
+        url: reqUrl
+      });
+      setError(`Failed to load leads: ${err.message} (Status: ${err.response?.status || 'Unknown'})`);
     }
   };
 
@@ -189,15 +302,26 @@ const EventsPage: FC = () => {
   const loadEvents = async (url?: string) => {
     const reqUrl =
       url ||
-      `${API_BASE}/api/lead-events/${
+      `${API_BASE}/api/lead-events${
         selectedBusiness ? `?business_id=${encodeURIComponent(selectedBusiness)}` : ''
       }`;
+    
+    const requestId = `events-${Date.now()}-${Math.random()}`;
+    lastEventsRequestRef.current = requestId;
+    
     try {
       console.log('[loadEvents] request', reqUrl);
       const { data } = await axios.get<PaginatedResponse<LeadEvent>>(reqUrl);
+      
+      // Check if this is still the latest request
+      if (lastEventsRequestRef.current !== requestId) {
+        console.log('[loadEvents] Ignoring stale request - current:', lastEventsRequestRef.current, 'received:', requestId);
+        return;
+      }
+      
       console.log('[loadEvents] received', data.results.length, 'events');
       setTotalEventsCount(data.count);
-      setEvents(prev => [...prev, ...data.results]);
+      setEvents(prev => deduplicateEvents(prev, data.results));
       setEventsNextUrl(data.next);
       if (data.results.length) {
         const maxId = Math.max(...data.results.map(e => e.id));
@@ -222,8 +346,13 @@ const EventsPage: FC = () => {
       if (data.length) {
         const sorted = [...data].sort((a, b) => a.id - b.id);
         const maxId = sorted[sorted.length - 1].id;
-        setEvents(prev => [...sorted, ...prev]);
-        setTotalEventsCount(prev => prev + data.length);
+        
+        // Count only unique events that will actually be added
+        const existingIds = new Set(events.map(e => e.event_id));
+        const uniqueNewEvents = sorted.filter(e => !existingIds.has(e.event_id));
+        
+        setEvents(prev => deduplicateEventsAtStart(prev, sorted));
+        setTotalEventsCount(prev => prev + uniqueNewEvents.length);
         lastEventIdRef.current = Math.max(lastEventIdRef.current || 0, maxId);
       }
     } catch {
@@ -240,8 +369,23 @@ const EventsPage: FC = () => {
     setLeadsNextUrl(null);
     setEventsNextUrl(null);
     lastEventIdRef.current = null;
+    lastLeadsRequestRef.current = '';
+    lastEventsRequestRef.current = '';
 
-    Promise.all([loadLeads(), loadEvents()]).finally(() => setLoading(false));
+    console.log('[useEffect] Starting to load leads and events for selectedBusiness:', selectedBusiness);
+    Promise.all([loadLeads(), loadEvents()])
+      .then(() => {
+        console.log('[useEffect] Promise.all completed successfully');
+        // Clean up any duplicates that might have occurred
+        setTimeout(cleanupExistingDuplicates, 100);
+      })
+      .catch((error) => {
+        console.error('[useEffect] Promise.all failed:', error);
+      })
+      .finally(() => {
+        console.log('[useEffect] Setting loading to false');
+        setLoading(false);
+      });
   }, [selectedBusiness]);
 
   // Poll for new events
@@ -488,6 +632,17 @@ const EventsPage: FC = () => {
         </Card>
 
         <TabPanel value={tabValue} index={0}>
+          {(() => {
+            console.log('[EventsPage] Rendering NewLeads with:', {
+              leads: filteredLeads.length,
+              leadDetails: Object.keys(leadDetails).length,
+              events: filteredEvents.length,
+              visibleCount: filteredLeads.length,
+              tabValue,
+              isTabActive: tabValue === 0
+            });
+            return null;
+          })()}
           <NewLeads
             leads={filteredLeads}
             leadDetails={leadDetails}

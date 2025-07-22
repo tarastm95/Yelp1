@@ -58,6 +58,15 @@ const PLACEHOLDERS = ['{name}', '{jobs}', '{sep}'] as const;
 type Placeholder = typeof PLACEHOLDERS[number];
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const DAY_FULL_NAMES = {
+  'Mon': 'Monday',
+  'Tue': 'Tuesday', 
+  'Wed': 'Wednesday',
+  'Thu': 'Thursday',
+  'Fri': 'Friday',
+  'Sat': 'Saturday',
+  'Sun': 'Sunday'
+};
 
 interface Business {
   business_id: string;
@@ -1155,27 +1164,145 @@ const AutoResponseSettings: FC = () => {
                             size="small"
                             sx={{ flex: 1 }}
                           />
-                          {phoneAvailable && (
-                            <FormGroup row sx={{ flex: 1 }}>
-                              {DAY_NAMES.map(d => (
-                                <FormControlLabel
-                                  key={d}
-                                  control={
-                                    <Checkbox
-                                      size="small"
-                                      checked={greetingOpenDays
-                                        .split(',')
-                                        .map(p => p.trim())
-                                        .includes(d)}
-                                      onChange={() => toggleDay(d)}
-                                    />
-                                  }
-                                  label={d}
-                                />
-                              ))}
-                            </FormGroup>
-                          )}
                         </Stack>
+                        
+                        {/* Improved Days of Week Selector for Real Phone */}
+                        {phoneAvailable && (
+                          <Box sx={{ mt: 2 }}>
+                            <Typography variant="caption" sx={{ mb: 1.5, display: 'block', fontWeight: 600, color: 'text.secondary' }}>
+                              Operating Days
+                            </Typography>
+                            <Box sx={{ 
+                              display: 'flex', 
+                              flexWrap: 'wrap',
+                              gap: 0.5,
+                              p: 1,
+                              backgroundColor: 'grey.50',
+                              borderRadius: 2,
+                              border: '1px solid',
+                              borderColor: 'grey.200'
+                            }}>
+                              {DAY_NAMES.map((day, index) => {
+                                const isSelected = greetingOpenDays
+                                  .split(',')
+                                  .map(p => p.trim())
+                                  .includes(day);
+                                const isWeekend = index >= 5; // Sat, Sun
+                                
+                                return (
+                                  <Button
+                                    key={day}
+                                    variant={isSelected ? "contained" : "outlined"}
+                                    size="small"
+                                    onClick={() => toggleDay(day)}
+                                    sx={{
+                                      minWidth: 'auto',
+                                      width: 42,
+                                      height: 36,
+                                      borderRadius: 1.5,
+                                      fontSize: '0.75rem',
+                                      fontWeight: 600,
+                                      p: 0,
+                                      transition: 'all 0.2s ease-in-out',
+                                      borderColor: isWeekend ? 'warning.main' : 'primary.main',
+                                      color: isSelected 
+                                        ? 'white' 
+                                        : isWeekend 
+                                          ? 'warning.main' 
+                                          : 'primary.main',
+                                      backgroundColor: isSelected 
+                                        ? isWeekend 
+                                          ? 'warning.main' 
+                                          : 'primary.main'
+                                        : 'transparent',
+                                      '&:hover': {
+                                        backgroundColor: isSelected
+                                          ? isWeekend 
+                                            ? 'warning.dark'
+                                            : 'primary.dark'
+                                          : isWeekend
+                                            ? 'warning.50'
+                                            : 'primary.50',
+                                        transform: 'translateY(-1px)',
+                                        boxShadow: 2
+                                      },
+                                      '&:active': {
+                                        transform: 'translateY(0)',
+                                      }
+                                    }}
+                                  >
+                                    {day}
+                                  </Button>
+                                );
+                              })}
+                            </Box>
+                            
+                            {/* Quick Selection Buttons */}
+                            <Box sx={{ mt: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                              <Button
+                                variant="text"
+                                size="small"
+                                onClick={() => setGreetingOpenDays('Mon, Tue, Wed, Thu, Fri')}
+                                sx={{ 
+                                  fontSize: '0.7rem',
+                                  color: 'primary.main',
+                                  textTransform: 'none',
+                                  '&:hover': { backgroundColor: 'primary.50' }
+                                }}
+                              >
+                                Weekdays
+                              </Button>
+                              <Button
+                                variant="text"
+                                size="small"
+                                onClick={() => setGreetingOpenDays('Sat, Sun')}
+                                sx={{ 
+                                  fontSize: '0.7rem',
+                                  color: 'warning.main',
+                                  textTransform: 'none',
+                                  '&:hover': { backgroundColor: 'warning.50' }
+                                }}
+                              >
+                                Weekend
+                              </Button>
+                              <Button
+                                variant="text"
+                                size="small"
+                                onClick={() => setGreetingOpenDays('Mon, Tue, Wed, Thu, Fri, Sat, Sun')}
+                                sx={{ 
+                                  fontSize: '0.7rem',
+                                  color: 'success.main',
+                                  textTransform: 'none',
+                                  '&:hover': { backgroundColor: 'success.50' }
+                                }}
+                              >
+                                Every Day
+                              </Button>
+                              <Button
+                                variant="text"
+                                size="small"
+                                onClick={() => setGreetingOpenDays('')}
+                                sx={{ 
+                                  fontSize: '0.7rem',
+                                  color: 'error.main',
+                                  textTransform: 'none',
+                                  '&:hover': { backgroundColor: 'error.50' }
+                                }}
+                              >
+                                Clear All
+                              </Button>
+                            </Box>
+                            
+                            {/* Selected Days Display */}
+                            {greetingOpenDays && (
+                              <Box sx={{ mt: 1 }}>
+                                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                                  Selected: {greetingOpenDays || 'None'}
+                                </Typography>
+                              </Box>
+                            )}
+                          </Box>
+                        )}
                       </Box>
                     </Stack>
                   </Stack>

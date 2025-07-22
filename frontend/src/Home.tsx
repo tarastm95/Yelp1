@@ -37,82 +37,71 @@ import {
 import EventIcon from '@mui/icons-material/Event';
 import SettingsIcon from '@mui/icons-material/Settings';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
-import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import ListAltIcon from '@mui/icons-material/ListAlt';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import BusinessIcon from '@mui/icons-material/Business';
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
-import SecurityIcon from '@mui/icons-material/Security';
-import SpeedIcon from '@mui/icons-material/Speed';
 import ChatIcon from '@mui/icons-material/Chat';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import SubscriptionsIcon from '@mui/icons-material/Subscriptions';
+import ChecklistIcon from '@mui/icons-material/Checklist';
+import LoginIcon from '@mui/icons-material/Login';
 
 const menuItems = [
   { 
-    text: 'View Events', 
+    text: 'Events', 
     icon: <EventIcon />, 
     href: '/events',
-    description: 'Monitor and manage your Yelp events',
+    description: 'Monitor and manage your Yelp lead events in real-time',
     color: '#f093fb',
-    gradient: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)'
+    gradient: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+    category: 'main'
+  },
+  { 
+    text: 'Tokens & Business', 
+    icon: <VpnKeyIcon />, 
+    href: '/tokens',
+    description: 'Check authorization status and business connections',
+    color: '#4facfe',
+    gradient: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+    category: 'main'
+  },
+  { 
+    text: 'Subscriptions', 
+    icon: <SubscriptionsIcon />, 
+    href: '/subscriptions',
+    description: 'Manage webhook subscriptions for real-time notifications',
+    color: '#43e97b',
+    gradient: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+    category: 'main'
+  },
+  { 
+    text: 'Tasks', 
+    icon: <ChecklistIcon />, 
+    href: '/tasks',
+    description: 'View scheduled operations and task logs',
+    color: '#fa709a',
+    gradient: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+    category: 'main'
   },
   { 
     text: 'Auto-response Settings', 
     icon: <SettingsIcon />, 
     href: '/settings',
-    description: 'Configure automated messaging',
-    color: '#4facfe',
-    gradient: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)'
-  },
-  { 
-    text: 'Token Status', 
-    icon: <AccessTimeIcon />, 
-    href: '/tokens',
-    description: 'Check authorization status',
-    color: '#43e97b',
-    gradient: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)'
-  },
-  { 
-    text: 'Planned Tasks', 
-    icon: <ListAltIcon />, 
-    href: '/tasks',
-    description: 'View scheduled operations',
-    color: '#fa709a',
-    gradient: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)'
+    description: 'Configure automated messaging templates and responses',
+    color: '#764ba2',
+    gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    category: 'main'
   },
   { 
     text: 'Authorize with Yelp', 
-    icon: <VpnKeyIcon />, 
+    icon: <LoginIcon />, 
     href: '/auth',
-    description: 'Connect your Yelp account',
-    color: '#667eea',
-    gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    isAction: true
+    description: 'Connect and authorize your Yelp business account',
+    color: '#ff7eb3',
+    gradient: 'linear-gradient(135deg, #ff7eb3 0%, #ff758c 100%)',
+    isAction: true,
+    category: 'auth'
   },
-];
-
-const features = [
-  {
-    icon: <AutoAwesomeIcon />,
-    title: 'Smart Automation',
-    description: 'Intelligent response system that handles customer inquiries automatically'
-  },
-  {
-    icon: <TrendingUpIcon />,
-    title: 'Real-time Analytics',
-    description: 'Track engagement metrics and response rates in real-time'
-  },
-  {
-    icon: <SecurityIcon />,
-    title: 'Secure Integration',
-    description: 'Enterprise-grade security with encrypted data transmission'
-  },
-  {
-    icon: <SpeedIcon />,
-    title: 'Lightning Fast',
-    description: 'Instant responses and lightning-fast processing capabilities'
-  }
 ];
 
 const Home: FC = () => {
@@ -177,12 +166,21 @@ const Home: FC = () => {
                 bottom: 0,
                 background: 'linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.2) 50%, transparent 70%)',
                 transform: 'translateX(-100%)',
-                animation: 'shimmer 2s infinite',
+                animation: 'shimmer 3s ease-in-out infinite',
               },
               
               '@keyframes shimmer': {
-                '0%': { transform: 'translateX(-100%)' },
-                '100%': { transform: 'translateX(100%)' }
+                '0%': { 
+                  transform: 'translateX(-100%)',
+                  opacity: 0
+                },
+                '50%': {
+                  opacity: 1
+                },
+                '100%': { 
+                  transform: 'translateX(100%)',
+                  opacity: 0
+                }
               }
             }}>
               <BusinessIcon sx={{ fontSize: 48, color: 'white' }} />
@@ -223,6 +221,7 @@ const Home: FC = () => {
               spacing={2} 
               justifyContent="center"
               alignItems="center"
+              sx={{ mb: 4 }}
             >
               <Chip
                 icon={<ChatIcon />}
@@ -251,245 +250,350 @@ const Home: FC = () => {
                 }}
               />
             </Stack>
+            
+            <Button
+              component={RouterLink}
+              to="/events"
+              variant="contained"
+              size="large"
+              startIcon={<DashboardIcon />}
+              sx={{
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                borderRadius: 4,
+                px: 4,
+                py: 2,
+                fontWeight: 700,
+                fontSize: '1.1rem',
+                textTransform: 'none',
+                boxShadow: '0 8px 24px rgba(102, 126, 234, 0.3)',
+                border: '2px solid rgba(255, 255, 255, 0.2)',
+                
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #5a6fd8 0%, #6b4190 100%)',
+                  transform: 'translateY(-3px) scale(1.05)',
+                  boxShadow: '0 12px 32px rgba(102, 126, 234, 0.4)',
+                  border: '2px solid rgba(255, 255, 255, 0.3)',
+                }
+              }}
+            >
+              Go to Dashboard
+            </Button>
           </Box>
         </Grow>
 
         {/* Main Actions Grid */}
-        <Grid container spacing={3} sx={{ mb: 6 }}>
-          {menuItems.map((item, index) => (
-            <Grid item xs={12} sm={6} lg={4} key={item.text}>
-              <Grow in timeout={700 + index * 100}>
-                <Card
-                  sx={{
-                    height: '100%',
-                    borderRadius: 4,
-                    overflow: 'hidden',
-                    position: 'relative',
-                    transition: 'all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1)',
-                    cursor: 'pointer',
-                    background: 'white',
-                    border: '1px solid',
-                    borderColor: 'grey.200',
-                    
-                    '&:hover': {
-                      transform: 'translateY(-8px) scale(1.02)',
-                      boxShadow: `0 20px 60px ${alpha(item.color, 0.3)}`,
-                      borderColor: item.color,
-                      
-                      '& .card-gradient': {
-                        opacity: 1,
-                      },
-                      
-                      '& .card-content': {
-                        color: 'white',
-                      },
-                      
-                      '& .action-arrow': {
-                        transform: 'translateX(8px)',
-                      }
-                    }
-                  }}
-                  component={item.isAction ? 'div' : RouterLink}
-                  to={item.isAction ? undefined : item.href}
-                  onClick={item.isAction ? () => setDialogOpen(true) : undefined}
-                >
-                  {/* Gradient Overlay */}
-                  <Box
-                    className="card-gradient"
+        <Box sx={{ mb: 6 }}>
+          {/* Primary Navigation */}
+          <Typography
+            variant="h4"
+            sx={{
+              fontWeight: 700,
+              mb: 3,
+              textAlign: 'center',
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              backgroundClip: 'text',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent'
+            }}
+          >
+            Dashboard Navigation
+          </Typography>
+          
+          <Grid container spacing={3} sx={{ mb: 4 }}>
+            {menuItems.filter(item => item.category === 'main').map((item, index) => (
+              <Grid item xs={12} sm={6} lg={4} key={item.text}>
+                <Grow in timeout={700 + index * 100}>
+                  <Card
                     sx={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      background: item.gradient,
-                      opacity: 0,
-                      transition: 'opacity 0.4s ease-in-out',
-                      zIndex: 1
-                    }}
-                  />
-                  
-                  <CardContent 
-                    className="card-content"
-                    sx={{ 
-                      p: 3, 
                       height: '100%',
-                      display: 'flex',
-                      flexDirection: 'column',
+                      minHeight: 180,
+                      borderRadius: 4,
+                      overflow: 'hidden',
                       position: 'relative',
-                      zIndex: 2,
-                      transition: 'color 0.4s ease-in-out'
+                      transition: 'all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1)',
+                      cursor: 'pointer',
+                      background: 'white',
+                      border: '2px solid',
+                      borderColor: 'grey.100',
+                      
+                      '&:hover': {
+                        transform: 'translateY(-12px) scale(1.03)',
+                        boxShadow: `0 25px 80px ${alpha(item.color, 0.4)}`,
+                        borderColor: item.color,
+                        
+                        '& .card-gradient': {
+                          opacity: 1,
+                        },
+                        
+                        '& .card-content': {
+                          color: 'white',
+                        },
+                        
+                        '& .action-arrow': {
+                          transform: 'translateX(12px) scale(1.2)',
+                        },
+                        
+                        '& .card-icon': {
+                          transform: 'scale(1.1) rotate(5deg)',
+                          boxShadow: '0 8px 25px rgba(255,255,255,0.3)',
+                        }
+                      }
                     }}
+                    component={RouterLink}
+                    to={item.href}
                   >
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                    {/* Gradient Overlay */}
+                    <Box
+                      className="card-gradient"
+                      sx={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        background: item.gradient,
+                        opacity: 0,
+                        transition: 'opacity 0.4s ease-in-out',
+                        zIndex: 1
+                      }}
+                    />
+                    
+                    <CardContent 
+                      className="card-content"
+                      sx={{ 
+                        p: 3, 
+                        height: '100%',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        position: 'relative',
+                        zIndex: 2,
+                        transition: 'color 0.4s ease-in-out'
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
+                        <Avatar
+                          className="card-icon"
+                          sx={{
+                            background: item.gradient,
+                            width: 64,
+                            height: 64,
+                            mr: 2,
+                            boxShadow: 4,
+                            transition: 'all 0.3s ease-in-out',
+                            '& .MuiSvgIcon-root': {
+                              fontSize: '2rem'
+                            }
+                          }}
+                        >
+                          {item.icon}
+                        </Avatar>
+                        
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography 
+                            variant="h6" 
+                            sx={{ 
+                              fontWeight: 700,
+                              mb: 1,
+                              lineHeight: 1.2
+                            }}
+                          >
+                            {item.text}
+                          </Typography>
+                        </Box>
+                        
+                        <ArrowForwardIcon 
+                          className="action-arrow"
+                          sx={{ 
+                            transition: 'all 0.3s ease-in-out',
+                            opacity: 0.6,
+                            fontSize: '1.5rem'
+                          }} 
+                        />
+                      </Box>
+                      
+                      <Typography 
+                        variant="body2" 
+                        sx={{ 
+                          opacity: 0.8,
+                          lineHeight: 1.6,
+                          flex: 1,
+                          fontSize: '0.9rem'
+                        }}
+                      >
+                        {item.description}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grow>
+              </Grid>
+            ))}
+          </Grid>
+
+          {/* Authorization Section */}
+          <Typography
+            variant="h5"
+            sx={{
+              fontWeight: 600,
+              mb: 2,
+              textAlign: 'center',
+              color: 'text.secondary'
+            }}
+          >
+            Account Management
+          </Typography>
+          
+          <Grid container justifyContent="center">
+            <Grid item xs={12} sm={8} md={6} lg={4}>
+              {menuItems.filter(item => item.category === 'auth').map((item, index) => (
+                <Grow in timeout={1200} key={item.text}>
+                  <Card
+                    sx={{
+                      borderRadius: 4,
+                      overflow: 'hidden',
+                      position: 'relative',
+                      transition: 'all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1)',
+                      cursor: 'pointer',
+                      background: 'white',
+                      border: '2px solid',
+                      borderColor: alpha(item.color, 0.3),
+                      
+                      '&:hover': {
+                        transform: 'translateY(-8px) scale(1.02)',
+                        boxShadow: `0 20px 60px ${alpha(item.color, 0.4)}`,
+                        borderColor: item.color,
+                        
+                        '& .card-gradient': {
+                          opacity: 1,
+                        },
+                        
+                        '& .card-content': {
+                          color: 'white',
+                        },
+                        
+                        '& .action-arrow': {
+                          transform: 'translateX(8px)',
+                        },
+                        
+                        '& .auth-pulse': {
+                          animation: 'pulse 1.5s infinite',
+                        }
+                      },
+                      
+                      '@keyframes pulse': {
+                        '0%': { transform: 'scale(1)' },
+                        '50%': { transform: 'scale(1.05)' },
+                        '100%': { transform: 'scale(1)' }
+                      }
+                    }}
+                    onClick={() => setDialogOpen(true)}
+                  >
+                    {/* Gradient Overlay */}
+                    <Box
+                      className="card-gradient"
+                      sx={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        background: item.gradient,
+                        opacity: 0,
+                        transition: 'opacity 0.4s ease-in-out',
+                        zIndex: 1
+                      }}
+                    />
+                    
+                    <CardContent 
+                      className="card-content"
+                      sx={{ 
+                        p: 4, 
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        textAlign: 'center',
+                        position: 'relative',
+                        zIndex: 2,
+                        transition: 'color 0.4s ease-in-out'
+                      }}
+                    >
                       <Avatar
+                        className="auth-pulse"
                         sx={{
                           background: item.gradient,
-                          width: 56,
-                          height: 56,
-                          mr: 2,
-                          boxShadow: 3
+                          width: 72,
+                          height: 72,
+                          mb: 2,
+                          boxShadow: 4,
+                          '& .MuiSvgIcon-root': {
+                            fontSize: '2.5rem'
+                          }
                         }}
                       >
                         {item.icon}
                       </Avatar>
                       
-                      <Box sx={{ flex: 1 }}>
-                        <Typography 
-                          variant="h6" 
-                          sx={{ 
-                            fontWeight: 700,
-                            mb: 0.5
-                          }}
-                        >
-                          {item.text}
-                        </Typography>
-                        
-                        {item.isAction && (
-                          <Chip
-                            label="Action Required"
-                            size="small"
-                            color="warning"
-                            variant="outlined"
-                          />
-                        )}
-                      </Box>
-                      
-                      <ArrowForwardIcon 
-                        className="action-arrow"
+                      <Typography 
+                        variant="h6" 
                         sx={{ 
-                          transition: 'transform 0.3s ease-in-out',
-                          opacity: 0.7
-                        }} 
-                      />
-                    </Box>
-                    
-                    <Typography 
-                      variant="body2" 
-                      sx={{ 
-                        opacity: 0.8,
-                        lineHeight: 1.6,
-                        flex: 1
-                      }}
-                    >
-                      {item.description}
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grow>
-            </Grid>
-          ))}
-        </Grid>
-
-        {/* Features Section */}
-        <Grow in timeout={1000}>
-          <Paper
-            elevation={0}
-            sx={{
-              borderRadius: 4,
-              overflow: 'hidden',
-              background: 'linear-gradient(135deg, white 0%, #f8f9ff 100%)',
-              border: '1px solid',
-              borderColor: 'grey.200'
-            }}
-          >
-            <Box sx={{ p: 4 }}>
-              <Typography
-                variant="h4"
-                align="center"
-                sx={{
-                  fontWeight: 700,
-                  mb: 1,
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  backgroundClip: 'text',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent'
-                }}
-              >
-                Powerful Features
-              </Typography>
-              
-              <Typography
-                variant="body1"
-                align="center"
-                color="text.secondary"
-                sx={{ mb: 4, maxWidth: 600, mx: 'auto' }}
-              >
-                Everything you need to manage your Yelp integration efficiently
-              </Typography>
-
-              <Grid container spacing={3}>
-                {features.map((feature, index) => (
-                  <Grid item xs={12} sm={6} key={feature.title}>
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        p: 2,
-                        borderRadius: 2,
-                        transition: 'all 0.3s ease-in-out',
-                        
-                        '&:hover': {
-                          backgroundColor: 'rgba(102, 126, 234, 0.05)',
-                          transform: 'translateX(8px)',
-                        }
-                      }}
-                    >
-                      <Avatar
-                        sx={{
-                          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                          width: 48,
-                          height: 48,
-                          mr: 2,
-                          mt: 0.5
+                          fontWeight: 700,
+                          mb: 1
                         }}
                       >
-                        {feature.icon}
-                      </Avatar>
+                        {item.text}
+                      </Typography>
                       
-                      <Box>
-                        <Typography
-                          variant="h6"
-                          sx={{ fontWeight: 600, mb: 1 }}
-                        >
-                          {feature.title}
-                        </Typography>
-                        
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          sx={{ lineHeight: 1.6 }}
-                        >
-                          {feature.description}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </Grid>
-                ))}
-              </Grid>
-            </Box>
-          </Paper>
-        </Grow>
+                      <Typography 
+                        variant="body2" 
+                        sx={{ 
+                          opacity: 0.8,
+                          lineHeight: 1.6,
+                          mb: 2
+                        }}
+                      >
+                        {item.description}
+                      </Typography>
+                      
+                      <Chip
+                        label="Action Required"
+                        size="small"
+                        color="warning"
+                        variant="outlined"
+                        sx={{ 
+                          fontWeight: 600,
+                          borderWidth: 2,
+                          '&:hover': {
+                            backgroundColor: 'warning.main',
+                            color: 'white'
+                          }
+                        }}
+                      />
+                    </CardContent>
+                  </Card>
+                </Grow>
+              ))}
+            </Grid>
+          </Grid>
+        </Box>
       </Container>
 
       {/* Alerts and Dialogs */}
-      <Snackbar
-        open={alertOpen}
-        onClose={handleCloseAlert}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-      >
-        <Alert 
-          onClose={handleCloseAlert} 
-          severity="error" 
-          sx={{ 
-            width: '100%',
-            borderRadius: 2,
-            boxShadow: 3
-          }}
+        <Snackbar
+          open={alertOpen}
+          onClose={handleCloseAlert}
+          anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
         >
-          One or more refresh tokens expired. Please reauthorize.
-        </Alert>
-      </Snackbar>
+          <Alert 
+            onClose={handleCloseAlert} 
+            severity="error" 
+            sx={{ 
+              width: '100%',
+              borderRadius: 2,
+              boxShadow: 3
+            }}
+          >
+            One or more refresh tokens expired. Please reauthorize.
+          </Alert>
+        </Snackbar>
       
       <Dialog 
         open={dialogOpen} 

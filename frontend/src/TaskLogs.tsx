@@ -583,8 +583,8 @@ const TaskLogs: React.FC = () => {
                 </Typography>
               </Paper>
             ) : (
-              /* Tasks Grid */
-              <Grid container spacing={3}>
+              /* Tasks List */
+              <Stack spacing={3}>
                 {currentTasks.map(task => {
                   const statusInfo = getTaskStatusInfo(task.status);
                   const StatusIcon = statusInfo.icon;
@@ -595,190 +595,221 @@ const TaskLogs: React.FC = () => {
                   const isOverdue = timeUntil === 'Overdue';
                   
                   return (
-                    <Grid item xs={12} lg={6} key={task.task_id}>
-                      <Card
-                        elevation={2}
-                        sx={{
-                          borderRadius: 3,
-                          position: 'relative',
-                          transition: 'all 0.3s ease-in-out',
-                          border: '2px solid',
-                          borderColor: `${statusInfo.color}.light`,
+                    <Card
+                      key={task.task_id}
+                      elevation={2}
+                      sx={{
+                        borderRadius: 3,
+                        position: 'relative',
+                        transition: 'all 0.3s ease-in-out',
+                        border: '2px solid',
+                        borderColor: `${statusInfo.color}.light`,
+                        width: '100%',
+                        
+                        '&:hover': {
+                          transform: 'translateY(-4px)',
+                          boxShadow: `0 8px 32px ${alpha(statusInfo.color === 'success' ? '#4caf50' : 
+                                                         statusInfo.color === 'error' ? '#f44336' :
+                                                         statusInfo.color === 'info' ? '#2196f3' :
+                                                         statusInfo.color === 'warning' ? '#ff9800' : '#666', 0.2)}`,
+                          borderColor: `${statusInfo.color}.main`
+                        }
+                      }}
+                    >
+                      {/* Status Header */}
+                      <Box sx={{ 
+                        background: statusInfo.color === 'success' ? 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)' :
+                                   statusInfo.color === 'error' ? 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)' :
+                                   statusInfo.color === 'info' ? 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)' :
+                                   statusInfo.color === 'warning' ? 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)' :
+                                   'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        p: 2,
+                        color: 'white'
+                      }}>
+                        <Stack direction="row" alignItems="center" spacing={2}>
+                          <Avatar
+                            sx={{
+                              background: 'rgba(255, 255, 255, 0.2)',
+                              backdropFilter: 'blur(10px)',
+                              width: 40,
+                              height: 40
+                            }}
+                          >
+                            <StatusIcon sx={{ color: 'white' }} />
+                          </Avatar>
                           
-                          '&:hover': {
-                            transform: 'translateY(-4px)',
-                            boxShadow: `0 8px 32px ${alpha(statusInfo.color === 'success' ? '#4caf50' : 
-                                                           statusInfo.color === 'error' ? '#f44336' :
-                                                           statusInfo.color === 'info' ? '#2196f3' :
-                                                           statusInfo.color === 'warning' ? '#ff9800' : '#666', 0.2)}`,
-                            borderColor: `${statusInfo.color}.main`
-                          }
-                        }}
-                      >
-                        {/* Status Header */}
-                        <Box sx={{ 
-                          background: statusInfo.color === 'success' ? 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)' :
-                                     statusInfo.color === 'error' ? 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)' :
-                                     statusInfo.color === 'info' ? 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)' :
-                                     statusInfo.color === 'warning' ? 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)' :
-                                     'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                          p: 2,
-                          color: 'white'
-                        }}>
-                          <Stack direction="row" alignItems="center" spacing={2}>
-                            <Avatar
-                              sx={{
-                                background: 'rgba(255, 255, 255, 0.2)',
-                                backdropFilter: 'blur(10px)',
-                                width: 40,
-                                height: 40
-                              }}
-                            >
-                              <StatusIcon sx={{ color: 'white' }} />
-                            </Avatar>
-                            
-                            <Box sx={{ flex: 1 }}>
-                              <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                                {task.name}
+                          <Box sx={{ flex: 1 }}>
+                            <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                              {task.name}
+                            </Typography>
+                            <Typography variant="caption" sx={{ opacity: 0.9 }}>
+                              Task ID: {task.task_id.slice(0, 8)}...
+                            </Typography>
+                          </Box>
+                          
+                          <Chip
+                            label={statusInfo.label}
+                            size="small"
+                            sx={{
+                              background: 'rgba(255, 255, 255, 0.2)',
+                              color: 'white',
+                              fontWeight: 600
+                            }}
+                          />
+                        </Stack>
+                      </Box>
+
+                      <CardContent sx={{ p: 3 }}>
+                        {/* Lead & Business Info */}
+                        <Grid container spacing={2} sx={{ mb: 2 }}>
+                          <Grid item xs={12} md={6}>
+                            <Box sx={{ 
+                              p: 2, 
+                              backgroundColor: 'grey.50', 
+                              borderRadius: 2,
+                              border: '1px solid',
+                              borderColor: 'grey.200'
+                            }}>
+                              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center' }}>
+                                <PersonIcon sx={{ fontSize: 14, mr: 0.5 }} />
+                                LEAD ID
                               </Typography>
-                              <Typography variant="caption" sx={{ opacity: 0.9 }}>
-                                Task ID: {task.task_id.slice(0, 8)}...
+                              <Typography variant="body2" sx={{ fontWeight: 600, mt: 0.5, fontFamily: 'monospace' }}>
+                                {leadId || 'N/A'}
                               </Typography>
                             </Box>
-                            
-                            <Chip
-                              label={statusInfo.label}
-                              size="small"
-                              sx={{
-                                background: 'rgba(255, 255, 255, 0.2)',
-                                color: 'white',
-                                fontWeight: 600
-                              }}
-                            />
+                          </Grid>
+                          
+                          <Grid item xs={12} md={6}>
+                            <Box sx={{ 
+                              p: 2, 
+                              backgroundColor: 'grey.50', 
+                              borderRadius: 2,
+                              border: '1px solid',
+                              borderColor: 'grey.200'
+                            }}>
+                              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center' }}>
+                                <BusinessIcon sx={{ fontSize: 14, mr: 0.5 }} />
+                                BUSINESS
+                              </Typography>
+                              <Typography variant="body2" sx={{ fontWeight: 600, mt: 0.5 }}>
+                                {businessName}
+                              </Typography>
+                            </Box>
+                          </Grid>
+                        </Grid>
+
+                        {/* Message */}
+                        {message && (
+                          <Box sx={{ mb: 2 }}>
+                            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', mb: 1 }}>
+                              <MessageIcon sx={{ fontSize: 14, mr: 0.5 }} />
+                              MESSAGE
+                            </Typography>
+                            <Paper sx={{ p: 2, backgroundColor: 'grey.50', borderRadius: 2 }}>
+                              <Typography variant="body2" sx={{ fontStyle: 'italic' }}>
+                                "{message}"
+                              </Typography>
+                            </Paper>
+                          </Box>
+                        )}
+
+                        {/* Task Result */}
+                        {task.result && (
+                          <Box sx={{ mb: 2 }}>
+                            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', mb: 1 }}>
+                              <InfoIcon sx={{ fontSize: 14, mr: 0.5 }} />
+                              RESULT
+                            </Typography>
+                            <Paper sx={{ 
+                              p: 2, 
+                              backgroundColor: task.status === 'FAILURE' ? 'error.50' : task.status === 'SUCCESS' ? 'success.50' : 'grey.50', 
+                              borderRadius: 2,
+                              border: '1px solid',
+                              borderColor: task.status === 'FAILURE' ? 'error.200' : task.status === 'SUCCESS' ? 'success.200' : 'grey.200',
+                              maxHeight: 120,
+                              overflow: 'auto'
+                            }}>
+                              <Typography 
+                                variant="body2" 
+                                sx={{ 
+                                  fontFamily: 'monospace',
+                                  fontSize: '0.85rem',
+                                  whiteSpace: 'pre-wrap',
+                                  color: task.status === 'FAILURE' ? 'error.dark' : task.status === 'SUCCESS' ? 'success.dark' : 'text.primary'
+                                }}
+                              >
+                                {task.result}
+                              </Typography>
+                            </Paper>
+                          </Box>
+                        )}
+
+                        {/* Execution Time */}
+                        <Box sx={{ mb: 2 }}>
+                          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', mb: 1 }}>
+                            <AccessTimeIcon sx={{ fontSize: 14, mr: 0.5 }} />
+                            {tab === 'scheduled' ? 'SCHEDULED FOR' : 'EXECUTED AT'}
+                          </Typography>
+                          <Stack direction="row" justifyContent="space-between" alignItems="center">
+                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                              {formatEta(task.eta, task.business_id)}
+                            </Typography>
+                            {tab === 'scheduled' && timeUntil && (
+                              <Chip
+                                label={timeUntil}
+                                size="small"
+                                color={isOverdue ? 'error' : 'info'}
+                                sx={{ fontWeight: 600 }}
+                              />
+                            )}
                           </Stack>
                         </Box>
 
-                        <CardContent sx={{ p: 3 }}>
-                          {/* Lead & Business Info */}
-                          <Grid container spacing={2} sx={{ mb: 2 }}>
-                            <Grid item xs={6}>
-                              <Box sx={{ 
-                                p: 2, 
-                                backgroundColor: 'grey.50', 
-                                borderRadius: 2,
-                                border: '1px solid',
-                                borderColor: 'grey.200'
-                              }}>
-                                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center' }}>
-                                  <PersonIcon sx={{ fontSize: 14, mr: 0.5 }} />
-                                  LEAD ID
-                                </Typography>
-                                <Typography variant="body2" sx={{ fontWeight: 600, mt: 0.5, fontFamily: 'monospace' }}>
-                                  {leadId || 'N/A'}
-                                </Typography>
-                              </Box>
-                            </Grid>
-                            
-                            <Grid item xs={6}>
-                              <Box sx={{ 
-                                p: 2, 
-                                backgroundColor: 'grey.50', 
-                                borderRadius: 2,
-                                border: '1px solid',
-                                borderColor: 'grey.200'
-                              }}>
-                                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center' }}>
-                                  <BusinessIcon sx={{ fontSize: 14, mr: 0.5 }} />
-                                  BUSINESS
-                                </Typography>
-                                <Typography variant="body2" sx={{ fontWeight: 600, mt: 0.5 }}>
-                                  {businessName}
-                                </Typography>
-                              </Box>
-                            </Grid>
-                          </Grid>
+                        <Divider sx={{ my: 2 }} />
 
-                          {/* Message */}
-                          {message && (
-                            <Box sx={{ mb: 2 }}>
-                              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', mb: 1 }}>
-                                <MessageIcon sx={{ fontSize: 14, mr: 0.5 }} />
-                                MESSAGE
-                              </Typography>
-                              <Paper sx={{ p: 2, backgroundColor: 'grey.50', borderRadius: 2 }}>
-                                <Typography variant="body2" sx={{ fontStyle: 'italic' }}>
-                                  "{message}"
-                                </Typography>
-                              </Paper>
-                            </Box>
+                        {/* Actions */}
+                        <Stack direction="row" spacing={1} justifyContent="flex-end">
+                          {tab === 'scheduled' && (
+                            <Button
+                              variant="outlined"
+                              color="error"
+                              size="small"
+                              startIcon={canceling === task.task_id ? <CircularProgress size={16} color="inherit" /> : <DeleteIcon />}
+                              onClick={() => handleCancelTask(task)}
+                              disabled={canceling === task.task_id}
+                              sx={{
+                                borderRadius: 2,
+                                fontWeight: 600,
+                                textTransform: 'none'
+                              }}
+                            >
+                              {canceling === task.task_id ? 'Canceling...' : 'Cancel'}
+                            </Button>
                           )}
-
-                          {/* Execution Time */}
-                          <Box sx={{ mb: 2 }}>
-                            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', mb: 1 }}>
-                              <AccessTimeIcon sx={{ fontSize: 14, mr: 0.5 }} />
-                              {tab === 'scheduled' ? 'SCHEDULED FOR' : 'EXECUTED AT'}
-                            </Typography>
-                            <Stack direction="row" justifyContent="space-between" alignItems="center">
-                              <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                                {formatEta(task.eta, task.business_id)}
-                              </Typography>
-                              {tab === 'scheduled' && timeUntil && (
-                                <Chip
-                                  label={timeUntil}
-                                  size="small"
-                                  color={isOverdue ? 'error' : 'info'}
-                                  sx={{ fontWeight: 600 }}
-                                />
-                              )}
-                            </Stack>
-                          </Box>
-
-                          <Divider sx={{ my: 2 }} />
-
-                          {/* Actions */}
-                          <Stack direction="row" spacing={1} justifyContent="flex-end">
-                            {tab === 'scheduled' && (
-                              <Button
-                                variant="outlined"
-                                color="error"
-                                size="small"
-                                startIcon={canceling === task.task_id ? <CircularProgress size={16} color="inherit" /> : <DeleteIcon />}
-                                onClick={() => handleCancelTask(task)}
-                                disabled={canceling === task.task_id}
-                                sx={{
-                                  borderRadius: 2,
-                                  fontWeight: 600,
-                                  textTransform: 'none'
-                                }}
-                              >
-                                {canceling === task.task_id ? 'Canceling...' : 'Cancel'}
-                              </Button>
-                            )}
-                            
-                            {(task.status === 'FAILURE' || task.traceback) && (
-                              <Button
-                                variant="outlined"
-                                color="error"
-                                size="small"
-                                startIcon={<ErrorIcon />}
-                                onClick={() => handleErrorDetails(task)}
-                                sx={{
-                                  borderRadius: 2,
-                                  fontWeight: 600,
-                                  textTransform: 'none'
-                                }}
-                              >
-                                View Error
-                              </Button>
-                            )}
-                          </Stack>
-                        </CardContent>
-                      </Card>
-                    </Grid>
+                          
+                          {(task.status === 'FAILURE' || task.traceback) && (
+                            <Button
+                              variant="outlined"
+                              color="error"
+                              size="small"
+                              startIcon={<ErrorIcon />}
+                              onClick={() => handleErrorDetails(task)}
+                              sx={{
+                                borderRadius: 2,
+                                fontWeight: 600,
+                                textTransform: 'none'
+                              }}
+                            >
+                              View Error
+                            </Button>
+                          )}
+                        </Stack>
+                      </CardContent>
+                    </Card>
                   );
                 })}
-              </Grid>
+              </Stack>
             )}
           </CardContent>
         </Card>

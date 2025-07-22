@@ -74,10 +74,19 @@ const NewEvents: FC<Props> = ({
     );
   }
 
+  // Deduplicate events before rendering to ensure no duplicates are shown
+  const uniqueEvents = events.filter((event, index, arr) => 
+    arr.findIndex(e => e.event_id === event.event_id) === index
+  );
+  
+  if (uniqueEvents.length !== events.length) {
+    console.log(`[NewEvents] Filtered ${events.length - uniqueEvents.length} duplicate events before rendering`);
+  }
+
   return (
     <Box sx={{ mt: 2 }}>
       <Stack spacing={3}>
-        {events.map((e) => {
+        {uniqueEvents.map((e) => {
           const detail = leadDetails[e.lead_id];
           const isNew = !viewedEvents.has(String(e.event_id));
 
