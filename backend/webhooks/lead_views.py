@@ -87,9 +87,7 @@ class AutoResponseSettingsView(APIView):
                 enabled=False,
                 greeting_template='',
                 greeting_off_hours_template='',
-                follow_up_template='',
                 greeting_delay=0,
-                follow_up_delay=0,
             )
         return self._get_default_settings(phone_opt_in, phone_available)
 

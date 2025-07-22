@@ -43,10 +43,6 @@ interface AutoResponseSettingsData {
   greeting_open_to: string;
   include_name: boolean;
   include_jobs: boolean;
-  follow_up_template: string;
-  follow_up_delay: number;
-  follow_up_open_from: string;
-  follow_up_open_to: string;
   export_to_sheets: boolean;
   follow_up_templates: FollowUpTemplate[];
 }
@@ -67,10 +63,6 @@ const defaultData: AutoResponseSettingsData = {
   greeting_open_to: '20:00:00',
   include_name: true,
   include_jobs: true,
-  follow_up_template: '',
-  follow_up_delay: 7200,
-  follow_up_open_from: '08:00:00',
-  follow_up_open_to: '20:00:00',
   export_to_sheets: false,
   follow_up_templates: [],
 };
@@ -89,13 +81,8 @@ const SettingsTemplates: React.FC = () => {
   const [greetingDelayHours, setGreetingDelayHours] = useState(0);
   const [greetingDelayMinutes, setGreetingDelayMinutes] = useState(0);
   const [greetingDelaySeconds, setGreetingDelaySeconds] = useState(0);
-  const [followDelayDays, setFollowDelayDays] = useState(0);
-  const [followDelayHours, setFollowDelayHours] = useState(0);
-  const [followDelayMinutes, setFollowDelayMinutes] = useState(0);
-  const [followDelaySeconds, setFollowDelaySeconds] = useState(0);
 
   const greetingRef = useRef<HTMLTextAreaElement | null>(null);
-  const followRef = useRef<HTMLTextAreaElement | null>(null);
   const tplRef = useRef<HTMLTextAreaElement | null>(null);
 
   const [newText, setNewText] = useState('');
@@ -108,7 +95,7 @@ const SettingsTemplates: React.FC = () => {
 
   const insertPlaceholder = (
     ph: Placeholder,
-    target: 'greeting' | 'follow' | 'template'
+    target: 'greeting' | 'template'
   ) => {
     let ref: HTMLTextAreaElement | null = null;
     let base = '';
@@ -117,10 +104,6 @@ const SettingsTemplates: React.FC = () => {
       ref = greetingRef.current;
       base = data.greeting_template;
       setter = (v: string) => setData({...data, greeting_template: v});
-    } else if (target === 'follow') {
-      ref = followRef.current;
-      base = data.follow_up_template;
-      setter = (v: string) => setData({...data, follow_up_template: v});
     } else {
       ref = tplRef.current;
       base = newText;
@@ -163,13 +146,6 @@ const SettingsTemplates: React.FC = () => {
         gsecs %= 3600;
         setGreetingDelayMinutes(Math.floor(gsecs / 60));
         setGreetingDelaySeconds(gsecs % 60);
-        let fsecs = t.data.follow_up_delay || 0;
-        setFollowDelayDays(Math.floor(fsecs / 86400));
-        fsecs %= 86400;
-        setFollowDelayHours(Math.floor(fsecs / 3600));
-        fsecs %= 3600;
-        setFollowDelayMinutes(Math.floor(fsecs / 60));
-        setFollowDelaySeconds(fsecs % 60);
         setSaved(false);
         setError('');
         setOpen(true);
@@ -185,12 +161,6 @@ const SettingsTemplates: React.FC = () => {
     setGreetingDelayHours(0);
     setGreetingDelayMinutes(0);
     setGreetingDelaySeconds(0);
-    setFollowDelayDays(Math.floor(defaultData.follow_up_delay / 86400));
-    let fsecs = defaultData.follow_up_delay % 86400;
-    setFollowDelayHours(Math.floor(fsecs / 3600));
-    fsecs %= 3600;
-    setFollowDelayMinutes(Math.floor(fsecs / 60));
-    setFollowDelaySeconds(fsecs % 60);
     setSaved(false);
     setError('');
     setOpen(true);
@@ -201,12 +171,7 @@ const SettingsTemplates: React.FC = () => {
       greetingDelayHours * 3600 +
       greetingDelayMinutes * 60 +
       greetingDelaySeconds;
-    const followDelaySecs =
-      followDelayDays * 86400 +
-      followDelayHours * 3600 +
-      followDelayMinutes * 60 +
-      followDelaySeconds;
-    const payload = {name, description, data: {...data, greeting_delay: greetDelaySecs, follow_up_delay: followDelaySecs}};
+    const payload = {name, description, data: {...data, greeting_delay: greetDelaySecs}};
     if (editing) {
       axios.put<SettingsTemplate>(`/settings-templates/${editing.id}/`, payload)
         .then(() => {
@@ -344,62 +309,6 @@ const SettingsTemplates: React.FC = () => {
               onChange={e=>setData({...data, include_name:e.target.checked})}/>} label="Include Name" />
             <FormControlLabel control={<Switch checked={data.include_jobs}
               onChange={e=>setData({...data, include_jobs:e.target.checked})}/>} label="Include Jobs" />
-            <Stack direction="row" spacing={1} mb={1}>
-              {PLACEHOLDERS.map(ph => (
-                <Button key={ph} size="small" variant="outlined" onClick={() => insertPlaceholder(ph, 'follow')}>
-                  {ph}
-                </Button>
-              ))}
-            </Stack>
-            {!data.follow_up_template.trim() && (
-              <Chip
-                label="Field is inactive"
-                color="error"
-                size="small"
-                sx={{ mb: 1 }}
-              />
-            )}
-            <TextField
-              inputRef={followRef}
-              multiline
-              minRows={3}
-              label="Built-in Follow-up"
-              fullWidth
-              value={data.follow_up_template}
-              onChange={e=>setData({...data, follow_up_template:e.target.value})}
-            />
-            <Stack direction="row" spacing={1} alignItems="center">
-              <TextField label="Days" type="number" inputProps={{min:0}} sx={{ width:80 }}
-                value={followDelayDays} onChange={e=>{
-                  const v = Number(e.target.value);
-                  setFollowDelayDays(v);
-                  setData({...data, follow_up_delay: v*86400 + followDelayHours*3600 + followDelayMinutes*60 + followDelaySeconds});
-                }}/>
-              <TextField label="Hours" type="number" inputProps={{min:0}} sx={{ width:80 }}
-                value={followDelayHours} onChange={e=>{
-                  const v = Number(e.target.value);
-                  setFollowDelayHours(v);
-                  setData({...data, follow_up_delay: followDelayDays*86400 + v*3600 + followDelayMinutes*60 + followDelaySeconds});
-                }}/>
-              <TextField label="Min" type="number" inputProps={{min:0}} sx={{ width:80 }}
-                value={followDelayMinutes} onChange={e=>{
-                  const v = Number(e.target.value);
-                  setFollowDelayMinutes(v);
-                  setData({...data, follow_up_delay: followDelayDays*86400 + followDelayHours*3600 + v*60 + followDelaySeconds});
-                }}/>
-              <TextField label="Sec" type="number" inputProps={{min:0}} sx={{ width:80 }}
-                value={followDelaySeconds} onChange={e=>{
-                  const v = Number(e.target.value);
-                  setFollowDelaySeconds(v);
-                  setData({...data, follow_up_delay: followDelayDays*86400 + followDelayHours*3600 + followDelayMinutes*60 + v});
-                }}/>
-              <TextField label="Open From" type="time" value={data.follow_up_open_from}
-                onChange={e=>setData({...data, follow_up_open_from:e.target.value})}
-                inputProps={{ step:1 }} size="small"/>
-              <TextField label="Open To" type="time" value={data.follow_up_open_to}
-                onChange={e=>setData({...data, follow_up_open_to:e.target.value})}
-                inputProps={{ step:1 }} size="small"/>
-            </Stack>
 
             <Typography variant="h6">Additional Follow-up Templates</Typography>
             <List dense>
