@@ -197,12 +197,18 @@ class LeadLastEventAPIView(APIView):
     """Return latest LeadEvent by lead_id"""
 
     def get(self, request, lead_id: str):
+        logger.info(
+            f"[LEAD LAST EVENT] Fetching latest event for lead_id={lead_id} path={request.path}"
+        )
         obj = (
             LeadEvent.objects.filter(lead_id=lead_id)
             .order_by("-time_created")
             .first()
         )
         if not obj:
+            logger.info(
+                f"[LEAD LAST EVENT] LeadEvent with lead_id={lead_id} not found"
+            )
             raise NotFound(detail=f"LeadEvent з lead_id={lead_id} не знайдено")
         serializer = LeadEventSerializer(obj)
         return Response(serializer.data, status=status.HTTP_200_OK)
