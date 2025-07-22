@@ -24,7 +24,6 @@ class AutoResponseSettingsSerializer(serializers.ModelSerializer):
     business_id = serializers.CharField(
         source="business.business_id", allow_null=True, required=False
     )
-    follow_up_template = serializers.CharField(allow_blank=True, required=False)
 
     class Meta:
         model = AutoResponseSettings
@@ -41,10 +40,6 @@ class AutoResponseSettingsSerializer(serializers.ModelSerializer):
             "greeting_open_to",
             "include_name",
             "include_jobs",
-            "follow_up_template",
-            "follow_up_delay",
-            "follow_up_open_from",
-            "follow_up_open_to",
             "export_to_sheets",
         ]
         read_only_fields = ["id"]
@@ -289,7 +284,7 @@ class MessageTaskSerializer(serializers.ModelSerializer):
 
     def get_task_type(self, obj):
         mapping = {
-            "send_follow_up": "Built-in Follow-up",
+            "send_follow_up": "Follow-up",
         }
         return mapping.get(obj.name, obj.name)
 

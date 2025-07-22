@@ -759,51 +759,6 @@ class WebhookView(APIView):
             return
 
         now = timezone.now()
-        if auto_settings.follow_up_template and auto_settings.follow_up_delay:
-            built_in = auto_settings.follow_up_template.format(
-                name=name, jobs=jobs, sep=sep
-            )
-            due2 = adjust_due_time(
-                now + timedelta(seconds=auto_settings.follow_up_delay),
-                business.time_zone if business else None,
-                auto_settings.follow_up_open_from,
-                auto_settings.follow_up_open_to,
-            )
-            countdown = max((due2 - now).total_seconds(), 0)
-            with transaction.atomic():
-                if (
-                    _already_sent(lead_id, built_in)
-                    or built_in in scheduled_texts
-                    or LeadPendingTask.objects.select_for_update()
-                    .filter(lead_id=lead_id, text=built_in, active=True)
-                    .exists()
-                ):
-                    logger.info(
-                        "[AUTO-RESPONSE] Built-in follow-up already sent or duplicate → skipping"
-                    )
-                else:
-                    res = send_follow_up.apply_async(
-                        args=[lead_id, built_in],
-                        headers={"business_id": biz_id},
-                        countdown=countdown,
-                    )
-                    try:
-                        LeadPendingTask.objects.create(
-                            lead_id=lead_id,
-                            task_id=res.id,
-                            text=built_in,
-                            phone_opt_in=phone_opt_in,
-                            phone_available=phone_available,
-                        )
-                    except IntegrityError:
-                        logger.info(
-                            "[AUTO-RESPONSE] Duplicate pending task already exists → skipping"
-                        )
-                    else:
-                        logger.info(
-                            f"[AUTO-RESPONSE] Built-in follow-up scheduled at {due2.isoformat()}"
-                        )
-                        scheduled_texts.add(built_in)
 
         tpls = FollowUpTemplate.objects.filter(
             active=True,

@@ -98,15 +98,6 @@ class AutoResponseSettings(models.Model):
         help_text="Затримка перед привітанням, в секундах",
     )
 
-    # Вбудований follow-up
-    follow_up_template = models.TextField(
-        default="Just checking back in{sep}{name} — any questions about “{jobs}”?",
-        help_text="Шаблон follow-up повідомлення з плейсхолдерами {name}, {jobs}, {sep}",
-        blank=True,
-    )
-    follow_up_delay = models.PositiveIntegerField(
-        default=2, help_text="Затримка перед follow-up, в секундах"
-    )
 
     export_to_sheets = models.BooleanField(
         default=False, help_text="Записувати нові ліди в Google Sheets"
@@ -119,14 +110,6 @@ class AutoResponseSettings(models.Model):
     greeting_open_to = models.TimeField(
         default=time(20, 0),
         help_text="Час завершення робочих годин для привітання (локальний час)",
-    )
-    follow_up_open_from = models.TimeField(
-        default=time(8, 0),
-        help_text="Час початку робочих годин для built-in follow-up (локальний час)",
-    )
-    follow_up_open_to = models.TimeField(
-        default=time(20, 0),
-        help_text="Час завершення робочих годин для built-in follow-up (локальний час)",
     )
 
     def __str__(self):

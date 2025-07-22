@@ -73,10 +73,6 @@ interface AutoResponse {
   greeting_open_to: string;
   include_name: boolean;
   include_jobs: boolean;
-  follow_up_template: string;
-  follow_up_delay: number;
-  follow_up_open_from: string;
-  follow_up_open_to: string;
   export_to_sheets: boolean;
 }
 
@@ -106,10 +102,6 @@ interface AutoResponseSettingsData {
   greeting_open_to: string;
   include_name: boolean;
   include_jobs: boolean;
-  follow_up_template: string;
-  follow_up_delay: number;
-  follow_up_open_from: string;
-  follow_up_open_to: string;
   export_to_sheets: boolean;
   follow_up_templates: FollowUpTplData[];
 }
@@ -132,15 +124,8 @@ const AutoResponseSettings: FC = () => {
   const [greetingDelaySeconds, setGreetingDelaySeconds] = useState(0);
   const [includeName, setIncludeName] = useState(true);
   const [includeJobs, setIncludeJobs] = useState(true);
-  const [followUpTemplate, setFollowUpTemplate] = useState('');
-  const [followDelayDays, setFollowDelayDays] = useState(0);
-  const [followDelayHours, setFollowDelayHours] = useState(1);
-  const [followDelayMinutes, setFollowDelayMinutes] = useState(0);
-  const [followDelaySeconds, setFollowDelaySeconds] = useState(0);
   const [greetingOpenFrom, setGreetingOpenFrom] = useState('08:00:00');
   const [greetingOpenTo, setGreetingOpenTo] = useState('20:00:00');
-  const [followOpenFrom, setFollowOpenFrom] = useState('08:00:00');
-  const [followOpenTo, setFollowOpenTo] = useState('20:00:00');
   const [exportToSheets, setExportToSheets] = useState(false);
 
   // follow-up templates
@@ -183,13 +168,12 @@ const AutoResponseSettings: FC = () => {
   // refs for placeholder insertion
   const greetingRef = useRef<HTMLTextAreaElement | null>(null);
   const greetingAfterRef = useRef<HTMLTextAreaElement | null>(null);
-  const followRef = useRef<HTMLTextAreaElement | null>(null);
   const tplRef = useRef<HTMLTextAreaElement | null>(null);
 
   // helper to insert placeholder
   const insertPlaceholder = (
     ph: Placeholder,
-    target: 'greeting' | 'follow' | 'template' | 'after'
+    target: 'greeting' | 'template' | 'after'
   ) => {
     let ref: HTMLTextAreaElement | null = null;
     let base = '';
@@ -202,10 +186,6 @@ const AutoResponseSettings: FC = () => {
       ref = greetingAfterRef.current;
       base = greetingAfterTemplate;
       setter = setGreetingAfterTemplate;
-    } else if (target === 'follow') {
-      ref = followRef.current;
-      base = followUpTemplate;
-      setter = setFollowUpTemplate;
     } else {
       ref = tplRef.current;
       base = newText;
@@ -246,10 +226,6 @@ const AutoResponseSettings: FC = () => {
     greeting_open_to: '20:00:00',
     include_name: true,
     include_jobs: true,
-    follow_up_template: '',
-    follow_up_delay: 0,
-    follow_up_open_from: '08:00:00',
-    follow_up_open_to: '20:00:00',
     export_to_sheets: false,
     follow_up_templates: [],
   };
@@ -289,16 +265,6 @@ const AutoResponseSettings: FC = () => {
           setGreetingOpenTo(d.greeting_open_to || '20:00:00');
           setIncludeName(d.include_name);
           setIncludeJobs(d.include_jobs);
-          setFollowUpTemplate(d.follow_up_template);
-          let secs = d.follow_up_delay;
-          setFollowDelayDays(Math.floor(secs / 86400));
-          secs %= 86400;
-          setFollowDelayHours(Math.floor(secs / 3600));
-          secs %= 3600;
-          setFollowDelayMinutes(Math.floor(secs / 60));
-          setFollowDelaySeconds(secs % 60);
-          setFollowOpenFrom(d.follow_up_open_from || '08:00:00');
-          setFollowOpenTo(d.follow_up_open_to || '20:00:00');
           setExportToSheets(d.export_to_sheets);
           initialSettings.current = {
             enabled: d.enabled,
@@ -309,10 +275,6 @@ const AutoResponseSettings: FC = () => {
             greeting_open_to: d.greeting_open_to || '20:00:00',
             include_name: d.include_name,
             include_jobs: d.include_jobs,
-            follow_up_template: d.follow_up_template,
-            follow_up_delay: d.follow_up_delay,
-            follow_up_open_from: d.follow_up_open_from || '08:00:00',
-            follow_up_open_to: d.follow_up_open_to || '20:00:00',
             export_to_sheets: d.export_to_sheets,
             follow_up_templates: initialSettings.current?.follow_up_templates || [],
           };
@@ -371,10 +333,6 @@ const AutoResponseSettings: FC = () => {
             greeting_open_to: '20:00:00',
             include_name: true,
             include_jobs: true,
-            follow_up_template: '',
-            follow_up_delay: 0,
-            follow_up_open_from: '08:00:00',
-            follow_up_open_to: '20:00:00',
             export_to_sheets: false,
             follow_up_templates: mapped,
           };
@@ -412,16 +370,6 @@ const AutoResponseSettings: FC = () => {
     setGreetingOpenTo(d.greeting_open_to || '20:00:00');
     setIncludeName(d.include_name);
     setIncludeJobs(d.include_jobs);
-    setFollowUpTemplate(d.follow_up_template);
-    let secs = d.follow_up_delay || 0;
-    setFollowDelayDays(Math.floor(secs / 86400));
-    secs %= 86400;
-    setFollowDelayHours(Math.floor(secs / 3600));
-    secs %= 3600;
-    setFollowDelayMinutes(Math.floor(secs / 60));
-    setFollowDelaySeconds(secs % 60);
-    setFollowOpenFrom(d.follow_up_open_from || '08:00:00');
-    setFollowOpenTo(d.follow_up_open_to || '20:00:00');
     setExportToSheets(d.export_to_sheets);
 
     if (Array.isArray(d.follow_up_templates)) {
@@ -512,11 +460,6 @@ const AutoResponseSettings: FC = () => {
     params.append('phone_available', phoneAvailable ? 'true' : 'false');
     if (selectedBusiness) params.append('business_id', selectedBusiness);
     const url = `/settings/auto-response/?${params.toString()}`;
-    const delaySecs =
-      followDelayDays * 86400 +
-      followDelayHours * 3600 +
-      followDelayMinutes * 60 +
-      followDelaySeconds;
     const greetDelaySecs =
       greetingDelayHours * 3600 +
       greetingDelayMinutes * 60 +
@@ -531,10 +474,6 @@ const AutoResponseSettings: FC = () => {
         greeting_open_to: greetingOpenTo,
         include_name: includeName,
         include_jobs: includeJobs,
-        follow_up_template: followUpTemplate,
-        follow_up_delay: delaySecs,
-        follow_up_open_from: followOpenFrom,
-        follow_up_open_to: followOpenTo,
         export_to_sheets: exportToSheets,
       });
 
@@ -548,10 +487,6 @@ const AutoResponseSettings: FC = () => {
         greeting_open_to: greetingOpenTo,
         include_name: includeName,
         include_jobs: includeJobs,
-        follow_up_template: followUpTemplate,
-        follow_up_delay: delaySecs,
-        follow_up_open_from: followOpenFrom,
-        follow_up_open_to: followOpenTo,
         export_to_sheets: exportToSheets,
         follow_up_templates: initialSettings.current?.follow_up_templates || [],
       };
@@ -1251,153 +1186,6 @@ const AutoResponseSettings: FC = () => {
                 </Card>
               )}
 
-              {/* Built-in Follow-up Section */}
-              {!phoneAvailable && (
-                <Card elevation={2} sx={{ borderRadius: 2, overflow: 'hidden' }}>
-                  <Box sx={{ 
-                    backgroundColor: 'success.50', 
-                    p: 2, 
-                    borderBottom: '1px solid',
-                    borderColor: 'divider'
-                  }}>
-                    <Stack direction="row" spacing={2} alignItems="center" justifyContent="space-between">
-                      <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center' }}>
-                        <MessageIcon sx={{ mr: 1, color: 'success.main' }} />
-                        Built-in Follow-up
-                      </Typography>
-                      {!followUpTemplate.trim() && (
-                        <Chip
-                          label="Inactive"
-                          color="error"
-                          size="small"
-                          variant="outlined"
-                        />
-                      )}
-                    </Stack>
-                  </Box>
-                  
-                  <CardContent sx={{ p: 3 }}>
-                    <Stack spacing={3}>
-                      {/* Placeholder buttons */}
-                      <Box>
-                        <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-                          Insert Variables
-                        </Typography>
-                        <Stack direction="row" spacing={1} flexWrap="wrap" gap={1}>
-                          {PLACEHOLDERS.map(ph => (
-                            <Chip
-                              key={ph}
-                              label={ph}
-                              size="small"
-                              variant="outlined"
-                              clickable
-                              onClick={() => insertPlaceholder(ph, 'follow')}
-                              sx={{ 
-                                '&:hover': { backgroundColor: 'success.50' }
-                              }}
-                            />
-                          ))}
-                        </Stack>
-                      </Box>
-
-                      {/* Message template */}
-                      <TextField
-                        inputRef={followRef}
-                        multiline
-                        minRows={3}
-                        fullWidth
-                        value={followUpTemplate}
-                        onChange={e => setFollowUpTemplate(e.target.value)}
-                        placeholder="Enter your follow-up message template..."
-                        variant="outlined"
-                        sx={{
-                          '& .MuiOutlinedInput-root': {
-                            backgroundColor: 'white'
-                          }
-                        }}
-                      />
-
-                      {/* Timing and Business Hours */}
-                      <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
-                        {/* Send Delay */}
-                        <Box sx={{ flex: 1 }}>
-                          <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-                            Send After
-                          </Typography>
-                          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                            <TextField
-                              label="Days"
-                              type="number"
-                              inputProps={{ min: 0, max: 365 }}
-                              sx={{ width: 80 }}
-                              value={followDelayDays}
-                              onChange={e => setFollowDelayDays(Number(e.target.value))}
-                              size="small"
-                            />
-                            <TextField
-                              label="Hours"
-                              type="number"
-                              inputProps={{ min: 0, max: 23 }}
-                              sx={{ width: 80 }}
-                              value={followDelayHours}
-                              onChange={e => setFollowDelayHours(Number(e.target.value))}
-                              size="small"
-                            />
-                            <TextField
-                              label="Minutes"
-                              type="number"
-                              inputProps={{ min: 0, max: 59 }}
-                              sx={{ width: 90 }}
-                              value={followDelayMinutes}
-                              onChange={e => setFollowDelayMinutes(Number(e.target.value))}
-                              size="small"
-                            />
-                            <TextField
-                              label="Seconds"
-                              type="number"
-                              inputProps={{ min: 0, max: 59 }}
-                              sx={{ width: 90 }}
-                              value={followDelaySeconds}
-                              onChange={e => setFollowDelaySeconds(Number(e.target.value))}
-                              size="small"
-                            />
-                          </Stack>
-                        </Box>
-
-                        {/* Business Hours */}
-                        <Box sx={{ flex: 1 }}>
-                          <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-                            Business Hours
-                          </Typography>
-                          <Stack direction="row" spacing={1} alignItems="center">
-                            <TextField
-                              label="From"
-                              type="time"
-                              inputProps={{ step: 1 }}
-                              value={followOpenFrom}
-                              onChange={e => setFollowOpenFrom(e.target.value)}
-                              size="small"
-                              sx={{ flex: 1 }}
-                            />
-                            <Typography variant="body2" color="text.secondary">
-                              to
-                            </Typography>
-                            <TextField
-                              label="To"
-                              type="time"
-                              inputProps={{ step: 1 }}
-                              value={followOpenTo}
-                              onChange={e => setFollowOpenTo(e.target.value)}
-                              size="small"
-                              sx={{ flex: 1 }}
-                            />
-                          </Stack>
-                        </Box>
-                      </Stack>
-                    </Stack>
-                  </CardContent>
-                </Card>
-              )}
 
             {/* Global Follow-up Templates */}
             {!phoneAvailable && (
