@@ -91,11 +91,22 @@ class WebhookView(APIView):
             logger.error("[WEBHOOK] No token available for lead=%s", lead_id)
             return {"new_lead": False}
         url = f"https://api.yelp.com/v3/leads/{lead_id}/events"
+
+        logger.debug(
+            "[WEBHOOK] Verifying new lead via %s with params=%s",
+            url,
+            {"limit": 2},
+        )
         resp = requests.get(
             url,
             headers={"Authorization": f"Bearer {token}"},
             params={"limit": 2},
             timeout=10,
+        )
+        logger.info(
+            "[WEBHOOK] Yelp verify status for lead=%s: %s",
+            lead_id,
+            resp.status_code,
         )
         if resp.status_code != 200:
             logger.error(
@@ -104,6 +115,11 @@ class WebhookView(APIView):
             return {"new_lead": False}
 
         events = resp.json().get("events", [])
+        logger.debug(
+            "[WEBHOOK] Yelp returned events for lead=%s: %s",
+            lead_id,
+            events,
+        )
         is_new = (
             len(events) == 1 and events[0].get("user_type") == "CONSUMER"
         ) or (
@@ -111,6 +127,7 @@ class WebhookView(APIView):
             and events[0].get("user_type") == "CONSUMER"
             and events[1].get("event_type") == "CONSUMER_PHONE_NUMBER_OPT_IN_EVENT"
         )
+        logger.debug("[WEBHOOK] _is_new_lead result for %s: %s", lead_id, is_new)
         return {"new_lead": is_new}
 
     def post(self, request, *args, **kwargs):
@@ -208,8 +225,15 @@ class WebhookView(APIView):
                         reason = "Client responded, but no number was found"
                         self._cancel_no_phone_tasks(lid, reason=reason)
                 else:
+                    reasons = []
+                    if upd.get("event_type") != "NEW_EVENT":
+                        reasons.append(f"event_type={upd.get('event_type')}")
+                    if upd.get("user_type") != "CONSUMER":
+                        reasons.append(f"user_type={upd.get('user_type')}")
                     logger.debug(
-                        f"[WEBHOOK] Update did not pass consumer NEW_EVENT check for lead_id={lid}"
+                        "[WEBHOOK] Update did not pass consumer NEW_EVENT check for lead_id=%s (%s)",
+                        lid,
+                        ", ".join(reasons) or "unknown",
                     )
         logger.info(f"[WEBHOOK] Lead IDs to process: {lead_ids}")
 
