@@ -32,6 +32,8 @@ import {
   DialogContent,
   DialogActions,
   Chip,
+  Checkbox,
+  FormGroup,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
@@ -54,6 +56,8 @@ import BusinessInfoCard from './BusinessInfoCard';
 
 const PLACEHOLDERS = ['{name}', '{jobs}', '{sep}'] as const;
 type Placeholder = typeof PLACEHOLDERS[number];
+
+const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 interface Business {
   business_id: string;
@@ -203,6 +207,21 @@ const AutoResponseSettings: FC = () => {
       ref!.focus();
       ref!.setSelectionRange(start + ph.length, start + ph.length);
     }, 0);
+  };
+
+  const toggleDay = (day: string) => {
+    const parts = greetingOpenDays
+      .split(',')
+      .map(p => p.trim())
+      .filter(Boolean);
+    const idx = parts.indexOf(day);
+    if (idx >= 0) {
+      parts.splice(idx, 1);
+    } else {
+      parts.push(day);
+    }
+    const ordered = DAY_NAMES.filter(d => parts.includes(d));
+    setGreetingOpenDays(ordered.join(', '));
   };
 
   const formatDelay = (secs: number) => {
@@ -460,6 +479,12 @@ const AutoResponseSettings: FC = () => {
       if (timer) clearInterval(timer);
     };
   }, [selectedBusiness, businesses]);
+
+  useEffect(() => {
+    if (!phoneAvailable) {
+      setGreetingOpenDays('');
+    }
+  }, [phoneAvailable]);
 
   // save settings
   const handleSaveSettings = async () => {
@@ -1130,14 +1155,26 @@ const AutoResponseSettings: FC = () => {
                             size="small"
                             sx={{ flex: 1 }}
                           />
-                          <TextField
-                            label="Days"
-                            type="text"
-                            value={greetingOpenDays}
-                            onChange={e => setGreetingOpenDays(e.target.value)}
-                            size="small"
-                            sx={{ flex: 1 }}
-                          />
+                          {phoneAvailable && (
+                            <FormGroup row sx={{ flex: 1 }}>
+                              {DAY_NAMES.map(d => (
+                                <FormControlLabel
+                                  key={d}
+                                  control={
+                                    <Checkbox
+                                      size="small"
+                                      checked={greetingOpenDays
+                                        .split(',')
+                                        .map(p => p.trim())
+                                        .includes(d)}
+                                      onChange={() => toggleDay(d)}
+                                    />
+                                  }
+                                  label={d}
+                                />
+                              ))}
+                            </FormGroup>
+                          )}
                         </Stack>
                       </Box>
                     </Stack>
