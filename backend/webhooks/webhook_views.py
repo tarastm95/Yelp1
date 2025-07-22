@@ -681,7 +681,10 @@ class WebhookView(APIView):
         if tz_name:
             tz = ZoneInfo(tz_name)
             local_now = now.astimezone(tz)
-            allowed_days = utils._parse_days(auto_settings.greeting_open_days)
+            days_setting = (
+                auto_settings.greeting_open_days if phone_available else None
+            )
+            allowed_days = utils._parse_days(days_setting)
             open_dt = local_now.replace(
                 hour=auto_settings.greeting_open_from.hour,
                 minute=auto_settings.greeting_open_from.minute,
@@ -706,7 +709,7 @@ class WebhookView(APIView):
                 tz_name,
                 auto_settings.greeting_open_from,
                 auto_settings.greeting_open_to,
-                auto_settings.greeting_open_days,
+                days_setting,
             )
             greet_text = greeting
         else:
