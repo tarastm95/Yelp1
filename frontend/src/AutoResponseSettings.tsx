@@ -774,11 +774,21 @@ const AutoResponseSettings: FC = () => {
         </Typography>
       </Box>
 
+      {selectedBusiness && (() => {
+        const biz = businesses.find(b => b.business_id === selectedBusiness);
+        if (!biz) return null;
+        return (
+          <Box sx={{ mb: 2 }}>
+            <BusinessInfoCard business={biz} />
+          </Box>
+        );
+      })()}
+
       {/* Business Selector */}
       <Card elevation={2} sx={{ mb: 3, borderRadius: 2, overflow: 'hidden' }}>
-        <Box sx={{ 
-          backgroundColor: 'primary.50', 
-          p: 2, 
+        <Box sx={{
+          backgroundColor: 'primary.50',
+          p: 2,
           borderBottom: '1px solid',
           borderColor: 'divider'
         }}>
@@ -787,7 +797,7 @@ const AutoResponseSettings: FC = () => {
             Business Selection
           </Typography>
         </Box>
-        
+
         <CardContent sx={{ p: 3 }}>
           <Box sx={{ mb: 2 }}>
             <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
@@ -798,7 +808,7 @@ const AutoResponseSettings: FC = () => {
               onChange={e => setSelectedBusiness(e.target.value as string)}
               displayEmpty
               fullWidth
-              sx={{ 
+              sx={{
                 '& .MuiOutlinedInput-root': {
                   borderRadius: 2,
                   backgroundColor: 'grey.50'
@@ -838,11 +848,11 @@ const AutoResponseSettings: FC = () => {
             <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600 }}>
               Phone Configuration Type
             </Typography>
-            <Paper 
-              elevation={0} 
-              sx={{ 
-                backgroundColor: 'grey.100', 
-                borderRadius: 2, 
+            <Paper
+              elevation={0}
+              sx={{
+                backgroundColor: 'grey.100',
+                borderRadius: 2,
                 p: 0.5,
                 display: 'inline-flex',
                 width: 'fit-content'
@@ -886,39 +896,29 @@ const AutoResponseSettings: FC = () => {
                   }
                 }}
               >
-                <Tab 
+                <Tab
                   icon={<PhoneDisabledIcon sx={{ fontSize: 18 }} />}
                   iconPosition="start"
-                  label="No Phone" 
-                  value="no" 
+                  label="No Phone"
+                  value="no"
                 />
-                <Tab 
+                <Tab
                   icon={<ContactPhoneIcon sx={{ fontSize: 18 }} />}
                   iconPosition="start"
-                  label="Opt-In Phone" 
-                  value="opt" 
+                  label="Opt-In Phone"
+                  value="opt"
                 />
-                <Tab 
+                <Tab
                   icon={<PhoneIcon sx={{ fontSize: 18 }} />}
                   iconPosition="start"
-                  label="Real Phone" 
-                  value="text" 
+                  label="Real Phone"
+                  value="text"
                 />
               </Tabs>
             </Paper>
           </Box>
         </CardContent>
       </Card>
-
-      {selectedBusiness && (() => {
-        const biz = businesses.find(b => b.business_id === selectedBusiness);
-        if (!biz) return null;
-        return (
-          <Box sx={{ mb: 2 }}>
-            <BusinessInfoCard business={biz} />
-          </Box>
-        );
-      })()}
 
       <Paper 
         elevation={3}
