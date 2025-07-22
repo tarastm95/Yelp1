@@ -312,7 +312,10 @@ const SettingsTemplates: React.FC = () => {
 
             <Typography variant="h6">Additional Follow-up Templates</Typography>
             <List dense>
-              {(data.follow_up_templates || []).map((t, idx) => (
+              {(data.follow_up_templates || [])
+                .slice()
+                .sort((a, b) => a.delay - b.delay)
+                .map((t, idx) => (
                 <ListItem key={idx} secondaryAction={
                   <IconButton edge="end" onClick={() => handleDeleteFollowTemplate(idx)}>
                     <DeleteIcon />
