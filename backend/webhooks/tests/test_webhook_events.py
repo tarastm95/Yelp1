@@ -412,3 +412,67 @@ class SendFollowUpTests(TestCase):
         ev = LeadEvent.objects.get(lead_id='lead-y')
         self.assertTrue(ev.from_backend)
 
+
+class BusinessTokenErrorTests(TestCase):
+    def setUp(self):
+        self.factory = APIRequestFactory()
+        self.view = WebhookView.as_view()
+        self.lead_id = "err1"
+        self.biz_id = "biz1"
+
+    def _post(self):
+        payload = {
+            "data": {
+                "id": self.biz_id,
+                "updates": [{"lead_id": self.lead_id, "event_type": "NEW_LEAD"}],
+            }
+        }
+        request = self.factory.post("/webhook/", {"payload": payload}, format="json")
+        return self.view(request)
+
+    @patch("webhooks.webhook_views.requests.get")
+    @patch.object(WebhookView, "_cancel_no_phone_tasks")
+    @patch.object(WebhookView, "handle_phone_available")
+    @patch.object(WebhookView, "handle_new_lead")
+    @patch(
+        "webhooks.webhook_views.get_valid_business_token",
+        side_effect=ValueError("no token"),
+    )
+    @patch("webhooks.webhook_views.get_token_for_lead", return_value="tok")
+    def test_valueerror_skips_fetching_events(
+        self,
+        mock_lead_token,
+        mock_business_token,
+        mock_new_lead,
+        mock_phone_available,
+        mock_cancel,
+        mock_get,
+    ):
+        resp = self._post()
+        mock_get.assert_not_called()
+        self.assertEqual(resp.status_code, 201)
+        self.assertEqual(LeadEvent.objects.count(), 0)
+
+    @patch("webhooks.webhook_views.requests.get")
+    @patch.object(WebhookView, "_cancel_no_phone_tasks")
+    @patch.object(WebhookView, "handle_phone_available")
+    @patch.object(WebhookView, "handle_new_lead")
+    @patch(
+        "webhooks.webhook_views.get_valid_business_token",
+        side_effect=RuntimeError("boom"),
+    )
+    @patch("webhooks.webhook_views.get_token_for_lead", return_value="tok")
+    def test_exception_skips_fetching_events(
+        self,
+        mock_lead_token,
+        mock_business_token,
+        mock_new_lead,
+        mock_phone_available,
+        mock_cancel,
+        mock_get,
+    ):
+        resp = self._post()
+        mock_get.assert_not_called()
+        self.assertEqual(resp.status_code, 201)
+        self.assertEqual(LeadEvent.objects.count(), 0)
+
