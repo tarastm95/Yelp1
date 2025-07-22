@@ -120,15 +120,42 @@ class WebhookView(APIView):
             lead_id,
             events,
         )
-        is_new = (
-            len(events) == 1 and events[0].get("user_type") == "CONSUMER"
-        ) or (
-            len(events) == 2
-            and events[0].get("user_type") == "CONSUMER"
-            and events[1].get("event_type") == "CONSUMER_PHONE_NUMBER_OPT_IN_EVENT"
+        reason = ""
+        is_new = False
+        if not events:
+            reason = "no events returned"
+        elif len(events) == 1:
+            user_type = events[0].get("user_type")
+            if user_type == "CONSUMER":
+                is_new = True
+                reason = "single CONSUMER event"
+            else:
+                reason = f"single event with user_type={user_type}"
+        elif len(events) == 2:
+            first_user_type = events[0].get("user_type")
+            second_event_type = events[1].get("event_type")
+            if (
+                first_user_type == "CONSUMER"
+                and second_event_type == "CONSUMER_PHONE_NUMBER_OPT_IN_EVENT"
+            ):
+                is_new = True
+                reason = "consumer message followed by opt-in"
+            else:
+                reason = (
+                    "two events: "
+                    f"first_user_type={first_user_type}, "
+                    f"second_event_type={second_event_type}"
+                )
+        else:
+            reason = f"{len(events)} events found"
+
+        logger.debug(
+            "[WEBHOOK] _is_new_lead decision for %s: %s (reason=%s)",
+            lead_id,
+            is_new,
+            reason,
         )
-        logger.debug("[WEBHOOK] _is_new_lead result for %s: %s", lead_id, is_new)
-        return {"new_lead": is_new}
+        return {"new_lead": is_new, "reason": reason}
 
     def post(self, request, *args, **kwargs):
         logger.info("[WEBHOOK] Received POST /webhook/")
@@ -166,6 +193,12 @@ class WebhookView(APIView):
                         upd["event_type"] = "NEW_LEAD"
                         logger.info(
                             f"[WEBHOOK] Marked lead={lid} as NEW_LEAD via events check"
+                        )
+                    else:
+                        logger.info(
+                            "[WEBHOOK] _is_new_lead returned False for lead=%s: %s",
+                            lid,
+                            check.get("reason"),
                         )
                 if upd.get("event_type") == "CONSUMER_PHONE_NUMBER_OPT_IN_EVENT":
                     updated = LeadDetail.objects.filter(
