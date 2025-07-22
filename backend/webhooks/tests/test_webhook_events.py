@@ -65,7 +65,7 @@ class WebhookEventProcessingTests(TestCase):
             }
         ]}})()
         self._post()
-        mock_cancel.assert_not_called()
+        mock_cancel.assert_called_once()
 
     @patch("webhooks.webhook_views.requests.get")
     @patch.object(WebhookView, "_cancel_no_phone_tasks")
@@ -136,7 +136,7 @@ class WebhookEventProcessingTests(TestCase):
             },
         )()
         self._post()
-        mock_phone_available.assert_not_called()
+        mock_phone_available.assert_called_once()
         mock_cancel.assert_not_called()
 
     @patch("webhooks.webhook_views.requests.get")
