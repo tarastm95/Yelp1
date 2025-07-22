@@ -699,7 +699,7 @@ class WebhookView(APIView):
             days_setting = (
                 auto_settings.greeting_open_days if phone_available else None
             )
-            allowed_days = utils._parse_days(days_setting)
+            allowed_days = _parse_days(days_setting)
             open_dt = local_now.replace(
                 hour=auto_settings.greeting_open_from.hour,
                 minute=auto_settings.greeting_open_from.minute,
