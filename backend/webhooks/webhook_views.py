@@ -305,8 +305,23 @@ class WebhookView(APIView):
 
         biz_id = payload["data"].get("id")
         for lid in lead_ids:
-            token = get_valid_business_token(biz_id)
-            logger.info(f"[WEBHOOK] Using business token for lead={lid}: {token}")
+            try:
+                token = get_valid_business_token(biz_id)
+                logger.info(
+                    f"[WEBHOOK] Using business token for lead={lid}: {token}"
+                )
+            except ValueError:
+                logger.error(
+                    f"[WEBHOOK] Missing Yelp token for business={biz_id}; "
+                    f"skipping lead={lid}"
+                )
+                continue
+            except Exception:
+                logger.exception(
+                    f"[WEBHOOK] Error obtaining token for business={biz_id} "
+                    f"lead={lid}"
+                )
+                continue
             url = f"https://api.yelp.com/v3/leads/{lid}/events"
             params = {"limit": 20}
             resp = requests.get(
