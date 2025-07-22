@@ -378,17 +378,10 @@ class WebhookView(APIView):
                     .values_list("processed_at", flat=True)
                     .first()
                 )
-                event_dt = parse_datetime(defaults.get("time_created"))
                 text = defaults.get("text", "")
                 phone = _extract_phone(text)
                 has_phone = bool(phone)
                 is_new = created
-                if processed_at and event_dt:
-                    is_new = is_new and event_dt > processed_at
-
-                if not is_new:
-                    logger.info("[WEBHOOK] Ignoring old event")
-                    continue
 
                 if e.get("event_type") == "CONSUMER_PHONE_NUMBER_OPT_IN_EVENT":
                     updated = LeadDetail.objects.filter(
