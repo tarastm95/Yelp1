@@ -111,6 +111,11 @@ class AutoResponseSettings(models.Model):
         default=time(20, 0),
         help_text="Час завершення робочих годин для привітання (локальний час)",
     )
+    greeting_open_days = models.CharField(
+        max_length=64,
+        blank=True,
+        help_text="Скорочені назви днів тижня через кому, напр. 'Mon, Tue, Wed'",
+    )
 
     def __str__(self):
         return f"AutoResponseSettings(id={self.id}, enabled={self.enabled})"

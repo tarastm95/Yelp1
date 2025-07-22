@@ -29,6 +29,7 @@ from .utils import (
     get_token_for_lead,
     adjust_due_time,
     _already_sent,
+    _parse_days,
 )
 from .tasks import send_follow_up
 
@@ -680,6 +681,7 @@ class WebhookView(APIView):
         if tz_name:
             tz = ZoneInfo(tz_name)
             local_now = now.astimezone(tz)
+            allowed_days = utils._parse_days(auto_settings.greeting_open_days)
             open_dt = local_now.replace(
                 hour=auto_settings.greeting_open_from.hour,
                 minute=auto_settings.greeting_open_from.minute,
@@ -694,7 +696,9 @@ class WebhookView(APIView):
             )
             if close_dt <= open_dt:
                 close_dt += timedelta(days=1)
-            within_hours = open_dt <= local_now < close_dt
+            within_hours = (
+                local_now.weekday() in allowed_days and open_dt <= local_now < close_dt
+            )
 
         if within_hours:
             due = adjust_due_time(
@@ -702,6 +706,7 @@ class WebhookView(APIView):
                 tz_name,
                 auto_settings.greeting_open_from,
                 auto_settings.greeting_open_to,
+                auto_settings.greeting_open_days,
             )
             greet_text = greeting
         else:
