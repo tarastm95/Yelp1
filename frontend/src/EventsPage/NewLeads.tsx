@@ -22,6 +22,9 @@ import InfoIcon from '@mui/icons-material/Info';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import EventIcon from '@mui/icons-material/Event';
 
+// Base URL for API requests
+const API_BASE = import.meta.env.VITE_API_URL || 'http://46.62.139.177:8000';
+
 interface Props {
   leads: ProcessedLead[];
   leadDetails: Record<string, Partial<LeadDetailType>>;
@@ -67,7 +70,7 @@ const NewLeads: FC<Props> = ({
       for (const lid of toFetch) {
         try {
           const { data } = await axios.get<LeadEvent>(
-            `/lead-events/${encodeURIComponent(lid)}/latest/`
+            `${API_BASE}/api/lead-events/${encodeURIComponent(lid)}/latest/`
           );
           if (data.event_id) {
             setFetchedEvents(prev => ({ ...prev, [lid]: String(data.event_id) }));
