@@ -41,6 +41,7 @@ interface AutoResponseSettingsData {
   greeting_delay: number;
   greeting_open_from: string;
   greeting_open_to: string;
+  greeting_open_days: string;
   include_name: boolean;
   include_jobs: boolean;
   export_to_sheets: boolean;
@@ -61,6 +62,7 @@ const defaultData: AutoResponseSettingsData = {
   greeting_delay: 0,
   greeting_open_from: '08:00:00',
   greeting_open_to: '20:00:00',
+  greeting_open_days: 'Mon, Tue, Wed, Thu, Fri',
   include_name: true,
   include_jobs: true,
   export_to_sheets: false,
@@ -304,6 +306,9 @@ const SettingsTemplates: React.FC = () => {
               <TextField label="Open To" type="time" value={data.greeting_open_to}
                 onChange={e=>setData({...data, greeting_open_to:e.target.value})}
                 inputProps={{ step:1 }} size="small"/>
+              <TextField label="Days" type="text" value={data.greeting_open_days}
+                onChange={e=>setData({...data, greeting_open_days:e.target.value})}
+                size="small"/>
             </Stack>
             <FormControlLabel control={<Switch checked={data.include_name}
               onChange={e=>setData({...data, include_name:e.target.checked})}/>} label="Include Name" />

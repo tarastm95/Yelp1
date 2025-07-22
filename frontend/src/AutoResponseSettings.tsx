@@ -71,6 +71,7 @@ interface AutoResponse {
   greeting_delay: number;
   greeting_open_from: string;
   greeting_open_to: string;
+  greeting_open_days: string;
   include_name: boolean;
   include_jobs: boolean;
   export_to_sheets: boolean;
@@ -100,6 +101,7 @@ interface AutoResponseSettingsData {
   greeting_delay: number;
   greeting_open_from: string;
   greeting_open_to: string;
+  greeting_open_days: string;
   include_name: boolean;
   include_jobs: boolean;
   export_to_sheets: boolean;
@@ -126,6 +128,7 @@ const AutoResponseSettings: FC = () => {
   const [includeJobs, setIncludeJobs] = useState(true);
   const [greetingOpenFrom, setGreetingOpenFrom] = useState('08:00:00');
   const [greetingOpenTo, setGreetingOpenTo] = useState('20:00:00');
+  const [greetingOpenDays, setGreetingOpenDays] = useState('Mon, Tue, Wed, Thu, Fri');
   const [exportToSheets, setExportToSheets] = useState(false);
 
   // follow-up templates
@@ -224,6 +227,7 @@ const AutoResponseSettings: FC = () => {
     greeting_delay: 0,
     greeting_open_from: '08:00:00',
     greeting_open_to: '20:00:00',
+    greeting_open_days: 'Mon, Tue, Wed, Thu, Fri',
     include_name: true,
     include_jobs: true,
     export_to_sheets: false,
@@ -263,6 +267,7 @@ const AutoResponseSettings: FC = () => {
           setGreetingDelaySeconds(gsecs % 60);
           setGreetingOpenFrom(d.greeting_open_from || '08:00:00');
           setGreetingOpenTo(d.greeting_open_to || '20:00:00');
+          setGreetingOpenDays(d.greeting_open_days || 'Mon, Tue, Wed, Thu, Fri');
           setIncludeName(d.include_name);
           setIncludeJobs(d.include_jobs);
           setExportToSheets(d.export_to_sheets);
@@ -273,6 +278,7 @@ const AutoResponseSettings: FC = () => {
             greeting_delay: d.greeting_delay,
             greeting_open_from: d.greeting_open_from || '08:00:00',
             greeting_open_to: d.greeting_open_to || '20:00:00',
+            greeting_open_days: d.greeting_open_days || 'Mon, Tue, Wed, Thu, Fri',
             include_name: d.include_name,
             include_jobs: d.include_jobs,
             export_to_sheets: d.export_to_sheets,
@@ -331,6 +337,7 @@ const AutoResponseSettings: FC = () => {
             greeting_delay: 0,
             greeting_open_from: '08:00:00',
             greeting_open_to: '20:00:00',
+            greeting_open_days: 'Mon, Tue, Wed, Thu, Fri',
             include_name: true,
             include_jobs: true,
             export_to_sheets: false,
@@ -341,6 +348,7 @@ const AutoResponseSettings: FC = () => {
             ...initialSettings.current,
             greeting_off_hours_template:
               initialSettings.current?.greeting_off_hours_template || '',
+            greeting_open_days: initialSettings.current?.greeting_open_days || 'Mon, Tue, Wed, Thu, Fri',
             follow_up_templates: mapped,
           };
         }
@@ -368,6 +376,7 @@ const AutoResponseSettings: FC = () => {
     setGreetingDelaySeconds(gsecs % 60);
     setGreetingOpenFrom(d.greeting_open_from || '08:00:00');
     setGreetingOpenTo(d.greeting_open_to || '20:00:00');
+    setGreetingOpenDays(d.greeting_open_days || 'Mon, Tue, Wed, Thu, Fri');
     setIncludeName(d.include_name);
     setIncludeJobs(d.include_jobs);
     setExportToSheets(d.export_to_sheets);
@@ -472,6 +481,7 @@ const AutoResponseSettings: FC = () => {
         greeting_delay: greetDelaySecs,
         greeting_open_from: greetingOpenFrom,
         greeting_open_to: greetingOpenTo,
+        greeting_open_days: greetingOpenDays,
         include_name: includeName,
         include_jobs: includeJobs,
         export_to_sheets: exportToSheets,
@@ -485,6 +495,7 @@ const AutoResponseSettings: FC = () => {
         greeting_delay: greetDelaySecs,
         greeting_open_from: greetingOpenFrom,
         greeting_open_to: greetingOpenTo,
+        greeting_open_days: greetingOpenDays,
         include_name: includeName,
         include_jobs: includeJobs,
         export_to_sheets: exportToSheets,
@@ -1116,6 +1127,14 @@ const AutoResponseSettings: FC = () => {
                             inputProps={{ step: 1 }}
                             value={greetingOpenTo}
                             onChange={e => setGreetingOpenTo(e.target.value)}
+                            size="small"
+                            sx={{ flex: 1 }}
+                          />
+                          <TextField
+                            label="Days"
+                            type="text"
+                            value={greetingOpenDays}
+                            onChange={e => setGreetingOpenDays(e.target.value)}
                             size="small"
                             sx={{ flex: 1 }}
                           />

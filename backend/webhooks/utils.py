@@ -144,12 +144,27 @@ def get_token_for_lead(lead_id: str) -> str | None:
     return token
 
 
-def adjust_due_time(base_dt, tz_name: str | None, start: time, end: time):
-    """Return UTC datetime within business hours."""
+DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
+
+def _parse_days(day_str: str | None) -> set[int]:
+    days = set()
+    if not day_str:
+        return set(range(7))
+    for part in day_str.split(","):
+        name = part.strip()
+        if name in DAY_NAMES:
+            days.add(DAY_NAMES.index(name))
+    return days if days else set(range(7))
+
+
+def adjust_due_time(base_dt, tz_name: str | None, start: time, end: time, days: str | None = None):
+    """Return UTC datetime within business hours and allowed days."""
     if not tz_name:
         return base_dt
     tz = ZoneInfo(tz_name)
     local = base_dt.astimezone(tz)
+    allowed = _parse_days(days)
     open_dt = local.replace(
         hour=start.hour, minute=start.minute, second=start.second, microsecond=0
     )
@@ -158,10 +173,19 @@ def adjust_due_time(base_dt, tz_name: str | None, start: time, end: time):
     )
     if close_dt <= open_dt:
         close_dt += timedelta(days=1)
-    if local < open_dt:
-        local = open_dt
+    if local.weekday() not in allowed or local < open_dt:
+        while local.weekday() not in allowed:
+            local += timedelta(days=1)
+        local = local.replace(
+            hour=start.hour, minute=start.minute, second=start.second, microsecond=0
+        )
     elif local >= close_dt:
-        local = open_dt + timedelta(days=1)
+        local += timedelta(days=1)
+        while local.weekday() not in allowed:
+            local += timedelta(days=1)
+        local = local.replace(
+            hour=start.hour, minute=start.minute, second=start.second, microsecond=0
+        )
     return local.astimezone(UTC)
 
 
