@@ -83,10 +83,19 @@ class WebhookView(APIView):
         Returns a JSON-like dict ``{"new_lead": bool}`` where ``new_lead`` is
         ``True`` when only a single consumer event exists.
         """
+        logger.debug(
+            "[WEBHOOK] _is_new_lead called with lead_id=%s, business_id=%s",
+            lead_id,
+            business_id,
+        )
+
         if business_id:
             token = get_valid_business_token(business_id)
         else:
             token = get_token_for_lead(lead_id)
+
+        logger.debug("[WEBHOOK] Using token for lead=%s: %s", lead_id, token)
+
         if not token:
             logger.error("[WEBHOOK] No token available for lead=%s", lead_id)
             return {"new_lead": False}
@@ -119,6 +128,11 @@ class WebhookView(APIView):
             "[WEBHOOK] Yelp returned events for lead=%s: %s",
             lead_id,
             events,
+        )
+        logger.debug(
+            "[WEBHOOK] Number of events for lead=%s: %d",
+            lead_id,
+            len(events),
         )
         reason = ""
         is_new = False
