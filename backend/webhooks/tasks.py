@@ -171,6 +171,7 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
                         cursor="",
                         time_created=timezone.now(),
                         raw={"task_id": job_id},
+                        from_backend=True,
                     )
             except IntegrityError:
                 logger.info(

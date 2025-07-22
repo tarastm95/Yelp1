@@ -180,6 +180,49 @@ class WebhookEventProcessingTests(TestCase):
         mock_phone_available.assert_not_called()
         mock_cancel.assert_not_called()
 
+    @patch("webhooks.webhook_views.requests.get")
+    @patch.object(WebhookView, "_cancel_all_tasks")
+    @patch.object(WebhookView, "_cancel_no_phone_tasks")
+    @patch.object(WebhookView, "handle_phone_available")
+    @patch.object(WebhookView, "handle_new_lead")
+    @patch("webhooks.webhook_views.get_valid_business_token", return_value="tok")
+    @patch("webhooks.webhook_views.get_token_for_lead", return_value="tok")
+    def test_biz_event_not_from_backend_cancels(
+        self,
+        mock_lead_token,
+        mock_business_token,
+        mock_new_lead,
+        mock_phone_available,
+        mock_cancel_no_phone,
+        mock_cancel_all,
+        mock_get,
+    ):
+        event_time = (self.proc.processed_at + timedelta(minutes=2)).isoformat()
+        mock_get.return_value = type(
+            "R",
+            (),
+            {
+                "status_code": 200,
+                "json": lambda self: {
+                    "events": [
+                        {
+                            "id": "e5",
+                            "event_type": "NEW_EVENT",
+                            "user_type": "BIZ",
+                            "user_id": "u",
+                            "user_display_name": "d",
+                            "event_content": {"text": "manual"},
+                            "cursor": "c5",
+                            "time_created": event_time,
+                        }
+                    ]
+                },
+            },
+        )()
+        self._post()
+        mock_cancel_all.assert_called_once()
+        mock_phone_available.assert_not_called()
+
 
 class LeadIdVerificationTests(TestCase):
     def setUp(self):
@@ -363,4 +406,9 @@ class SendFollowUpTests(TestCase):
             send_follow_up.__wrapped__('lead-x', '   ')
         self.assertEqual(LeadEvent.objects.count(), 0)
         self.assertIn('Empty follow-up text', cm.output[0])
+
+    def test_event_marked_from_backend(self):
+        send_follow_up.__wrapped__('lead-y', 'hello', business_id='b1')
+        ev = LeadEvent.objects.get(lead_id='lead-y')
+        self.assertTrue(ev.from_backend)
 
