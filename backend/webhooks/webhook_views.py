@@ -342,7 +342,12 @@ class WebhookView(APIView):
                     "cursor": e.get("cursor", ""),
                     "time_created": e.get("time_created"),
                     "raw": e,
+                    "from_backend": False,
                 }
+                if LeadEvent.objects.filter(
+                    lead_id=lid, text=defaults["text"], from_backend=True
+                ).exists():
+                    defaults["from_backend"] = True
                 logger.info(f"[WEBHOOK] Upserting LeadEvent id={eid} for lead={lid}")
                 obj, created = safe_update_or_create(
                     LeadEvent, defaults=defaults, event_id=eid
@@ -406,6 +411,10 @@ class WebhookView(APIView):
                     elif pending:
                         reason = "Client responded, but no number was found"
                         self._cancel_no_phone_tasks(lid, reason=reason)
+                elif is_new and defaults.get("user_type") in ("BIZ", "BUSINESS"):
+                    if not defaults.get("from_backend"):
+                        reason = "Business user responded in Yelp dashboard"
+                        self._cancel_all_tasks(lid, reason=reason)
 
         return Response({"status": "received"}, status=status.HTTP_201_CREATED)
 
@@ -427,6 +436,24 @@ class WebhookView(APIView):
         pending = LeadPendingTask.objects.filter(
             lead_id=lead_id, phone_opt_in=False, phone_available=False, active=True
         )
+        queue = django_rq.get_queue("default")
+        scheduler = django_rq.get_scheduler("default")
+        for p in pending:
+            try:
+                job = queue.fetch_job(p.task_id)
+                if job:
+                    job.cancel()
+                scheduler.cancel(p.task_id)
+            except Exception as exc:
+                logger.error(f"[AUTO-RESPONSE] Error revoking task {p.task_id}: {exc}")
+            p.active = False
+            p.save(update_fields=["active"])
+            CeleryTaskLog.objects.filter(task_id=p.task_id).update(
+                status="REVOKED", result=reason
+            )
+
+    def _cancel_all_tasks(self, lead_id: str, reason: str | None = None):
+        pending = LeadPendingTask.objects.filter(lead_id=lead_id, active=True)
         queue = django_rq.get_queue("default")
         scheduler = django_rq.get_scheduler("default")
         for p in pending:
