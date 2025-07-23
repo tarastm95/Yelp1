@@ -157,10 +157,16 @@ class WebhookView(APIView):
             second_event_type = events[1].get("event_type")
             if (
                 first_user_type == "CONSUMER"
-                and second_event_type == "CONSUMER_PHONE_NUMBER_OPT_IN_EVENT"
+                and second_event_type in {
+                    "CONSUMER_PHONE_NUMBER_OPT_IN_EVENT",
+                    "ATTACHMENT_GROUPING",
+                }
             ):
                 is_new = True
-                reason = "consumer message followed by opt-in"
+                if second_event_type == "ATTACHMENT_GROUPING":
+                    reason = "consumer message with attachments"
+                else:
+                    reason = "consumer message followed by opt-in"
             else:
                 reason = (
                     "two events: "
