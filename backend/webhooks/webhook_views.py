@@ -38,14 +38,20 @@ logger = logging.getLogger(__name__)
 # Simple pattern to detect phone numbers like +380XXXXXXXXX or other
 # international formats with optional spaces or dashes.
 PHONE_RE = re.compile(r"\+?\d[\d\s\-\(\)]{8,}\d")
+# Simple pattern to detect ISO-like dates such as 2023-12-31
+DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
 
 
 def _extract_phone(text: str) -> str | None:
     """Return first phone number found in text, if any."""
     if not text:
         return None
-    m = PHONE_RE.search(text)
-    return m.group() if m else None
+    for m in PHONE_RE.finditer(text):
+        candidate = m.group()
+        digits = re.sub(r"\D", "", candidate)
+        if len(digits) >= 10 and not DATE_RE.fullmatch(candidate):
+            return candidate
+    return None
 
 
 def safe_update_or_create(model, defaults=None, **kwargs):
