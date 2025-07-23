@@ -14,6 +14,7 @@ from .models import (
     FollowUpTemplate,
     YelpToken,
     LeadEvent,
+    NotificationSetting,
 )
 from .pagination import FivePerPagePagination
 from .serializers import (
@@ -24,6 +25,7 @@ from .serializers import (
     FollowUpTemplateSerializer,
     YelpTokenInfoSerializer,
     LeadEventSerializer,
+    NotificationSettingSerializer,
 )
 
 logger = logging.getLogger(__name__)
@@ -276,3 +278,27 @@ class YelpTokenListView(generics.ListAPIView):
 
     def get_queryset(self):
         return YelpToken.objects.all().order_by('business_id')
+
+
+class NotificationSettingView(APIView):
+    """Retrieve or update notification settings."""
+
+    def get_object(self) -> NotificationSetting:
+        obj = NotificationSetting.objects.first()
+        if obj:
+            return obj
+        return NotificationSetting.objects.create(phone_number="", message_template="")
+
+    def get(self, request):
+        obj = self.get_object()
+        serializer = NotificationSettingSerializer(obj)
+        return Response(serializer.data)
+
+    def put(self, request):
+        obj = self.get_object()
+        serializer = NotificationSettingSerializer(obj, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+    post = put
