@@ -16,21 +16,23 @@ def notify_new_lead(sender, instance: LeadDetail, created: bool, **kwargs):
     if not instance.phone_number:
         return
 
-    setting = NotificationSetting.objects.first()
-    if not setting or not setting.phone_number or not setting.message_template:
+    settings = NotificationSetting.objects.exclude(phone_number="").exclude(message_template="")
+    if not settings.exists():
         return
 
     business = YelpBusiness.objects.filter(business_id=instance.business_id).first()
-    message = setting.message_template.format(
-        business_id=instance.business_id,
-        lead_id=instance.lead_id,
-        business_name=business.name if business else "",
-        timestamp=timezone.now().isoformat(),
-    )
 
-    payload = {"to": setting.phone_number, "body": message}
-    try:
-        requests.post("http://46.62.139.177:8000/api/send-sms/", json=payload, timeout=10)
-    except Exception:
-        logger.exception("Failed to send notification SMS")
+    for setting in settings:
+        message = setting.message_template.format(
+            business_id=instance.business_id,
+            lead_id=instance.lead_id,
+            business_name=business.name if business else "",
+            timestamp=timezone.now().isoformat(),
+        )
+
+        payload = {"to": setting.phone_number, "body": message}
+        try:
+            requests.post("http://46.62.139.177:8000/api/send-sms/", json=payload, timeout=10)
+        except Exception:
+            logger.exception("Failed to send notification SMS")
 

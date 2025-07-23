@@ -263,7 +263,7 @@ class LeadPendingTask(models.Model):
 class NotificationSetting(models.Model):
     """Phone number and template used to notify about new leads."""
 
-    phone_number = models.CharField(max_length=64)
+    phone_number = models.CharField(max_length=64, unique=True)
     message_template = models.TextField(
         help_text="Text with placeholders {business_id}, {lead_id}, {business_name}, {timestamp}"
     )

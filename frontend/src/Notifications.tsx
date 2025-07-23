@@ -15,28 +15,43 @@ import {
 
 const PLACEHOLDERS = ['{business_id}', '{lead_id}', '{business_name}', '{timestamp}'] as const;
 
+interface NotificationSetting {
+  id: number;
+  phone_number: string;
+  message_template: string;
+}
+
 const Notifications: React.FC = () => {
   const [phone, setPhone] = useState('');
   const [template, setTemplate] = useState('');
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
+  const [items, setItems] = useState<NotificationSetting[]>([]);
+
+  const load = () => {
+    axios.get<NotificationSetting[]>('/notifications/')
+      .then(res => setItems(res.data))
+      .catch(() => setItems([]));
+  };
 
   useEffect(() => {
-    axios.get('/notifications/')
-      .then(res => {
-        setPhone(res.data.phone_number || '');
-        setTemplate(res.data.message_template || '');
-      })
-      .catch(() => setError('Failed to load settings'));
+    load();
   }, []);
 
   const handleSave = async () => {
+    if (items.some(i => i.phone_number === phone)) {
+      setError('Phone number already exists');
+      return;
+    }
     try {
-      await axios.put('/notifications/', {
+      await axios.post('/notifications/', {
         phone_number: phone,
         message_template: template,
       });
       setSaved(true);
+      setPhone('');
+      setTemplate('');
+      load();
     } catch {
       setError('Failed to save settings');
     }
@@ -49,6 +64,18 @@ const Notifications: React.FC = () => {
           Notification Settings
         </Typography>
         <Box sx={{ mt: 2 }}>
+          {items.length > 0 && (
+            <Box sx={{ mb: 2 }}>
+              {items.map(it => (
+                <Box key={it.id} sx={{ mb: 1 }}>
+                  <Typography variant="subtitle2">{it.phone_number}</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {it.message_template}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+          )}
           <TextField
             fullWidth
             label="Phone Number"
