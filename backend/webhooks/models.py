@@ -265,7 +265,10 @@ class NotificationSetting(models.Model):
 
     phone_number = models.CharField(max_length=64, unique=True)
     message_template = models.TextField(
-        help_text="Text with placeholders {business_id}, {lead_id}, {business_name}, {timestamp}"
+        help_text=(
+            "Text with placeholders {business_id}, {lead_id}, "
+            "{business_name}, {timestamp}, {phone}"
+        )
     )
 
     def __str__(self):

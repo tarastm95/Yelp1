@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
 import {
   Container,
@@ -20,7 +20,14 @@ import {
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 
-const PLACEHOLDERS = ['{business_id}', '{lead_id}', '{business_name}', '{timestamp}'] as const;
+const PLACEHOLDERS = [
+  '{business_id}',
+  '{lead_id}',
+  '{business_name}',
+  '{timestamp}',
+  '{phone}'
+] as const;
+type Placeholder = typeof PLACEHOLDERS[number];
 
 interface NotificationSetting {
   id: number;
@@ -37,6 +44,23 @@ const Notifications: React.FC = () => {
   const [editing, setEditing] = useState<NotificationSetting | null>(null);
   const [editPhone, setEditPhone] = useState('');
   const [editTemplate, setEditTemplate] = useState('');
+  const templateRef = useRef<HTMLTextAreaElement | null>(null);
+  const editTemplateRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const insertPlaceholder = (ph: Placeholder, target: 'new' | 'edit') => {
+    const ref = target === 'new' ? templateRef.current : editTemplateRef.current;
+    let base = target === 'new' ? template : editTemplate;
+    const setter = target === 'new' ? setTemplate : setEditTemplate;
+    if (!ref) return;
+    const start = ref.selectionStart ?? 0;
+    const end = ref.selectionEnd ?? 0;
+    const updated = base.slice(0, start) + ph + base.slice(end);
+    setter(updated);
+    setTimeout(() => {
+      ref.focus();
+      ref.setSelectionRange(start + ph.length, start + ph.length);
+    }, 0);
+  };
 
   const load = () => {
     axios.get<NotificationSetting[]>('/notifications/')
@@ -134,6 +158,7 @@ const Notifications: React.FC = () => {
             margin="normal"
           />
           <TextField
+            inputRef={templateRef}
             fullWidth
             multiline
             minRows={3}
@@ -144,7 +169,15 @@ const Notifications: React.FC = () => {
           />
           <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
             {PLACEHOLDERS.map(ph => (
-              <Chip key={ph} label={ph} size="small" />
+              <Chip
+                key={ph}
+                label={ph}
+                size="small"
+                variant="outlined"
+                clickable
+                onClick={() => insertPlaceholder(ph, 'new')}
+                sx={{ '&:hover': { backgroundColor: 'primary.50' } }}
+              />
             ))}
           </Stack>
           <Button variant="contained" sx={{ mt: 2 }} onClick={handleSave}>
@@ -181,6 +214,7 @@ const Notifications: React.FC = () => {
             margin="normal"
           />
           <TextField
+            inputRef={editTemplateRef}
             fullWidth
             multiline
             minRows={3}
@@ -191,7 +225,15 @@ const Notifications: React.FC = () => {
           />
           <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
             {PLACEHOLDERS.map(ph => (
-              <Chip key={ph} label={ph} size="small" />
+              <Chip
+                key={ph}
+                label={ph}
+                size="small"
+                variant="outlined"
+                clickable
+                onClick={() => insertPlaceholder(ph, 'edit')}
+                sx={{ '&:hover': { backgroundColor: 'primary.50' } }}
+              />
             ))}
           </Stack>
         </DialogContent>
