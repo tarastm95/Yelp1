@@ -2,10 +2,9 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
 import logging
-import requests
-from requests import Response
 
 from .models import LeadDetail, NotificationSetting, YelpBusiness
+from .twilio_utils import send_sms
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +31,6 @@ def notify_new_lead(sender, instance: LeadDetail, created: bool, **kwargs):
             phone=instance.phone_number,
         )
 
-        payload = {"to": setting.phone_number, "body": message}
         logger.info(
             "Sending notification SMS",
             extra={
@@ -43,19 +41,14 @@ def notify_new_lead(sender, instance: LeadDetail, created: bool, **kwargs):
             },
         )
         try:
-            response: Response = requests.post(
-                "http://46.62.139.177:8000/api/send-sms/",
-                json=payload,
-                timeout=10,
-            )
-            response.raise_for_status()
+            sid = send_sms(setting.phone_number, message)
             logger.info(
                 "Notification SMS sent",
                 extra={
                     "to": setting.phone_number,
                     "lead_id": instance.lead_id,
                     "business_id": instance.business_id,
-                    "sid": response.json().get("sid"),
+                    "sid": sid,
                 },
             )
         except Exception:
