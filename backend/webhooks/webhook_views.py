@@ -570,6 +570,9 @@ class WebhookView(APIView):
 
         phone_number = _extract_phone(raw_proj.get("additional_info", "")) or ""
 
+        display_name = d.get("user", {}).get("display_name", "")
+        first_name = display_name.split()[0] if display_name else ""
+
         detail_data = {
             "lead_id": lead_id,
             "business_id": d.get("business_id"),
@@ -578,7 +581,7 @@ class WebhookView(APIView):
             "temporary_email_address_expiry": d.get("temporary_email_address_expiry"),
             "time_created": d.get("time_created"),
             "last_event_time": last_time,
-            "user_display_name": d.get("user", {}).get("display_name", ""),
+            "user_display_name": first_name,
             "phone_number": phone_number,
             "phone_opt_in": d.get("phone_opt_in", False),
             "project": {
