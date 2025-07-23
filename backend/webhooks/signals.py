@@ -28,6 +28,7 @@ def notify_new_lead(sender, instance: LeadDetail, created: bool, **kwargs):
             lead_id=instance.lead_id,
             business_name=business.name if business else "",
             timestamp=timezone.now().isoformat(),
+            phone=instance.phone_number,
         )
 
         payload = {"to": setting.phone_number, "body": message}
