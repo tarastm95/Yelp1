@@ -39,8 +39,6 @@ class AutoResponseSettingsSerializer(serializers.ModelSerializer):
             "greeting_open_from",
             "greeting_open_to",
             "greeting_open_days",
-            "include_name",
-            "include_jobs",
             "export_to_sheets",
         ]
         read_only_fields = ["id"]

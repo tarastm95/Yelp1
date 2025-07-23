@@ -85,8 +85,6 @@ interface AutoResponse {
   greeting_open_from: string;
   greeting_open_to: string;
   greeting_open_days: string;
-  include_name: boolean;
-  include_jobs: boolean;
   export_to_sheets: boolean;
 }
 
@@ -115,8 +113,6 @@ interface AutoResponseSettingsData {
   greeting_open_from: string;
   greeting_open_to: string;
   greeting_open_days: string;
-  include_name: boolean;
-  include_jobs: boolean;
   export_to_sheets: boolean;
   follow_up_templates: FollowUpTplData[];
 }
@@ -137,8 +133,8 @@ const AutoResponseSettings: FC = () => {
   const [greetingDelayHours, setGreetingDelayHours] = useState(0);
   const [greetingDelayMinutes, setGreetingDelayMinutes] = useState(0);
   const [greetingDelaySeconds, setGreetingDelaySeconds] = useState(0);
-  const [includeName, setIncludeName] = useState(true);
-  const [includeJobs, setIncludeJobs] = useState(true);
+  const includeName = true;
+  const includeJobs = true;
   const [greetingOpenFrom, setGreetingOpenFrom] = useState('08:00:00');
   const [greetingOpenTo, setGreetingOpenTo] = useState('20:00:00');
   const [greetingOpenDays, setGreetingOpenDays] = useState('Mon, Tue, Wed, Thu, Fri');
@@ -256,8 +252,6 @@ const AutoResponseSettings: FC = () => {
     greeting_open_from: '08:00:00',
     greeting_open_to: '20:00:00',
     greeting_open_days: 'Mon, Tue, Wed, Thu, Fri',
-    include_name: true,
-    include_jobs: true,
     export_to_sheets: false,
     follow_up_templates: [],
   };
@@ -296,8 +290,6 @@ const AutoResponseSettings: FC = () => {
           setGreetingOpenFrom(d.greeting_open_from || '08:00:00');
           setGreetingOpenTo(d.greeting_open_to || '20:00:00');
           setGreetingOpenDays(d.greeting_open_days || 'Mon, Tue, Wed, Thu, Fri');
-          setIncludeName(d.include_name);
-          setIncludeJobs(d.include_jobs);
           setExportToSheets(d.export_to_sheets);
           initialSettings.current = {
             enabled: d.enabled,
@@ -307,8 +299,6 @@ const AutoResponseSettings: FC = () => {
             greeting_open_from: d.greeting_open_from || '08:00:00',
             greeting_open_to: d.greeting_open_to || '20:00:00',
             greeting_open_days: d.greeting_open_days || 'Mon, Tue, Wed, Thu, Fri',
-            include_name: d.include_name,
-            include_jobs: d.include_jobs,
             export_to_sheets: d.export_to_sheets,
             follow_up_templates: initialSettings.current?.follow_up_templates || [],
           };
@@ -366,8 +356,6 @@ const AutoResponseSettings: FC = () => {
             greeting_open_from: '08:00:00',
             greeting_open_to: '20:00:00',
             greeting_open_days: 'Mon, Tue, Wed, Thu, Fri',
-            include_name: true,
-            include_jobs: true,
             export_to_sheets: false,
             follow_up_templates: mapped,
           };
@@ -405,8 +393,6 @@ const AutoResponseSettings: FC = () => {
     setGreetingOpenFrom(d.greeting_open_from || '08:00:00');
     setGreetingOpenTo(d.greeting_open_to || '20:00:00');
     setGreetingOpenDays(d.greeting_open_days || 'Mon, Tue, Wed, Thu, Fri');
-    setIncludeName(d.include_name);
-    setIncludeJobs(d.include_jobs);
     setExportToSheets(d.export_to_sheets);
 
     if (Array.isArray(d.follow_up_templates)) {
@@ -516,8 +502,6 @@ const AutoResponseSettings: FC = () => {
         greeting_open_from: greetingOpenFrom,
         greeting_open_to: greetingOpenTo,
         greeting_open_days: greetingOpenDays,
-        include_name: includeName,
-        include_jobs: includeJobs,
         export_to_sheets: exportToSheets,
       });
 
@@ -530,8 +514,6 @@ const AutoResponseSettings: FC = () => {
         greeting_open_from: greetingOpenFrom,
         greeting_open_to: greetingOpenTo,
         greeting_open_days: greetingOpenDays,
-        include_name: includeName,
-        include_jobs: includeJobs,
         export_to_sheets: exportToSheets,
         follow_up_templates: initialSettings.current?.follow_up_templates || [],
       };
@@ -1066,36 +1048,7 @@ const AutoResponseSettings: FC = () => {
                         Message Options
                       </Typography>
                       <Stack direction="row" spacing={3} flexWrap="wrap">
-                        <FormControlLabel
-                          control={
-                            <Switch 
-                              checked={includeName} 
-                              onChange={e => setIncludeName(e.target.checked)}
-                              color="primary"
-                            />
-                          }
-                          label={
-                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                              <PersonIcon sx={{ mr: 0.5, fontSize: 18 }} />
-                              Include Name
-                            </Box>
-                          }
-                        />
-                        <FormControlLabel
-                          control={
-                            <Switch 
-                              checked={includeJobs} 
-                              onChange={e => setIncludeJobs(e.target.checked)}
-                              color="primary"
-                            />
-                          }
-                          label={
-                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                              <WorkIcon sx={{ mr: 0.5, fontSize: 18 }} />
-                              Include Jobs
-                            </Box>
-                          }
-                        />
+                        {/* Include Name/Jobs options always enabled */}
                       </Stack>
                     </Box>
 
