@@ -10,6 +10,7 @@ from .models import (
     YelpToken,
     YelpBusiness,
     CeleryTaskLog,
+    NotificationSetting,
 )
 
 
@@ -293,6 +294,13 @@ class SendSMSSerializer(serializers.Serializer):
 
     to = serializers.CharField()
     body = serializers.CharField()
+
+
+class NotificationSettingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = NotificationSetting
+        fields = ["id", "phone_number", "message_template"]
+        read_only_fields = ["id"]
 
 
 

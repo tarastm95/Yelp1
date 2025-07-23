@@ -20,6 +20,7 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import LoginIcon from '@mui/icons-material/Login';
 import LogoutIcon from '@mui/icons-material/Logout';
 import BusinessIcon from '@mui/icons-material/Business';
+import NotificationsIcon from '@mui/icons-material/Notifications';
 
 const menuItems = [
   { text: 'Home', icon: <HomeIcon />, href: '/', color: '#667eea' },
@@ -27,6 +28,7 @@ const menuItems = [
   { text: 'Tokens&Business', icon: <VpnKeyIcon />, href: '/tokens', color: '#4facfe' },
   { text: 'Subscriptions', icon: <SubscriptionsIcon />, href: '/subscriptions', color: '#43e97b' },
   { text: 'Tasks', icon: <ChecklistIcon />, href: '/tasks', color: '#fa709a' },
+  { text: 'Notifications', icon: <NotificationsIcon />, href: '/notifications', color: '#ffb74d' },
   { text: 'Auto-response Settings', icon: <SettingsIcon />, href: '/settings', color: '#764ba2' },
   { text: 'Authorize with Yelp', icon: <LoginIcon />, href: '/auth', color: '#ff7eb3' },
 ];
