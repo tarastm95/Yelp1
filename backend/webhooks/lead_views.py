@@ -280,25 +280,26 @@ class YelpTokenListView(generics.ListAPIView):
         return YelpToken.objects.all().order_by('business_id')
 
 
-class NotificationSettingView(APIView):
-    """Retrieve or update notification settings."""
+class NotificationSettingListCreateView(generics.ListCreateAPIView):
+    """List all notification settings or create a new one."""
 
-    def get_object(self) -> NotificationSetting:
-        obj = NotificationSetting.objects.first()
-        if obj:
-            return obj
-        return NotificationSetting.objects.create(phone_number="", message_template="")
+    serializer_class = NotificationSettingSerializer
 
-    def get(self, request):
-        obj = self.get_object()
-        serializer = NotificationSettingSerializer(obj)
-        return Response(serializer.data)
+    def get_queryset(self):
+        return NotificationSetting.objects.all().order_by("id")
 
-    def put(self, request):
-        obj = self.get_object()
-        serializer = NotificationSettingSerializer(obj, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(serializer.data)
+    def create(self, request, *args, **kwargs):
+        phone = request.data.get("phone_number", "")
+        if NotificationSetting.objects.filter(phone_number=phone).exists():
+            return Response(
+                {"detail": "Phone number already exists."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return super().create(request, *args, **kwargs)
 
-    post = put
+
+class NotificationSettingDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """Retrieve, update or delete a specific notification setting."""
+
+    serializer_class = NotificationSettingSerializer
+    queryset = NotificationSetting.objects.all()

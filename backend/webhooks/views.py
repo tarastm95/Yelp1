@@ -28,7 +28,8 @@ from .lead_views import (
     FollowUpTemplateListCreateView,
     FollowUpTemplateDetailView,
     YelpTokenListView,
-    NotificationSettingView,
+    NotificationSettingListCreateView,
+    NotificationSettingDetailView,
 )
 from .task_views import TaskLogListView
 from .sms_views import SendSMSAPIView
@@ -62,5 +63,6 @@ __all__ = [
     "TaskLogListView",
     "SubscriptionProxyView",
     "SendSMSAPIView",
-    "NotificationSettingView",
+    "NotificationSettingListCreateView",
+    "NotificationSettingDetailView",
 ]

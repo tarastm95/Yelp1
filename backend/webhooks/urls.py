@@ -8,7 +8,10 @@ from .views import (
     LeadDetailRetrieveAPIView, LeadLastEventAPIView, LeadEventRetrieveAPIView,
     FollowUpTemplateListCreateView, FollowUpTemplateDetailView,
     BusinessListView, BusinessLeadsView, BusinessEventsView,
-    SubscriptionProxyView, YelpTokenListView, NotificationSettingView,
+    SubscriptionProxyView,
+    YelpTokenListView,
+    NotificationSettingListCreateView,
+    NotificationSettingDetailView,
 )
 from .task_views import TaskLogListView, MessageTaskListView, TaskRevokeView
 from .sms_views import SendSMSAPIView
@@ -78,5 +81,6 @@ urlpatterns = [
     path('tasks/<str:task_id>/cancel/', TaskRevokeView.as_view(), name='task-revoke'),
     path('message_tasks/', MessageTaskListView.as_view(), name='message-task-list'),
     path('send-sms/', SendSMSAPIView.as_view(), name='send-sms'),
-    path('notifications/', NotificationSettingView.as_view(), name='notifications'),
+    path('notifications/', NotificationSettingListCreateView.as_view(), name='notification-list'),
+    path('notifications/<int:pk>/', NotificationSettingDetailView.as_view(), name='notification-detail'),
 ]
