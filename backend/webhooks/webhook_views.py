@@ -671,12 +671,8 @@ class WebhookView(APIView):
             logger.info("[AUTO-RESPONSE] Auto responses disabled; skipping messages")
             return
 
-        name = ld.user_display_name if auto_settings.include_name else ""
-        jobs = (
-            ", ".join(ld.project.get("job_names", []))
-            if auto_settings.include_jobs
-            else ""
-        )
+        name = ld.user_display_name
+        jobs = ", ".join(ld.project.get("job_names", []))
         sep = ", " if name and jobs else ""
         biz_id = ld.business_id if ld else None
         business = YelpBusiness.objects.filter(business_id=biz_id).first()

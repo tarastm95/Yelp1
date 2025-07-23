@@ -42,8 +42,6 @@ interface AutoResponseSettingsData {
   greeting_open_from: string;
   greeting_open_to: string;
   greeting_open_days: string;
-  include_name: boolean;
-  include_jobs: boolean;
   export_to_sheets: boolean;
   follow_up_templates: FollowUpTemplate[];
 }
@@ -63,8 +61,6 @@ const defaultData: AutoResponseSettingsData = {
   greeting_open_from: '08:00:00',
   greeting_open_to: '20:00:00',
   greeting_open_days: 'Mon, Tue, Wed, Thu, Fri',
-  include_name: true,
-  include_jobs: true,
   export_to_sheets: false,
   follow_up_templates: [],
 };
@@ -310,10 +306,7 @@ const SettingsTemplates: React.FC = () => {
                 onChange={e=>setData({...data, greeting_open_days:e.target.value})}
                 size="small"/>
             </Stack>
-            <FormControlLabel control={<Switch checked={data.include_name}
-              onChange={e=>setData({...data, include_name:e.target.checked})}/>} label="Include Name" />
-            <FormControlLabel control={<Switch checked={data.include_jobs}
-              onChange={e=>setData({...data, include_jobs:e.target.checked})}/>} label="Include Jobs" />
+            {/* Include Name and Jobs always enabled */}
 
             <Typography variant="h6">Additional Follow-up Templates</Typography>
             <List dense>
