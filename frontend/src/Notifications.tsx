@@ -11,7 +11,14 @@ import {
   Box,
   Stack,
   Chip,
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
 
 const PLACEHOLDERS = ['{business_id}', '{lead_id}', '{business_name}', '{timestamp}'] as const;
 
@@ -27,6 +34,9 @@ const Notifications: React.FC = () => {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
   const [items, setItems] = useState<NotificationSetting[]>([]);
+  const [editing, setEditing] = useState<NotificationSetting | null>(null);
+  const [editPhone, setEditPhone] = useState('');
+  const [editTemplate, setEditTemplate] = useState('');
 
   const load = () => {
     axios.get<NotificationSetting[]>('/notifications/')
@@ -57,6 +67,36 @@ const Notifications: React.FC = () => {
     }
   };
 
+  const handleEditOpen = (item: NotificationSetting) => {
+    setEditing(item);
+    setEditPhone(item.phone_number);
+    setEditTemplate(item.message_template);
+  };
+
+  const handleUpdate = async () => {
+    if (!editing) return;
+    try {
+      await axios.put(`/notifications/${editing.id}/`, {
+        phone_number: editPhone,
+        message_template: editTemplate,
+      });
+      setEditing(null);
+      setSaved(true);
+      load();
+    } catch {
+      setError('Failed to update settings');
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    try {
+      await axios.delete(`/notifications/${id}/`);
+      load();
+    } catch {
+      setError('Failed to delete');
+    }
+  };
+
   return (
     <Container maxWidth="sm" sx={{ mt: 4 }}>
       <Paper elevation={3} sx={{ p: 3 }}>
@@ -67,11 +107,21 @@ const Notifications: React.FC = () => {
           {items.length > 0 && (
             <Box sx={{ mb: 2 }}>
               {items.map(it => (
-                <Box key={it.id} sx={{ mb: 1 }}>
-                  <Typography variant="subtitle2">{it.phone_number}</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {it.message_template}
-                  </Typography>
+                <Box key={it.id} sx={{ mb: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Box>
+                    <Typography variant="subtitle2">{it.phone_number}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {it.message_template}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <IconButton size="small" onClick={() => handleEditOpen(it)}>
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                    <IconButton size="small" onClick={() => handleDelete(it.id)}>
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
                 </Box>
               ))}
             </Box>
@@ -120,6 +170,36 @@ const Notifications: React.FC = () => {
           {error}
         </Alert>
       </Snackbar>
+      <Dialog open={Boolean(editing)} onClose={() => setEditing(null)}>
+        <DialogTitle>Edit Notification</DialogTitle>
+        <DialogContent sx={{ pt: 1 }}>
+          <TextField
+            fullWidth
+            label="Phone Number"
+            value={editPhone}
+            onChange={e => setEditPhone(e.target.value)}
+            margin="normal"
+          />
+          <TextField
+            fullWidth
+            multiline
+            minRows={3}
+            label="Message Template"
+            value={editTemplate}
+            onChange={e => setEditTemplate(e.target.value)}
+            margin="normal"
+          />
+          <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+            {PLACEHOLDERS.map(ph => (
+              <Chip key={ph} label={ph} size="small" />
+            ))}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditing(null)}>Cancel</Button>
+          <Button variant="contained" onClick={handleUpdate}>Save</Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };
