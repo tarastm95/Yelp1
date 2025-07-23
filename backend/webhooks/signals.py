@@ -3,6 +3,7 @@ from django.dispatch import receiver
 from django.utils import timezone
 import logging
 import requests
+from requests import Response
 
 from .models import LeadDetail, NotificationSetting, YelpBusiness
 
@@ -32,8 +33,38 @@ def notify_new_lead(sender, instance: LeadDetail, created: bool, **kwargs):
         )
 
         payload = {"to": setting.phone_number, "body": message}
+        logger.info(
+            "Sending notification SMS",
+            extra={
+                "to": setting.phone_number,
+                "lead_id": instance.lead_id,
+                "business_id": instance.business_id,
+                "body": message,
+            },
+        )
         try:
-            requests.post("http://46.62.139.177:8000/api/send-sms/", json=payload, timeout=10)
+            response: Response = requests.post(
+                "http://46.62.139.177:8000/api/send-sms/",
+                json=payload,
+                timeout=10,
+            )
+            response.raise_for_status()
+            logger.info(
+                "Notification SMS sent",
+                extra={
+                    "to": setting.phone_number,
+                    "lead_id": instance.lead_id,
+                    "business_id": instance.business_id,
+                    "sid": response.json().get("sid"),
+                },
+            )
         except Exception:
-            logger.exception("Failed to send notification SMS")
+            logger.exception(
+                "Failed to send notification SMS",
+                extra={
+                    "to": setting.phone_number,
+                    "lead_id": instance.lead_id,
+                    "business_id": instance.business_id,
+                },
+            )
 

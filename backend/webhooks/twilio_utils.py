@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import os
+import logging
 from twilio.rest import Client
+
+logger = logging.getLogger(__name__)
 
 
 def send_sms(to: str, body: str) -> str:
@@ -15,4 +18,5 @@ def send_sms(to: str, body: str) -> str:
 
     client = Client(account_sid, auth_token)
     message = client.messages.create(from_=from_number, to=to, body=body)
+    logger.info("Twilio message sent", extra={"to": to, "sid": message.sid})
     return message.sid
