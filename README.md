@@ -99,9 +99,9 @@ returned IDs in the local `ProcessedLead` table.
 During webhook processing the backend verifies unlisted leads by querying
 `https://api.yelp.com/v3/leads/{lead_id}/events` with `limit=2`. A lead is
 tagged as `"NEW_LEAD"` when Yelp returns only one consumer message or when a
-consumer message is immediately followed by an event whose type is anything
-other than `TEXT`. Once verified, the `lead_id` is saved so subsequent events are
-treated as already processed.
+consumer message is immediately followed by an event whose type is **not**
+`TEXT` (case-insensitive). Once verified, the `lead_id` is saved so subsequent
+events are treated as already processed.
 
 Lead details and events are recorded for every lead even when automatic
 responses are disabled for a business.

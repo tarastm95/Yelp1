@@ -154,11 +154,12 @@ class WebhookView(APIView):
                 reason = f"single event with user_type={user_type}"
         elif len(events) == 2:
             first_user_type = events[0].get("user_type")
-            second_event_type = events[1].get("event_type")
+            second_event_type_raw = events[1].get("event_type")
+            second_event_type = (second_event_type_raw or "").upper()
             if first_user_type == "CONSUMER" and second_event_type != "TEXT":
                 is_new = True
                 reason = (
-                    f"consumer message followed by {second_event_type}" if second_event_type else "consumer message followed by unknown event"
+                    f"consumer message followed by {second_event_type_raw or 'unknown'}"
                 )
             else:
                 reason = (
