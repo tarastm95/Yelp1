@@ -202,31 +202,73 @@ class WebhookView(APIView):
             lid = upd.get("lead_id")
             if lid:
                 lead_ids.add(lid)
-                logger.debug(
+                logger.info(
+                    f"[WEBHOOK] =============== LEAD VERIFICATION TRIGGER ==============="
+                )
+                logger.info(
                     f"[WEBHOOK] Checking ProcessedLead for lead_id={lid}"
                 )
-                if (
-                    upd.get("event_type") != "NEW_LEAD"
-                    and not ProcessedLead.objects.filter(lead_id=lid).exists()
-                ):
+                logger.info(
+                    f"[WEBHOOK] Current update event_type: {upd.get('event_type')}"
+                )
+                logger.info(
+                    f"[WEBHOOK] Current update user_type: {upd.get('user_type')}"
+                )
+                logger.info(
+                    f"[WEBHOOK] Current update user_display_name: {upd.get('user_display_name', '')}"
+                )
+                
+                # Check if ProcessedLead exists
+                processed_lead_exists = ProcessedLead.objects.filter(lead_id=lid).exists()
+                logger.info(f"[WEBHOOK] ProcessedLead exists for {lid}: {processed_lead_exists}")
+                
+                event_type_check = upd.get("event_type") != "NEW_LEAD"
+                logger.info(f"[WEBHOOK] Event type is not NEW_LEAD: {event_type_check}")
+                
+                if event_type_check and not processed_lead_exists:
+                    logger.info(f"[WEBHOOK] 🔍 TRIGGERING NEW LEAD VERIFICATION for {lid}")
+                    logger.info(f"[WEBHOOK] Reason: event_type='{upd.get('event_type')}' AND ProcessedLead doesn't exist")
+                    logger.info(f"[WEBHOOK] Business ID for verification: {payload['data'].get('id')}")
+                    
                     check = self._is_new_lead(lid, payload["data"].get("id"))
+                    
+                    logger.info(f"[WEBHOOK] ============= NEW LEAD VERIFICATION RESULT =============")
+                    logger.info(f"[WEBHOOK] Lead ID: {lid}")
+                    logger.info(f"[WEBHOOK] Verification result: {check}")
+                    logger.info(f"[WEBHOOK] Is new lead: {check.get('new_lead')}")
+                    logger.info(f"[WEBHOOK] Reason: {check.get('reason')}")
+                    
                     if check.get("new_lead"):
+                        logger.info(f"[WEBHOOK] ✅ CONVERTING EVENT TO NEW_LEAD for {lid}")
                         upd["event_type"] = "NEW_LEAD"
                         logger.info(
-                            f"[WEBHOOK] Marked lead={lid} as NEW_LEAD via events check"
+                            f"[WEBHOOK] Successfully marked lead={lid} as NEW_LEAD via events check"
                         )
+                        logger.info(f"[WEBHOOK] Original event_type was: {upd.get('event_type', 'UNKNOWN')}")
+                        logger.info(f"[WEBHOOK] New event_type is: NEW_LEAD")
                     else:
-                        logger.info(
+                        logger.warning(f"[WEBHOOK] ❌ LEAD NOT VERIFIED AS NEW for {lid}")
+                        logger.warning(
                             "[WEBHOOK] _is_new_lead returned False for lead=%s: %s",
                             lid,
                             check.get("reason"),
                         )
+                        logger.info(f"[WEBHOOK] Lead {lid} will be processed as regular event, not new lead")
+                    logger.info(f"[WEBHOOK] ================================================")
+                else:
+                    if not event_type_check:
+                        logger.info(f"[WEBHOOK] ⏭️ SKIPPING new lead check for {lid}: event_type is already NEW_LEAD")
+                    if processed_lead_exists:
+                        logger.info(f"[WEBHOOK] ⏭️ SKIPPING new lead check for {lid}: ProcessedLead already exists")
+                    logger.info(f"[WEBHOOK] No new lead verification needed for {lid}")
+                    
                 if upd.get("event_type") == "CONSUMER_PHONE_NUMBER_OPT_IN_EVENT":
                     updated = LeadDetail.objects.filter(
                         lead_id=lid, phone_opt_in=False
                     ).update(phone_opt_in=True)
                     if updated:
                         self.handle_phone_opt_in(lid)
+                        
                 logger.debug(
                     f"[WEBHOOK] Update for lead_id={lid}: "
                     f"event_type={upd.get('event_type')}, "
@@ -291,23 +333,57 @@ class WebhookView(APIView):
                     )
         logger.info(f"[WEBHOOK] Lead IDs to process: {lead_ids}")
 
+        logger.info("[WEBHOOK] ================= PROCESSING NEW LEAD EVENTS =================")
+        new_lead_updates = [upd for upd in updates if upd.get("event_type") == "NEW_LEAD"]
+        logger.info(f"[WEBHOOK] Found {len(new_lead_updates)} NEW_LEAD events to process")
+        
         for upd in updates:
             if upd.get("event_type") == "NEW_LEAD":
                 lid = upd["lead_id"]
-                pl, created = ProcessedLead.objects.get_or_create(
-                    business_id=payload["data"]["id"],
-                    lead_id=lid,
-                )
-                if created:
-                    logger.info(
-                        f"[WEBHOOK] Created ProcessedLead id={pl.id} for lead={lid}"
+                business_id = payload["data"]["id"]
+                
+                logger.info(f"[WEBHOOK] 🆕 PROCESSING NEW LEAD EVENT")
+                logger.info(f"[WEBHOOK] Lead ID: {lid}")
+                logger.info(f"[WEBHOOK] Business ID: {business_id}")
+                logger.info(f"[WEBHOOK] Update details: {upd}")
+                
+                logger.info(f"[WEBHOOK] Attempting to create/get ProcessedLead record")
+                
+                try:
+                    pl, created = ProcessedLead.objects.get_or_create(
+                        business_id=business_id,
+                        lead_id=lid,
                     )
-                    logger.info(f"[WEBHOOK] Calling handle_new_lead for lead={lid}")
-                    self.handle_new_lead(lid)
-                else:
-                    logger.info(
-                        f"[WEBHOOK] Lead {lid} already processed; skipping handle_new_lead"
-                    )
+                    
+                    logger.info(f"[WEBHOOK] ProcessedLead operation result:")
+                    logger.info(f"[WEBHOOK] - Record ID: {pl.id}")
+                    logger.info(f"[WEBHOOK] - Was created: {created}")
+                    logger.info(f"[WEBHOOK] - Business ID: {pl.business_id}")
+                    logger.info(f"[WEBHOOK] - Lead ID: {pl.lead_id}")
+                    logger.info(f"[WEBHOOK] - Processed at: {pl.processed_at}")
+                    
+                    if created:
+                        logger.info(f"[WEBHOOK] ✅ NEW ProcessedLead created successfully")
+                        logger.info(f"[WEBHOOK] Created ProcessedLead id={pl.id} for lead={lid}")
+                        logger.info(f"[WEBHOOK] 🚀 TRIGGERING handle_new_lead for lead={lid}")
+                        logger.info(f"[WEBHOOK] This will start auto-response flow")
+                        
+                        self.handle_new_lead(lid)
+                        
+                        logger.info(f"[WEBHOOK] ✅ handle_new_lead completed for lead={lid}")
+                    else:
+                        logger.warning(f"[WEBHOOK] ⚠️ ProcessedLead already exists")
+                        logger.info(f"[WEBHOOK] Lead {lid} already processed; skipping handle_new_lead")
+                        logger.info(f"[WEBHOOK] Existing record created at: {pl.processed_at}")
+                        logger.info(f"[WEBHOOK] This indicates the lead was processed before")
+                        
+                except Exception as e:
+                    logger.error(f"[WEBHOOK] ❌ ERROR creating ProcessedLead for {lid}: {e}")
+                    logger.error(f"[WEBHOOK] Exception details: {type(e).__name__}: {str(e)}")
+                    
+                logger.info(f"[WEBHOOK] ================================================")
+            else:
+                logger.debug(f"[WEBHOOK] Skipping non-NEW_LEAD event: {upd.get('event_type')} for {upd.get('lead_id')}")
 
         biz_id = payload["data"].get("id")
         for lid in lead_ids:
@@ -434,90 +510,241 @@ class WebhookView(APIView):
         return Response({"status": "received"}, status=status.HTTP_201_CREATED)
 
     def handle_new_lead(self, lead_id: str):
-        logger.info(f"[AUTO-RESPONSE] Handling new lead: {lead_id}")
-        self._process_auto_response(lead_id, phone_opt_in=False, phone_available=False)
+        logger.info(f"[AUTO-RESPONSE] 🆕 STARTING handle_new_lead")
+        logger.info(f"[AUTO-RESPONSE] Lead ID: {lead_id}")
+        logger.info(f"[AUTO-RESPONSE] Scenario: Basic new lead (phone_opt_in=False, phone_available=False)")
+        logger.info(f"[AUTO-RESPONSE] About to call _process_auto_response")
+        
+        try:
+            self._process_auto_response(lead_id, phone_opt_in=False, phone_available=False)
+            logger.info(f"[AUTO-RESPONSE] ✅ handle_new_lead completed successfully for {lead_id}")
+        except Exception as e:
+            logger.error(f"[AUTO-RESPONSE] ❌ handle_new_lead failed for {lead_id}: {e}")
+            logger.exception(f"[AUTO-RESPONSE] Exception details for handle_new_lead")
+            raise
 
     def handle_phone_opt_in(self, lead_id: str, reason: str | None = None):
-        logger.info(f"[AUTO-RESPONSE] Handling phone opt-in for lead: {lead_id}")
-        self._cancel_no_phone_tasks(lead_id, reason)
-        self._process_auto_response(lead_id, phone_opt_in=True, phone_available=False)
+        logger.info(f"[AUTO-RESPONSE] 📱 STARTING handle_phone_opt_in")
+        logger.info(f"[AUTO-RESPONSE] Lead ID: {lead_id}")
+        logger.info(f"[AUTO-RESPONSE] Reason: {reason or 'Not specified'}")
+        logger.info(f"[AUTO-RESPONSE] Scenario: Phone opt-in received (phone_opt_in=True, phone_available=False)")
+        logger.info(f"[AUTO-RESPONSE] Step 1: Cancelling no-phone tasks")
+        
+        try:
+            self._cancel_no_phone_tasks(lead_id, reason)
+            logger.info(f"[AUTO-RESPONSE] Step 2: Starting auto-response for phone opt-in scenario")
+            self._process_auto_response(lead_id, phone_opt_in=True, phone_available=False)
+            logger.info(f"[AUTO-RESPONSE] ✅ handle_phone_opt_in completed successfully for {lead_id}")
+        except Exception as e:
+            logger.error(f"[AUTO-RESPONSE] ❌ handle_phone_opt_in failed for {lead_id}: {e}")
+            logger.exception(f"[AUTO-RESPONSE] Exception details for handle_phone_opt_in")
+            raise
 
     def handle_phone_available(self, lead_id: str, reason: str | None = None):
-        logger.info(f"[AUTO-RESPONSE] Handling phone available for lead: {lead_id}")
-        self._cancel_no_phone_tasks(lead_id, reason)
-        self._process_auto_response(lead_id, phone_opt_in=False, phone_available=True)
+        logger.info(f"[AUTO-RESPONSE] 📞 STARTING handle_phone_available")
+        logger.info(f"[AUTO-RESPONSE] Lead ID: {lead_id}")
+        logger.info(f"[AUTO-RESPONSE] Reason: {reason or 'Not specified'}")
+        logger.info(f"[AUTO-RESPONSE] Scenario: Phone number available (phone_opt_in=False, phone_available=True)")
+        logger.info(f"[AUTO-RESPONSE] Step 1: Cancelling no-phone tasks")
+        
+        try:
+            self._cancel_no_phone_tasks(lead_id, reason)
+            logger.info(f"[AUTO-RESPONSE] Step 2: Starting auto-response for phone available scenario")
+            self._process_auto_response(lead_id, phone_opt_in=False, phone_available=True)
+            logger.info(f"[AUTO-RESPONSE] ✅ handle_phone_available completed successfully for {lead_id}")
+        except Exception as e:
+            logger.error(f"[AUTO-RESPONSE] ❌ handle_phone_available failed for {lead_id}: {e}")
+            logger.exception(f"[AUTO-RESPONSE] Exception details for handle_phone_available")
+            raise
 
     def _cancel_no_phone_tasks(self, lead_id: str, reason: str | None = None):
+        logger.info(f"[AUTO-RESPONSE] 🚫 STARTING _cancel_no_phone_tasks")
+        logger.info(f"[AUTO-RESPONSE] Lead ID: {lead_id}")
+        logger.info(f"[AUTO-RESPONSE] Cancellation reason: {reason or 'Not specified'}")
+        logger.info(f"[AUTO-RESPONSE] Looking for pending tasks with: phone_opt_in=False, phone_available=False, active=True")
+        
         pending = LeadPendingTask.objects.filter(
             lead_id=lead_id, phone_opt_in=False, phone_available=False, active=True
         )
+        pending_count = pending.count()
+        logger.info(f"[AUTO-RESPONSE] Found {pending_count} pending no-phone tasks to cancel")
+        
+        if pending_count == 0:
+            logger.info(f"[AUTO-RESPONSE] No no-phone tasks to cancel for {lead_id}")
+            return
+            
         queue = django_rq.get_queue("default")
         scheduler = django_rq.get_scheduler("default")
+        
+        cancelled_count = 0
+        error_count = 0
+        
         for p in pending:
+            logger.info(f"[AUTO-RESPONSE] Cancelling task: {p.task_id} for lead {lead_id}")
+            logger.info(f"[AUTO-RESPONSE] Task text preview: {p.text[:50]}...")
+            logger.info(f"[AUTO-RESPONSE] Task created at: {p.created_at}")
+            
             try:
                 job = queue.fetch_job(p.task_id)
                 if job:
                     job.cancel()
+                    logger.info(f"[AUTO-RESPONSE] ✅ Queue job {p.task_id} cancelled successfully")
+                else:
+                    logger.info(f"[AUTO-RESPONSE] ⚠️ Queue job {p.task_id} not found (might be already processed)")
+                    
                 scheduler.cancel(p.task_id)
+                logger.info(f"[AUTO-RESPONSE] ✅ Scheduler job {p.task_id} cancelled successfully")
+                cancelled_count += 1
+                
             except Exception as exc:
-                logger.error(f"[AUTO-RESPONSE] Error revoking task {p.task_id}: {exc}")
+                logger.error(f"[AUTO-RESPONSE] ❌ Error cancelling task {p.task_id}: {exc}")
+                logger.exception(f"[AUTO-RESPONSE] Exception details for task cancellation")
+                error_count += 1
+                
+            # Update task status
             p.active = False
             p.save(update_fields=["active"])
-            CeleryTaskLog.objects.filter(task_id=p.task_id).update(
+            logger.info(f"[AUTO-RESPONSE] ✅ LeadPendingTask {p.task_id} marked as inactive")
+            
+            # Update Celery log
+            updated_logs = CeleryTaskLog.objects.filter(task_id=p.task_id).update(
                 status="REVOKED", result=reason
             )
+            logger.info(f"[AUTO-RESPONSE] ✅ Updated {updated_logs} CeleryTaskLog entries for {p.task_id}")
+            
+        logger.info(f"[AUTO-RESPONSE] 📊 _cancel_no_phone_tasks summary for {lead_id}:")
+        logger.info(f"[AUTO-RESPONSE] - Tasks found: {pending_count}")
+        logger.info(f"[AUTO-RESPONSE] - Tasks cancelled successfully: {cancelled_count}")
+        logger.info(f"[AUTO-RESPONSE] - Tasks with errors: {error_count}")
+        logger.info(f"[AUTO-RESPONSE] ✅ _cancel_no_phone_tasks completed")
 
     def _cancel_all_tasks(self, lead_id: str, reason: str | None = None):
+        logger.info(f"[AUTO-RESPONSE] 🛑 STARTING _cancel_all_tasks")
+        logger.info(f"[AUTO-RESPONSE] Lead ID: {lead_id}")
+        logger.info(f"[AUTO-RESPONSE] Cancellation reason: {reason or 'Not specified'}")
+        logger.info(f"[AUTO-RESPONSE] Looking for ALL pending tasks with: active=True")
+        
         pending = LeadPendingTask.objects.filter(lead_id=lead_id, active=True)
+        pending_count = pending.count()
+        logger.info(f"[AUTO-RESPONSE] Found {pending_count} pending tasks to cancel")
+        
+        if pending_count == 0:
+            logger.info(f"[AUTO-RESPONSE] No tasks to cancel for {lead_id}")
+            return
+            
+        # Log details about tasks being cancelled
+        for p in pending:
+            logger.info(f"[AUTO-RESPONSE] Task to cancel: {p.task_id}")
+            logger.info(f"[AUTO-RESPONSE] - Text: {p.text[:50]}...")
+            logger.info(f"[AUTO-RESPONSE] - phone_opt_in: {p.phone_opt_in}")
+            logger.info(f"[AUTO-RESPONSE] - phone_available: {p.phone_available}")
+            logger.info(f"[AUTO-RESPONSE] - Created: {p.created_at}")
+            
         queue = django_rq.get_queue("default")
         scheduler = django_rq.get_scheduler("default")
+        
+        cancelled_count = 0
+        error_count = 0
+        
         for p in pending:
+            logger.info(f"[AUTO-RESPONSE] Cancelling task: {p.task_id}")
+            
             try:
                 job = queue.fetch_job(p.task_id)
                 if job:
                     job.cancel()
+                    logger.info(f"[AUTO-RESPONSE] ✅ Queue job {p.task_id} cancelled successfully")
+                else:
+                    logger.info(f"[AUTO-RESPONSE] ⚠️ Queue job {p.task_id} not found (might be already processed)")
+                    
                 scheduler.cancel(p.task_id)
+                logger.info(f"[AUTO-RESPONSE] ✅ Scheduler job {p.task_id} cancelled successfully")
+                cancelled_count += 1
+                
             except Exception as exc:
-                logger.error(f"[AUTO-RESPONSE] Error revoking task {p.task_id}: {exc}")
+                logger.error(f"[AUTO-RESPONSE] ❌ Error cancelling task {p.task_id}: {exc}")
+                logger.exception(f"[AUTO-RESPONSE] Exception details for task cancellation")
+                error_count += 1
+                
+            # Update task status
             p.active = False
             p.save(update_fields=["active"])
-            CeleryTaskLog.objects.filter(task_id=p.task_id).update(
+            logger.info(f"[AUTO-RESPONSE] ✅ LeadPendingTask {p.task_id} marked as inactive")
+            
+            # Update Celery log
+            updated_logs = CeleryTaskLog.objects.filter(task_id=p.task_id).update(
                 status="REVOKED", result=reason
             )
+            logger.info(f"[AUTO-RESPONSE] ✅ Updated {updated_logs} CeleryTaskLog entries for {p.task_id}")
+            
+        logger.info(f"[AUTO-RESPONSE] 📊 _cancel_all_tasks summary for {lead_id}:")
+        logger.info(f"[AUTO-RESPONSE] - Tasks found: {pending_count}")
+        logger.info(f"[AUTO-RESPONSE] - Tasks cancelled successfully: {cancelled_count}")
+        logger.info(f"[AUTO-RESPONSE] - Tasks with errors: {error_count}")
+        logger.info(f"[AUTO-RESPONSE] ✅ _cancel_all_tasks completed")
 
     def _process_auto_response(
         self, lead_id: str, phone_opt_in: bool, phone_available: bool
     ):
+        logger.info(f"[AUTO-RESPONSE] 🔧 STARTING _process_auto_response")
+        logger.info(f"[AUTO-RESPONSE] Parameters:")
+        logger.info(f"[AUTO-RESPONSE] - Lead ID: {lead_id}")
+        logger.info(f"[AUTO-RESPONSE] - phone_opt_in: {phone_opt_in}")
+        logger.info(f"[AUTO-RESPONSE] - phone_available: {phone_available}")
+        
+        # Step 1: Look up settings
+        logger.info(f"[AUTO-RESPONSE] 🔍 STEP 1: Looking up AutoResponseSettings")
+        
         default_settings = AutoResponseSettings.objects.filter(
             business__isnull=True,
             phone_opt_in=phone_opt_in,
             phone_available=phone_available,
         ).first()
+        logger.info(f"[AUTO-RESPONSE] Default settings found: {default_settings is not None}")
+        if default_settings:
+            logger.info(f"[AUTO-RESPONSE] Default settings ID: {default_settings.id}, enabled: {default_settings.enabled}")
+        
         logger.debug(
             f"[AUTO-RESPONSE] Looking up ProcessedLead for lead_id={lead_id}"
         )
         pl = ProcessedLead.objects.filter(lead_id=lead_id).first()
+        logger.info(f"[AUTO-RESPONSE] ProcessedLead found: {pl is not None}")
+        
         biz_settings = None
         if pl:
+            logger.info(f"[AUTO-RESPONSE] ProcessedLead details:")
+            logger.info(f"[AUTO-RESPONSE] - ID: {pl.id}")
+            logger.info(f"[AUTO-RESPONSE] - Business ID: {pl.business_id}")
+            logger.info(f"[AUTO-RESPONSE] - Lead ID: {pl.lead_id}")
+            logger.info(f"[AUTO-RESPONSE] - Processed at: {pl.processed_at}")
+            
             biz_settings = AutoResponseSettings.objects.filter(
                 business__business_id=pl.business_id,
                 phone_opt_in=phone_opt_in,
                 phone_available=phone_available,
             ).first()
+            logger.info(f"[AUTO-RESPONSE] Business-specific settings found: {biz_settings is not None}")
+            if biz_settings:
+                logger.info(f"[AUTO-RESPONSE] Business settings ID: {biz_settings.id}, enabled: {biz_settings.enabled}")
+            
+            # Step 2: Get authentication token
+            logger.info(f"[AUTO-RESPONSE] 🔐 STEP 2: Getting authentication token")
             try:
                 token = get_valid_business_token(pl.business_id)
+                logger.info(f"[AUTO-RESPONSE] ✅ Successfully obtained business token")
                 logger.debug(
-                    f"[AUTO-RESPONSE] Obtained business token for {pl.business_id}: {token}"
+                    f"[AUTO-RESPONSE] Obtained business token for {pl.business_id}: {token[:20]}..."
                 )
-            except ValueError:
+            except ValueError as e:
                 logger.error(
-                    f"[AUTO-RESPONSE] No token for business {pl.business_id}; skipping"
+                    f"[AUTO-RESPONSE] ❌ No token for business {pl.business_id}; skipping auto-response"
                 )
+                logger.error(f"[AUTO-RESPONSE] Token error: {e}")
                 return
         else:
             qs = ProcessedLead.objects.filter(lead_id=lead_id)
             logger.error(
-                "[AUTO-RESPONSE] Cannot determine business for lead=%s (found %s ProcessedLead records)",
+                "[AUTO-RESPONSE] ❌ Cannot determine business for lead=%s (found %s ProcessedLead records)",
                 lead_id,
                 qs.count(),
             )

@@ -115,84 +115,149 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
     """
     Одноразова відправка follow-up повідомлення без повторних спроб.
     """
+    logger.info(f"[FOLLOW-UP] 🚀 STARTING send_follow_up task")
+    logger.info(f"[FOLLOW-UP] Parameters:")
+    logger.info(f"[FOLLOW-UP] - Lead ID: {lead_id}")
+    logger.info(f"[FOLLOW-UP] - Business ID: {business_id or 'Not specified'}")
+    logger.info(f"[FOLLOW-UP] - Message text: {text[:100]}..." + ("" if len(text) <= 100 else " (truncated)"))
+    logger.info(f"[FOLLOW-UP] - Full message length: {len(text)} characters")
+    
     job = get_current_job()
     job_id = job.id if job else None
+    logger.info(f"[FOLLOW-UP] Task ID: {job_id}")
+    
+    # Step 1: Mark task as inactive
     if job_id:
-        LeadPendingTask.objects.filter(task_id=job_id).update(active=False)
+        updated_count = LeadPendingTask.objects.filter(task_id=job_id).update(active=False)
+        logger.info(f"[FOLLOW-UP] 📝 Marked {updated_count} LeadPendingTask(s) as inactive")
+        
+    # Step 2: Check for duplicates
+    logger.info(f"[FOLLOW-UP] 🔍 STEP 1: Checking for duplicate messages")
     if _already_sent(lead_id, text, exclude_task_id=job_id):
-        logger.info("[FOLLOW-UP] Duplicate follow-up for lead=%s; skipping", lead_id)
+        logger.warning(f"[FOLLOW-UP] ⚠️ DUPLICATE DETECTED - message already sent for lead={lead_id}")
+        logger.info(f"[FOLLOW-UP] 🛑 EARLY RETURN - skipping duplicate message")
         return
 
+    logger.info(f"[FOLLOW-UP] ✅ No duplicate found - proceeding with send")
+
+    # Step 3: Validate message text
+    logger.info(f"[FOLLOW-UP] 📝 STEP 2: Validating message text")
     if not text.strip():
-        logger.warning("[FOLLOW-UP] Empty follow-up text for lead=%s; skipping", lead_id)
+        logger.warning(f"[FOLLOW-UP] ⚠️ EMPTY MESSAGE TEXT detected for lead={lead_id}")
+        logger.info(f"[FOLLOW-UP] Original text: '{text}'")
+        logger.info(f"[FOLLOW-UP] Stripped text: '{text.strip()}'")
+        logger.info(f"[FOLLOW-UP] 🛑 EARLY RETURN - skipping empty message")
         return
+        
+    logger.info(f"[FOLLOW-UP] ✅ Message text validation passed")
 
+    # Step 4: Acquire lead lock
+    logger.info(f"[FOLLOW-UP] 🔒 STEP 3: Acquiring lead lock")
     lock_id = f"lead-lock:{lead_id}"
+    logger.info(f"[FOLLOW-UP] Lock ID: {lock_id}")
+    logger.info(f"[FOLLOW-UP] Lock timeout: {LOCK_TIMEOUT}s")
+    logger.info(f"[FOLLOW-UP] Lock blocking timeout: 5s")
+    
     try:
         with _get_lock(lock_id, timeout=LOCK_TIMEOUT, blocking_timeout=5):
+            logger.info(f"[FOLLOW-UP] ✅ Lock acquired successfully")
+            
+            # Step 5: Double-check for duplicates inside lock
+            logger.info(f"[FOLLOW-UP] 🔍 STEP 4: Double-checking for duplicates inside lock")
             if _already_sent(lead_id, text, exclude_task_id=job_id):
-                logger.info("[FOLLOW-UP] Duplicate follow-up for lead=%s; skipping", lead_id)
+                logger.warning(f"[FOLLOW-UP] ⚠️ DUPLICATE DETECTED IN LOCK - message already sent for lead={lead_id}")
+                logger.info(f"[FOLLOW-UP] This suggests another task sent the same message while we were waiting")
+                logger.info(f"[FOLLOW-UP] 🛑 RETURN - skipping duplicate message")
                 return
+                
+            logger.info(f"[FOLLOW-UP] ✅ Still no duplicate found in lock - proceeding")
+
+            # Step 6: Get authentication token
+            logger.info(f"[FOLLOW-UP] 🔐 STEP 5: Getting authentication token")
             biz_id = business_id
             token = None
+            
             if biz_id:
+                logger.info(f"[FOLLOW-UP] Attempting to get business-specific token for business_id: {biz_id}")
                 try:
                     token = get_valid_business_token(biz_id)
+                    logger.info(f"[FOLLOW-UP] ✅ Successfully obtained business token")
+                    logger.debug(f"[FOLLOW-UP] Business token: {token[:20]}...")
                 except Exception as exc:
-                    logger.error(
-                        f"[FOLLOW-UP] Error fetching token for business={biz_id}: {exc}"
-                    )
+                    logger.error(f"[FOLLOW-UP] ❌ Error fetching business token for business={biz_id}: {exc}")
+                    logger.exception(f"[FOLLOW-UP] Business token fetch exception")
+                    
             if not token:
-                token = get_token_for_lead(lead_id)
+                logger.info(f"[FOLLOW-UP] No business token available - attempting to get lead-specific token")
+                try:
+                    token = get_token_for_lead(lead_id)
+                    if token:
+                        logger.info(f"[FOLLOW-UP] ✅ Successfully obtained lead-specific token")
+                        logger.debug(f"[FOLLOW-UP] Lead token: {token[:20]}...")
+                    else:
+                        logger.warning(f"[FOLLOW-UP] ⚠️ Lead-specific token is None")
+                except Exception as exc:
+                    logger.error(f"[FOLLOW-UP] ❌ Error fetching lead token: {exc}")
+                    logger.exception(f"[FOLLOW-UP] Lead token fetch exception")
+                    
             if not token:
-                logger.error(f"[FOLLOW-UP] No token available for lead={lead_id}")
+                logger.error(f"[FOLLOW-UP] ❌ NO TOKEN AVAILABLE for lead={lead_id}")
+                logger.error(f"[FOLLOW-UP] Cannot send message without authentication")
+                logger.error(f"[FOLLOW-UP] Tried business_id={biz_id} and lead_id={lead_id}")
+                logger.info(f"[FOLLOW-UP] 🛑 RETURN - cannot proceed without token")
                 return
+                
+            logger.info(f"[FOLLOW-UP] ✅ Token obtained successfully")
+
+            # Step 7: Prepare API request
+            logger.info(f"[FOLLOW-UP] 📡 STEP 6: Preparing API request")
             url = f"https://api.yelp.com/v3/leads/{lead_id}/events"
             headers = {
                 "Authorization": f"Bearer {token}",
                 "Content-Type": "application/json",
             }
             payload = {"request_content": text, "request_type": "TEXT"}
+            
+            logger.info(f"[FOLLOW-UP] API request details:")
+            logger.info(f"[FOLLOW-UP] - URL: {url}")
+            logger.info(f"[FOLLOW-UP] - Headers: Authorization=Bearer {token[:20]}..., Content-Type=application/json")
+            logger.info(f"[FOLLOW-UP] - Payload: {payload}")
+            logger.info(f"[FOLLOW-UP] - Timeout: 10 seconds")
 
-            resp = requests.post(url, headers=headers, json=payload, timeout=10)
-            resp.raise_for_status()
-            logger.info(f"[FOLLOW-UP] Sent to lead={lead_id}")
-
+            # Step 8: Send API request
+            logger.info(f"[FOLLOW-UP] 📤 STEP 7: Sending follow-up message to Yelp API")
             try:
-                with transaction.atomic():
-                    LeadEvent.objects.create(
-                        event_id=str(uuid.uuid4()),
-                        lead_id=lead_id,
-                        event_type="FOLLOW_UP",
-                        user_type="BUSINESS",
-                        user_id=biz_id or "",
-                        user_display_name="",
-                        text=text,
-                        cursor="",
-                        time_created=timezone.now(),
-                        raw={"task_id": job_id},
-                        from_backend=True,
-                    )
-            except IntegrityError:
-                logger.info(
-                    "[FOLLOW-UP] LeadEvent already recorded for lead=%s", lead_id
-                )
-    except Exception as exc:
-        if isinstance(exc, HTTPError) and getattr(exc, "response", None) is not None:
-            message = _extract_yelp_error(exc.response)
-            if exc.response.status_code in (401, 403):
-                logger.error(
-                    f"[FOLLOW-UP] Invalid or expired token for lead={lead_id}: {message}"
-                )
-            else:
-                logger.error(
-                    f"[FOLLOW-UP] HTTP {exc.response.status_code} for lead={lead_id}: {message}"
-                )
-        elif "acquire" in str(exc):
-            logger.info(f"[FOLLOW-UP] Another task running for lead={lead_id}; skipping")
-            return
-        else:
-            logger.error(f"[FOLLOW-UP] Error sending to lead={lead_id}: {exc}")
+                resp = requests.post(url, headers=headers, json=payload, timeout=10)
+                logger.info(f"[FOLLOW-UP] API response received:")
+                logger.info(f"[FOLLOW-UP] - Status code: {resp.status_code}")
+                logger.info(f"[FOLLOW-UP] - Response headers: {dict(resp.headers)}")
+                logger.info(f"[FOLLOW-UP] - Response text: {resp.text[:200]}..." + ("" if len(resp.text) <= 200 else " (truncated)"))
+                
+                resp.raise_for_status()
+                logger.info(f"[FOLLOW-UP] ✅ Message sent successfully!")
+                logger.info(f"[FOLLOW-UP] 🎉 FOLLOW-UP COMPLETED for lead={lead_id}")
+                
+            except requests.exceptions.Timeout as e:
+                logger.error(f"[FOLLOW-UP] ❌ TIMEOUT ERROR during API request: {e}")
+                logger.error(f"[FOLLOW-UP] Request took longer than 10 seconds")
+                raise
+            except requests.exceptions.HTTPError as e:
+                logger.error(f"[FOLLOW-UP] ❌ HTTP ERROR during API request: {e}")
+                logger.error(f"[FOLLOW-UP] Response status: {resp.status_code}")
+                logger.error(f"[FOLLOW-UP] Response body: {resp.text}")
+                raise
+            except requests.exceptions.RequestException as e:
+                logger.error(f"[FOLLOW-UP] ❌ REQUEST ERROR during API request: {e}")
+                logger.exception(f"[FOLLOW-UP] Request exception details")
+                raise
+            except Exception as e:
+                logger.error(f"[FOLLOW-UP] ❌ UNEXPECTED ERROR during API request: {e}")
+                logger.exception(f"[FOLLOW-UP] Unexpected exception details")
+                raise
+                
+    except Exception as lock_exc:
+        logger.error(f"[FOLLOW-UP] ❌ LOCK ERROR: {lock_exc}")
+        logger.exception(f"[FOLLOW-UP] Lock acquisition or processing failed")
         raise
 
 

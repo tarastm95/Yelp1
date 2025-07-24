@@ -24,17 +24,31 @@ services:
       POSTGRES_DB: "postgres"
     volumes:
       - .:/app
+      - ./logs:/app/logs
     ports:
       - "8000:8000"
     depends_on:
       - redis
       - db
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "31"  # 31 файлів = ~місяць логів
+        compress: "true"
 
   redis:
     image: redis:7
     restart: unless-stopped
     volumes:
       - redis_data:/data
+      - ./logs:/logs
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "31"
+        compress: "true"
 
   db:
     image: postgres:16
@@ -50,6 +64,13 @@ services:
       POSTGRES_HOST_AUTH_METHOD: "md5"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./logs:/logs
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "31"
+        compress: "true"
 
   rqworker:
     build:
@@ -68,9 +89,16 @@ services:
       POSTGRES_DB: "postgres"
     volumes:
       - .:/app
+      - ./logs:/app/logs
     depends_on:
       - redis
       - db
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "31"
+        compress: "true"
 
   rqscheduler:
     build:
@@ -89,9 +117,16 @@ services:
       POSTGRES_DB: "postgres"
     volumes:
       - .:/app
+      - ./logs:/app/logs
     depends_on:
       - redis
       - db
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "31"
+        compress: "true"
 
   rqdash:
     build:
@@ -108,6 +143,12 @@ services:
       - "9181:9181"
     depends_on:
       - redis
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "31"
+        compress: "true"
 
   scheduler-dashboard:
     build:
@@ -127,6 +168,12 @@ services:
       - "9182:9182"
     depends_on:
       - redis
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "31"
+        compress: "true"
 
   redis-commander:
     image: rediscommander/redis-commander:latest
@@ -139,6 +186,26 @@ services:
       REDIS_HOSTS: local:redis:6379:1
     depends_on:
       - redis
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "30m"
+        max-file: "31"
+        compress: "true"
+
+  # Веб-інтерфейс для перегляду логів
+  dozzle:
+    image: amir20/dozzle:latest
+    container_name: dozzle
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "9999:8080"
+    environment:
+      DOZZLE_LEVEL: info
+      DOZZLE_TAILSIZE: 300
+      DOZZLE_FILTER: "name=yelp1*"
+    restart: unless-stopped
 
 volumes:
   postgres_data:
