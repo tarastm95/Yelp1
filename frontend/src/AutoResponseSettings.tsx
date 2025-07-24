@@ -51,6 +51,7 @@ import PhoneIcon from '@mui/icons-material/Phone';
 import PhoneDisabledIcon from '@mui/icons-material/PhoneDisabled';
 import ContactPhoneIcon from '@mui/icons-material/ContactPhone';
 import BusinessInfoCard from './BusinessInfoCard';
+import NotificationSettings from './NotificationSettings';
 
 // Helper placeholders used in message templates
 
@@ -1832,6 +1833,8 @@ const AutoResponseSettings: FC = () => {
         )}
       </Box>
     </Paper>
+
+    <NotificationSettings businessId={selectedBusiness} />
 
       <Snackbar
         open={saved || Boolean(error)}

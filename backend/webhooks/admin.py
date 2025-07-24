@@ -4,4 +4,4 @@ from .models import NotificationSetting
 
 @admin.register(NotificationSetting)
 class NotificationSettingAdmin(admin.ModelAdmin):
-    list_display = ["phone_number", "message_template"]
+    list_display = ["phone_number", "business", "message_template"]

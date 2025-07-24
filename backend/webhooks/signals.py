@@ -1,3 +1,4 @@
+from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
@@ -16,11 +17,15 @@ def notify_new_lead(sender, instance: LeadDetail, created: bool, **kwargs):
     if not instance.phone_number:
         return
 
+    business = YelpBusiness.objects.filter(business_id=instance.business_id).first()
+
     settings = NotificationSetting.objects.exclude(phone_number="").exclude(message_template="")
+    if business:
+        settings = settings.filter(models.Q(business=business) | models.Q(business__isnull=True))
+    else:
+        settings = settings.filter(business__isnull=True)
     if not settings.exists():
         return
-
-    business = YelpBusiness.objects.filter(business_id=instance.business_id).first()
 
     for setting in settings:
         message = setting.message_template.format(

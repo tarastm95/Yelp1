@@ -263,13 +263,28 @@ class LeadPendingTask(models.Model):
 class NotificationSetting(models.Model):
     """Phone number and template used to notify about new leads."""
 
-    phone_number = models.CharField(max_length=64, unique=True)
+    business = models.ForeignKey(
+        YelpBusiness,
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        help_text="Business for this setting. Null → global",
+    )
+    phone_number = models.CharField(max_length=64)
     message_template = models.TextField(
         help_text=(
             "Text with placeholders {business_id}, {lead_id}, "
             "{business_name}, {timestamp}, {phone}"
         )
     )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["business", "phone_number"],
+                name="uniq_notification_business_phone",
+            )
+        ]
 
     def __str__(self):
         return f"Notification to {self.phone_number}"
