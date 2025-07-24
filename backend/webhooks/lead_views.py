@@ -289,7 +289,7 @@ class NotificationSettingListCreateView(generics.ListCreateAPIView):
         bid = self.request.query_params.get("business_id")
         qs = NotificationSetting.objects.all().order_by("id")
         if bid:
-            return qs.filter(Q(business__business_id=bid) | Q(business__isnull=True))
+            return qs.filter(business__business_id=bid)
         return qs.filter(business__isnull=True)
 
     def create(self, request, *args, **kwargs):
@@ -317,7 +317,7 @@ class NotificationSettingDetailView(generics.RetrieveUpdateDestroyAPIView):
         bid = self.request.query_params.get("business_id")
         qs = NotificationSetting.objects.all()
         if bid:
-            return qs.filter(Q(business__business_id=bid) | Q(business__isnull=True))
+            return qs.filter(business__business_id=bid)
         return qs.filter(business__isnull=True)
 
     def perform_update(self, serializer):
