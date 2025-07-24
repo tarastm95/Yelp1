@@ -24,7 +24,6 @@ import {
   Login as LoginIcon,
   Logout as LogoutIcon,
   Business as BusinessIcon,
-  Notifications as NotificationsIcon,
   Dashboard as DashboardIcon,
   ManageAccounts as ManageAccountsIcon,
   Tune as TuneIcon,
@@ -57,7 +56,6 @@ const menuGroups = {
     color: '#43e97b',
     items: [
       { text: 'Auto-response Settings', icon: <SettingsIcon />, href: '/settings', color: '#764ba2' },
-      { text: 'Notifications', icon: <NotificationsIcon />, href: '/notifications', color: '#ffb74d' },
     ]
   },
   integration: {
