@@ -463,7 +463,29 @@ class WebhookView(APIView):
                 text = defaults.get("text", "")
                 phone = _extract_phone(text)
                 has_phone = bool(phone)
-                is_new = created
+                
+                # ❌ СТАРИЙ КОД: is_new = created
+                # ✅ НОВИЙ КОД: Перевіряємо чи це справжня нова подія клієнта
+                event_time_str = e.get("time_created")
+                event_time = parse_datetime(event_time_str) if event_time_str else None
+                
+                # Справжня нова подія = створена в БД AND час події після обробки ліда
+                is_really_new_event = (
+                    created and 
+                    event_time and 
+                    processed_at and 
+                    event_time > processed_at
+                )
+                
+                logger.info(f"[WEBHOOK] 🔍 EVENT ANALYSIS for lead={lid}, event_id={eid}")
+                logger.info(f"[WEBHOOK] - Record created in DB: {created}")
+                logger.info(f"[WEBHOOK] - Event time: {event_time_str}")
+                logger.info(f"[WEBHOOK] - Lead processed at: {processed_at}")
+                logger.info(f"[WEBHOOK] - Event after processing: {event_time > processed_at if event_time and processed_at else 'Cannot determine'}")
+                logger.info(f"[WEBHOOK] - Is really new client event: {is_really_new_event}")
+                
+                # Замінюємо is_new на is_really_new_event
+                is_new = is_really_new_event
 
                 if e.get("event_type") == "CONSUMER_PHONE_NUMBER_OPT_IN_EVENT":
                     updated = LeadDetail.objects.filter(
@@ -473,13 +495,23 @@ class WebhookView(APIView):
                         self.handle_phone_opt_in(lid)
 
                 if is_new and e.get("user_type") == "CONSUMER":
+                    logger.info(f"[WEBHOOK] 👤 PROCESSING CONSUMER EVENT as TRULY NEW")
+                    logger.info(f"[WEBHOOK] Event ID: {eid}")
+                    logger.info(f"[WEBHOOK] Event text: '{text[:100]}...'" + ("" if len(text) <= 100 else " (truncated)"))
+                    logger.info(f"[WEBHOOK] Has phone in text: {has_phone}")
+                    if has_phone:
+                        logger.info(f"[WEBHOOK] Extracted phone: {phone}")
+                    
                     pending = LeadPendingTask.objects.filter(
                         lead_id=lid,
                         phone_opt_in=False,
                         phone_available=False,
                         active=True,
                     ).exists()
+                    logger.info(f"[WEBHOOK] Pending no-phone tasks exist: {pending}")
+                    
                     if has_phone:
+                        logger.info(f"[WEBHOOK] 📞 CLIENT PROVIDED PHONE NUMBER")
                         LeadDetail.objects.filter(lead_id=lid).update(
                             phone_in_text=True, phone_number=phone
                         )
@@ -496,16 +528,41 @@ class WebhookView(APIView):
                                 phone_in_dialog=True
                             )
                             reason = "Client responded with a number → switched to the 'phone available' scenario"
+                            logger.info(f"[WEBHOOK] 🔄 SWITCHING TO PHONE AVAILABLE scenario")
                             self.handle_phone_available(lid, reason=reason)
                         else:
+                            logger.info(f"[WEBHOOK] 🔄 TRIGGERING PHONE AVAILABLE flow (no pending tasks)")
                             self.handle_phone_available(lid)
                     elif pending:
+                        logger.info(f"[WEBHOOK] 🚫 CLIENT RESPONDED WITHOUT PHONE NUMBER")
+                        logger.info(f"[WEBHOOK] Will cancel pending no-phone tasks")
                         reason = "Client responded, but no number was found"
                         self._cancel_no_phone_tasks(lid, reason=reason)
+                    else:
+                        logger.info(f"[WEBHOOK] ℹ️ CLIENT RESPONDED but no pending tasks to handle")
+                elif created and e.get("user_type") == "CONSUMER":
+                    logger.info(f"[WEBHOOK] 📊 CONSUMER EVENT RECORDED but NOT PROCESSED as new")
+                    logger.info(f"[WEBHOOK] Reason: Event happened BEFORE lead processing")
+                    logger.info(f"[WEBHOOK] Event time: {event_time_str}")
+                    logger.info(f"[WEBHOOK] Processed at: {processed_at}")
+                    logger.info(f"[WEBHOOK] This prevents false triggering of task cancellations")
                 elif is_new and defaults.get("user_type") in ("BIZ", "BUSINESS"):
+                    logger.info(f"[WEBHOOK] 🏢 BUSINESS USER RESPONDED")
                     if not defaults.get("from_backend"):
+                        logger.info(f"[WEBHOOK] Business response from Yelp dashboard - cancelling all tasks")
                         reason = "Business user responded in Yelp dashboard"
                         self._cancel_all_tasks(lid, reason=reason)
+                    else:
+                        logger.info(f"[WEBHOOK] Business response from backend - no action needed")
+                elif e.get("user_type") == "CONSUMER":
+                    logger.info(f"[WEBHOOK] 📝 CONSUMER EVENT SKIPPED")
+                    logger.info(f"[WEBHOOK] Record already existed in DB - not a new client response")
+                else:
+                    logger.debug(f"[WEBHOOK] 📄 OTHER EVENT TYPE")
+                    logger.debug(f"[WEBHOOK] Event ID: {eid}")
+                    logger.debug(f"[WEBHOOK] User type: {e.get('user_type')}")
+                    logger.debug(f"[WEBHOOK] Event type: {e.get('event_type')}")
+                    logger.debug(f"[WEBHOOK] No action required for this event type")
 
         return Response({"status": "received"}, status=status.HTTP_201_CREATED)
 
