@@ -147,281 +147,202 @@ const NotificationSettings: React.FC<Props> = ({ businessId }) => {
   };
 
   return (
-    <Box sx={{ py: 4 }}>
+    <Box sx={{ py: 2 }}>
       <Container maxWidth="lg">
+        {/* Section Header */}
+        <Box sx={{ mb: 4, textAlign: 'center' }}>
+          <Typography variant="h4" sx={{ fontWeight: 700, color: '#1a1a1a', mb: 1 }}>
+            📱 SMS Notification Center
+          </Typography>
+          <Typography variant="body1" sx={{ color: '#666', maxWidth: 600, mx: 'auto' }}>
+            Configure automated SMS notifications to stay informed about new leads and important business events in real-time
+          </Typography>
+        </Box>
+
         {/* Header Section */}
-        <Paper
-          elevation={0}
-          sx={{
-            background: 'rgba(255, 255, 255, 0.95)',
-            backdropFilter: 'blur(20px)',
-            borderRadius: 4,
-            p: 4,
-            mb: 4,
-            border: '1px solid rgba(255, 255, 255, 0.2)',
-          }}
-        >
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-              <Box
-                sx={{
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  borderRadius: '50%',
-                  p: 2,
-                  mr: 3,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <NotificationsIcon sx={{ color: 'white', fontSize: 32 }} />
-              </Box>
-              <Box>
-                <Typography variant="h3" sx={{ fontWeight: 800, color: '#1a1a1a', mb: 1 }}>
-                  Notification Settings
-                </Typography>
-                <Typography variant="body1" sx={{ color: '#6b7280', maxWidth: 600 }}>
-                  Configure SMS notifications to receive real-time updates about new leads and business activities. 
-                  Use placeholders to personalize your messages automatically.
-                </Typography>
-              </Box>
+        <Paper elevation={2} sx={{ p: 3, mb: 3, border: '2px solid #e3f2fd' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+            <NotificationsIcon sx={{ fontSize: 28, color: '#1976d2', mr: 2 }} />
+            <Box>
+              <Typography variant="h5" sx={{ fontWeight: 600, color: '#1a1a1a', mb: 0.5 }}>
+                Notification Settings
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#666' }}>
+                Configure SMS notifications to receive real-time updates about new leads
+              </Typography>
             </Box>
-          </Paper>
+          </Box>
+        </Paper>
 
-        <Grid container spacing={4}>
-          {/* Existing Notifications */}
-          <Grid item xs={12} lg={8}>
-            <Paper
-              elevation={0}
-              sx={{
-                background: 'rgba(255, 255, 255, 0.95)',
-                backdropFilter: 'blur(20px)',
-                borderRadius: 4,
-                border: '1px solid rgba(255, 255, 255, 0.2)',
-                overflow: 'hidden',
-              }}
-            >
-                <Box
-                  sx={{
-                    background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-                    p: 3,
-                  }}
-                >
-                  <Typography variant="h5" sx={{ color: 'white', fontWeight: 600 }}>
-                    Active Notifications
-                  </Typography>
-                  <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.8)', mt: 1 }}>
-                    {items.length} notification{items.length !== 1 ? 's' : ''} configured
-                  </Typography>
-                </Box>
+        <Grid container spacing={3}>
+          {/* Add New Notification */}
+          <Grid item xs={12} md={4}>
+            <Paper elevation={2} sx={{ p: 3 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                <AddIcon sx={{ fontSize: 20, color: '#1976d2', mr: 1 }} />
+                <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                  Add New Notification
+                </Typography>
+              </Box>
 
-                <Box sx={{ p: 3 }}>
-                  {items.length === 0 ? (
-                    <Box
+              <TextField
+                fullWidth
+                label="Phone Number"
+                value={phone}
+                onChange={e => setPhone(e.target.value)}
+                margin="normal"
+                variant="outlined"
+                size="small"
+                InputProps={{
+                  startAdornment: (
+                    <PhoneIcon sx={{ color: '#666', mr: 1, fontSize: 20 }} />
+                  ),
+                }}
+              />
+
+              <TextField
+                inputRef={templateRef}
+                fullWidth
+                multiline
+                rows={4}
+                label="Message Template"
+                value={template}
+                onChange={e => setTemplate(e.target.value)}
+                margin="normal"
+                variant="outlined"
+                size="small"
+              />
+
+              <Box sx={{ mt: 2, mb: 2 }}>
+                <Typography variant="body2" sx={{ color: '#666', mb: 1, fontWeight: 500 }}>
+                  Available placeholders:
+                </Typography>
+                <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                  {PLACEHOLDERS.map(ph => (
+                    <Chip
+                      key={ph}
+                      label={ph}
+                      size="small"
+                      variant="outlined"
+                      clickable
+                      onClick={() => insertPlaceholder(ph, 'new')}
                       sx={{
-                        textAlign: 'center',
-                        py: 6,
-                        color: '#6b7280',
+                        borderColor: '#1976d2',
+                        color: '#1976d2',
+                        fontFamily: 'monospace',
+                        fontSize: '0.75rem',
+                        '&:hover': {
+                          backgroundColor: '#e3f2fd',
+                        },
                       }}
-                    >
-                      <MessageIcon sx={{ fontSize: 64, mb: 2, opacity: 0.3 }} />
-                      <Typography variant="h6" sx={{ mb: 1 }}>
-                        No notifications configured
-                      </Typography>
-                      <Typography variant="body2">
-                        Add your first notification to get started
-                      </Typography>
-                    </Box>
-                  ) : (
-                    <Stack spacing={2}>
-                      {items.map((item, index) => (
-                          <Card key={item.id}
-                            elevation={0}
-                            sx={{
-                              border: '1px solid rgba(0, 0, 0, 0.08)',
-                              borderRadius: 3,
-                              transition: 'all 0.3s ease',
-                              '&:hover': {
-                                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)',
-                                transform: 'translateY(-2px)',
-                              },
-                            }}
-                          >
-                            <CardContent sx={{ p: 3 }}>
-                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                <Box sx={{ flex: 1 }}>
-                                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                                    <PhoneIcon sx={{ color: '#667eea', mr: 1 }} />
-                                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                                      {item.phone_number}
-                                    </Typography>
-                                  </Box>
-                                  <Box
-                                    sx={{
-                                      background: '#f8fafc',
-                                      borderRadius: 2,
-                                      p: 2,
-                                      border: '1px solid #e2e8f0',
-                                    }}
-                                  >
-                                    <Typography variant="body2" sx={{ color: '#475569', fontFamily: 'monospace' }}>
-                                      {item.message_template}
-                                    </Typography>
-                                  </Box>
-                                </Box>
-                                <Box sx={{ ml: 2 }}>
-                                  <IconButton
-                                    size="small"
-                                    onClick={() => handleEditOpen(item)}
-                                    sx={{
-                                      color: '#667eea',
-                                      '&:hover': {
-                                        background: 'rgba(102, 126, 234, 0.1)',
-                                      },
-                                    }}
-                                  >
-                                    <EditIcon fontSize="small" />
-                                  </IconButton>
-                                  <IconButton
-                                    size="small"
-                                    onClick={() => handleDelete(item.id)}
-                                    sx={{
-                                      color: '#ef4444',
-                                      ml: 1,
-                                      '&:hover': {
-                                        background: 'rgba(239, 68, 68, 0.1)',
-                                      },
-                                    }}
-                                  >
-                                    <DeleteIcon fontSize="small" />
-                                  </IconButton>
-                                </Box>
-                              </Box>
-                            </CardContent>
-                          </Card>
-                      ))}
-                    </Stack>
-                  )}
-                </Box>
-              </Paper>
+                    />
+                  ))}
+                </Stack>
+              </Box>
+
+              <Button
+                fullWidth
+                variant="contained"
+                onClick={handleSave}
+                startIcon={<SaveIcon />}
+                disabled={!phone || !template}
+                sx={{ mt: 2 }}
+              >
+                Save Notification
+              </Button>
+            </Paper>
           </Grid>
 
-          {/* Add New Notification */}
-          <Grid item xs={12} lg={4}>
-            <Paper
-              elevation={0}
-              sx={{
-                background: 'rgba(255, 255, 255, 0.95)',
-                backdropFilter: 'blur(20px)',
-                borderRadius: 4,
-                border: '1px solid rgba(255, 255, 255, 0.2)',
-                overflow: 'hidden',
-              }}
-            >
-                <Box
-                  sx={{
-                    background: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-                    p: 3,
-                  }}
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <AddIcon sx={{ color: 'white', mr: 1 }} />
-                    <Typography variant="h6" sx={{ color: 'white', fontWeight: 600 }}>
-                      Add New Notification
-                    </Typography>
-                  </Box>
+          {/* Existing Notifications */}
+          <Grid item xs={12} md={8}>
+            <Paper elevation={2} sx={{ p: 3 }}>
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
+                  Active Notifications
+                </Typography>
+                <Typography variant="body2" sx={{ color: '#666' }}>
+                  {items.length} notification{items.length !== 1 ? 's' : ''} configured
+                </Typography>
+              </Box>
+
+              <Divider sx={{ mb: 2 }} />
+
+              {items.length === 0 ? (
+                <Box sx={{ textAlign: 'center', py: 4, color: '#999' }}>
+                  <MessageIcon sx={{ fontSize: 48, mb: 1, opacity: 0.5 }} />
+                  <Typography variant="body1" sx={{ mb: 0.5 }}>
+                    No notifications configured
+                  </Typography>
+                  <Typography variant="body2">
+                    Add your first notification to get started
+                  </Typography>
                 </Box>
-
-                <Box sx={{ p: 3 }}>
-                  <TextField
-                    fullWidth
-                    label="Phone Number"
-                    value={phone}
-                    onChange={e => setPhone(e.target.value)}
-                    margin="normal"
-                    variant="outlined"
-                    InputProps={{
-                      startAdornment: (
-                        <PhoneIcon sx={{ color: '#667eea', mr: 1 }} />
-                      ),
-                    }}
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: 2,
-                      },
-                    }}
-                  />
-
-                  <TextField
-                    inputRef={templateRef}
-                    fullWidth
-                    multiline
-                    minRows={4}
-                    label="Message Template"
-                    value={template}
-                    onChange={e => setTemplate(e.target.value)}
-                    margin="normal"
-                    variant="outlined"
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: 2,
-                      },
-                    }}
-                  />
-
-                  <Box sx={{ mt: 2, mb: 3 }}>
-                    <Typography variant="body2" sx={{ color: '#6b7280', mb: 1, fontWeight: 500 }}>
-                      Quick Insert:
-                    </Typography>
-                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                      {PLACEHOLDERS.map(ph => (
-                        <Chip
-                          key={ph}
-                          label={ph}
-                          size="small"
-                          variant="outlined"
-                          clickable
-                          onClick={() => insertPlaceholder(ph, 'new')}
-                          icon={<SmartButtonIcon sx={{ fontSize: 16 }} />}
-                          sx={{
-                            borderColor: '#667eea',
-                            color: '#667eea',
-                            fontFamily: 'monospace',
-                            fontSize: '0.75rem',
-                            '&:hover': {
-                              backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                              borderColor: '#5a67d8',
-                            },
-                          }}
-                        />
-                      ))}
-                    </Stack>
-                  </Box>
-
-                  <Button
-                    fullWidth
-                    variant="contained"
-                    onClick={handleSave}
-                    startIcon={<SaveIcon />}
-                    disabled={!phone || !template}
-                    sx={{
-                      py: 1.5,
-                      borderRadius: 2,
-                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                      '&:hover': {
-                        background: 'linear-gradient(135deg, #5a67d8 0%, #6b4190 100%)',
-                        transform: 'translateY(-2px)',
-                        boxShadow: '0 8px 24px rgba(102, 126, 234, 0.3)',
-                      },
-                      '&:disabled': {
-                        background: '#e2e8f0',
-                        color: '#94a3b8',
-                      },
-                    }}
-                  >
-                    Save Notification
-                  </Button>
-                </Box>
-              </Paper>
+              ) : (
+                <Stack spacing={2}>
+                  {items.map((item) => (
+                    <Card 
+                      key={item.id}
+                      variant="outlined"
+                      sx={{ 
+                        border: '1px solid #e0e0e0',
+                        '&:hover': {
+                          boxShadow: 1,
+                        },
+                      }}
+                    >
+                      <CardContent sx={{ p: 2 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <Box sx={{ flex: 1 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                              <PhoneIcon sx={{ color: '#1976d2', mr: 1, fontSize: 18 }} />
+                              <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                                {item.phone_number}
+                              </Typography>
+                            </Box>
+                            <Box
+                              sx={{
+                                background: '#f5f5f5',
+                                borderRadius: 1,
+                                p: 1.5,
+                                border: '1px solid #e0e0e0',
+                              }}
+                            >
+                              <Typography 
+                                variant="body2" 
+                                sx={{ 
+                                  color: '#444', 
+                                  fontFamily: 'monospace',
+                                  fontSize: '0.875rem',
+                                  lineHeight: 1.4,
+                                }}
+                              >
+                                {item.message_template}
+                              </Typography>
+                            </Box>
+                          </Box>
+                          <Box sx={{ ml: 2, display: 'flex', gap: 0.5 }}>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleEditOpen(item)}
+                              sx={{ color: '#1976d2' }}
+                            >
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleDelete(item.id)}
+                              sx={{ color: '#d32f2f' }}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Box>
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </Stack>
+              )}
+            </Paper>
           </Grid>
         </Grid>
       </Container>
@@ -430,38 +351,17 @@ const NotificationSettings: React.FC<Props> = ({ businessId }) => {
       <Dialog 
         open={Boolean(editing)} 
         onClose={() => setEditing(null)}
-        maxWidth="md"
+        maxWidth="sm"
         fullWidth
-        PaperProps={{
-          sx: {
-            borderRadius: 4,
-            overflow: 'hidden',
-          },
-        }}
       >
-        <Box
-          sx={{
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            p: 3,
-          }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <EditIcon sx={{ color: 'white', mr: 1 }} />
-              <Typography variant="h6" sx={{ color: 'white', fontWeight: 600 }}>
-                Edit Notification
-              </Typography>
-            </Box>
-            <IconButton
-              onClick={() => setEditing(null)}
-              sx={{ color: 'white' }}
-            >
-              <CloseIcon />
-            </IconButton>
+        <DialogTitle sx={{ pb: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <EditIcon sx={{ color: '#1976d2', mr: 1 }} />
+            Edit Notification
           </Box>
-        </Box>
+        </DialogTitle>
 
-        <DialogContent sx={{ p: 3 }}>
+        <DialogContent sx={{ pt: 1 }}>
           <TextField
             fullWidth
             label="Phone Number"
@@ -469,15 +369,11 @@ const NotificationSettings: React.FC<Props> = ({ businessId }) => {
             onChange={e => setEditPhone(e.target.value)}
             margin="normal"
             variant="outlined"
+            size="small"
             InputProps={{
               startAdornment: (
-                <PhoneIcon sx={{ color: '#667eea', mr: 1 }} />
+                <PhoneIcon sx={{ color: '#666', mr: 1, fontSize: 20 }} />
               ),
-            }}
-            sx={{
-              '& .MuiOutlinedInput-root': {
-                borderRadius: 2,
-              },
             }}
           />
 
@@ -485,24 +381,20 @@ const NotificationSettings: React.FC<Props> = ({ businessId }) => {
             inputRef={editTemplateRef}
             fullWidth
             multiline
-            minRows={4}
+            rows={4}
             label="Message Template"
             value={editTemplate}
             onChange={e => setEditTemplate(e.target.value)}
             margin="normal"
             variant="outlined"
-            sx={{
-              '& .MuiOutlinedInput-root': {
-                borderRadius: 2,
-              },
-            }}
+            size="small"
           />
 
           <Box sx={{ mt: 2 }}>
-            <Typography variant="body2" sx={{ color: '#6b7280', mb: 1, fontWeight: 500 }}>
-              Quick Insert:
+            <Typography variant="body2" sx={{ color: '#666', mb: 1, fontWeight: 500 }}>
+              Available placeholders:
             </Typography>
-            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
               {PLACEHOLDERS.map(ph => (
                 <Chip
                   key={ph}
@@ -511,15 +403,13 @@ const NotificationSettings: React.FC<Props> = ({ businessId }) => {
                   variant="outlined"
                   clickable
                   onClick={() => insertPlaceholder(ph, 'edit')}
-                  icon={<SmartButtonIcon sx={{ fontSize: 16 }} />}
                   sx={{
-                    borderColor: '#667eea',
-                    color: '#667eea',
+                    borderColor: '#1976d2',
+                    color: '#1976d2',
                     fontFamily: 'monospace',
                     fontSize: '0.75rem',
                     '&:hover': {
-                      backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                      borderColor: '#5a67d8',
+                      backgroundColor: '#e3f2fd',
                     },
                   }}
                 />
@@ -528,30 +418,14 @@ const NotificationSettings: React.FC<Props> = ({ businessId }) => {
           </Box>
         </DialogContent>
 
-        <DialogActions sx={{ p: 3, pt: 0 }}>
-          <Button
-            onClick={() => setEditing(null)}
-            sx={{
-              color: '#6b7280',
-              '&:hover': {
-                background: 'rgba(107, 114, 128, 0.1)',
-              },
-            }}
-          >
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setEditing(null)} color="inherit">
             Cancel
           </Button>
           <Button
             variant="contained"
             onClick={handleUpdate}
             startIcon={<SaveIcon />}
-            sx={{
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              '&:hover': {
-                background: 'linear-gradient(135deg, #5a67d8 0%, #6b4190 100%)',
-                transform: 'translateY(-2px)',
-                boxShadow: '0 8px 24px rgba(102, 126, 234, 0.3)',
-              },
-            }}
           >
             Save Changes
           </Button>
@@ -568,13 +442,7 @@ const NotificationSettings: React.FC<Props> = ({ businessId }) => {
         <Alert
           onClose={() => setSaved(false)}
           severity="success"
-          sx={{
-            width: '100%',
-            borderRadius: 2,
-            '& .MuiAlert-icon': {
-              color: '#43e97b',
-            },
-          }}
+          sx={{ width: '100%' }}
         >
           Notification settings saved successfully!
         </Alert>
@@ -590,10 +458,7 @@ const NotificationSettings: React.FC<Props> = ({ businessId }) => {
         <Alert
           onClose={() => setError('')}
           severity="error"
-          sx={{
-            width: '100%',
-            borderRadius: 2,
-          }}
+          sx={{ width: '100%' }}
         >
           {error}
         </Alert>

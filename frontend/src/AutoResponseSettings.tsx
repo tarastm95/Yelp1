@@ -1834,6 +1834,57 @@ const AutoResponseSettings: FC = () => {
       </Box>
     </Paper>
 
+    {/* Divider Section */}
+    <Box sx={{ py: 6, my: 4 }}>
+      <Container maxWidth="lg">
+        <Box sx={{ textAlign: 'center' }}>
+          <Box
+            sx={{
+              width: '100%',
+              height: '2px',
+              background: 'linear-gradient(90deg, transparent 0%, #1976d2 50%, transparent 100%)',
+              mb: 3,
+              borderRadius: 1
+            }}
+          />
+          <Box 
+            sx={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              px: 4,
+              py: 2,
+              backgroundColor: '#f8f9fa',
+              border: '2px solid #e3f2fd',
+              borderRadius: 3,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+            }}
+          >
+            <Typography 
+              variant="h6" 
+              sx={{ 
+                color: '#1976d2',
+                fontWeight: 600,
+                letterSpacing: '0.5px'
+              }}
+            >
+              🔔 Additional Settings
+            </Typography>
+          </Box>
+          <Typography 
+            variant="body2" 
+            sx={{ 
+              mt: 2,
+              color: '#666',
+              maxWidth: 400,
+              mx: 'auto'
+            }}
+          >
+            Independent configuration section for notifications and other features
+          </Typography>
+        </Box>
+      </Container>
+    </Box>
+
     <NotificationSettings businessId={selectedBusiness} />
 
       <Snackbar
