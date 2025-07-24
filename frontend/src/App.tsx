@@ -27,7 +27,6 @@ import ClientDetails from "./ClientDetails/ClientDetails";
 import TokenStatus from "./TokenStatus";
 import TaskLogs from "./TaskLogs";
 import Subscriptions from "./Subscriptions";
-import Notifications from "./Notifications";
 import LoginPage from "./LoginPage";
 import TopMenu from "./TopMenu";
 
@@ -263,7 +262,6 @@ const App: FC = () => {
               <Route path="/callback" element={<YelpCallback />} />
               <Route path="/settings" element={<AutoResponseSettings />} />
               <Route path="/tokens" element={<TokenStatus />} />
-              <Route path="/notifications" element={<Notifications />} />
               <Route path="/subscriptions" element={<Subscriptions />} />
               <Route path="/tasks" element={<TaskLogs />} />
             </Routes>
