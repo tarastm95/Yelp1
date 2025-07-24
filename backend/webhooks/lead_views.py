@@ -286,20 +286,41 @@ class NotificationSettingListCreateView(generics.ListCreateAPIView):
     serializer_class = NotificationSettingSerializer
 
     def get_queryset(self):
-        return NotificationSetting.objects.all().order_by("id")
+        bid = self.request.query_params.get("business_id")
+        qs = NotificationSetting.objects.all().order_by("id")
+        if bid:
+            return qs.filter(Q(business__business_id=bid) | Q(business__isnull=True))
+        return qs.filter(business__isnull=True)
 
     def create(self, request, *args, **kwargs):
         phone = request.data.get("phone_number", "")
-        if NotificationSetting.objects.filter(phone_number=phone).exists():
+        bid = request.query_params.get("business_id")
+        business = YelpBusiness.objects.filter(business_id=bid).first() if bid else None
+        if NotificationSetting.objects.filter(phone_number=phone, business=business).exists():
             return Response(
                 {"detail": "Phone number already exists."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        return super().create(request, *args, **kwargs)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(business=business)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
 class NotificationSettingDetailView(generics.RetrieveUpdateDestroyAPIView):
     """Retrieve, update or delete a specific notification setting."""
 
     serializer_class = NotificationSettingSerializer
-    queryset = NotificationSetting.objects.all()
+
+    def get_queryset(self):
+        bid = self.request.query_params.get("business_id")
+        qs = NotificationSetting.objects.all()
+        if bid:
+            return qs.filter(Q(business__business_id=bid) | Q(business__isnull=True))
+        return qs.filter(business__isnull=True)
+
+    def perform_update(self, serializer):
+        bid = self.request.query_params.get("business_id")
+        business = YelpBusiness.objects.filter(business_id=bid).first() if bid else None
+        serializer.save(business=business)
