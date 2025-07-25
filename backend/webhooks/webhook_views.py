@@ -466,7 +466,7 @@ class WebhookView(APIView):
                     from django.utils import timezone
                     ten_minutes_ago = timezone.now() - timezone.timedelta(minutes=10)
                     matching_recent = LeadPendingTask.objects.filter(
-                        lead_id=lid, text=text, active=False, updated_at__gte=ten_minutes_ago
+                        lead_id=lid, text=text, active=False, created_at__gte=ten_minutes_ago
                     ).exists()
                     
                     if matching_active or matching_recent:
@@ -641,7 +641,7 @@ class WebhookView(APIView):
                             lead_id=lid,
                             text=text,
                             active=False,
-                            updated_at__gte=ten_minutes_ago
+                            created_at__gte=ten_minutes_ago
                         ).exists()
                         
                         if matching_active_tasks:
