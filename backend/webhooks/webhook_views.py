@@ -547,13 +547,60 @@ class WebhookView(APIView):
                     logger.info(f"[WEBHOOK] Processed at: {processed_at}")
                     logger.info(f"[WEBHOOK] This prevents false triggering of task cancellations")
                 elif is_new and defaults.get("user_type") in ("BIZ", "BUSINESS"):
-                    logger.info(f"[WEBHOOK] 🏢 BUSINESS USER RESPONDED")
-                    if not defaults.get("from_backend"):
-                        logger.info(f"[WEBHOOK] Business response from Yelp dashboard - cancelling all tasks")
+                    logger.info(f"[WEBHOOK] 🏢 BUSINESS USER EVENT DETECTED")
+                    logger.info(f"[WEBHOOK] Event text: '{text[:100]}...'" + ("" if len(text) <= 100 else " (truncated)"))
+                    logger.info(f"[WEBHOOK] from_backend flag: {defaults.get('from_backend')}")
+                    
+                    # Перевіряємо чи це наше власне повідомлення
+                    is_our_message = False
+                    
+                    # Спосіб 1: Перевірка по from_backend (стара логіка)
+                    if defaults.get("from_backend"):
+                        is_our_message = True
+                        logger.info(f"[WEBHOOK] ✅ IDENTIFIED as our message (from_backend=True)")
+                    
+                    # Спосіб 2: Перевірка чи текст відповідає активному завданню
+                    if not is_our_message and text:
+                        matching_tasks = LeadPendingTask.objects.filter(
+                            lead_id=lid,
+                            text=text,
+                            active=True
+                        ).exists()
+                        if matching_tasks:
+                            is_our_message = True
+                            logger.info(f"[WEBHOOK] ✅ IDENTIFIED as our message (matches active task)")
+                        else:
+                            logger.info(f"[WEBHOOK] ❌ Text does NOT match any active tasks")
+                    
+                    # Спосіб 3: Перевірка чи текст був відправлений раніше нашою системою
+                    if not is_our_message and text:
+                        sent_by_us = LeadEvent.objects.filter(
+                            lead_id=lid,
+                            text=text,
+                            from_backend=True
+                        ).exists()
+                        if sent_by_us:
+                            is_our_message = True
+                            logger.info(f"[WEBHOOK] ✅ IDENTIFIED as our message (previously sent by backend)")
+                        else:
+                            logger.info(f"[WEBHOOK] ❌ Text was NOT previously sent by our backend")
+                    
+                    # Спосіб 4: Перевірка часу - якщо дуже скоро після обробки ліда, це ймовірно наше повідомлення
+                    if not is_our_message and event_time and processed_at:
+                        time_diff_seconds = (event_time - processed_at).total_seconds()
+                        if 0 < time_diff_seconds < 300:  # Менше 5 хвилин після обробки
+                            logger.info(f"[WEBHOOK] 🕐 Event happened {time_diff_seconds:.1f}s after processing")
+                            logger.info(f"[WEBHOOK] This suggests it might be our automated message")
+                            # Не встановлюємо is_our_message=True, але логуємо підозру
+                        
+                    if is_our_message:
+                        logger.info(f"[WEBHOOK] 🤖 CONFIRMED: This is OUR automated message")
+                        logger.info(f"[WEBHOOK] No action needed - this is expected system behavior")
+                    else:
+                        logger.info(f"[WEBHOOK] 👨‍💼 CONFIRMED: Real business user response in Yelp dashboard")
+                        logger.info(f"[WEBHOOK] Will cancel all active tasks as business took over")
                         reason = "Business user responded in Yelp dashboard"
                         self._cancel_all_tasks(lid, reason=reason)
-                    else:
-                        logger.info(f"[WEBHOOK] Business response from backend - no action needed")
                 elif e.get("user_type") == "CONSUMER":
                     logger.info(f"[WEBHOOK] 📝 CONSUMER EVENT SKIPPED")
                     logger.info(f"[WEBHOOK] Record already existed in DB - not a new client response")
