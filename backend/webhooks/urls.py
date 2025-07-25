@@ -12,8 +12,8 @@ from .views import (
     YelpTokenListView,
     NotificationSettingListCreateView,
     NotificationSettingDetailView,
-    BusinessSMSSettingsView,
 )
+from .lead_views import BusinessSMSSettingsView
 from .task_views import TaskLogListView, MessageTaskListView, TaskRevokeView
 from .sms_views import SendSMSAPIView, SMSLogListView
 
