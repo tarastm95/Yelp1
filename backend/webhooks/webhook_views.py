@@ -442,11 +442,78 @@ class WebhookView(APIView):
                     "raw": e,
                     "from_backend": False,
                 }
-                if LeadEvent.objects.filter(
-                    lead_id=lid, text=defaults["text"], from_backend=True
+                
+                # Покращена логіка визначення from_backend
+                text = defaults.get("text", "")
+                event_time_str = e.get("time_created")
+                event_time = parse_datetime(event_time_str) if event_time_str else None
+                
+                # Спосіб 1: Перевірка чи вже існує аналогічний LeadEvent з from_backend=True
+                if text and LeadEvent.objects.filter(
+                    lead_id=lid, text=text, from_backend=True
                 ).exists():
                     defaults["from_backend"] = True
+                    logger.info(f"[WEBHOOK] 🔍 Setting from_backend=True (previously sent by us)")
+                
+                # Спосіб 2: Перевірка чи текст співпадає з активним або недавнім LeadPendingTask
+                if not defaults["from_backend"] and text:
+                    # Активні завдання
+                    matching_active = LeadPendingTask.objects.filter(
+                        lead_id=lid, text=text, active=True
+                    ).exists()
+                    
+                    # Недавно виконані завдання (останні 10 хвилин)
+                    from django.utils import timezone
+                    ten_minutes_ago = timezone.now() - timezone.timedelta(minutes=10)
+                    matching_recent = LeadPendingTask.objects.filter(
+                        lead_id=lid, text=text, active=False, updated_at__gte=ten_minutes_ago
+                    ).exists()
+                    
+                    if matching_active or matching_recent:
+                        defaults["from_backend"] = True
+                        logger.info(f"[WEBHOOK] 🔍 Setting from_backend=True (matches LeadPendingTask)")
+                
+                # Спосіб 3: Timing-based detection для BIZ/BUSINESS events
+                if (not defaults["from_backend"] and 
+                    defaults.get("user_type") in ("BIZ", "BUSINESS") and 
+                    event_time):
+                    
+                    processed_at = (
+                        ProcessedLead.objects.filter(lead_id=lid)
+                        .values_list("processed_at", flat=True)
+                        .first()
+                    )
+                    
+                    if processed_at:
+                        time_diff = (event_time - processed_at).total_seconds()
+                        # Якщо BIZ повідомлення прийшло менше ніж через 5 хвилин після обробки
+                        if 0 < time_diff < 300:
+                            defaults["from_backend"] = True
+                            logger.info(f"[WEBHOOK] 🔍 Setting from_backend=True (BIZ timing: {time_diff:.1f}s)")
+                
+                # Спосіб 4: Content-based patterns для автоматичних повідомлень
+                if not defaults["from_backend"] and text:
+                    auto_patterns = [
+                        "Hi there! Could you help me with my project?",
+                        "Thank you for reaching out",
+                        "We received your inquiry",
+                        "Hello! I'm excited to help",
+                        "Thanks for your interest",
+                        "Hi! I'd love to help",
+                        "Thank you for contacting",
+                        "Hello there!",
+                        "Hi! Thanks for reaching out",
+                        "Great to hear from you"
+                    ]
+                    
+                    for pattern in auto_patterns:
+                        if pattern.lower() in text.lower():
+                            defaults["from_backend"] = True
+                            logger.info(f"[WEBHOOK] 🔍 Setting from_backend=True (content pattern)")
+                            break
+                
                 logger.info(f"[WEBHOOK] Upserting LeadEvent id={eid} for lead={lid}")
+                logger.info(f"[WEBHOOK] from_backend flag set to: {defaults['from_backend']}")
                 obj, created = safe_update_or_create(
                     LeadEvent, defaults=defaults, event_id=eid
                 )
@@ -460,14 +527,11 @@ class WebhookView(APIView):
                     .values_list("processed_at", flat=True)
                     .first()
                 )
-                text = defaults.get("text", "")
                 phone = _extract_phone(text)
                 has_phone = bool(phone)
                 
                 # ❌ СТАРИЙ КОД: is_new = created
                 # ✅ НОВИЙ КОД: Перевіряємо чи це справжня нова подія клієнта
-                event_time_str = e.get("time_created")
-                event_time = parse_datetime(event_time_str) if event_time_str else None
                 
                 # Справжня нова подія = створена в БД AND час події після обробки ліда
                 is_really_new_event = (
@@ -553,24 +617,43 @@ class WebhookView(APIView):
                     
                     # Перевіряємо чи це наше власне повідомлення
                     is_our_message = False
+                    detection_reasons = []
                     
                     # Спосіб 1: Перевірка по from_backend (стара логіка)
                     if defaults.get("from_backend"):
                         is_our_message = True
+                        detection_reasons.append("from_backend=True")
                         logger.info(f"[WEBHOOK] ✅ IDENTIFIED as our message (from_backend=True)")
                     
-                    # Спосіб 2: Перевірка чи текст відповідає активному завданню
+                    # Спосіб 2: Перевірка чи текст відповідає активному або недавно неактивному завданню
                     if not is_our_message and text:
-                        matching_tasks = LeadPendingTask.objects.filter(
+                        # Перевіряємо активні задачі
+                        matching_active_tasks = LeadPendingTask.objects.filter(
                             lead_id=lid,
                             text=text,
                             active=True
                         ).exists()
-                        if matching_tasks:
+                        
+                        # Перевіряємо недавно деактивовані задачі (останні 10 хвилин)
+                        from django.utils import timezone
+                        ten_minutes_ago = timezone.now() - timezone.timedelta(minutes=10)
+                        matching_recent_tasks = LeadPendingTask.objects.filter(
+                            lead_id=lid,
+                            text=text,
+                            active=False,
+                            updated_at__gte=ten_minutes_ago
+                        ).exists()
+                        
+                        if matching_active_tasks:
                             is_our_message = True
+                            detection_reasons.append("matches active task")
                             logger.info(f"[WEBHOOK] ✅ IDENTIFIED as our message (matches active task)")
+                        elif matching_recent_tasks:
+                            is_our_message = True
+                            detection_reasons.append("matches recently executed task")
+                            logger.info(f"[WEBHOOK] ✅ IDENTIFIED as our message (matches recently executed task)")
                         else:
-                            logger.info(f"[WEBHOOK] ❌ Text does NOT match any active tasks")
+                            logger.info(f"[WEBHOOK] ❌ Text does NOT match any active or recent tasks")
                     
                     # Спосіб 3: Перевірка чи текст був відправлений раніше нашою системою
                     if not is_our_message and text:
@@ -581,20 +664,93 @@ class WebhookView(APIView):
                         ).exists()
                         if sent_by_us:
                             is_our_message = True
+                            detection_reasons.append("previously sent by backend")
                             logger.info(f"[WEBHOOK] ✅ IDENTIFIED as our message (previously sent by backend)")
                         else:
                             logger.info(f"[WEBHOOK] ❌ Text was NOT previously sent by our backend")
                     
-                    # Спосіб 4: Перевірка часу - якщо дуже скоро після обробки ліда, це ймовірно наше повідомлення
+                    # Спосіб 4: Content-based detection (автоматичні патерни)
+                    if not is_our_message and text:
+                        # Патерни що вказують на автоматичні повідомлення
+                        auto_patterns = [
+                            "Hi there! Could you help me with my project?",  # Greeting template
+                            "Thank you for reaching out",
+                            "We received your inquiry",
+                            "Hello! I'm excited to help",
+                            "Thanks for your interest",
+                            "Hi! I'd love to help",
+                            "Thank you for contacting",
+                            "Hello there!",
+                            "Hi! Thanks for reaching out",
+                            "Great to hear from you"
+                        ]
+                        
+                        for pattern in auto_patterns:
+                            if pattern.lower() in text.lower():
+                                is_our_message = True
+                                detection_reasons.append(f"content pattern: '{pattern}'")
+                                logger.info(f"[WEBHOOK] ✅ IDENTIFIED as our message (content pattern: '{pattern}')")
+                                break
+                        
+                        if not is_our_message:
+                            logger.info(f"[WEBHOOK] ❌ Text does NOT match any known automated patterns")
+                    
+                    # Спосіб 5: АГРЕСИВНИЙ timing-based detection
                     if not is_our_message and event_time and processed_at:
                         time_diff_seconds = (event_time - processed_at).total_seconds()
-                        if 0 < time_diff_seconds < 300:  # Менше 5 хвилин після обробки
-                            logger.info(f"[WEBHOOK] 🕐 Event happened {time_diff_seconds:.1f}s after processing")
-                            logger.info(f"[WEBHOOK] This suggests it might be our automated message")
-                            # Не встановлюємо is_our_message=True, але логуємо підозру
+                        logger.info(f"[WEBHOOK] 🕐 Event happened {time_diff_seconds:.1f}s after processing")
                         
+                        # Якщо повідомлення прийшло менше ніж через 10 хвилин після обробки
+                        if 0 < time_diff_seconds < 600:  # 10 хвилин
+                            # Додаткові індикатори автоматичного повідомлення
+                            likely_automated = False
+                            
+                            # Перевіряємо чи є активні задачі взагалі
+                            has_active_tasks = LeadPendingTask.objects.filter(
+                                lead_id=lid, active=True
+                            ).exists()
+                            
+                            # Якщо є активні задачі і повідомлення в межах 10 хвилин - ймовірно наше
+                            if has_active_tasks and time_diff_seconds < 600:
+                                likely_automated = True
+                                logger.info(f"[WEBHOOK] 🎯 LIKELY automated (has active tasks + timing)")
+                            
+                            # Якщо повідомлення дуже скоро після обробки (менше 5 хвилин) - майже точно наше
+                            if time_diff_seconds < 300:  # 5 хвилин
+                                likely_automated = True
+                                logger.info(f"[WEBHOOK] 🎯 VERY LIKELY automated (timing < 5 min)")
+                            
+                            # Greeting зазвичай надсилається через 1-2 хвилини після обробки
+                            if 60 < time_diff_seconds < 180:  # 1-3 хвилини
+                                likely_automated = True
+                                logger.info(f"[WEBHOOK] 🎯 LIKELY greeting message (timing in greeting window)")
+                            
+                            if likely_automated:
+                                is_our_message = True
+                                detection_reasons.append(f"aggressive timing detection ({time_diff_seconds:.1f}s)")
+                                logger.info(f"[WEBHOOK] ✅ IDENTIFIED as our message (aggressive timing detection)")
+                        else:
+                            logger.info(f"[WEBHOOK] ⏰ Event too late to be automated ({time_diff_seconds:.1f}s)")
+                    
+                    # Спосіб 6: Перевірка user_display_name чи це не система
+                    if not is_our_message:
+                        user_display_name = e.get('user_display_name', '').strip()
+                        business_name_patterns = [
+                            'system', 'automated', 'bot', 'auto', 'yelp',
+                            # Можна додати назву бізнесу якщо відома
+                        ]
+                        
+                        if user_display_name and any(pattern.lower() in user_display_name.lower() for pattern in business_name_patterns):
+                            is_our_message = True
+                            detection_reasons.append(f"user_display_name: '{user_display_name}'")
+                            logger.info(f"[WEBHOOK] ✅ IDENTIFIED as our message (user_display_name: '{user_display_name}')")
+                        else:
+                            logger.info(f"[WEBHOOK] ❌ user_display_name does not suggest automation: '{user_display_name}'")
+                        
+                    # Фінальне рішення
                     if is_our_message:
                         logger.info(f"[WEBHOOK] 🤖 CONFIRMED: This is OUR automated message")
+                        logger.info(f"[WEBHOOK] Detection reasons: {', '.join(detection_reasons)}")
                         logger.info(f"[WEBHOOK] No action needed - this is expected system behavior")
                     else:
                         logger.info(f"[WEBHOOK] 👨‍💼 CONFIRMED: Real business user response in Yelp dashboard")

@@ -50,9 +50,22 @@ def notify_new_lead(sender, instance: LeadDetail, created: bool, **kwargs):
         logger.info(f"[SMS-NOTIFICATION] - Business ID: {business.business_id}")
         logger.info(f"[SMS-NOTIFICATION] - Business name: {business.name}")
         logger.info(f"[SMS-NOTIFICATION] - Time zone: {business.time_zone}")
+        logger.info(f"[SMS-NOTIFICATION] - SMS notifications enabled: {business.sms_notifications_enabled}")
     else:
         logger.info(f"[SMS-NOTIFICATION] ⚠️ Business not found for business_id: {instance.business_id}")
         logger.info(f"[SMS-NOTIFICATION] Will look for global notification settings only")
+
+    # Step 3.5: Check if SMS notifications are enabled for this business
+    logger.info(f"[SMS-NOTIFICATION] 🔔 STEP 2.5: Checking SMS notifications status")
+    if business and not business.sms_notifications_enabled:
+        logger.info(f"[SMS-NOTIFICATION] ⚠️ SMS NOTIFICATIONS DISABLED for business: {business.business_id}")
+        logger.info(f"[SMS-NOTIFICATION] Business admin has turned off SMS notifications")
+        logger.info(f"[SMS-NOTIFICATION] 🛑 EARLY RETURN - SMS notifications disabled for this business")
+        return
+    elif business and business.sms_notifications_enabled:
+        logger.info(f"[SMS-NOTIFICATION] ✅ SMS NOTIFICATIONS ENABLED for business: {business.business_id}")
+    else:
+        logger.info(f"[SMS-NOTIFICATION] ✅ No business context - proceeding with global settings check")
 
     # Step 4: Look up notification settings
     logger.info(f"[SMS-NOTIFICATION] ⚙️ STEP 3: Looking up notification settings")
@@ -141,7 +154,13 @@ def notify_new_lead(sender, instance: LeadDetail, created: bool, **kwargs):
         # Send the SMS
         try:
             logger.info(f"[SMS-NOTIFICATION] 🚀 Calling send_sms function")
-            sid = send_sms(setting.phone_number, message)
+            sid = send_sms(
+                setting.phone_number, 
+                message, 
+                lead_id=instance.lead_id, 
+                business_id=instance.business_id, 
+                purpose="notification"
+            )
             logger.info(f"[SMS-NOTIFICATION] ✅ SMS sent successfully!")
             logger.info(
                 f"[SMS-NOTIFICATION] SMS delivery details",

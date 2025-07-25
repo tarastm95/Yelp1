@@ -235,6 +235,40 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
                 
                 resp.raise_for_status()
                 logger.info(f"[FOLLOW-UP] ✅ Message sent successfully!")
+                
+                # Створюємо LeadEvent з from_backend=True щоб система знала що це наше повідомлення
+                try:
+                    from .models import LeadEvent
+                    from django.utils import timezone as django_timezone
+                    
+                    logger.info(f"[FOLLOW-UP] 📝 Creating LeadEvent with from_backend=True")
+                    
+                    # Створюємо унікальний event_id для нашого повідомлення
+                    import uuid
+                    our_event_id = f"backend_sent_{uuid.uuid4().hex[:16]}"
+                    
+                    lead_event = LeadEvent.objects.create(
+                        event_id=our_event_id,
+                        lead_id=lead_id,
+                        event_type="TEXT",
+                        user_type="BUSINESS",  # Ми відправляємо від імені бізнесу
+                        user_id="",
+                        user_display_name="",
+                        text=text,
+                        cursor="",
+                        time_created=django_timezone.now().isoformat(),
+                        raw={"backend_sent": True, "task_id": job_id},
+                        from_backend=True  # 🔑 КЛЮЧОВИЙ FLAG!
+                    )
+                    
+                    logger.info(f"[FOLLOW-UP] ✅ Created LeadEvent id={lead_event.pk} with from_backend=True")
+                    logger.info(f"[FOLLOW-UP] This will help system recognize this message as ours when webhook arrives")
+                    
+                except Exception as event_error:
+                    # Не падаємо якщо не вдалося створити LeadEvent - повідомлення вже надіслано
+                    logger.error(f"[FOLLOW-UP] ⚠️ Failed to create LeadEvent with from_backend=True: {event_error}")
+                    logger.exception(f"[FOLLOW-UP] LeadEvent creation exception (non-critical)")
+                
                 logger.info(f"[FOLLOW-UP] 🎉 FOLLOW-UP COMPLETED for lead={lead_id}")
                 
             except requests.exceptions.Timeout as e:

@@ -324,3 +324,110 @@ class NotificationSettingDetailView(generics.RetrieveUpdateDestroyAPIView):
         bid = self.request.query_params.get("business_id")
         business = YelpBusiness.objects.filter(business_id=bid).first() if bid else None
         serializer.save(business=business)
+
+
+class BusinessSMSSettingsView(APIView):
+    """Get and update SMS notification settings for a specific business."""
+
+    def get(self, request, *args, **kwargs):
+        """Get SMS notification status for a business."""
+        logger.info(f"[NOTIFICATION-SETTINGS] 📋 GET SMS settings request")
+        logger.info(f"[NOTIFICATION-SETTINGS] Query params: {request.query_params}")
+        
+        bid = request.query_params.get('business_id')
+        logger.info(f"[NOTIFICATION-SETTINGS] Business ID: {bid}")
+        
+        if not bid:
+            logger.error(f"[NOTIFICATION-SETTINGS] ❌ Missing business_id parameter")
+            return Response(
+                {"detail": "business_id parameter is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        logger.info(f"[NOTIFICATION-SETTINGS] 🔍 Looking up business: {bid}")
+        business = YelpBusiness.objects.filter(business_id=bid).first()
+        
+        if not business:
+            logger.error(f"[NOTIFICATION-SETTINGS] ❌ Business not found: {bid}")
+            return Response(
+                {"detail": f"Business with id {bid} not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        logger.info(f"[NOTIFICATION-SETTINGS] ✅ Business found: {business.name}")
+        logger.info(f"[NOTIFICATION-SETTINGS] SMS notifications enabled: {business.sms_notifications_enabled}")
+        
+        data = {
+            "business_id": business.business_id,
+            "business_name": business.name,
+            "sms_notifications_enabled": business.sms_notifications_enabled
+        }
+        
+        logger.info(f"[NOTIFICATION-SETTINGS] 📤 Returning data: {data}")
+        return Response(data, status=status.HTTP_200_OK)
+
+    def put(self, request, *args, **kwargs):
+        """Update SMS notification status for a business."""
+        logger.info(f"[NOTIFICATION-SETTINGS] 🔄 PUT SMS settings request")
+        logger.info(f"[NOTIFICATION-SETTINGS] Query params: {request.query_params}")
+        logger.info(f"[NOTIFICATION-SETTINGS] Request data: {request.data}")
+        
+        bid = request.query_params.get('business_id')
+        logger.info(f"[NOTIFICATION-SETTINGS] Business ID: {bid}")
+        
+        if not bid:
+            logger.error(f"[NOTIFICATION-SETTINGS] ❌ Missing business_id parameter")
+            return Response(
+                {"detail": "business_id parameter is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        logger.info(f"[NOTIFICATION-SETTINGS] 🔍 Looking up business: {bid}")
+        business = YelpBusiness.objects.filter(business_id=bid).first()
+        
+        if not business:
+            logger.error(f"[NOTIFICATION-SETTINGS] ❌ Business not found: {bid}")
+            return Response(
+                {"detail": f"Business with id {bid} not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        logger.info(f"[NOTIFICATION-SETTINGS] ✅ Business found: {business.name}")
+        logger.info(f"[NOTIFICATION-SETTINGS] Current SMS status: {business.sms_notifications_enabled}")
+        
+        # Extract new status from request
+        new_status = request.data.get('sms_notifications_enabled')
+        logger.info(f"[NOTIFICATION-SETTINGS] 📝 New SMS status from request: {new_status}")
+        
+        if new_status is None:
+            logger.error(f"[NOTIFICATION-SETTINGS] ❌ Missing sms_notifications_enabled in request data")
+            return Response(
+                {"detail": "sms_notifications_enabled field is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if not isinstance(new_status, bool):
+            logger.error(f"[NOTIFICATION-SETTINGS] ❌ Invalid sms_notifications_enabled value: {new_status} (type: {type(new_status)})")
+            return Response(
+                {"detail": "sms_notifications_enabled must be a boolean value"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        logger.info(f"[NOTIFICATION-SETTINGS] 💾 Updating SMS status: {business.sms_notifications_enabled} → {new_status}")
+        
+        # Update the business
+        business.sms_notifications_enabled = new_status
+        business.save(update_fields=['sms_notifications_enabled', 'updated_at'])
+        
+        logger.info(f"[NOTIFICATION-SETTINGS] ✅ SMS status updated successfully")
+        logger.info(f"[NOTIFICATION-SETTINGS] Business: {business.name}")
+        logger.info(f"[NOTIFICATION-SETTINGS] New status: {business.sms_notifications_enabled}")
+        
+        data = {
+            "business_id": business.business_id,
+            "business_name": business.name,
+            "sms_notifications_enabled": business.sms_notifications_enabled
+        }
+        
+        logger.info(f"[NOTIFICATION-SETTINGS] 📤 Returning updated data: {data}")
+        return Response(data, status=status.HTTP_200_OK)

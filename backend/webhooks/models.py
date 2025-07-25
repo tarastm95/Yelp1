@@ -49,6 +49,10 @@ class YelpBusiness(models.Model):
     open_days = models.CharField(max_length=128, blank=True)
     open_hours = models.TextField(blank=True)
     details = models.JSONField(blank=True, null=True)
+    sms_notifications_enabled = models.BooleanField(
+        default=False,
+        help_text="Enable/disable SMS notifications for new leads for this business"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -234,6 +238,55 @@ class CeleryTaskLog(models.Model):
 
     def __str__(self):
         return f"{self.task_id} {self.name} {self.status}"
+
+
+class SMSLog(models.Model):
+    """Log of SMS messages sent via Twilio."""
+    
+    # Basic SMS info
+    sid = models.CharField(max_length=128, unique=True, db_index=True, help_text="Twilio Message SID")
+    to_phone = models.CharField(max_length=32, db_index=True, help_text="Destination phone number")
+    from_phone = models.CharField(max_length=32, help_text="Source phone number (Twilio)")
+    body = models.TextField(help_text="SMS message content")
+    
+    # Context info  
+    lead_id = models.CharField(max_length=64, blank=True, null=True, db_index=True, help_text="Related lead ID")
+    business_id = models.CharField(max_length=128, blank=True, null=True, db_index=True, help_text="Related business ID")
+    purpose = models.CharField(
+        max_length=50, 
+        blank=True, 
+        help_text="Purpose: notification, auto_response, manual, api"
+    )
+    
+    # Status tracking
+    status = models.CharField(
+        max_length=20, 
+        default='sent', 
+        help_text="Status: sent, delivered, failed, etc."
+    )
+    error_message = models.TextField(blank=True, null=True, help_text="Error details if failed")
+    
+    # Twilio metadata
+    price = models.CharField(max_length=20, blank=True, null=True, help_text="SMS cost")
+    price_unit = models.CharField(max_length=10, blank=True, null=True, help_text="Currency")
+    direction = models.CharField(max_length=20, blank=True, null=True, help_text="outbound-api")
+    
+    # Timestamps
+    sent_at = models.DateTimeField(auto_now_add=True, help_text="When SMS was sent from our system")
+    twilio_created_at = models.DateTimeField(null=True, blank=True, help_text="Twilio timestamp")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-sent_at']
+        indexes = [
+            models.Index(fields=['business_id', '-sent_at']),
+            models.Index(fields=['lead_id', '-sent_at']),
+            models.Index(fields=['purpose', '-sent_at']),
+            models.Index(fields=['status', '-sent_at']),
+        ]
+
+    def __str__(self):
+        return f"SMS {self.sid} to {self.to_phone} ({self.status})"
 
 
 class LeadPendingTask(models.Model):

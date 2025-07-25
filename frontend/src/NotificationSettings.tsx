@@ -20,6 +20,9 @@ import {
   CardContent,
   Grid,
   Divider,
+  Switch,
+  FormControlLabel,
+  FormGroup,
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -61,6 +64,9 @@ const NotificationSettings: React.FC<Props> = ({ businessId }) => {
   const [editing, setEditing] = useState<NotificationSetting | null>(null);
   const [editPhone, setEditPhone] = useState('');
   const [editTemplate, setEditTemplate] = useState('');
+  const [smsEnabled, setSmsEnabled] = useState<boolean>(false);
+  const [smsLoading, setSmsLoading] = useState<boolean>(false);
+  const [businessName, setBusinessName] = useState<string>('');
   const templateRef = useRef<HTMLTextAreaElement | null>(null);
   const editTemplateRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -87,8 +93,50 @@ const NotificationSettings: React.FC<Props> = ({ businessId }) => {
       .catch(() => setItems([]));
   };
 
+  const loadSMSSettings = async () => {
+    if (!businessId) {
+      // If no business ID, SMS settings don't apply (global settings)
+      setSmsEnabled(false);
+      setBusinessName('Global Settings');
+      return;
+    }
+    
+    try {
+      const params = new URLSearchParams();
+      params.append('business_id', businessId);
+      const response = await axios.get(`/business-sms-settings/?${params.toString()}`);
+      setSmsEnabled(response.data.sms_notifications_enabled);
+      setBusinessName(response.data.business_name || businessId);
+    } catch (error) {
+      console.error('Failed to load SMS settings:', error);
+      setSmsEnabled(false);
+      setBusinessName(businessId);
+    }
+  };
+
+  const updateSMSSettings = async (enabled: boolean) => {
+    if (!businessId) return;
+    
+    setSmsLoading(true);
+    try {
+      const params = new URLSearchParams();
+      params.append('business_id', businessId);
+      await axios.put(`/business-sms-settings/?${params.toString()}`, {
+        sms_notifications_enabled: enabled
+      });
+      setSmsEnabled(enabled);
+      setSaved(true);
+    } catch (error) {
+      console.error('Failed to update SMS settings:', error);
+      setError('Failed to update SMS settings');
+    } finally {
+      setSmsLoading(false);
+    }
+  };
+
   useEffect(() => {
     load();
+    loadSMSSettings();
   }, [businessId]);
 
   const handleSave = async () => {
@@ -159,6 +207,58 @@ const NotificationSettings: React.FC<Props> = ({ businessId }) => {
           </Typography>
         </Box>
 
+        {/* SMS Enable/Disable Toggle */}
+        {businessId && (
+          <Paper elevation={2} sx={{ p: 3, mb: 3, border: '2px solid #e8f5e8' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <Box sx={{ 
+                  width: 40, 
+                  height: 40, 
+                  borderRadius: '50%', 
+                  backgroundColor: smsEnabled ? '#4caf50' : '#f5f5f5',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  mr: 2
+                }}>
+                  <NotificationsIcon sx={{ 
+                    fontSize: 20, 
+                    color: smsEnabled ? 'white' : '#999' 
+                  }} />
+                </Box>
+                <Box>
+                  <Typography variant="h6" sx={{ fontWeight: 600, color: '#1a1a1a' }}>
+                    SMS Notifications for {businessName}
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: '#666' }}>
+                    {smsEnabled 
+                      ? 'SMS notifications are active - you will receive alerts for new leads' 
+                      : 'SMS notifications are disabled - no SMS alerts will be sent'
+                    }
+                  </Typography>
+                </Box>
+              </Box>
+              <FormGroup>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={smsEnabled}
+                      onChange={(e) => updateSMSSettings(e.target.checked)}
+                      disabled={smsLoading}
+                      color="success"
+                      size="medium"
+                    />
+                  }
+                  label={smsEnabled ? 'Enabled' : 'Disabled'}
+                  labelPlacement="start"
+                  sx={{ m: 0 }}
+                />
+              </FormGroup>
+            </Box>
+          </Paper>
+        )}
+
         {/* Header Section */}
         <Paper elevation={2} sx={{ p: 3, mb: 3, border: '2px solid #e3f2fd' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
@@ -174,7 +274,9 @@ const NotificationSettings: React.FC<Props> = ({ businessId }) => {
           </Box>
         </Paper>
 
-        <Grid container spacing={3}>
+        {/* Show notification settings only if SMS is enabled OR it's global settings */}
+        {(!businessId || smsEnabled) ? (
+          <Grid container spacing={3}>
           {/* Add New Notification */}
           <Grid item xs={12} md={4}>
             <Paper elevation={2} sx={{ p: 3 }}>
@@ -345,6 +447,17 @@ const NotificationSettings: React.FC<Props> = ({ businessId }) => {
             </Paper>
           </Grid>
         </Grid>
+        ) : (
+          <Box sx={{ textAlign: 'center', py: 4, color: '#999' }}>
+            <MessageIcon sx={{ fontSize: 48, mb: 1, opacity: 0.5 }} />
+            <Typography variant="body1" sx={{ mb: 0.5 }}>
+              SMS notifications are currently disabled for this business.
+            </Typography>
+            <Typography variant="body2">
+              Please enable SMS notifications in the settings above to configure your notifications.
+            </Typography>
+          </Box>
+        )}
       </Container>
 
       {/* Edit Dialog */}

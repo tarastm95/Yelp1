@@ -26,6 +26,7 @@ import YelpAuth from "./YelpAuth";
 import ClientDetails from "./ClientDetails/ClientDetails";
 import TokenStatus from "./TokenStatus";
 import TaskLogs from "./TaskLogs";
+import SMSLogs from "./SMSLogs";
 import Subscriptions from "./Subscriptions";
 import LoginPage from "./LoginPage";
 import TopMenu from "./TopMenu";
@@ -264,6 +265,7 @@ const App: FC = () => {
               <Route path="/tokens" element={<TokenStatus />} />
               <Route path="/subscriptions" element={<Subscriptions />} />
               <Route path="/tasks" element={<TaskLogs />} />
+              <Route path="/sms-logs" element={<SMSLogs />} />
             </Routes>
         </Box>
       </Router>

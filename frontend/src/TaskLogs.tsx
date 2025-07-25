@@ -26,6 +26,10 @@ import {
   Snackbar,
   alpha,
   Tooltip,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
 } from '@mui/material';
 
 // Icons
@@ -70,6 +74,7 @@ const TaskLogs: React.FC = () => {
   const [scheduledTasks, setScheduledTasks] = useState<TaskLog[]>([]);
   const [canceledTasks, setCanceledTasks] = useState<TaskLog[]>([]);
   const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [selectedBusiness, setSelectedBusiness] = useState<string>(''); // '' means "All Businesses"
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [canceling, setCanceling] = useState<string | null>(null);
@@ -91,10 +96,13 @@ const TaskLogs: React.FC = () => {
   const loadData = async () => {
     setRefreshing(true);
     try {
+      // Build query parameters for business filtering
+      const businessParam = selectedBusiness ? `&business_id=${selectedBusiness}` : '';
+      
       const [completedRes, scheduledRes, canceledRes, businessesRes] = await Promise.all([
-        axios.get<TaskLog[]>('/tasks/?status=success,failure').catch(() => ({ data: [] })),
-        axios.get<TaskLog[]>('/tasks/?status=scheduled').catch(() => ({ data: [] })),
-        axios.get<TaskLog[]>('/tasks/?status=revoked').catch(() => ({ data: [] })),
+        axios.get<TaskLog[]>(`/tasks/?status=success,failure${businessParam}`).catch(() => ({ data: [] })),
+        axios.get<TaskLog[]>(`/tasks/?status=scheduled${businessParam}`).catch(() => ({ data: [] })),
+        axios.get<TaskLog[]>(`/tasks/?status=revoked${businessParam}`).catch(() => ({ data: [] })),
         axios.get<Business[]>('/businesses/').catch(() => ({ data: [] }))
       ]);
 
@@ -116,7 +124,7 @@ const TaskLogs: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [selectedBusiness]); // Re-load data when selected business changes
 
   const tzMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -311,7 +319,7 @@ const TaskLogs: React.FC = () => {
                   
                   <Chip
                     icon={<TrendingUpIcon />}
-                    label={`${completedTasks.length + scheduledTasks.length + canceledTasks.length} Total Tasks`}
+                    label={`${completedTasks.length + scheduledTasks.length + canceledTasks.length} ${selectedBusiness ? 'Filtered' : 'Total'} Tasks`}
                     sx={{
                       background: 'rgba(255, 255, 255, 0.2)',
                       color: 'white',
@@ -322,7 +330,10 @@ const TaskLogs: React.FC = () => {
                 </Stack>
                 
                 <Typography variant="h6" sx={{ opacity: 0.9 }}>
-                  Monitor and manage your automated task execution pipeline
+                  {selectedBusiness 
+                    ? `Viewing tasks for: ${businesses.find(b => b.business_id === selectedBusiness)?.name || selectedBusiness}`
+                    : 'Monitor and manage your automated task execution pipeline'
+                  }
                 </Typography>
               </Box>
               
@@ -355,6 +366,92 @@ const TaskLogs: React.FC = () => {
               >
                 {refreshing ? 'Refreshing...' : 'Refresh'}
               </Button>
+            </Stack>
+          </CardContent>
+        </Card>
+
+        {/* Business Filter */}
+        <Card elevation={2} sx={{ borderRadius: 3, mb: 4 }}>
+          <CardContent sx={{ p: 3 }}>
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} alignItems="center">
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <Avatar
+                  sx={{
+                    width: 48,
+                    height: 48,
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    mr: 2
+                  }}
+                >
+                  <BusinessIcon sx={{ fontSize: '1.5rem', color: 'white' }} />
+                </Avatar>
+                <Box>
+                  <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
+                    Filter by Business
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    View tasks for all businesses or filter by specific business
+                  </Typography>
+                </Box>
+              </Box>
+              
+              <FormControl sx={{ minWidth: 300 }}>
+                <InputLabel id="business-filter-label">Business</InputLabel>
+                <Select
+                  labelId="business-filter-label"
+                  value={selectedBusiness}
+                  label="Business"
+                  onChange={(e) => setSelectedBusiness(e.target.value)}
+                  sx={{
+                    borderRadius: 2,
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': {
+                        borderColor: 'primary.main',
+                      },
+                    },
+                  }}
+                >
+                  <MenuItem value="">
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <AutoAwesomeIcon sx={{ mr: 1, color: 'primary.main' }} />
+                      <Typography sx={{ fontWeight: 600 }}>All Businesses</Typography>
+                    </Box>
+                  </MenuItem>
+                  {businesses.map(business => (
+                    <MenuItem key={business.business_id} value={business.business_id}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                        <BusinessIcon sx={{ mr: 1, color: 'text.secondary' }} />
+                        <Box sx={{ flex: 1 }}>
+                          <Typography sx={{ fontWeight: 500 }}>
+                            {business.name}
+                          </Typography>
+                          {business.time_zone && (
+                            <Typography variant="caption" color="text.secondary">
+                              {business.time_zone}
+                            </Typography>
+                          )}
+                        </Box>
+                      </Box>
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              
+              {selectedBusiness && (
+                <Chip
+                  label={`Filtered: ${businesses.find(b => b.business_id === selectedBusiness)?.name || selectedBusiness}`}
+                  color="primary"
+                  variant="outlined"
+                  onDelete={() => setSelectedBusiness('')}
+                  sx={{
+                    fontWeight: 600,
+                    borderRadius: 2,
+                    '& .MuiChip-deleteIcon': {
+                      color: 'primary.main'
+                    }
+                  }}
+                />
+              )}
             </Stack>
           </CardContent>
         </Card>
@@ -574,12 +671,15 @@ const TaskLogs: React.FC = () => {
                 {tab === 'canceled' && <CancelIcon sx={{ fontSize: 64, color: 'grey.400', mb: 2 }} />}
                 
                 <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
-                  No {tab} tasks
+                  No {tab} tasks{selectedBusiness ? ' for this business' : ''}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {tab === 'completed' && 'No tasks have been completed yet'}
-                  {tab === 'scheduled' && 'No tasks are currently scheduled'}
-                  {tab === 'canceled' && 'No tasks have been canceled'}
+                  {selectedBusiness 
+                    ? `No ${tab} tasks found for ${businesses.find(b => b.business_id === selectedBusiness)?.name || 'this business'}`
+                    : tab === 'completed' && 'No tasks have been completed yet' ||
+                      tab === 'scheduled' && 'No tasks are currently scheduled' ||
+                      tab === 'canceled' && 'No tasks have been canceled'
+                  }
                 </Typography>
               </Paper>
             ) : (

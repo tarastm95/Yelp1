@@ -11,6 +11,7 @@ from .models import (
     YelpBusiness,
     CeleryTaskLog,
     NotificationSetting,
+    SMSLog,
 )
 
 
@@ -301,6 +302,51 @@ class NotificationSettingSerializer(serializers.ModelSerializer):
         model = NotificationSetting
         fields = ["id", "phone_number", "message_template"]
         read_only_fields = ["id"]
+
+
+class SMSLogSerializer(serializers.ModelSerializer):
+    business_name = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = SMSLog
+        fields = [
+            "id",
+            "sid",
+            "to_phone",
+            "from_phone",
+            "body",
+            "lead_id",
+            "business_id",
+            "business_name",
+            "purpose",
+            "status",
+            "error_message",
+            "price",
+            "price_unit",
+            "direction",
+            "sent_at",
+            "twilio_created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id", 
+            "sid", 
+            "sent_at", 
+            "twilio_created_at", 
+            "updated_at", 
+            "business_name"
+        ]
+    
+    def get_business_name(self, obj):
+        """Get business name from business_id."""
+        if not obj.business_id:
+            return None
+        try:
+            from .models import YelpBusiness
+            business = YelpBusiness.objects.filter(business_id=obj.business_id).first()
+            return business.name if business else obj.business_id
+        except Exception:
+            return obj.business_id
 
 
 

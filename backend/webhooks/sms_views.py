@@ -1,12 +1,47 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import status, generics
+from django_filters.rest_framework import DjangoFilterBackend, FilterSet, filters
 import logging
 
-from .serializers import SendSMSSerializer
+from .serializers import SendSMSSerializer, SMSLogSerializer
 from .twilio_utils import send_sms
+from .models import SMSLog
 
 logger = logging.getLogger(__name__)
+
+
+class SMSLogFilterSet(FilterSet):
+    """Allow filtering SMS logs by multiple criteria."""
+
+    status = filters.CharFilter(method="filter_status")
+    purpose = filters.CharFilter(method="filter_purpose")
+
+    class Meta:
+        model = SMSLog
+        fields = ["status", "purpose", "business_id", "lead_id"]
+
+    def filter_status(self, queryset, name, value):
+        """Support comma separated status values."""
+        raw_values = self.data.getlist(name)
+        statuses: list[str] = []
+        for v in raw_values:
+            if v:
+                statuses.extend(s.strip().lower() for s in v.split(",") if s.strip())
+        if statuses:
+            return queryset.filter(status__in=statuses)
+        return queryset
+    
+    def filter_purpose(self, queryset, name, value):
+        """Support comma separated purpose values."""
+        raw_values = self.data.getlist(name)
+        purposes: list[str] = []
+        for v in raw_values:
+            if v:
+                purposes.extend(p.strip() for p in v.split(",") if p.strip())
+        if purposes:
+            return queryset.filter(purpose__in=purposes)
+        return queryset
 
 
 class SendSMSAPIView(APIView):
@@ -54,7 +89,7 @@ class SendSMSAPIView(APIView):
         
         try:
             logger.info(f"[SMS-API] 🚀 Calling send_sms function...")
-            sid = send_sms(to, body)
+            sid = send_sms(to, body, purpose="api")
             logger.info(f"[SMS-API] ✅ SMS sent successfully!")
             logger.info(f"[SMS-API] Twilio response SID: {sid}")
             
@@ -80,4 +115,30 @@ class SendSMSAPIView(APIView):
             
             # Re-raise the exception to let DRF handle the error response
             raise
+
+
+class SMSLogListView(generics.ListAPIView):
+    """Return SMS logs with optional filtering by business, status, purpose, etc."""
+    
+    serializer_class = SMSLogSerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = SMSLogFilterSet
+    
+    def get_queryset(self):
+        """Return SMS logs ordered by sent_at descending."""
+        logger.info(f"[SMS-LOGS] 📋 SMS Logs API request")
+        logger.info(f"[SMS-LOGS] Query params: {dict(self.request.query_params)}")
+        
+        qs = SMSLog.objects.all().order_by("-sent_at")
+        
+        # Optional date filtering
+        sent_after = self.request.query_params.get("sent_after")
+        if sent_after:
+            logger.info(f"[SMS-LOGS] Filtering by sent_after: {sent_after}")
+            qs = qs.filter(sent_at__gte=sent_after)
+            
+        count = qs.count()
+        logger.info(f"[SMS-LOGS] Returning {count} SMS logs")
+        
+        return qs
 

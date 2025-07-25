@@ -29,6 +29,7 @@ import {
   Tune as TuneIcon,
   Api as IntegrationIcon,
   ExpandMore as ExpandMoreIcon,
+  Sms as SmsIcon,
 } from '@mui/icons-material';
 
 // Grouping menu items logically
@@ -48,6 +49,7 @@ const menuGroups = {
     items: [
       { text: 'Events', icon: <EventIcon />, href: '/events', color: '#f093fb' },
       { text: 'Tasks', icon: <ChecklistIcon />, href: '/tasks', color: '#fa709a' },
+      { text: 'SMS Logs', icon: <SmsIcon />, href: '/sms-logs', color: '#4facfe' },
     ]
   },
   config: {

@@ -273,6 +273,10 @@ def append_lead_to_sheet(detail_data: dict):
 
     Logs the outcome and re-raises any exception so callers can handle it.
     """
+    # 🔧 FIX: Визначаємо lead_id та biz_id на початку функції щоб уникнути UnboundLocalError
+    biz_id = detail_data.get("business_id", "Unknown")
+    lead_id = detail_data.get("lead_id", "Unknown")
+    
     try:
         if getattr(settings, "GOOGLE_SERVICE_ACCOUNT_FILE", None):
             creds = Credentials.from_service_account_file(
@@ -302,8 +306,6 @@ def append_lead_to_sheet(detail_data: dict):
         # Формуємо рядок відповідно до нових стовпців
         proj = detail_data.get("project", {}) or {}
 
-        biz_id = detail_data.get("business_id")
-        lead_id = detail_data.get("lead_id")
         logger.info(
             "[SHEETS] Appending lead %s for business %s to spreadsheet %s",
             lead_id,
@@ -311,7 +313,7 @@ def append_lead_to_sheet(detail_data: dict):
             settings.GS_SPREADSHEET_ID,
         )
         tz_name = None
-        if biz_id:
+        if biz_id and biz_id != "Unknown":
             business = YelpBusiness.objects.filter(business_id=biz_id).first()
             tz_name = business.time_zone if business else None
 
@@ -340,13 +342,22 @@ def append_lead_to_sheet(detail_data: dict):
             settings.GS_SPREADSHEET_ID,
         )
     except Exception as e:
-        logger.exception(
-            "[SHEETS] Failed to append lead %s for business %s to spreadsheet %s: %s",
-            lead_id,
-            biz_id,
-            settings.GS_SPREADSHEET_ID,
-            e,
-        )
+        # 🔧 FIX: Безпечна обробка exception без UnboundLocalError
+        try:
+            logger.exception(
+                "[SHEETS] Failed to append lead %s for business %s to spreadsheet %s: %s",
+                lead_id,
+                biz_id,
+                settings.GS_SPREADSHEET_ID,
+                e,
+            )
+        except NameError:
+            # Якщо змінні все ще не визначені (дуже рідкісний випадок)
+            logger.exception(
+                "[SHEETS] Failed to append lead to spreadsheet %s: %s",
+                getattr(settings, 'GS_SPREADSHEET_ID', 'Unknown'),
+                e,
+            )
         raise
 
 

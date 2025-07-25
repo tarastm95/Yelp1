@@ -12,9 +12,10 @@ from .views import (
     YelpTokenListView,
     NotificationSettingListCreateView,
     NotificationSettingDetailView,
+    BusinessSMSSettingsView,
 )
 from .task_views import TaskLogListView, MessageTaskListView, TaskRevokeView
-from .sms_views import SendSMSAPIView
+from .sms_views import SendSMSAPIView, SMSLogListView
 
 urlpatterns = [
     path('webhook/', WebhookView.as_view(), name='webhook'),
@@ -81,6 +82,8 @@ urlpatterns = [
     path('tasks/<str:task_id>/cancel/', TaskRevokeView.as_view(), name='task-revoke'),
     path('message_tasks/', MessageTaskListView.as_view(), name='message-task-list'),
     path('send-sms/', SendSMSAPIView.as_view(), name='send-sms'),
+    path('sms-logs/', SMSLogListView.as_view(), name='sms-log-list'),
     path('notifications/', NotificationSettingListCreateView.as_view(), name='notification-list'),
     path('notifications/<int:pk>/', NotificationSettingDetailView.as_view(), name='notification-detail'),
+    path('business-sms-settings/', BusinessSMSSettingsView.as_view(), name='business-sms-settings'),
 ]
