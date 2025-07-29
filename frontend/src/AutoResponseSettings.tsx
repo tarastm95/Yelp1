@@ -744,6 +744,18 @@ const AutoResponseSettings: FC = () => {
     setError('');
   };
 
+  // Function to check if current time is within business hours
+  const isWithinBusinessHours = () => {
+    if (!selectedBusiness || !localTime) return true; // Default to business hours if no time info
+    
+    const currentTime = localTime.replace(/:/g, ''); // Convert "14:30:45" to "143045"
+    const openTime = greetingOpenFrom.replace(/:/g, ''); // Convert "08:00:00" to "080000"  
+    const closeTime = greetingOpenTo.replace(/:/g, ''); // Convert "20:00:00" to "200000"
+    
+    // Simple time comparison (works for same-day hours)
+    return currentTime >= openTime && currentTime <= closeTime;
+  };
+
   // Generate AI preview
   const generateAiPreview = async () => {
     if (!selectedBusiness) {
@@ -1097,10 +1109,31 @@ const AutoResponseSettings: FC = () => {
                   borderBottom: '1px solid',
                   borderColor: 'divider'
                 }}>
-                  <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center' }}>
-                    <MessageIcon sx={{ mr: 1, color: 'primary.main' }} />
-                    {phoneAvailable ? 'Greeting Message (Business Hours)' : 'Greeting Message'}
-                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center' }}>
+                      <MessageIcon sx={{ mr: 1, color: 'primary.main' }} />
+                      {phoneAvailable ? 'Greeting Message (Business Hours)' : 'Greeting Message'}
+                    </Typography>
+                    
+                    {/* Current Mode Indicator */}
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <Typography variant="caption" sx={{ mr: 1, color: 'text.secondary', fontSize: '0.75rem' }}>
+                        Current Mode:
+                      </Typography>
+                      <Chip
+                        icon={useAiGreeting ? <PersonIcon sx={{ fontSize: 14 }} /> : <MessageIcon sx={{ fontSize: 14 }} />}
+                        label={useAiGreeting ? 'AI Generated' : 'Template Message'}
+                        size="small"
+                        color={useAiGreeting ? 'info' : 'primary'}
+                        variant="filled"
+                        sx={{ 
+                          fontSize: '0.75rem',
+                          height: 24,
+                          fontWeight: 600
+                        }}
+                      />
+                    </Box>
+                  </Box>
                 </Box>
                 
                 <CardContent sx={{ p: 3 }}>
@@ -1108,7 +1141,7 @@ const AutoResponseSettings: FC = () => {
                     {/* Message Type Selection */}
                     <Box>
                       <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600 }}>
-                        Message Generation Method
+                        📝 Choose Message Generation Method
                       </Typography>
                       <Paper
                         elevation={0}
@@ -1117,7 +1150,9 @@ const AutoResponseSettings: FC = () => {
                           borderRadius: 2,
                           p: 0.5,
                           display: 'inline-flex',
-                          width: 'fit-content'
+                          width: 'fit-content',
+                          border: '2px solid',
+                          borderColor: useAiGreeting ? 'info.main' : 'primary.main'
                         }}
                       >
                         <Tabs
@@ -1133,16 +1168,17 @@ const AutoResponseSettings: FC = () => {
                               borderRadius: 1.5,
                               margin: 0.5,
                               minWidth: 'auto',
-                              px: 2,
-                              py: 1,
+                              px: 3,
+                              py: 1.5,
                               fontSize: '0.875rem',
-                              fontWeight: 500,
+                              fontWeight: 600,
                               color: 'text.secondary',
                               transition: 'all 0.2s ease-in-out',
                               '&.Mui-selected': {
                                 backgroundColor: 'white',
-                                color: 'primary.main',
-                                boxShadow: 1
+                                color: useAiGreeting ? 'info.main' : 'primary.main',
+                                boxShadow: 2,
+                                transform: 'scale(1.02)'
                               }
                             }
                           }}
@@ -1150,179 +1186,326 @@ const AutoResponseSettings: FC = () => {
                           <Tab
                             icon={<MessageIcon sx={{ fontSize: 18 }} />}
                             iconPosition="start"
-                            label="Template Message"
+                            label="📝 Template Message"
                             value="template"
                           />
                           <Tab
                             icon={<PersonIcon sx={{ fontSize: 18 }} />}
                             iconPosition="start"
-                            label="AI Generated"
+                            label="🤖 AI Generated"
                             value="ai"
                           />
                         </Tabs>
                       </Paper>
+                      
+                      {/* Selected Mode Description */}
+                      <Box sx={{ mt: 2, p: 2, backgroundColor: useAiGreeting ? 'info.50' : 'primary.50', borderRadius: 2 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 500, color: useAiGreeting ? 'info.dark' : 'primary.dark' }}>
+                          {useAiGreeting 
+                            ? '🤖 AI Mode: Messages will be generated automatically using artificial intelligence based on customer information and business context.'
+                            : '📝 Template Mode: Use predefined message templates with placeholders like {name} and {jobs} that will be replaced with actual customer data.'
+                          }
+                        </Typography>
+                      </Box>
                     </Box>
 
                     {/* AI Settings */}
                     {useAiGreeting && (
-                      <Card elevation={1} sx={{ borderRadius: 2, backgroundColor: 'info.50' }}>
-                        <CardContent sx={{ p: 2 }}>
-                          <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600, display: 'flex', alignItems: 'center' }}>
-                            <PersonIcon sx={{ mr: 1, color: 'info.main' }} />
-                            AI Configuration
+                      <>
+                        <Box sx={{ textAlign: 'center', py: 1 }}>
+                          <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'info.main', fontWeight: 700 }}>
+                            <PersonIcon sx={{ mr: 1, fontSize: 20 }} />
+                            🤖 AI CONFIGURATION ACTIVE
                           </Typography>
-                          
-                          <Stack spacing={2}>
-                            {/* Response Style */}
-                            <Box>
-                              <Typography variant="caption" sx={{ mb: 1, display: 'block', fontWeight: 600 }}>
-                                Response Style
-                              </Typography>
-                              <Select
-                                value={aiResponseStyle}
-                                onChange={e => setAiResponseStyle(e.target.value as 'formal' | 'casual' | 'auto')}
-                                size="small"
-                                fullWidth
-                                sx={{ backgroundColor: 'white' }}
-                              >
-                                <MenuItem value="auto">Auto (Adaptive)</MenuItem>
-                                <MenuItem value="formal">Formal & Professional</MenuItem>
-                                <MenuItem value="casual">Casual & Friendly</MenuItem>
-                              </Select>
-                            </Box>
-
-                            {/* AI Options */}
-                            <Box>
-                              <Typography variant="caption" sx={{ mb: 1, display: 'block', fontWeight: 600 }}>
-                                AI Options
-                              </Typography>
-                              <FormGroup>
-                                <FormControlLabel
-                                  control={
-                                    <Checkbox
-                                      checked={aiIncludeLocation}
-                                      onChange={e => setAiIncludeLocation(e.target.checked)}
-                                      size="small"
-                                    />
-                                  }
-                                  label="Include business location in message"
-                                />
-                                <FormControlLabel
-                                  control={
-                                    <Checkbox
-                                      checked={aiMentionResponseTime}
-                                      onChange={e => setAiMentionResponseTime(e.target.checked)}
-                                      size="small"
-                                    />
-                                  }
-                                  label="Mention estimated response time"
-                                />
-                              </FormGroup>
-                            </Box>
-
-                            {/* Custom Prompt */}
-                            <Box>
-                              <Typography variant="caption" sx={{ mb: 1, display: 'block', fontWeight: 600 }}>
-                                Custom Instructions (Optional)
-                              </Typography>
-                              <TextField
-                                multiline
-                                rows={2}
-                                fullWidth
-                                value={aiCustomPrompt}
-                                onChange={e => setAiCustomPrompt(e.target.value)}
-                                placeholder="Add specific instructions for AI message generation..."
-                                variant="outlined"
-                                size="small"
-                                sx={{ backgroundColor: 'white' }}
-                              />
-                            </Box>
-
-                            {/* AI Preview */}
-                            <Box>
-                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                                <Typography variant="caption" sx={{ fontWeight: 600 }}>
-                                  AI Preview
+                        </Box>
+                        
+                        <Card elevation={1} sx={{ borderRadius: 2, backgroundColor: 'info.50', border: '2px solid', borderColor: 'info.main' }}>
+                          <CardContent sx={{ p: 2 }}>
+                            <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600, display: 'flex', alignItems: 'center' }}>
+                              <PersonIcon sx={{ mr: 1, color: 'info.main' }} />
+                              AI Settings & Options
+                            </Typography>
+                            
+                            <Stack spacing={2}>
+                              {/* Response Style */}
+                              <Box>
+                                <Typography variant="caption" sx={{ mb: 1, display: 'block', fontWeight: 600 }}>
+                                  Response Style
                                 </Typography>
-                                <Button
+                                <Select
+                                  value={aiResponseStyle}
+                                  onChange={e => setAiResponseStyle(e.target.value as 'formal' | 'casual' | 'auto')}
                                   size="small"
-                                  variant="outlined"
-                                  onClick={generateAiPreview}
-                                  disabled={aiPreviewLoading || !selectedBusiness}
-                                  startIcon={aiPreviewLoading ? <CircularProgress size={16} /> : undefined}
-                                  sx={{ minWidth: 100 }}
+                                  fullWidth
+                                  sx={{ backgroundColor: 'white' }}
                                 >
-                                  {aiPreviewLoading ? 'Generating...' : 'Generate Preview'}
-                                </Button>
+                                  <MenuItem value="auto">Auto (Adaptive)</MenuItem>
+                                  <MenuItem value="formal">Formal & Professional</MenuItem>
+                                  <MenuItem value="casual">Casual & Friendly</MenuItem>
+                                </Select>
                               </Box>
-                              <Paper
-                                sx={{
-                                  p: 2,
-                                  backgroundColor: 'white',
-                                  border: '1px solid',
-                                  borderColor: 'grey.300',
-                                  minHeight: 60,
-                                  display: 'flex',
-                                  alignItems: 'center'
-                                }}
-                              >
-                                <Typography
-                                  variant="body2"
-                                  sx={{ 
-                                    fontStyle: aiPreview ? 'normal' : 'italic',
-                                    color: aiPreview ? 'text.primary' : 'text.secondary'
+
+                              {/* AI Options */}
+                              <Box>
+                                <Typography variant="caption" sx={{ mb: 1, display: 'block', fontWeight: 600 }}>
+                                  AI Options
+                                </Typography>
+                                <FormGroup>
+                                  <FormControlLabel
+                                    control={
+                                      <Checkbox
+                                        checked={aiIncludeLocation}
+                                        onChange={e => setAiIncludeLocation(e.target.checked)}
+                                        size="small"
+                                      />
+                                    }
+                                    label="Include business location in message"
+                                  />
+                                  <FormControlLabel
+                                    control={
+                                      <Checkbox
+                                        checked={aiMentionResponseTime}
+                                        onChange={e => setAiMentionResponseTime(e.target.checked)}
+                                        size="small"
+                                      />
+                                    }
+                                    label="Mention estimated response time"
+                                  />
+                                </FormGroup>
+                              </Box>
+
+                              {/* Custom Prompt */}
+                              <Box>
+                                <Typography variant="caption" sx={{ mb: 1, display: 'block', fontWeight: 600 }}>
+                                  Custom Instructions (Optional)
+                                </Typography>
+                                <TextField
+                                  multiline
+                                  rows={2}
+                                  fullWidth
+                                  value={aiCustomPrompt}
+                                  onChange={e => setAiCustomPrompt(e.target.value)}
+                                  placeholder="Add specific instructions for AI message generation..."
+                                  variant="outlined"
+                                  size="small"
+                                  sx={{ backgroundColor: 'white' }}
+                                />
+                              </Box>
+
+                              {/* AI Preview */}
+                              <Box>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                                  <Typography variant="caption" sx={{ fontWeight: 600 }}>
+                                    AI Preview
+                                  </Typography>
+                                  <Button
+                                    size="small"
+                                    variant="outlined"
+                                    onClick={generateAiPreview}
+                                    disabled={aiPreviewLoading || !selectedBusiness}
+                                    startIcon={aiPreviewLoading ? <CircularProgress size={16} /> : undefined}
+                                    sx={{ minWidth: 100 }}
+                                  >
+                                    {aiPreviewLoading ? 'Generating...' : 'Generate Preview'}
+                                  </Button>
+                                </Box>
+                                <Paper
+                                  sx={{
+                                    p: 2,
+                                    backgroundColor: 'white',
+                                    border: '1px solid',
+                                    borderColor: 'grey.300',
+                                    minHeight: 60,
+                                    display: 'flex',
+                                    alignItems: 'center'
                                   }}
                                 >
-                                  {aiPreview || 'Click "Generate Preview" to see how AI will create your greeting message.'}
-                                </Typography>
-                              </Paper>
-                            </Box>
-                          </Stack>
-                        </CardContent>
-                      </Card>
+                                  <Typography
+                                    variant="body2"
+                                    sx={{ 
+                                      fontStyle: aiPreview ? 'normal' : 'italic',
+                                      color: aiPreview ? 'text.primary' : 'text.secondary'
+                                    }}
+                                  >
+                                    {aiPreview || 'Click "Generate Preview" to see how AI will create your greeting message.'}
+                                  </Typography>
+                                </Paper>
+                              </Box>
+                            </Stack>
+                          </CardContent>
+                        </Card>
+                      </>
                     )}
 
                     {/* Traditional Template Fields - only show when not using AI */}
                     {!useAiGreeting && (
                       <>
-                        {/* Placeholder buttons */}
-                        <Box>
-                          <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-                            Insert Variables
+                        <Box sx={{ textAlign: 'center', py: 1 }}>
+                          <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'primary.main', fontWeight: 700 }}>
+                            <MessageIcon sx={{ mr: 1, fontSize: 20 }} />
+                            📝 TEMPLATE MESSAGE ACTIVE
                           </Typography>
-                          <Stack direction="row" spacing={1} flexWrap="wrap" gap={1}>
-                            {PLACEHOLDERS.map(ph => (
-                              <Chip
-                                key={ph}
-                                label={ph}
-                                size="small"
-                                variant="outlined"
-                                clickable
-                                onClick={() => insertPlaceholder(ph, 'greeting')}
-                                sx={{ 
-                                  '&:hover': { backgroundColor: 'primary.50' }
-                                }}
-                              />
-                            ))}
-                          </Stack>
                         </Box>
+                        
+                        <Card elevation={1} sx={{ borderRadius: 2, backgroundColor: 'primary.50', border: '2px solid', borderColor: 'primary.main' }}>
+                          <CardContent sx={{ p: 2 }}>
+                            <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600, display: 'flex', alignItems: 'center' }}>
+                              <MessageIcon sx={{ mr: 1, color: 'primary.main' }} />
+                              Template Configuration
+                            </Typography>
+                            
+                            {/* Template Mode Indicator */}
+                            <Box sx={{ mb: 2, p: 2, backgroundColor: 'white', borderRadius: 2, border: '1px solid', borderColor: 'primary.200' }}>
+                              <Typography variant="caption" sx={{ display: 'block', mb: 1, fontWeight: 600, color: 'text.secondary' }}>
+                                Current Template Mode:
+                              </Typography>
+                              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                                <Chip
+                                  icon={<AccessTimeIcon sx={{ fontSize: 14 }} />}
+                                  label="Business Hours Template"
+                                  size="small"
+                                  color="success"
+                                  variant="filled"
+                                  sx={{ fontSize: '0.75rem', fontWeight: 600 }}
+                                />
+                                {phoneAvailable && greetingAfterTemplate && (
+                                  <Chip
+                                    icon={<AccessTimeIcon sx={{ fontSize: 14 }} />}
+                                    label="Off-Hours Template Available"
+                                    size="small"
+                                    color="warning"
+                                    variant="outlined"
+                                    sx={{ fontSize: '0.75rem', fontWeight: 600 }}
+                                  />
+                                )}
+                                {phoneAvailable && !greetingAfterTemplate && (
+                                  <Chip
+                                    icon={<AccessTimeIcon sx={{ fontSize: 14 }} />}
+                                    label="Off-Hours Template Not Set"
+                                    size="small"
+                                    color="error"
+                                    variant="outlined"
+                                    sx={{ fontSize: '0.75rem', fontWeight: 600 }}
+                                  />
+                                )}
+                              </Box>
+                              
+                              {/* Template Usage Info */}
+                              <Typography variant="caption" sx={{ display: 'block', mt: 1, color: 'text.secondary', fontStyle: 'italic' }}>
+                                {phoneAvailable 
+                                  ? 'Business hours template is used during working hours. Off-hours template (if set) is used outside working hours.'
+                                  : 'Single template mode - the same template is used 24/7.'
+                                }
+                              </Typography>
+                              
+                              {/* Currently Active Template Indicator */}
+                              {localTime && phoneAvailable && (
+                                <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'grey.300' }}>
+                                  <Typography variant="caption" sx={{ display: 'block', mb: 1, fontWeight: 600, color: 'text.secondary' }}>
+                                    Active Right Now ({localTime}):
+                                  </Typography>
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                                    <Chip
+                                      icon={isWithinBusinessHours() ? <WorkIcon sx={{ fontSize: 14 }} /> : <AccessTimeIcon sx={{ fontSize: 14 }} />}
+                                      label={isWithinBusinessHours() 
+                                        ? '🕐 Business Hours Template Active' 
+                                        : '🌙 Off-Hours Template Active'
+                                      }
+                                      size="small"
+                                      color={isWithinBusinessHours() ? 'success' : 'warning'}
+                                      variant="filled"
+                                      sx={{ 
+                                        fontSize: '0.75rem', 
+                                        fontWeight: 600,
+                                        '@keyframes pulse': {
+                                          '0%': { opacity: 1 },
+                                          '50%': { opacity: 0.7 },
+                                          '100%': { opacity: 1 }
+                                        },
+                                        animation: 'pulse 2s infinite ease-in-out'
+                                      }}
+                                    />
+                                  </Box>
+                                  <Typography variant="caption" sx={{ display: 'block', mt: 1, color: 'text.secondary' }}>
+                                    Business Hours: {greetingOpenFrom.slice(0,5)} - {greetingOpenTo.slice(0,5)}
+                                    {greetingOpenDays && ` • ${greetingOpenDays}`}
+                                  </Typography>
+                                  
+                                  {/* Template Preview */}
+                                  {(greetingTemplate || greetingAfterTemplate) && (
+                                    <Box sx={{ mt: 2, p: 2, backgroundColor: 'grey.50', borderRadius: 1, border: '1px dashed', borderColor: 'grey.400' }}>
+                                      <Typography variant="caption" sx={{ display: 'block', mb: 1, fontWeight: 600, color: 'text.secondary' }}>
+                                        Current Template Preview:
+                                      </Typography>
+                                      <Typography 
+                                        variant="body2" 
+                                        sx={{ 
+                                          fontStyle: 'italic',
+                                          backgroundColor: 'white',
+                                          p: 1,
+                                          borderRadius: 1,
+                                          border: '1px solid',
+                                          borderColor: 'grey.300',
+                                          minHeight: 40,
+                                          display: 'flex',
+                                          alignItems: 'center'
+                                        }}
+                                      >
+                                        {phoneAvailable && !isWithinBusinessHours() && greetingAfterTemplate 
+                                          ? greetingAfterTemplate || 'Off-hours template not set'
+                                          : greetingTemplate || 'Business hours template not set'
+                                        }
+                                      </Typography>
+                                      <Typography variant="caption" sx={{ display: 'block', mt: 1, color: 'text.secondary' }}>
+                                        💡 Placeholders like {'{name}'}, {'{jobs}'}, {'{sep}'} will be replaced with actual customer data when sent.
+                                      </Typography>
+                                    </Box>
+                                  )}
+                                </Box>
+                              )}
+                            </Box>
+                            
+                            {/* Placeholder buttons */}
+                            <Box>
+                              <Typography variant="caption" sx={{ mb: 1, display: 'block', fontWeight: 600 }}>
+                                Insert Variables
+                              </Typography>
+                              <Stack direction="row" spacing={1} flexWrap="wrap" gap={1}>
+                                {PLACEHOLDERS.map(ph => (
+                                  <Chip
+                                    key={ph}
+                                    label={ph}
+                                    size="small"
+                                    variant="outlined"
+                                    clickable
+                                    onClick={() => insertPlaceholder(ph, 'greeting')}
+                                    sx={{ 
+                                      '&:hover': { backgroundColor: 'primary.50' }
+                                    }}
+                                  />
+                                ))}
+                              </Stack>
+                            </Box>
 
-                        {/* Message template */}
-                        <TextField
-                          inputRef={greetingRef}
-                          multiline
-                          minRows={4}
-                          fullWidth
-                          value={greetingTemplate}
-                          onChange={e => setGreetingTemplate(e.target.value)}
-                          placeholder="Enter your greeting message template..."
-                          variant="outlined"
-                          sx={{
-                            '& .MuiOutlinedInput-root': {
-                              backgroundColor: 'white'
-                            }
-                          }}
-                        />
+                            {/* Message template */}
+                            <TextField
+                              inputRef={greetingRef}
+                              multiline
+                              minRows={4}
+                              fullWidth
+                              value={greetingTemplate}
+                              onChange={e => setGreetingTemplate(e.target.value)}
+                              placeholder="Enter your greeting message template..."
+                              variant="outlined"
+                              sx={{
+                                mt: 2,
+                                '& .MuiOutlinedInput-root': {
+                                  backgroundColor: 'white'
+                                }
+                              }}
+                            />
+                          </CardContent>
+                        </Card>
                       </>
                     )}
 
