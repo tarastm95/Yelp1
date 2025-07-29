@@ -1170,14 +1170,13 @@ class WebhookView(APIView):
         biz_id = ld.business_id if ld else None
         business = YelpBusiness.objects.filter(business_id=biz_id).first()
 
-        greeting = auto_settings.greeting_template.format(name=name, jobs=jobs, sep=sep)
-        off_greeting = auto_settings.greeting_off_hours_template.format(
-            name=name, jobs=jobs, sep=sep
-        )
-
+        # Check if AI is enabled for greeting generation
+        use_ai = getattr(auto_settings, 'use_ai_greeting', False)
+        
         now = timezone.now()
         tz_name = business.time_zone if business else None
         within_hours = True
+        
         if tz_name:
             tz = ZoneInfo(tz_name)
             local_now = now.astimezone(tz)
@@ -1203,6 +1202,59 @@ class WebhookView(APIView):
                 local_now.weekday() in allowed_days and open_dt <= local_now < close_dt
             )
 
+        # Generate greeting message - AI or template-based
+        if use_ai:
+            logger.info(f"[AUTO-RESPONSE] 🤖 Using AI for greeting generation")
+            try:
+                from .ai_service import OpenAIService
+                ai_service = OpenAIService()
+                
+                if ai_service.is_available():
+                    # Generate AI greeting
+                    ai_greeting = ai_service.generate_greeting_message(
+                        lead_detail=ld,
+                        business=business,
+                        is_off_hours=not within_hours,
+                        response_style=getattr(auto_settings, 'ai_response_style', 'auto'),
+                        include_location=getattr(auto_settings, 'ai_include_location', False),
+                        mention_response_time=getattr(auto_settings, 'ai_mention_response_time', False),
+                        custom_prompt=getattr(auto_settings, 'ai_custom_prompt', None)
+                    )
+                    
+                    if ai_greeting:
+                        logger.info(f"[AUTO-RESPONSE] ✅ AI generated greeting: {ai_greeting[:50]}...")
+                        greet_text = ai_greeting
+                    else:
+                        logger.warning(f"[AUTO-RESPONSE] ⚠️ AI generation failed, using template fallback")
+                        # Fallback to template
+                        if within_hours:
+                            greet_text = auto_settings.greeting_template.format(name=name, jobs=jobs, sep=sep)
+                        else:
+                            greet_text = auto_settings.greeting_off_hours_template.format(name=name, jobs=jobs, sep=sep)
+                else:
+                    logger.warning(f"[AUTO-RESPONSE] ⚠️ AI service not available, using template fallback")
+                    # Fallback to template
+                    if within_hours:
+                        greet_text = auto_settings.greeting_template.format(name=name, jobs=jobs, sep=sep)
+                    else:
+                        greet_text = auto_settings.greeting_off_hours_template.format(name=name, jobs=jobs, sep=sep)
+                        
+            except Exception as e:
+                logger.error(f"[AUTO-RESPONSE] ❌ AI generation error: {e}")
+                # Fallback to template on any error
+                if within_hours:
+                    greet_text = auto_settings.greeting_template.format(name=name, jobs=jobs, sep=sep)
+                else:
+                    greet_text = auto_settings.greeting_off_hours_template.format(name=name, jobs=jobs, sep=sep)
+        else:
+            # Traditional template-based approach
+            logger.info(f"[AUTO-RESPONSE] 📝 Using template-based greeting generation")
+            if within_hours:
+                greet_text = auto_settings.greeting_template.format(name=name, jobs=jobs, sep=sep)
+            else:
+                greet_text = auto_settings.greeting_off_hours_template.format(name=name, jobs=jobs, sep=sep)
+
+        # Calculate due time
         if within_hours:
             due = adjust_due_time(
                 now + timedelta(seconds=auto_settings.greeting_delay),
@@ -1211,10 +1263,8 @@ class WebhookView(APIView):
                 auto_settings.greeting_open_to,
                 days_setting,
             )
-            greet_text = greeting
         else:
             due = now + timedelta(seconds=auto_settings.greeting_delay)
-            greet_text = off_greeting
 
         scheduled_texts = set()
 

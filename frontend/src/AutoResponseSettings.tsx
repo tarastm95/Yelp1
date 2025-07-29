@@ -87,6 +87,12 @@ interface AutoResponse {
   greeting_open_to: string;
   greeting_open_days: string;
   export_to_sheets: boolean;
+  // AI fields
+  use_ai_greeting: boolean;
+  ai_response_style: 'formal' | 'casual' | 'auto';
+  ai_include_location: boolean;
+  ai_mention_response_time: boolean;
+  ai_custom_prompt?: string;
 }
 
 interface FollowUpTemplate {
@@ -116,6 +122,12 @@ interface AutoResponseSettingsData {
   greeting_open_days: string;
   export_to_sheets: boolean;
   follow_up_templates: FollowUpTplData[];
+  // AI fields
+  use_ai_greeting: boolean;
+  ai_response_style: 'formal' | 'casual' | 'auto';
+  ai_include_location: boolean;
+  ai_mention_response_time: boolean;
+  ai_custom_prompt?: string;
 }
 
 
@@ -140,6 +152,15 @@ const AutoResponseSettings: FC = () => {
   const [greetingOpenTo, setGreetingOpenTo] = useState('20:00:00');
   const [greetingOpenDays, setGreetingOpenDays] = useState('Mon, Tue, Wed, Thu, Fri');
   const [exportToSheets, setExportToSheets] = useState(false);
+
+  // AI settings state
+  const [useAiGreeting, setUseAiGreeting] = useState(false);
+  const [aiResponseStyle, setAiResponseStyle] = useState<'formal' | 'casual' | 'auto'>('auto');
+  const [aiIncludeLocation, setAiIncludeLocation] = useState(false);
+  const [aiMentionResponseTime, setAiMentionResponseTime] = useState(false);
+  const [aiCustomPrompt, setAiCustomPrompt] = useState('');
+  const [aiPreview, setAiPreview] = useState('');
+  const [aiPreviewLoading, setAiPreviewLoading] = useState(false);
 
   // follow-up templates
   const [templates, setTemplates] = useState<FollowUpTemplate[]>([]);
@@ -255,6 +276,12 @@ const AutoResponseSettings: FC = () => {
     greeting_open_days: 'Mon, Tue, Wed, Thu, Fri',
     export_to_sheets: false,
     follow_up_templates: [],
+    // AI fields
+    use_ai_greeting: false,
+    ai_response_style: 'auto',
+    ai_include_location: true,
+    ai_mention_response_time: true,
+    ai_custom_prompt: undefined,
   };
 
   const resetSettings = () => {
@@ -292,6 +319,14 @@ const AutoResponseSettings: FC = () => {
           setGreetingOpenTo(d.greeting_open_to || '20:00:00');
           setGreetingOpenDays(d.greeting_open_days || 'Mon, Tue, Wed, Thu, Fri');
           setExportToSheets(d.export_to_sheets);
+          
+          // Set AI settings
+          setUseAiGreeting(d.use_ai_greeting || false);
+          setAiResponseStyle(d.ai_response_style || 'auto');
+          setAiIncludeLocation(d.ai_include_location || false);
+          setAiMentionResponseTime(d.ai_mention_response_time || false);
+          setAiCustomPrompt(d.ai_custom_prompt || '');
+          
           initialSettings.current = {
             enabled: d.enabled,
             greeting_template: d.greeting_template,
@@ -302,6 +337,12 @@ const AutoResponseSettings: FC = () => {
             greeting_open_days: d.greeting_open_days || 'Mon, Tue, Wed, Thu, Fri',
             export_to_sheets: d.export_to_sheets,
             follow_up_templates: initialSettings.current?.follow_up_templates || [],
+            // AI fields
+            use_ai_greeting: d.use_ai_greeting,
+            ai_response_style: d.ai_response_style,
+            ai_include_location: d.ai_include_location,
+            ai_mention_response_time: d.ai_mention_response_time,
+            ai_custom_prompt: d.ai_custom_prompt,
           };
           setLoading(false);
         })
@@ -359,6 +400,12 @@ const AutoResponseSettings: FC = () => {
             greeting_open_days: 'Mon, Tue, Wed, Thu, Fri',
             export_to_sheets: false,
             follow_up_templates: mapped,
+            // AI fields
+            use_ai_greeting: false,
+            ai_response_style: 'auto',
+            ai_include_location: true,
+            ai_mention_response_time: true,
+            ai_custom_prompt: undefined,
           };
         } else {
           initialSettings.current = {
@@ -367,6 +414,12 @@ const AutoResponseSettings: FC = () => {
               initialSettings.current?.greeting_off_hours_template || '',
             greeting_open_days: initialSettings.current?.greeting_open_days || 'Mon, Tue, Wed, Thu, Fri',
             follow_up_templates: mapped,
+            // AI fields
+            use_ai_greeting: initialSettings.current?.use_ai_greeting || false,
+            ai_response_style: initialSettings.current?.ai_response_style || 'auto',
+            ai_include_location: initialSettings.current?.ai_include_location || true,
+            ai_mention_response_time: initialSettings.current?.ai_mention_response_time || true,
+            ai_custom_prompt: initialSettings.current?.ai_custom_prompt,
           };
         }
       })
@@ -395,6 +448,13 @@ const AutoResponseSettings: FC = () => {
     setGreetingOpenTo(d.greeting_open_to || '20:00:00');
     setGreetingOpenDays(d.greeting_open_days || 'Mon, Tue, Wed, Thu, Fri');
     setExportToSheets(d.export_to_sheets);
+
+    // Apply AI settings
+    setUseAiGreeting(d.use_ai_greeting || false);
+    setAiResponseStyle(d.ai_response_style || 'auto');
+    setAiIncludeLocation(d.ai_include_location || false);
+    setAiMentionResponseTime(d.ai_mention_response_time || false);
+    setAiCustomPrompt(d.ai_custom_prompt || '');
 
     if (Array.isArray(d.follow_up_templates)) {
       const mapped = d.follow_up_templates.map((t: any, idx: number) => ({
@@ -504,6 +564,12 @@ const AutoResponseSettings: FC = () => {
         greeting_open_to: greetingOpenTo,
         greeting_open_days: greetingOpenDays,
         export_to_sheets: exportToSheets,
+        // AI fields
+        use_ai_greeting: useAiGreeting,
+        ai_response_style: aiResponseStyle,
+        ai_include_location: aiIncludeLocation,
+        ai_mention_response_time: aiMentionResponseTime,
+        ai_custom_prompt: aiCustomPrompt,
       });
 
       setSettingsId(res.data.id);
@@ -517,6 +583,12 @@ const AutoResponseSettings: FC = () => {
         greeting_open_days: greetingOpenDays,
         export_to_sheets: exportToSheets,
         follow_up_templates: initialSettings.current?.follow_up_templates || [],
+        // AI fields
+        use_ai_greeting: useAiGreeting,
+        ai_response_style: aiResponseStyle,
+        ai_include_location: aiIncludeLocation,
+        ai_mention_response_time: aiMentionResponseTime,
+        ai_custom_prompt: aiCustomPrompt,
       };
 
       const params = new URLSearchParams();
@@ -670,6 +742,35 @@ const AutoResponseSettings: FC = () => {
   const handleCloseSnackbar = () => {
     setSaved(false);
     setError('');
+  };
+
+  // Generate AI preview
+  const generateAiPreview = async () => {
+    if (!selectedBusiness) {
+      setAiPreview('Please select a business first.');
+      return;
+    }
+
+    setAiPreviewLoading(true);
+    try {
+      const business = businesses.find(b => b.business_id === selectedBusiness);
+      const response = await axios.post('/ai/preview/', {
+        business_name: business?.name || 'Your Business',
+        customer_name: 'John Smith',
+        services: 'plumbing services',
+        ai_response_style: aiResponseStyle,
+        ai_include_location: aiIncludeLocation,
+        ai_mention_response_time: aiMentionResponseTime,
+        ai_custom_prompt: aiCustomPrompt || undefined,
+      });
+
+      setAiPreview(response.data.preview);
+    } catch (error) {
+      console.error('Failed to generate AI preview:', error);
+      setAiPreview('Error generating preview. Please check your AI settings.');
+    } finally {
+      setAiPreviewLoading(false);
+    }
   };
 
   if (!selectedBusiness) {
@@ -1004,44 +1105,226 @@ const AutoResponseSettings: FC = () => {
                 
                 <CardContent sx={{ p: 3 }}>
                   <Stack spacing={3}>
-                    {/* Placeholder buttons */}
+                    {/* Message Type Selection */}
                     <Box>
-                      <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-                        Insert Variables
+                      <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600 }}>
+                        Message Generation Method
                       </Typography>
-                      <Stack direction="row" spacing={1} flexWrap="wrap" gap={1}>
-                        {PLACEHOLDERS.map(ph => (
-                          <Chip
-                            key={ph}
-                            label={ph}
-                            size="small"
-                            variant="outlined"
-                            clickable
-                            onClick={() => insertPlaceholder(ph, 'greeting')}
-                            sx={{ 
-                              '&:hover': { backgroundColor: 'primary.50' }
-                            }}
+                      <Paper
+                        elevation={0}
+                        sx={{
+                          backgroundColor: 'grey.100',
+                          borderRadius: 2,
+                          p: 0.5,
+                          display: 'inline-flex',
+                          width: 'fit-content'
+                        }}
+                      >
+                        <Tabs
+                          value={useAiGreeting ? 'ai' : 'template'}
+                          onChange={(_, v) => setUseAiGreeting(v === 'ai')}
+                          TabIndicatorProps={{
+                            style: { display: 'none' }
+                          }}
+                          sx={{
+                            minHeight: 'auto',
+                            '& .MuiTab-root': {
+                              minHeight: 'auto',
+                              borderRadius: 1.5,
+                              margin: 0.5,
+                              minWidth: 'auto',
+                              px: 2,
+                              py: 1,
+                              fontSize: '0.875rem',
+                              fontWeight: 500,
+                              color: 'text.secondary',
+                              transition: 'all 0.2s ease-in-out',
+                              '&.Mui-selected': {
+                                backgroundColor: 'white',
+                                color: 'primary.main',
+                                boxShadow: 1
+                              }
+                            }
+                          }}
+                        >
+                          <Tab
+                            icon={<MessageIcon sx={{ fontSize: 18 }} />}
+                            iconPosition="start"
+                            label="Template Message"
+                            value="template"
                           />
-                        ))}
-                      </Stack>
+                          <Tab
+                            icon={<PersonIcon sx={{ fontSize: 18 }} />}
+                            iconPosition="start"
+                            label="AI Generated"
+                            value="ai"
+                          />
+                        </Tabs>
+                      </Paper>
                     </Box>
 
-                    {/* Message template */}
-                    <TextField
-                      inputRef={greetingRef}
-                      multiline
-                      minRows={4}
-                      fullWidth
-                      value={greetingTemplate}
-                      onChange={e => setGreetingTemplate(e.target.value)}
-                      placeholder="Enter your greeting message template..."
-                      variant="outlined"
-                      sx={{
-                        '& .MuiOutlinedInput-root': {
-                          backgroundColor: 'white'
-                        }
-                      }}
-                    />
+                    {/* AI Settings */}
+                    {useAiGreeting && (
+                      <Card elevation={1} sx={{ borderRadius: 2, backgroundColor: 'info.50' }}>
+                        <CardContent sx={{ p: 2 }}>
+                          <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600, display: 'flex', alignItems: 'center' }}>
+                            <PersonIcon sx={{ mr: 1, color: 'info.main' }} />
+                            AI Configuration
+                          </Typography>
+                          
+                          <Stack spacing={2}>
+                            {/* Response Style */}
+                            <Box>
+                              <Typography variant="caption" sx={{ mb: 1, display: 'block', fontWeight: 600 }}>
+                                Response Style
+                              </Typography>
+                              <Select
+                                value={aiResponseStyle}
+                                onChange={e => setAiResponseStyle(e.target.value as 'formal' | 'casual' | 'auto')}
+                                size="small"
+                                fullWidth
+                                sx={{ backgroundColor: 'white' }}
+                              >
+                                <MenuItem value="auto">Auto (Adaptive)</MenuItem>
+                                <MenuItem value="formal">Formal & Professional</MenuItem>
+                                <MenuItem value="casual">Casual & Friendly</MenuItem>
+                              </Select>
+                            </Box>
+
+                            {/* AI Options */}
+                            <Box>
+                              <Typography variant="caption" sx={{ mb: 1, display: 'block', fontWeight: 600 }}>
+                                AI Options
+                              </Typography>
+                              <FormGroup>
+                                <FormControlLabel
+                                  control={
+                                    <Checkbox
+                                      checked={aiIncludeLocation}
+                                      onChange={e => setAiIncludeLocation(e.target.checked)}
+                                      size="small"
+                                    />
+                                  }
+                                  label="Include business location in message"
+                                />
+                                <FormControlLabel
+                                  control={
+                                    <Checkbox
+                                      checked={aiMentionResponseTime}
+                                      onChange={e => setAiMentionResponseTime(e.target.checked)}
+                                      size="small"
+                                    />
+                                  }
+                                  label="Mention estimated response time"
+                                />
+                              </FormGroup>
+                            </Box>
+
+                            {/* Custom Prompt */}
+                            <Box>
+                              <Typography variant="caption" sx={{ mb: 1, display: 'block', fontWeight: 600 }}>
+                                Custom Instructions (Optional)
+                              </Typography>
+                              <TextField
+                                multiline
+                                rows={2}
+                                fullWidth
+                                value={aiCustomPrompt}
+                                onChange={e => setAiCustomPrompt(e.target.value)}
+                                placeholder="Add specific instructions for AI message generation..."
+                                variant="outlined"
+                                size="small"
+                                sx={{ backgroundColor: 'white' }}
+                              />
+                            </Box>
+
+                            {/* AI Preview */}
+                            <Box>
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                                <Typography variant="caption" sx={{ fontWeight: 600 }}>
+                                  AI Preview
+                                </Typography>
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  onClick={generateAiPreview}
+                                  disabled={aiPreviewLoading || !selectedBusiness}
+                                  startIcon={aiPreviewLoading ? <CircularProgress size={16} /> : undefined}
+                                  sx={{ minWidth: 100 }}
+                                >
+                                  {aiPreviewLoading ? 'Generating...' : 'Generate Preview'}
+                                </Button>
+                              </Box>
+                              <Paper
+                                sx={{
+                                  p: 2,
+                                  backgroundColor: 'white',
+                                  border: '1px solid',
+                                  borderColor: 'grey.300',
+                                  minHeight: 60,
+                                  display: 'flex',
+                                  alignItems: 'center'
+                                }}
+                              >
+                                <Typography
+                                  variant="body2"
+                                  sx={{ 
+                                    fontStyle: aiPreview ? 'normal' : 'italic',
+                                    color: aiPreview ? 'text.primary' : 'text.secondary'
+                                  }}
+                                >
+                                  {aiPreview || 'Click "Generate Preview" to see how AI will create your greeting message.'}
+                                </Typography>
+                              </Paper>
+                            </Box>
+                          </Stack>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Traditional Template Fields - only show when not using AI */}
+                    {!useAiGreeting && (
+                      <>
+                        {/* Placeholder buttons */}
+                        <Box>
+                          <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                            Insert Variables
+                          </Typography>
+                          <Stack direction="row" spacing={1} flexWrap="wrap" gap={1}>
+                            {PLACEHOLDERS.map(ph => (
+                              <Chip
+                                key={ph}
+                                label={ph}
+                                size="small"
+                                variant="outlined"
+                                clickable
+                                onClick={() => insertPlaceholder(ph, 'greeting')}
+                                sx={{ 
+                                  '&:hover': { backgroundColor: 'primary.50' }
+                                }}
+                              />
+                            ))}
+                          </Stack>
+                        </Box>
+
+                        {/* Message template */}
+                        <TextField
+                          inputRef={greetingRef}
+                          multiline
+                          minRows={4}
+                          fullWidth
+                          value={greetingTemplate}
+                          onChange={e => setGreetingTemplate(e.target.value)}
+                          placeholder="Enter your greeting message template..."
+                          variant="outlined"
+                          sx={{
+                            '& .MuiOutlinedInput-root': {
+                              backgroundColor: 'white'
+                            }
+                          }}
+                        />
+                      </>
+                    )}
 
                     {/* Options */}
                     <Box>

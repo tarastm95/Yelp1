@@ -12,6 +12,7 @@ from .models import (
     CeleryTaskLog,
     NotificationSetting,
     SMSLog,
+    AISettings,
 )
 
 
@@ -42,6 +43,12 @@ class AutoResponseSettingsSerializer(serializers.ModelSerializer):
             "greeting_open_to",
             "greeting_open_days",
             "export_to_sheets",
+            # AI fields
+            "use_ai_greeting",
+            "ai_response_style",
+            "ai_include_location",
+            "ai_mention_response_time",
+            "ai_custom_prompt",
         ]
         read_only_fields = ["id"]
 
@@ -347,6 +354,28 @@ class SMSLogSerializer(serializers.ModelSerializer):
             return business.name if business else obj.business_id
         except Exception:
             return obj.business_id
+
+
+class AISettingsSerializer(serializers.ModelSerializer):
+    """Serializer для глобальних AI налаштувань"""
+    
+    class Meta:
+        model = AISettings
+        fields = [
+            "id",
+            "openai_model",
+            "base_system_prompt",
+            "max_message_length",
+            "default_temperature",
+            "always_include_business_name",
+            "always_use_customer_name",
+            "fallback_to_template",
+            "requests_per_minute",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+        # Note: openai_api_key is intentionally excluded from serialization for security
 
 
 

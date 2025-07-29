@@ -102,6 +102,34 @@ class AutoResponseSettings(models.Model):
         help_text="Затримка перед привітанням, в секундах",
     )
 
+    # AI Settings for greeting messages
+    use_ai_greeting = models.BooleanField(
+        default=False,
+        help_text="Використовувати AI для генерації вітальних повідомлень"
+    )
+    ai_response_style = models.CharField(
+        max_length=20,
+        choices=[
+            ('formal', 'Formal'),
+            ('casual', 'Casual'),
+            ('auto', 'Auto'),
+        ],
+        default='auto',
+        help_text="Стиль AI відповіді"
+    )
+    ai_include_location = models.BooleanField(
+        default=False,
+        help_text="Включати локацію бізнесу в AI повідомлення"
+    )
+    ai_mention_response_time = models.BooleanField(
+        default=False,
+        help_text="Згадувати очікуваний час відповіді в AI повідомленнях"
+    )
+    ai_custom_prompt = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Кастомний промпт для AI (якщо порожній - використовується глобальний)"
+    )
 
     export_to_sheets = models.BooleanField(
         default=False, help_text="Записувати нові ліди в Google Sheets"
@@ -123,6 +151,64 @@ class AutoResponseSettings(models.Model):
 
     def __str__(self):
         return f"AutoResponseSettings(id={self.id}, enabled={self.enabled})"
+
+
+class AISettings(models.Model):
+    """Глобальні налаштування для AI генерації повідомлень"""
+    
+    # OpenAI Configuration
+    openai_api_key = EncryptedTextField(
+        help_text="OpenAI API ключ (зберігається зашифровано)"
+    )
+    openai_model = models.CharField(
+        max_length=50,
+        default="gpt-4o",
+        help_text="Модель OpenAI для використання"
+    )
+    
+    # Global prompt settings
+    base_system_prompt = models.TextField(
+        default="You are a professional business communication assistant. Generate personalized, friendly, and professional greeting messages for potential customers who have inquired about services.",
+        help_text="Базовий системний промпт для AI"
+    )
+    max_message_length = models.PositiveIntegerField(
+        default=160,
+        help_text="Максимальна довжина згенерованого повідомлення"
+    )
+    default_temperature = models.FloatField(
+        default=0.7,
+        help_text="Temperature для AI генерації (0.0-1.0)"
+    )
+    
+    # Business rules
+    always_include_business_name = models.BooleanField(
+        default=True,
+        help_text="Завжди включати назву бізнесу в повідомлення"
+    )
+    always_use_customer_name = models.BooleanField(
+        default=True,
+        help_text="Завжди використовувати ім'я клієнта, якщо доступне"
+    )
+    fallback_to_template = models.BooleanField(
+        default=True,
+        help_text="Використовувати шаблон як fallback при помилці AI"
+    )
+    
+    # Rate limiting
+    requests_per_minute = models.PositiveIntegerField(
+        default=60,
+        help_text="Максимальна кількість запитів до AI на хвилину"
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "AI Settings"
+        verbose_name_plural = "AI Settings"
+    
+    def __str__(self):
+        return f"AI Settings (Model: {self.openai_model})"
 
 
 class FollowUpTemplate(models.Model):

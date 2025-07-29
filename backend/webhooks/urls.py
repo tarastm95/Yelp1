@@ -13,7 +13,7 @@ from .views import (
     NotificationSettingListCreateView,
     NotificationSettingDetailView,
 )
-from .lead_views import BusinessSMSSettingsView
+from .lead_views import BusinessSMSSettingsView, AIPreviewView
 from .task_views import TaskLogListView, MessageTaskListView, TaskRevokeView
 from .sms_views import SendSMSAPIView, SMSLogListView
 
@@ -45,6 +45,11 @@ urlpatterns = [
         'settings/auto-response/',
         AutoResponseSettingsView.as_view(),
         name='auto-response-settings'
+    ),
+    path(
+        'ai/preview/',
+        AIPreviewView.as_view(),
+        name='ai-preview'
     ),
     path(
         'templates/auto-response/',

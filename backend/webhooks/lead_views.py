@@ -431,3 +431,63 @@ class BusinessSMSSettingsView(APIView):
         
         logger.info(f"[NOTIFICATION-SETTINGS] 📤 Returning updated data: {data}")
         return Response(data, status=status.HTTP_200_OK)
+
+
+class AIPreviewView(APIView):
+    """Endpoint для генерації preview AI повідомлень"""
+    
+    def post(self, request, *args, **kwargs):
+        """Генерує preview AI повідомлення на основі наданих параметрів"""
+        from .ai_service import OpenAIService
+        from rest_framework import status
+        from rest_framework.response import Response
+        
+        try:
+            # Отримання параметрів з запиту
+            business_name = request.data.get('business_name', 'Your Business')
+            customer_name = request.data.get('customer_name', 'John')
+            services = request.data.get('services', 'plumbing services')
+            response_style = request.data.get('ai_response_style', 'auto')
+            include_location = request.data.get('ai_include_location', False)
+            mention_response_time = request.data.get('ai_mention_response_time', False)
+            custom_prompt = request.data.get('ai_custom_prompt', None)
+            
+            # Ініціалізація AI сервісу
+            ai_service = OpenAIService()
+            
+            if not ai_service.is_available():
+                return Response({
+                    'error': 'AI service is not available. Please check your OpenAI configuration.',
+                    'preview': 'AI service unavailable - would fallback to template message.'
+                }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+            
+            # Генерація preview повідомлення
+            preview_message = ai_service.generate_preview_message(
+                business_name=business_name,
+                customer_name=customer_name,
+                services=services,
+                response_style=response_style,
+                include_location=include_location,
+                mention_response_time=mention_response_time,
+                custom_prompt=custom_prompt
+            )
+            
+            return Response({
+                'preview': preview_message,
+                'parameters': {
+                    'business_name': business_name,
+                    'customer_name': customer_name,
+                    'services': services,
+                    'ai_response_style': response_style,
+                    'ai_include_location': include_location,
+                    'ai_mention_response_time': mention_response_time,
+                    'has_custom_prompt': bool(custom_prompt)
+                }
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.error(f"[AI-PREVIEW] Error generating preview: {e}")
+            return Response({
+                'error': f'Error generating preview: {str(e)}',
+                'preview': 'Error occurred - would fallback to template message.'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
