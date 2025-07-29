@@ -34,8 +34,6 @@ import {
   Chip,
   Checkbox,
   FormGroup,
-  WarningIcon,
-  CheckCircleIcon,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
@@ -54,6 +52,8 @@ import PhoneDisabledIcon from '@mui/icons-material/PhoneDisabled';
 import ContactPhoneIcon from '@mui/icons-material/ContactPhone';
 import BusinessInfoCard from './BusinessInfoCard';
 import NotificationSettings from './NotificationSettings';
+import WarningIcon from '@mui/icons-material/Warning';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
 // Helper placeholders used in message templates
 
