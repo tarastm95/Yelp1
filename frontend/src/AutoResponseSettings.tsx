@@ -34,6 +34,8 @@ import {
   Chip,
   Checkbox,
   FormGroup,
+  WarningIcon,
+  CheckCircleIcon,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
@@ -895,6 +897,76 @@ const AutoResponseSettings: FC = () => {
 
   return (
     <Container maxWidth={false} sx={{ mt: 4, mb: 4, maxWidth: 1000, mx: 'auto' }}>
+      
+      {/* Top Status Indicator */}
+      <Card 
+        elevation={2} 
+        sx={{ 
+          mb: 3, 
+          background: useAiGreeting !== settings?.use_ai_greeting 
+            ? 'linear-gradient(135deg, #fff3e0 0%, #ffcc02 100%)' 
+            : 'linear-gradient(135deg, #e8f5e8 0%, #4caf50 100%)',
+          border: '2px solid',
+          borderColor: useAiGreeting !== settings?.use_ai_greeting ? 'warning.main' : 'success.main'
+        }}
+      >
+        <CardContent sx={{ py: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Typography variant="h6" sx={{ fontWeight: 700, color: 'text.primary' }}>
+                🎯 GREETING MESSAGE STATUS
+              </Typography>
+              
+              {useAiGreeting !== settings?.use_ai_greeting ? (
+                <Chip
+                  icon={<WarningIcon sx={{ fontSize: 16 }} />}
+                  label="UNSAVED CHANGES"
+                  color="warning"
+                  variant="filled"
+                  sx={{ fontWeight: 600, fontSize: '0.8rem' }}
+                />
+              ) : (
+                <Chip
+                  icon={<CheckCircleIcon sx={{ fontSize: 16 }} />}
+                  label="SAVED"
+                  color="success"
+                  variant="filled"
+                  sx={{ fontWeight: 600, fontSize: '0.8rem' }}
+                />
+              )}
+            </Box>
+            
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+              <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary' }}>
+                Active Mode:
+              </Typography>
+              <Chip
+                icon={settings?.use_ai_greeting ? <PersonIcon sx={{ fontSize: 14 }} /> : <MessageIcon sx={{ fontSize: 14 }} />}
+                label={settings?.use_ai_greeting ? '🤖 AI GENERATED' : '📝 TEMPLATE MESSAGE'}
+                color={settings?.use_ai_greeting ? 'info' : 'primary'}
+                variant="filled"
+                sx={{ fontWeight: 700, fontSize: '0.8rem' }}
+              />
+              
+              {useAiGreeting !== settings?.use_ai_greeting && (
+                <>
+                  <Typography variant="body2" sx={{ color: 'warning.main', fontWeight: 600 }}>
+                    →
+                  </Typography>
+                  <Chip
+                    icon={useAiGreeting ? <PersonIcon sx={{ fontSize: 14 }} /> : <MessageIcon sx={{ fontSize: 14 }} />}
+                    label={useAiGreeting ? '🤖 AI GENERATED' : '📝 TEMPLATE MESSAGE'}
+                    color="warning"
+                    variant="outlined"
+                    sx={{ fontWeight: 600, fontSize: '0.8rem' }}
+                  />
+                </>
+              )}
+            </Box>
+          </Box>
+        </CardContent>
+      </Card>
+
       {/* Page Header */}
       <Box 
         sx={{ 
@@ -1114,24 +1186,51 @@ const AutoResponseSettings: FC = () => {
                       <MessageIcon sx={{ mr: 1, color: 'primary.main' }} />
                       {phoneAvailable ? 'Greeting Message (Business Hours)' : 'Greeting Message'}
                     </Typography>
-                    
-                    {/* Current Mode Indicator */}
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Typography variant="caption" sx={{ mr: 1, color: 'text.secondary', fontSize: '0.75rem' }}>
-                        Current Mode:
-                      </Typography>
-                      <Chip
-                        icon={useAiGreeting ? <PersonIcon sx={{ fontSize: 14 }} /> : <MessageIcon sx={{ fontSize: 14 }} />}
-                        label={useAiGreeting ? 'AI Generated' : 'Template Message'}
-                        size="small"
-                        color={useAiGreeting ? 'info' : 'primary'}
-                        variant="filled"
-                        sx={{ 
-                          fontSize: '0.75rem',
-                          height: 24,
-                          fontWeight: 600
-                        }}
-                      />
+
+                    {/* Saved Mode Status Indicator */}
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      {/* Saved Mode */}
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.75rem', fontWeight: 600 }}>
+                          💾 SAVED MODE:
+                        </Typography>
+                        <Chip
+                          icon={settings?.use_ai_greeting ? <PersonIcon sx={{ fontSize: 14 }} /> : <MessageIcon sx={{ fontSize: 14 }} />}
+                          label={settings?.use_ai_greeting ? 'AI GENERATED' : 'TEMPLATE MESSAGE'}
+                          size="small"
+                          color={settings?.use_ai_greeting ? 'info' : 'primary'}
+                          variant="filled"
+                          sx={{ 
+                            fontSize: '0.75rem',
+                            height: 24,
+                            fontWeight: 700,
+                            border: '2px solid',
+                            borderColor: settings?.use_ai_greeting ? 'info.dark' : 'primary.dark'
+                          }}
+                        />
+                      </Box>
+
+                      {/* Unsaved Changes Indicator */}
+                      {useAiGreeting !== settings?.use_ai_greeting && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography variant="caption" sx={{ color: 'warning.main', fontSize: '0.75rem', fontWeight: 600 }}>
+                            ⚠️ UNSAVED:
+                          </Typography>
+                          <Chip
+                            icon={useAiGreeting ? <PersonIcon sx={{ fontSize: 14 }} /> : <MessageIcon sx={{ fontSize: 14 }} />}
+                            label={useAiGreeting ? 'AI GENERATED' : 'TEMPLATE MESSAGE'}
+                            size="small"
+                            color="warning"
+                            variant="outlined"
+                            sx={{ 
+                              fontSize: '0.75rem',
+                              height: 24,
+                              fontWeight: 600,
+                              animation: 'blink 1.5s infinite'
+                            }}
+                          />
+                        </Box>
+                      )}
                     </Box>
                   </Box>
                 </Box>
@@ -1139,74 +1238,173 @@ const AutoResponseSettings: FC = () => {
                 <CardContent sx={{ p: 3 }}>
                   <Stack spacing={3}>
                     {/* Message Type Selection */}
-                    <Box>
-                      <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600 }}>
-                        📝 Choose Message Generation Method
+                    <Box sx={{ textAlign: 'center' }}>
+                      <Typography variant="h6" sx={{ mb: 3, fontWeight: 700, color: 'primary.main' }}>
+                        🎯 SELECT GREETING MESSAGE MODE
                       </Typography>
-                      <Paper
-                        elevation={0}
-                        sx={{
-                          backgroundColor: 'grey.100',
-                          borderRadius: 2,
-                          p: 0.5,
-                          display: 'inline-flex',
-                          width: 'fit-content',
-                          border: '2px solid',
-                          borderColor: useAiGreeting ? 'info.main' : 'primary.main'
-                        }}
-                      >
-                        <Tabs
-                          value={useAiGreeting ? 'ai' : 'template'}
-                          onChange={(_, v) => setUseAiGreeting(v === 'ai')}
-                          TabIndicatorProps={{
-                            style: { display: 'none' }
-                          }}
+                      
+                      {/* Mode Selection Buttons */}
+                      <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, mb: 3 }}>
+                        {/* Template Mode Button */}
+                        <Card 
+                          elevation={useAiGreeting === false ? 4 : 1}
                           sx={{
-                            minHeight: 'auto',
-                            '& .MuiTab-root': {
-                              minHeight: 'auto',
-                              borderRadius: 1.5,
-                              margin: 0.5,
-                              minWidth: 'auto',
-                              px: 3,
-                              py: 1.5,
-                              fontSize: '0.875rem',
-                              fontWeight: 600,
-                              color: 'text.secondary',
-                              transition: 'all 0.2s ease-in-out',
-                              '&.Mui-selected': {
-                                backgroundColor: 'white',
-                                color: useAiGreeting ? 'info.main' : 'primary.main',
-                                boxShadow: 2,
-                                transform: 'scale(1.02)'
-                              }
+                            p: 3,
+                            minWidth: 200,
+                            cursor: 'pointer',
+                            transition: 'all 0.3s ease',
+                            backgroundColor: useAiGreeting === false ? 'primary.50' : 'white',
+                            border: '3px solid',
+                            borderColor: useAiGreeting === false ? 'primary.main' : 'grey.300',
+                            transform: useAiGreeting === false ? 'scale(1.05)' : 'scale(1)',
+                            '&:hover': {
+                              elevation: 3,
+                              transform: 'scale(1.02)'
+                            },
+                            '@keyframes blink': {
+                              '0%, 50%': { opacity: 1 },
+                              '25%, 75%': { opacity: 0.5 }
                             }
                           }}
+                          onClick={() => setUseAiGreeting(false)}
                         >
-                          <Tab
-                            icon={<MessageIcon sx={{ fontSize: 18 }} />}
-                            iconPosition="start"
-                            label="📝 Template Message"
-                            value="template"
-                          />
-                          <Tab
-                            icon={<PersonIcon sx={{ fontSize: 18 }} />}
-                            iconPosition="start"
-                            label="🤖 AI Generated"
-                            value="ai"
-                          />
-                        </Tabs>
-                      </Paper>
-                      
+                          <Box sx={{ textAlign: 'center' }}>
+                            <MessageIcon sx={{ fontSize: 40, color: useAiGreeting === false ? 'primary.main' : 'grey.500', mb: 1 }} />
+                            <Typography variant="h6" sx={{ fontWeight: 700, color: useAiGreeting === false ? 'primary.main' : 'text.secondary' }}>
+                              📝 TEMPLATE MESSAGE
+                            </Typography>
+                            <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary' }}>
+                              Use predefined message templates with customer data placeholders
+                            </Typography>
+                            {useAiGreeting === false && (
+                              <Chip
+                                label="✓ SELECTED"
+                                size="small"
+                                color="primary"
+                                variant="filled"
+                                sx={{ mt: 2, fontWeight: 600 }}
+                              />
+                            )}
+                          </Box>
+                        </Card>
+
+                        {/* AI Mode Button */}
+                        <Card 
+                          elevation={useAiGreeting === true ? 4 : 1}
+                          sx={{
+                            p: 3,
+                            minWidth: 200,
+                            cursor: 'pointer',
+                            transition: 'all 0.3s ease',
+                            backgroundColor: useAiGreeting === true ? 'info.50' : 'white',
+                            border: '3px solid',
+                            borderColor: useAiGreeting === true ? 'info.main' : 'grey.300',
+                            transform: useAiGreeting === true ? 'scale(1.05)' : 'scale(1)',
+                            '&:hover': {
+                              elevation: 3,
+                              transform: 'scale(1.02)'
+                            }
+                          }}
+                          onClick={() => setUseAiGreeting(true)}
+                        >
+                          <Box sx={{ textAlign: 'center' }}>
+                            <PersonIcon sx={{ fontSize: 40, color: useAiGreeting === true ? 'info.main' : 'grey.500', mb: 1 }} />
+                            <Typography variant="h6" sx={{ fontWeight: 700, color: useAiGreeting === true ? 'info.main' : 'text.secondary' }}>
+                              🤖 AI GENERATED
+                            </Typography>
+                            <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary' }}>
+                              Automatically generate personalized messages using AI
+                            </Typography>
+                            {useAiGreeting === true && (
+                              <Chip
+                                label="✓ SELECTED"
+                                size="small"
+                                color="info"
+                                variant="filled"
+                                sx={{ mt: 2, fontWeight: 600 }}
+                              />
+                            )}
+                          </Box>
+                        </Card>
+                      </Box>
+
                       {/* Selected Mode Description */}
-                      <Box sx={{ mt: 2, p: 2, backgroundColor: useAiGreeting ? 'info.50' : 'primary.50', borderRadius: 2 }}>
-                        <Typography variant="body2" sx={{ fontWeight: 500, color: useAiGreeting ? 'info.dark' : 'primary.dark' }}>
-                          {useAiGreeting 
-                            ? '🤖 AI Mode: Messages will be generated automatically using artificial intelligence based on customer information and business context.'
-                            : '📝 Template Mode: Use predefined message templates with placeholders like {name} and {jobs} that will be replaced with actual customer data.'
+                      <Box sx={{ 
+                        p: 2, 
+                        backgroundColor: useAiGreeting ? 'info.50' : 'primary.50', 
+                        borderRadius: 2,
+                        border: '1px solid',
+                        borderColor: useAiGreeting ? 'info.main' : 'primary.main'
+                      }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600, color: useAiGreeting ? 'info.dark' : 'primary.dark' }}>
+                          {useAiGreeting
+                            ? '🤖 AI Mode Selected: Messages will be generated automatically using artificial intelligence based on customer information and business context.'
+                            : '📝 Template Mode Selected: Use predefined message templates with placeholders like {name} and {jobs} that will be replaced with actual customer data.'
                           }
                         </Typography>
                       </Box>
+
+                      {/* Save Reminder */}
+                      {useAiGreeting !== settings?.use_ai_greeting && (
+                        <Box sx={{ 
+                          mt: 2,
+                          p: 2, 
+                          backgroundColor: 'warning.50', 
+                          borderRadius: 2,
+                          border: '2px solid',
+                          borderColor: 'warning.main',
+                          textAlign: 'center',
+                          '@keyframes shake': {
+                            '0%, 100%': { transform: 'translateX(0)' },
+                            '25%': { transform: 'translateX(-5px)' },
+                            '75%': { transform: 'translateX(5px)' }
+                          },
+                          animation: 'shake 0.5s ease-in-out infinite alternate'
+                        }}>
+                          <Typography variant="h6" sx={{ fontWeight: 700, color: 'warning.dark', mb: 1 }}>
+                            ⚠️ MODE CHANGED - PLEASE SAVE!
+                          </Typography>
+                          <Typography variant="body2" sx={{ color: 'warning.dark' }}>
+                            You have selected a different greeting message mode. 
+                            <strong> Click "Save Settings" to apply the changes.</strong>
+                          </Typography>
+                          
+                          {/* Mode Comparison */}
+                          <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center', gap: 2, flexWrap: 'wrap' }}>
+                            <Box sx={{ textAlign: 'center' }}>
+                              <Typography variant="caption" sx={{ display: 'block', fontWeight: 600, color: 'error.main' }}>
+                                CURRENTLY ACTIVE:
+                              </Typography>
+                              <Chip
+                                icon={settings?.use_ai_greeting ? <PersonIcon sx={{ fontSize: 14 }} /> : <MessageIcon sx={{ fontSize: 14 }} />}
+                                label={settings?.use_ai_greeting ? 'AI Generated' : 'Template Message'}
+                                size="small"
+                                color="error"
+                                variant="filled"
+                                sx={{ fontWeight: 600 }}
+                              />
+                            </Box>
+                            
+                            <Typography variant="h6" sx={{ color: 'warning.dark', alignSelf: 'center' }}>
+                              →
+                            </Typography>
+                            
+                            <Box sx={{ textAlign: 'center' }}>
+                              <Typography variant="caption" sx={{ display: 'block', fontWeight: 600, color: 'success.main' }}>
+                                WILL BECOME:
+                              </Typography>
+                              <Chip
+                                icon={useAiGreeting ? <PersonIcon sx={{ fontSize: 14 }} /> : <MessageIcon sx={{ fontSize: 14 }} />}
+                                label={useAiGreeting ? 'AI Generated' : 'Template Message'}
+                                size="small"
+                                color="success"
+                                variant="filled"
+                                sx={{ fontWeight: 600 }}
+                              />
+                            </Box>
+                          </Box>
+                        </Box>
+                      )}
                     </Box>
 
                     {/* AI Settings */}
@@ -2280,16 +2478,27 @@ const AutoResponseSettings: FC = () => {
                         py: 1.5,
                         borderRadius: 2,
                         fontWeight: 600,
-                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        background: useAiGreeting !== settings?.use_ai_greeting 
+                          ? 'linear-gradient(135deg, #f57c00 0%, #ff9800 100%)'  // Orange for unsaved changes
+                          : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', // Normal gradient
                         '&:hover': {
-                          background: 'linear-gradient(135deg, #5a6fd8 0%, #6b4190 100%)',
+                          background: useAiGreeting !== settings?.use_ai_greeting
+                            ? 'linear-gradient(135deg, #ef6c00 0%, #ff8f00 100%)'
+                            : 'linear-gradient(135deg, #5a6fd8 0%, #6b4190 100%)',
                           transform: 'translateY(-1px)',
-                          boxShadow: 3
                         },
-                        transition: 'all 0.2s ease-in-out'
+                        animation: useAiGreeting !== settings?.use_ai_greeting ? 'pulse 1s infinite' : 'none',
+                        '@keyframes pulse': {
+                          '0%': { boxShadow: '0 0 0 0 rgba(245, 124, 0, 0.7)' },
+                          '70%': { boxShadow: '0 0 0 10px rgba(245, 124, 0, 0)' },
+                          '100%': { boxShadow: '0 0 0 0 rgba(245, 124, 0, 0)' }
+                        }
                       }}
                     >
-                      {loading ? 'Saving Settings...' : 'Save All Settings'}
+                      {useAiGreeting !== settings?.use_ai_greeting 
+                        ? `💾 Save Mode Change (${useAiGreeting ? 'AI' : 'Template'})` 
+                        : 'Save Settings'
+                      }
                     </Button>
                   </Box>
                 </Stack>
