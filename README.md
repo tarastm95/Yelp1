@@ -117,6 +117,18 @@ VITE_API_BASE_URL=http://46.62.139.177:8000 npm run build
 
 If this variable is omitted, the app falls back to `http://46.62.139.177:8000/api`.
 
+## OpenAI integration
+
+AI-generated responses rely on the `openai` Python package. Install dependencies and
+provide your API key via the `OPENAI_API_KEY` environment variable:
+
+```bash
+export OPENAI_API_KEY=your-key
+pip install -r backend/requirements.txt
+```
+
+`webhooks.ai_service` will automatically use this key if present.
+
 ## Task log cleanup
 
 Old records in `CeleryTaskLog` can grow quickly. Remove entries older than 30 days
