@@ -903,11 +903,11 @@ const AutoResponseSettings: FC = () => {
         elevation={2} 
         sx={{ 
           mb: 3, 
-          background: useAiGreeting !== settings?.use_ai_greeting 
+          background: useAiGreeting !== initialSettings.current?.use_ai_greeting 
             ? 'linear-gradient(135deg, #fff3e0 0%, #ffcc02 100%)' 
             : 'linear-gradient(135deg, #e8f5e8 0%, #4caf50 100%)',
           border: '2px solid',
-          borderColor: useAiGreeting !== settings?.use_ai_greeting ? 'warning.main' : 'success.main'
+          borderColor: useAiGreeting !== initialSettings.current?.use_ai_greeting ? 'warning.main' : 'success.main'
         }}
       >
         <CardContent sx={{ py: 2 }}>
@@ -917,7 +917,7 @@ const AutoResponseSettings: FC = () => {
                 🎯 GREETING MESSAGE STATUS
               </Typography>
               
-              {useAiGreeting !== settings?.use_ai_greeting ? (
+              {useAiGreeting !== initialSettings.current?.use_ai_greeting ? (
                 <Chip
                   icon={<WarningIcon sx={{ fontSize: 16 }} />}
                   label="UNSAVED CHANGES"
@@ -941,14 +941,14 @@ const AutoResponseSettings: FC = () => {
                 Active Mode:
               </Typography>
               <Chip
-                icon={settings?.use_ai_greeting ? <PersonIcon sx={{ fontSize: 14 }} /> : <MessageIcon sx={{ fontSize: 14 }} />}
-                label={settings?.use_ai_greeting ? '🤖 AI GENERATED' : '📝 TEMPLATE MESSAGE'}
-                color={settings?.use_ai_greeting ? 'info' : 'primary'}
+                icon={initialSettings.current?.use_ai_greeting ? <PersonIcon sx={{ fontSize: 14 }} /> : <MessageIcon sx={{ fontSize: 14 }} />}
+                label={initialSettings.current?.use_ai_greeting ? '🤖 AI GENERATED' : '📝 TEMPLATE MESSAGE'}
+                color={initialSettings.current?.use_ai_greeting ? 'info' : 'primary'}
                 variant="filled"
                 sx={{ fontWeight: 700, fontSize: '0.8rem' }}
               />
               
-              {useAiGreeting !== settings?.use_ai_greeting && (
+              {useAiGreeting !== initialSettings.current?.use_ai_greeting && (
                 <>
                   <Typography variant="body2" sx={{ color: 'warning.main', fontWeight: 600 }}>
                     →
@@ -1195,23 +1195,23 @@ const AutoResponseSettings: FC = () => {
                           💾 SAVED MODE:
                         </Typography>
                         <Chip
-                          icon={settings?.use_ai_greeting ? <PersonIcon sx={{ fontSize: 14 }} /> : <MessageIcon sx={{ fontSize: 14 }} />}
-                          label={settings?.use_ai_greeting ? 'AI GENERATED' : 'TEMPLATE MESSAGE'}
+                          icon={initialSettings.current?.use_ai_greeting ? <PersonIcon sx={{ fontSize: 14 }} /> : <MessageIcon sx={{ fontSize: 14 }} />}
+                          label={initialSettings.current?.use_ai_greeting ? 'AI GENERATED' : 'TEMPLATE MESSAGE'}
                           size="small"
-                          color={settings?.use_ai_greeting ? 'info' : 'primary'}
+                          color={initialSettings.current?.use_ai_greeting ? 'info' : 'primary'}
                           variant="filled"
                           sx={{ 
                             fontSize: '0.75rem',
                             height: 24,
                             fontWeight: 700,
                             border: '2px solid',
-                            borderColor: settings?.use_ai_greeting ? 'info.dark' : 'primary.dark'
+                            borderColor: initialSettings.current?.use_ai_greeting ? 'info.dark' : 'primary.dark'
                           }}
                         />
                       </Box>
 
                       {/* Unsaved Changes Indicator */}
-                      {useAiGreeting !== settings?.use_ai_greeting && (
+                      {useAiGreeting !== initialSettings.current?.use_ai_greeting && (
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                           <Typography variant="caption" sx={{ color: 'warning.main', fontSize: '0.75rem', fontWeight: 600 }}>
                             ⚠️ UNSAVED:
@@ -1344,8 +1344,8 @@ const AutoResponseSettings: FC = () => {
                         </Typography>
                       </Box>
 
-                      {/* Save Reminder */}
-                      {useAiGreeting !== settings?.use_ai_greeting && (
+                                             {/* Save Reminder */}
+                       {useAiGreeting !== initialSettings.current?.use_ai_greeting && (
                         <Box sx={{ 
                           mt: 2,
                           p: 2, 
@@ -1375,14 +1375,14 @@ const AutoResponseSettings: FC = () => {
                               <Typography variant="caption" sx={{ display: 'block', fontWeight: 600, color: 'error.main' }}>
                                 CURRENTLY ACTIVE:
                               </Typography>
-                              <Chip
-                                icon={settings?.use_ai_greeting ? <PersonIcon sx={{ fontSize: 14 }} /> : <MessageIcon sx={{ fontSize: 14 }} />}
-                                label={settings?.use_ai_greeting ? 'AI Generated' : 'Template Message'}
-                                size="small"
-                                color="error"
-                                variant="filled"
-                                sx={{ fontWeight: 600 }}
-                              />
+                                                             <Chip
+                                 icon={initialSettings.current?.use_ai_greeting ? <PersonIcon sx={{ fontSize: 14 }} /> : <MessageIcon sx={{ fontSize: 14 }} />}
+                                 label={initialSettings.current?.use_ai_greeting ? 'AI Generated' : 'Template Message'}
+                                 size="small"
+                                 color="error"
+                                 variant="filled"
+                                 sx={{ fontWeight: 600 }}
+                               />
                             </Box>
                             
                             <Typography variant="h6" sx={{ color: 'warning.dark', alignSelf: 'center' }}>
@@ -2478,16 +2478,16 @@ const AutoResponseSettings: FC = () => {
                         py: 1.5,
                         borderRadius: 2,
                         fontWeight: 600,
-                        background: useAiGreeting !== settings?.use_ai_greeting 
+                        background: useAiGreeting !== initialSettings.current?.use_ai_greeting 
                           ? 'linear-gradient(135deg, #f57c00 0%, #ff9800 100%)'  // Orange for unsaved changes
                           : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', // Normal gradient
                         '&:hover': {
-                          background: useAiGreeting !== settings?.use_ai_greeting
+                          background: useAiGreeting !== initialSettings.current?.use_ai_greeting
                             ? 'linear-gradient(135deg, #ef6c00 0%, #ff8f00 100%)'
                             : 'linear-gradient(135deg, #5a6fd8 0%, #6b4190 100%)',
                           transform: 'translateY(-1px)',
                         },
-                        animation: useAiGreeting !== settings?.use_ai_greeting ? 'pulse 1s infinite' : 'none',
+                        animation: useAiGreeting !== initialSettings.current?.use_ai_greeting ? 'pulse 1s infinite' : 'none',
                         '@keyframes pulse': {
                           '0%': { boxShadow: '0 0 0 0 rgba(245, 124, 0, 0.7)' },
                           '70%': { boxShadow: '0 0 0 10px rgba(245, 124, 0, 0)' },
@@ -2495,7 +2495,7 @@ const AutoResponseSettings: FC = () => {
                         }
                       }}
                     >
-                      {useAiGreeting !== settings?.use_ai_greeting 
+                      {useAiGreeting !== initialSettings.current?.use_ai_greeting 
                         ? `💾 Save Mode Change (${useAiGreeting ? 'AI' : 'Template'})` 
                         : 'Save Settings'
                       }
