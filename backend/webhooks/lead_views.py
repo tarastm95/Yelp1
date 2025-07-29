@@ -452,6 +452,19 @@ class AIPreviewView(APIView):
             mention_response_time = request.data.get('ai_mention_response_time', False)
             custom_prompt = request.data.get('ai_custom_prompt', None)
             
+            # Отримання налаштувань бізнес-даних
+            business_data_settings = {
+                "include_rating": request.data.get('ai_include_rating', True),
+                "include_categories": request.data.get('ai_include_categories', True),
+                "include_phone": request.data.get('ai_include_phone', True),
+                "include_website": request.data.get('ai_include_website', False),
+                "include_price_range": request.data.get('ai_include_price_range', True),
+                "include_hours": request.data.get('ai_include_hours', True),
+                "include_reviews_count": request.data.get('ai_include_reviews_count', True),
+                "include_address": request.data.get('ai_include_address', False),
+                "include_transactions": request.data.get('ai_include_transactions', False)
+            }
+            
             # Ініціалізація AI сервісу
             ai_service = OpenAIService()
             
@@ -469,7 +482,8 @@ class AIPreviewView(APIView):
                 response_style=response_style,
                 include_location=include_location,
                 mention_response_time=mention_response_time,
-                custom_prompt=custom_prompt
+                custom_prompt=custom_prompt,
+                business_data_settings=business_data_settings
             )
             
             return Response({

@@ -130,6 +130,16 @@ interface AutoResponseSettingsData {
   ai_include_location: boolean;
   ai_mention_response_time: boolean;
   ai_custom_prompt?: string;
+  // AI Business Data Settings
+  ai_include_rating: boolean;
+  ai_include_categories: boolean;
+  ai_include_phone: boolean;
+  ai_include_website: boolean;
+  ai_include_price_range: boolean;
+  ai_include_hours: boolean;
+  ai_include_reviews_count: boolean;
+  ai_include_address: boolean;
+  ai_include_transactions: boolean;
 }
 
 
@@ -163,6 +173,17 @@ const AutoResponseSettings: FC = () => {
   const [aiCustomPrompt, setAiCustomPrompt] = useState('');
   const [aiPreview, setAiPreview] = useState('');
   const [aiPreviewLoading, setAiPreviewLoading] = useState(false);
+
+  // AI Business Data Settings
+  const [aiIncludeRating, setAiIncludeRating] = useState(true);
+  const [aiIncludeCategories, setAiIncludeCategories] = useState(true);
+  const [aiIncludePhone, setAiIncludePhone] = useState(true);
+  const [aiIncludeWebsite, setAiIncludeWebsite] = useState(false);
+  const [aiIncludePriceRange, setAiIncludePriceRange] = useState(true);
+  const [aiIncludeHours, setAiIncludeHours] = useState(true);
+  const [aiIncludeReviewsCount, setAiIncludeReviewsCount] = useState(true);
+  const [aiIncludeAddress, setAiIncludeAddress] = useState(false);
+  const [aiIncludeTransactions, setAiIncludeTransactions] = useState(false);
 
   // follow-up templates
   const [templates, setTemplates] = useState<FollowUpTemplate[]>([]);
@@ -284,6 +305,16 @@ const AutoResponseSettings: FC = () => {
     ai_include_location: true,
     ai_mention_response_time: true,
     ai_custom_prompt: undefined,
+    // AI Business Data Settings
+    ai_include_rating: true,
+    ai_include_categories: true,
+    ai_include_phone: true,
+    ai_include_website: false,
+    ai_include_price_range: true,
+    ai_include_hours: true,
+    ai_include_reviews_count: true,
+    ai_include_address: false,
+    ai_include_transactions: false,
   };
 
   const resetSettings = () => {
@@ -329,6 +360,17 @@ const AutoResponseSettings: FC = () => {
           setAiMentionResponseTime(d.ai_mention_response_time || false);
           setAiCustomPrompt(d.ai_custom_prompt || '');
           
+          // Set AI Business Data Settings
+          setAiIncludeRating(d.ai_include_rating ?? true);
+          setAiIncludeCategories(d.ai_include_categories ?? true);
+          setAiIncludePhone(d.ai_include_phone ?? true);
+          setAiIncludeWebsite(d.ai_include_website ?? false);
+          setAiIncludePriceRange(d.ai_include_price_range ?? true);
+          setAiIncludeHours(d.ai_include_hours ?? true);
+          setAiIncludeReviewsCount(d.ai_include_reviews_count ?? true);
+          setAiIncludeAddress(d.ai_include_address ?? false);
+          setAiIncludeTransactions(d.ai_include_transactions ?? false);
+          
           initialSettings.current = {
             enabled: d.enabled,
             greeting_template: d.greeting_template,
@@ -345,6 +387,16 @@ const AutoResponseSettings: FC = () => {
             ai_include_location: d.ai_include_location,
             ai_mention_response_time: d.ai_mention_response_time,
             ai_custom_prompt: d.ai_custom_prompt,
+            // AI Business Data Settings
+            ai_include_rating: true,
+            ai_include_categories: true,
+            ai_include_phone: true,
+            ai_include_website: false,
+            ai_include_price_range: true,
+            ai_include_hours: true,
+            ai_include_reviews_count: true,
+            ai_include_address: false,
+            ai_include_transactions: false,
           };
           setLoading(false);
         })
@@ -408,6 +460,16 @@ const AutoResponseSettings: FC = () => {
             ai_include_location: true,
             ai_mention_response_time: true,
             ai_custom_prompt: undefined,
+            // AI Business Data Settings
+            ai_include_rating: true,
+            ai_include_categories: true,
+            ai_include_phone: true,
+            ai_include_website: false,
+            ai_include_price_range: true,
+            ai_include_hours: true,
+            ai_include_reviews_count: true,
+            ai_include_address: false,
+            ai_include_transactions: false,
           };
         } else {
           initialSettings.current = {
@@ -422,6 +484,16 @@ const AutoResponseSettings: FC = () => {
             ai_include_location: initialSettings.current?.ai_include_location || true,
             ai_mention_response_time: initialSettings.current?.ai_mention_response_time || true,
             ai_custom_prompt: initialSettings.current?.ai_custom_prompt,
+            // AI Business Data Settings
+            ai_include_rating: true,
+            ai_include_categories: true,
+            ai_include_phone: true,
+            ai_include_website: false,
+            ai_include_price_range: true,
+            ai_include_hours: true,
+            ai_include_reviews_count: true,
+            ai_include_address: false,
+            ai_include_transactions: false,
           };
         }
       })
@@ -457,6 +529,17 @@ const AutoResponseSettings: FC = () => {
     setAiIncludeLocation(d.ai_include_location || false);
     setAiMentionResponseTime(d.ai_mention_response_time || false);
     setAiCustomPrompt(d.ai_custom_prompt || '');
+
+    // Apply AI Business Data Settings
+    setAiIncludeRating(d.ai_include_rating ?? true);
+    setAiIncludeCategories(d.ai_include_categories ?? true);
+    setAiIncludePhone(d.ai_include_phone ?? true);
+    setAiIncludeWebsite(d.ai_include_website ?? false);
+    setAiIncludePriceRange(d.ai_include_price_range ?? true);
+    setAiIncludeHours(d.ai_include_hours ?? true);
+    setAiIncludeReviewsCount(d.ai_include_reviews_count ?? true);
+    setAiIncludeAddress(d.ai_include_address ?? false);
+    setAiIncludeTransactions(d.ai_include_transactions ?? false);
 
     if (Array.isArray(d.follow_up_templates)) {
       const mapped = d.follow_up_templates.map((t: any, idx: number) => ({
@@ -572,6 +655,16 @@ const AutoResponseSettings: FC = () => {
         ai_include_location: aiIncludeLocation,
         ai_mention_response_time: aiMentionResponseTime,
         ai_custom_prompt: aiCustomPrompt,
+        // AI Business Data Settings
+        ai_include_rating: aiIncludeRating,
+        ai_include_categories: aiIncludeCategories,
+        ai_include_phone: aiIncludePhone,
+        ai_include_website: aiIncludeWebsite,
+        ai_include_price_range: aiIncludePriceRange,
+        ai_include_hours: aiIncludeHours,
+        ai_include_reviews_count: aiIncludeReviewsCount,
+        ai_include_address: aiIncludeAddress,
+        ai_include_transactions: aiIncludeTransactions,
       });
 
       setSettingsId(res.data.id);
@@ -591,6 +684,16 @@ const AutoResponseSettings: FC = () => {
         ai_include_location: aiIncludeLocation,
         ai_mention_response_time: aiMentionResponseTime,
         ai_custom_prompt: aiCustomPrompt,
+        // AI Business Data Settings
+        ai_include_rating: aiIncludeRating,
+        ai_include_categories: aiIncludeCategories,
+        ai_include_phone: aiIncludePhone,
+        ai_include_website: aiIncludeWebsite,
+        ai_include_price_range: aiIncludePriceRange,
+        ai_include_hours: aiIncludeHours,
+        ai_include_reviews_count: aiIncludeReviewsCount,
+        ai_include_address: aiIncludeAddress,
+        ai_include_transactions: aiIncludeTransactions,
       };
 
       const params = new URLSearchParams();
@@ -776,6 +879,16 @@ const AutoResponseSettings: FC = () => {
         ai_include_location: aiIncludeLocation,
         ai_mention_response_time: aiMentionResponseTime,
         ai_custom_prompt: aiCustomPrompt || undefined,
+        // AI Business Data Settings
+        ai_include_rating: aiIncludeRating,
+        ai_include_categories: aiIncludeCategories,
+        ai_include_phone: aiIncludePhone,
+        ai_include_website: aiIncludeWebsite,
+        ai_include_price_range: aiIncludePriceRange,
+        ai_include_hours: aiIncludeHours,
+        ai_include_reviews_count: aiIncludeReviewsCount,
+        ai_include_address: aiIncludeAddress,
+        ai_include_transactions: aiIncludeTransactions,
       });
 
       setAiPreview(response.data.preview);
@@ -1470,6 +1583,136 @@ const AutoResponseSettings: FC = () => {
                                     label="Mention estimated response time"
                                   />
                                 </FormGroup>
+                              </Box>
+
+                              {/* Business Data Settings */}
+                              <Box>
+                                <Typography variant="caption" sx={{ mb: 1, display: 'block', fontWeight: 600 }}>
+                                  📊 Business Information to Include
+                                </Typography>
+                                <Typography variant="caption" sx={{ mb: 2, display: 'block', color: 'text.secondary', fontStyle: 'italic' }}>
+                                  Select which business data to include in AI-generated messages
+                                </Typography>
+                                
+                                {/* High Priority Data */}
+                                <Box sx={{ mb: 2 }}>
+                                  <Typography variant="caption" sx={{ mb: 1, display: 'block', fontWeight: 600, color: 'success.main' }}>
+                                    ⭐ Recommended (High Impact)
+                                  </Typography>
+                                  <FormGroup>
+                                    <FormControlLabel
+                                      control={
+                                        <Checkbox
+                                          checked={aiIncludeRating}
+                                          onChange={e => setAiIncludeRating(e.target.checked)}
+                                          size="small"
+                                          color="success"
+                                        />
+                                      }
+                                      label="Include rating & review count (e.g., '4.8★, 200+ reviews')"
+                                    />
+                                    <FormControlLabel
+                                      control={
+                                        <Checkbox
+                                          checked={aiIncludeCategories}
+                                          onChange={e => setAiIncludeCategories(e.target.checked)}
+                                          size="small"
+                                          color="success"
+                                        />
+                                      }
+                                      label="Include business specialization (e.g., 'General Contractors')"
+                                    />
+                                    <FormControlLabel
+                                      control={
+                                        <Checkbox
+                                          checked={aiIncludePhone}
+                                          onChange={e => setAiIncludePhone(e.target.checked)}
+                                          size="small"
+                                          color="success"
+                                        />
+                                      }
+                                      label="Include phone number for direct contact"
+                                    />
+                                  </FormGroup>
+                                </Box>
+
+                                {/* Medium Priority Data */}
+                                <Box sx={{ mb: 2 }}>
+                                  <Typography variant="caption" sx={{ mb: 1, display: 'block', fontWeight: 600, color: 'primary.main' }}>
+                                    📈 Additional Information
+                                  </Typography>
+                                  <FormGroup>
+                                    <FormControlLabel
+                                      control={
+                                        <Checkbox
+                                          checked={aiIncludePriceRange}
+                                          onChange={e => setAiIncludePriceRange(e.target.checked)}
+                                          size="small"
+                                        />
+                                      }
+                                      label="Include price range ($, $$, $$$, $$$$)"
+                                    />
+                                    <FormControlLabel
+                                      control={
+                                        <Checkbox
+                                          checked={aiIncludeHours}
+                                          onChange={e => setAiIncludeHours(e.target.checked)}
+                                          size="small"
+                                        />
+                                      }
+                                      label="Include business hours & current status"
+                                    />
+                                    <FormControlLabel
+                                      control={
+                                        <Checkbox
+                                          checked={aiIncludeReviewsCount}
+                                          onChange={e => setAiIncludeReviewsCount(e.target.checked)}
+                                          size="small"
+                                        />
+                                      }
+                                      label="Include detailed review count"
+                                    />
+                                  </FormGroup>
+                                </Box>
+
+                                {/* Optional Data */}
+                                <Box>
+                                  <Typography variant="caption" sx={{ mb: 1, display: 'block', fontWeight: 600, color: 'text.secondary' }}>
+                                    📍 Optional Details
+                                  </Typography>
+                                  <FormGroup>
+                                    <FormControlLabel
+                                      control={
+                                        <Checkbox
+                                          checked={aiIncludeWebsite}
+                                          onChange={e => setAiIncludeWebsite(e.target.checked)}
+                                          size="small"
+                                        />
+                                      }
+                                      label="Include website URL"
+                                    />
+                                    <FormControlLabel
+                                      control={
+                                        <Checkbox
+                                          checked={aiIncludeAddress}
+                                          onChange={e => setAiIncludeAddress(e.target.checked)}
+                                          size="small"
+                                        />
+                                      }
+                                      label="Include full business address"
+                                    />
+                                    <FormControlLabel
+                                      control={
+                                        <Checkbox
+                                          checked={aiIncludeTransactions}
+                                          onChange={e => setAiIncludeTransactions(e.target.checked)}
+                                          size="small"
+                                        />
+                                      }
+                                      label="Include available services/transactions"
+                                    />
+                                  </FormGroup>
+                                </Box>
                               </Box>
 
                               {/* Custom Prompt */}

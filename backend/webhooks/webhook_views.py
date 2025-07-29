@@ -1210,6 +1210,19 @@ class WebhookView(APIView):
                 ai_service = OpenAIService()
                 
                 if ai_service.is_available():
+                    # Підготовка налаштувань бізнес-інформації для AI
+                    business_data_settings = {
+                        "include_rating": getattr(auto_settings, 'ai_include_rating', True),
+                        "include_categories": getattr(auto_settings, 'ai_include_categories', True),
+                        "include_phone": getattr(auto_settings, 'ai_include_phone', True),
+                        "include_website": getattr(auto_settings, 'ai_include_website', False),
+                        "include_price_range": getattr(auto_settings, 'ai_include_price_range', True),
+                        "include_hours": getattr(auto_settings, 'ai_include_hours', True),
+                        "include_reviews_count": getattr(auto_settings, 'ai_include_reviews_count', True),
+                        "include_address": getattr(auto_settings, 'ai_include_address', False),
+                        "include_transactions": getattr(auto_settings, 'ai_include_transactions', False)
+                    }
+                    
                     # Generate AI greeting
                     ai_greeting = ai_service.generate_greeting_message(
                         lead_detail=ld,
@@ -1218,7 +1231,8 @@ class WebhookView(APIView):
                         response_style=getattr(auto_settings, 'ai_response_style', 'auto'),
                         include_location=getattr(auto_settings, 'ai_include_location', False),
                         mention_response_time=getattr(auto_settings, 'ai_mention_response_time', False),
-                        custom_prompt=getattr(auto_settings, 'ai_custom_prompt', None)
+                        custom_prompt=getattr(auto_settings, 'ai_custom_prompt', None),
+                        business_data_settings=business_data_settings
                     )
                     
                     if ai_greeting:

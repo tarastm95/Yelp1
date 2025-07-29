@@ -49,6 +49,16 @@ class AutoResponseSettingsSerializer(serializers.ModelSerializer):
             "ai_include_location",
             "ai_mention_response_time",
             "ai_custom_prompt",
+            # AI Business Data Settings
+            "ai_include_rating",
+            "ai_include_categories",
+            "ai_include_phone",
+            "ai_include_website",
+            "ai_include_price_range",
+            "ai_include_hours",
+            "ai_include_reviews_count",
+            "ai_include_address",
+            "ai_include_transactions",
         ]
         read_only_fields = ["id"]
 
@@ -313,7 +323,7 @@ class NotificationSettingSerializer(serializers.ModelSerializer):
 
 class SMSLogSerializer(serializers.ModelSerializer):
     business_name = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = SMSLog
         fields = [
@@ -336,14 +346,14 @@ class SMSLogSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = [
-            "id", 
-            "sid", 
-            "sent_at", 
-            "twilio_created_at", 
-            "updated_at", 
+            "id",
+            "sid",
+            "sent_at",
+            "twilio_created_at",
+            "updated_at",
             "business_name"
         ]
-    
+
     def get_business_name(self, obj):
         """Get business name from business_id."""
         if not obj.business_id:
@@ -358,7 +368,7 @@ class SMSLogSerializer(serializers.ModelSerializer):
 
 class AISettingsSerializer(serializers.ModelSerializer):
     """Serializer для глобальних AI налаштувань"""
-    
+
     class Meta:
         model = AISettings
         fields = [

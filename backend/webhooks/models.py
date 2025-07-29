@@ -131,6 +131,44 @@ class AutoResponseSettings(models.Model):
         help_text="Кастомний промпт для AI (якщо порожній - використовується глобальний)"
     )
 
+    # AI Business Data Settings - що включати в AI повідомлення
+    ai_include_rating = models.BooleanField(
+        default=True,
+        help_text="Включати рейтинг бізнесу в AI повідомлення"
+    )
+    ai_include_categories = models.BooleanField(
+        default=True,
+        help_text="Включати категорії/спеціалізацію бізнесу в AI повідомлення"
+    )
+    ai_include_phone = models.BooleanField(
+        default=True,
+        help_text="Включати телефон бізнесу в AI повідомлення"
+    )
+    ai_include_website = models.BooleanField(
+        default=False,
+        help_text="Включати веб-сайт бізнесу в AI повідомлення"
+    )
+    ai_include_price_range = models.BooleanField(
+        default=True,
+        help_text="Включати ціновий діапазон ($-$$$$) в AI повідомлення"
+    )
+    ai_include_hours = models.BooleanField(
+        default=True,
+        help_text="Включати інформацію про робочі години в AI повідомлення"
+    )
+    ai_include_reviews_count = models.BooleanField(
+        default=True,
+        help_text="Включати кількість відгуків в AI повідомлення"
+    )
+    ai_include_address = models.BooleanField(
+        default=False,
+        help_text="Включати повну адресу в AI повідомлення"
+    )
+    ai_include_transactions = models.BooleanField(
+        default=False,
+        help_text="Включати доступні послуги/транзакції в AI повідомлення"
+    )
+
     export_to_sheets = models.BooleanField(
         default=False, help_text="Записувати нові ліди в Google Sheets"
     )
