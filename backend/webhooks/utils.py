@@ -407,6 +407,7 @@ def _already_sent(lead_id: str, text: str, exclude_task_id: str | None = None) -
     ``exclude_task_id`` allows ignoring the pending task entry for the current
     job when checking duplicates.
     """
+    # Exact match check
     event_exists = LeadEvent.objects.filter(lead_id=lead_id, text=text).exists()
 
     task_qs = LeadPendingTask.objects.filter(
@@ -418,6 +419,8 @@ def _already_sent(lead_id: str, text: str, exclude_task_id: str | None = None) -
         task_qs = task_qs.exclude(task_id=exclude_task_id)
 
     task_exists = task_qs.exists()
+    
+    # Enhanced logging for duplicate detection
     if event_exists or task_exists:
         logger.debug(
             "[DUP CHECK] Follow-up for lead=%s already sent or queued: events=%s tasks=%s",
@@ -425,7 +428,53 @@ def _already_sent(lead_id: str, text: str, exclude_task_id: str | None = None) -
             event_exists,
             list(task_qs.values_list("task_id", "active"))[:5],
         )
+        logger.info(f"[DUP CHECK] ✅ EXACT DUPLICATE found for lead={lead_id}")
+        logger.info(f"[DUP CHECK] Message: '{text[:100]}...'")
+        return True
     else:
         logger.debug("[DUP CHECK] No prior follow-up found for lead=%s", lead_id)
-    return event_exists or task_exists
+        
+        # 🔍 Enhanced duplicate detection for similar content
+        # Check for messages with similar patterns but different job specifications
+        similar_patterns = [
+            # Common template variations that might be duplicates
+            "about your project",
+            "about your Remodeling project", 
+            "about your remodeling project",
+            "regarding your project",
+            "regarding your Remodeling project"
+        ]
+        
+        existing_events = LeadEvent.objects.filter(lead_id=lead_id, user_type="BUSINESS")
+        for event in existing_events:
+            event_text = event.text.lower()
+            current_text = text.lower()
+            
+            # Check if both texts contain similar greeting patterns
+            for pattern in similar_patterns:
+                if pattern in event_text and any(p in current_text for p in similar_patterns):
+                    # Calculate simple similarity
+                    if _texts_are_similar(event.text, text):
+                        logger.warning(f"[DUP CHECK] ⚠️ SIMILAR MESSAGE detected for lead={lead_id}")
+                        logger.warning(f"[DUP CHECK] Existing: '{event.text[:100]}...'")
+                        logger.warning(f"[DUP CHECK] Current:  '{text[:100]}...'")
+                        logger.warning(f"[DUP CHECK] This might be a job_names variation duplicate")
+                        # Note: Return False for now, but log for analysis
+                        break
+        
+        return False
+
+
+def _texts_are_similar(text1: str, text2: str, similarity_threshold: float = 0.8) -> bool:
+    """Check if two texts are similar enough to be considered potential duplicates."""
+    import difflib
+    
+    # Normalize texts
+    t1 = text1.lower().strip()
+    t2 = text2.lower().strip()
+    
+    # Calculate similarity ratio
+    ratio = difflib.SequenceMatcher(None, t1, t2).ratio()
+    
+    return ratio >= similarity_threshold
 

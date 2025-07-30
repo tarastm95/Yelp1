@@ -133,8 +133,45 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
         
     # Step 2: Check for duplicates
     logger.info(f"[FOLLOW-UP] 🔍 STEP 1: Checking for duplicate messages")
+    logger.info(f"[FOLLOW-UP] ========== DUPLICATE DETECTION ==========")
+    logger.info(f"[FOLLOW-UP] Message to check for duplicates:")
+    logger.info(f"[FOLLOW-UP] - Lead ID: {lead_id}")
+    logger.info(f"[FOLLOW-UP] - Task ID: {job_id}")
+    logger.info(f"[FOLLOW-UP] - Full message text: '{text}'")
+    logger.info(f"[FOLLOW-UP] - Message length: {len(text)} characters")
+    logger.info(f"[FOLLOW-UP] - Message hash: {hash(text)}")
+    
+    # Check existing events with this text
+    from .models import LeadEvent
+    existing_events = LeadEvent.objects.filter(lead_id=lead_id, text=text)
+    logger.info(f"[FOLLOW-UP] Existing LeadEvent count with same text: {existing_events.count()}")
+    
+    if existing_events.exists():
+        logger.info(f"[FOLLOW-UP] Existing LeadEvent details:")
+        for i, event in enumerate(existing_events[:3]):  # Show first 3
+            logger.info(f"[FOLLOW-UP] Event {i+1}: ID={event.pk}, event_id='{event.event_id}', from_backend={event.from_backend}, time={event.time_created}")
+    
+    # Check existing pending tasks with this text
+    from .models import LeadPendingTask
+    existing_tasks = LeadPendingTask.objects.filter(lead_id=lead_id, text=text, active=True)
+    if job_id:
+        existing_tasks = existing_tasks.exclude(task_id=job_id)
+    
+    logger.info(f"[FOLLOW-UP] Existing active LeadPendingTask count with same text: {existing_tasks.count()}")
+    
+    if existing_tasks.exists():
+        logger.info(f"[FOLLOW-UP] Existing LeadPendingTask details:")
+        for i, task in enumerate(existing_tasks[:3]):  # Show first 3
+            logger.info(f"[FOLLOW-UP] Task {i+1}: ID={task.pk}, task_id='{task.task_id}', active={task.active}, phone_opt_in={task.phone_opt_in}, phone_available={task.phone_available}")
+    
+    logger.info(f"[FOLLOW-UP] =====================================")
+    
     if _already_sent(lead_id, text, exclude_task_id=job_id):
         logger.warning(f"[FOLLOW-UP] ⚠️ DUPLICATE DETECTED - message already sent for lead={lead_id}")
+        logger.warning(f"[FOLLOW-UP] DUPLICATE DETAILS:")
+        logger.warning(f"[FOLLOW-UP] - Duplicate message: '{text}'")
+        logger.warning(f"[FOLLOW-UP] - Events found: {existing_events.count()}")
+        logger.warning(f"[FOLLOW-UP] - Active tasks found: {existing_tasks.count()}")
         logger.info(f"[FOLLOW-UP] 🛑 EARLY RETURN - skipping duplicate message")
         return
 

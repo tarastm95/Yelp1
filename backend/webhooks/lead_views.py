@@ -505,3 +505,147 @@ class AIPreviewView(APIView):
                 'error': f'Error generating preview: {str(e)}',
                 'preview': 'Error occurred - would fallback to template message.'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class AIGlobalSettingsView(APIView):
+    """
+    Global AI Settings management endpoint
+    Allows viewing and updating global AI configuration
+    """
+    
+    def get(self, request, *args, **kwargs):
+        """Отримати глобальні AI налаштування"""
+        try:
+            ai_settings = AISettings.objects.first()
+            if not ai_settings:
+                # Створити з default значеннями якщо не існує
+                ai_settings = AISettings.objects.create()
+            
+            serializer = AISettingsSerializer(ai_settings)
+            return Response({
+                'success': True,
+                'data': serializer.data
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.error(f"Error fetching global AI settings: {str(e)}")
+            return Response({
+                'success': False,
+                'error': 'Failed to fetch global AI settings'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def put(self, request, *args, **kwargs):
+        """Оновити глобальні AI налаштування"""
+        try:
+            ai_settings = AISettings.objects.first()
+            if not ai_settings:
+                # Створити новий запис якщо не існує
+                serializer = AISettingsSerializer(data=request.data)
+                serializer.is_valid(raise_exception=True)
+                ai_settings = serializer.save()
+                
+                return Response({
+                    'success': True,
+                    'message': 'Global AI settings created successfully',
+                    'data': AISettingsSerializer(ai_settings).data
+                }, status=status.HTTP_201_CREATED)
+            else:
+                # Оновити існуючий запис
+                serializer = AISettingsSerializer(ai_settings, data=request.data, partial=True)
+                serializer.is_valid(raise_exception=True)
+                ai_settings = serializer.save()
+                
+                return Response({
+                    'success': True,
+                    'message': 'Global AI settings updated successfully',
+                    'data': AISettingsSerializer(ai_settings).data
+                }, status=status.HTTP_200_OK)
+                
+        except ValidationError as e:
+            return Response({
+                'success': False,
+                'error': 'Validation error',
+                'details': e.detail
+            }, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            logger.error(f"Error updating global AI settings: {str(e)}")
+            return Response({
+                'success': False,
+                'error': 'Failed to update global AI settings'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class AITestPreviewView(APIView):
+    """
+    Test AI with custom global settings before saving
+    """
+    
+    def post(self, request, *args, **kwargs):
+        """Тестовий preview з глобальними налаштуваннями"""
+        try:
+            # Отримуємо тестові дані з request
+            test_business_name = request.data.get('test_business_name', 'Test Business')
+            test_customer_name = request.data.get('test_customer_name', 'John')
+            test_services = request.data.get('test_services', 'kitchen remodeling')
+            
+            # Глобальні налаштування для тесту
+            base_system_prompt = request.data.get('base_system_prompt', '')
+            openai_model = request.data.get('openai_model', 'gpt-4o')
+            default_temperature = request.data.get('default_temperature', 0.7)
+            max_message_length = request.data.get('max_message_length', 160)
+            
+            # Ініціалізуємо AI service
+            ai_service = OpenAIService()
+            if not ai_service.is_available():
+                return Response({
+                    'success': False,
+                    'error': 'AI service is not available. Check OpenAI API key configuration.'
+                }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+            
+            # Тимчасово змінюємо глобальні налаштування для тесту
+            original_settings = AISettings.objects.first()
+            
+            # Створюємо тестове повідомлення
+            preview_message = ai_service.generate_preview_message(
+                business_name=test_business_name,
+                customer_name=test_customer_name,
+                services=test_services,
+                response_style='auto',
+                include_location=True,
+                mention_response_time=True,
+                custom_prompt=base_system_prompt if base_system_prompt else None,
+                business_data_settings={
+                    "include_rating": True,
+                    "include_categories": True,
+                    "include_phone": True,
+                    "include_website": False,
+                    "include_price_range": True,
+                    "include_hours": True,
+                    "include_reviews_count": True,
+                    "include_address": False,
+                    "include_transactions": False
+                }
+            )
+            
+            return Response({
+                'success': True,
+                'preview_message': preview_message,
+                'test_data': {
+                    'business_name': test_business_name,
+                    'customer_name': test_customer_name,
+                    'services': test_services
+                },
+                'settings_used': {
+                    'model': openai_model,
+                    'temperature': default_temperature,
+                    'max_length': max_message_length,
+                    'custom_prompt': bool(base_system_prompt)
+                }
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.error(f"Error generating AI test preview: {str(e)}")
+            return Response({
+                'success': False,
+                'error': f'Failed to generate preview: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

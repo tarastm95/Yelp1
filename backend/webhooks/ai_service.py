@@ -76,31 +76,69 @@ class OpenAIService:
     ) -> Optional[str]:
         """Генерує AI-powered greeting повідомлення на основі контексту ліда"""
         
+        logger.info(f"[AI-SERVICE] ============= AI GREETING GENERATION =============")
+        logger.info(f"[AI-SERVICE] Starting AI greeting generation")
+        logger.info(f"[AI-SERVICE] Input parameters:")
+        logger.info(f"[AI-SERVICE] - Lead ID: {lead_detail.lead_id}")
+        logger.info(f"[AI-SERVICE] - Customer name: {lead_detail.user_display_name}")
+        logger.info(f"[AI-SERVICE] - Business: {business.name if business else 'None'}")
+        logger.info(f"[AI-SERVICE] - is_off_hours: {is_off_hours}")
+        logger.info(f"[AI-SERVICE] - response_style: {response_style}")
+        logger.info(f"[AI-SERVICE] - include_location: {include_location}")
+        logger.info(f"[AI-SERVICE] - mention_response_time: {mention_response_time}")
+        logger.info(f"[AI-SERVICE] - custom_prompt provided: {custom_prompt is not None}")
+        logger.info(f"[AI-SERVICE] - business_data_settings: {business_data_settings}")
+        
         if not self.is_available():
-            logger.error("[AI-SERVICE] OpenAI client not available")
+            logger.error("[AI-SERVICE] ❌ OpenAI client not available")
             return None
+        
+        logger.info(f"[AI-SERVICE] ✅ OpenAI client is available")
         
         if not self.check_rate_limit():
-            logger.warning("[AI-SERVICE] Rate limit exceeded, skipping AI generation")
+            logger.warning("[AI-SERVICE] ⚠️ Rate limit exceeded, skipping AI generation")
             return None
         
+        logger.info(f"[AI-SERVICE] ✅ Rate limit check passed")
+        
         try:
+            logger.info(f"[AI-SERVICE] 🔄 Preparing lead context...")
+            
             # Підготовка контексту для AI
             context = self._prepare_lead_context(
                 lead_detail, business, is_off_hours, 
                 include_location, mention_response_time, business_data_settings
             )
             
+            logger.info(f"[AI-SERVICE] ✅ Lead context prepared:")
+            logger.info(f"[AI-SERVICE] - Customer name: {context.get('customer_name')}")
+            logger.info(f"[AI-SERVICE] - Services: {context.get('services')}")
+            logger.info(f"[AI-SERVICE] - Business name: {context.get('business_name')}")
+            logger.info(f"[AI-SERVICE] - Phone number: {context.get('phone_number', 'Not provided')}")
+            logger.info(f"[AI-SERVICE] - Additional info: {context.get('additional_info', 'None')[:50]}...")
+            
+            logger.info(f"[AI-SERVICE] 🔄 Creating prompt...")
+            
             # Створення промпта
             prompt = self._create_greeting_prompt(
                 context, response_style, custom_prompt
             )
+            
+            logger.info(f"[AI-SERVICE] ✅ Prompt created (length: {len(prompt)} characters)")
+            logger.info(f"[AI-SERVICE] Prompt preview: {prompt[:200]}...")
             
             # Отримання налаштувань AI
             ai_settings = AISettings.objects.first()
             model = ai_settings.openai_model if ai_settings else "gpt-4o"
             temperature = ai_settings.default_temperature if ai_settings else 0.7
             max_length = ai_settings.max_message_length if ai_settings else 160
+            
+            logger.info(f"[AI-SERVICE] AI API settings:")
+            logger.info(f"[AI-SERVICE] - Model: {model}")
+            logger.info(f"[AI-SERVICE] - Temperature: {temperature}")
+            logger.info(f"[AI-SERVICE] - Max tokens: {max_length}")
+            
+            logger.info(f"[AI-SERVICE] 🤖 Calling OpenAI API...")
             
             # Виклик OpenAI API
             response = self.client.chat.completions.create(
@@ -116,17 +154,34 @@ class OpenAIService:
                 temperature=temperature
             )
             
+            logger.info(f"[AI-SERVICE] ✅ OpenAI API responded successfully")
+            
             ai_message = response.choices[0].message.content.strip()
+            original_length = len(ai_message)
+            
+            logger.info(f"[AI-SERVICE] Raw AI response:")
+            logger.info(f"[AI-SERVICE] - Original message: '{ai_message}'")
+            logger.info(f"[AI-SERVICE] - Original length: {original_length} characters")
             
             # Обрізаємо повідомлення якщо воно завелике
             if len(ai_message) > max_length:
                 ai_message = ai_message[:max_length-3] + "..."
+                logger.info(f"[AI-SERVICE] ✂️ Message truncated to {len(ai_message)} characters")
+            else:
+                logger.info(f"[AI-SERVICE] ✅ Message within length limit")
             
+            logger.info(f"[AI-SERVICE] 🎉 FINAL AI GREETING:")
+            logger.info(f"[AI-SERVICE] - Final message: '{ai_message}'")
+            logger.info(f"[AI-SERVICE] - Final length: {len(ai_message)} characters")
             logger.info(f"[AI-SERVICE] Generated greeting for lead {lead_detail.lead_id}: {ai_message[:50]}...")
+            logger.info(f"[AI-SERVICE] ==============================================")
+            
             return ai_message
             
         except Exception as e:
-            logger.error(f"[AI-SERVICE] Error generating AI greeting: {e}")
+            logger.error(f"[AI-SERVICE] ❌ Error generating AI greeting: {e}")
+            logger.exception(f"[AI-SERVICE] AI generation exception details")
+            logger.info(f"[AI-SERVICE] ==============================================")
             return None
     
     def generate_preview_message(

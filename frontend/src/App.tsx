@@ -22,6 +22,7 @@ import EventsPage from "./EventsPage/EventsPage";
 import Home from "./Home";
 import YelpCallback from "./YelpCallback";
 import AutoResponseSettings from "./AutoResponseSettings";
+import AIGlobalSettings from "./AIGlobalSettings";
 import YelpAuth from "./YelpAuth";
 import ClientDetails from "./ClientDetails/ClientDetails";
 import TokenStatus from "./TokenStatus";
@@ -254,7 +255,7 @@ const App: FC = () => {
       <Router>
         <TopMenu onLogout={handleLogout} />
         <Box component="main" sx={{ p: 3 }}>
-          <Routes>
+                      <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/events" element={<EventsPage />} />
               <Route path="/events/:id" element={<EventDetail />} />
@@ -262,6 +263,7 @@ const App: FC = () => {
               <Route path="/auth" element={<YelpAuth />} />
               <Route path="/callback" element={<YelpCallback />} />
               <Route path="/settings" element={<AutoResponseSettings />} />
+              <Route path="/ai-settings" element={<AIGlobalSettings />} />
               <Route path="/tokens" element={<TokenStatus />} />
               <Route path="/subscriptions" element={<Subscriptions />} />
               <Route path="/tasks" element={<TaskLogs />} />

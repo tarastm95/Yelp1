@@ -13,7 +13,7 @@ from .views import (
     NotificationSettingListCreateView,
     NotificationSettingDetailView,
 )
-from .lead_views import BusinessSMSSettingsView, AIPreviewView
+from .lead_views import BusinessSMSSettingsView, AIPreviewView, AIGlobalSettingsView, AITestPreviewView
 from .task_views import TaskLogListView, MessageTaskListView, TaskRevokeView
 from .sms_views import SendSMSAPIView, SMSLogListView
 
@@ -50,6 +50,16 @@ urlpatterns = [
         'ai/preview/',
         AIPreviewView.as_view(),
         name='ai-preview'
+    ),
+    path(
+        'ai/global-settings/',
+        AIGlobalSettingsView.as_view(),
+        name='ai-global-settings'
+    ),
+    path(
+        'ai/test-preview/',
+        AITestPreviewView.as_view(),
+        name='ai-test-preview'
     ),
     path(
         'templates/auto-response/',
