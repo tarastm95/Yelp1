@@ -169,6 +169,12 @@ class AutoResponseSettings(models.Model):
         help_text="Включати доступні послуги/транзакції в AI повідомлення"
     )
 
+    # AI Message Length Settings
+    ai_max_message_length = models.PositiveIntegerField(
+        default=160,
+        help_text="Максимальна довжина AI-згенерованого повідомлення (символів). Якщо 0 - використовується глобальне налаштування"
+    )
+
     export_to_sheets = models.BooleanField(
         default=False, help_text="Записувати нові ліди в Google Sheets"
     )

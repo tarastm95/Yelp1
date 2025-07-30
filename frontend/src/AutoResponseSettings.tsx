@@ -34,6 +34,8 @@ import {
   Chip,
   Checkbox,
   FormGroup,
+  ListItemIcon,
+  Grid,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
@@ -46,6 +48,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import WorkIcon from '@mui/icons-material/Work';
 import TimerIcon from '@mui/icons-material/Timer';
 import BusinessCenterIcon from '@mui/icons-material/BusinessCenter';
+import InfoIcon from '@mui/icons-material/Info';
 import TuneIcon from '@mui/icons-material/Tune';
 import PhoneIcon from '@mui/icons-material/Phone';
 import PhoneDisabledIcon from '@mui/icons-material/PhoneDisabled';
@@ -140,6 +143,7 @@ interface AutoResponseSettingsData {
   ai_include_reviews_count: boolean;
   ai_include_address: boolean;
   ai_include_transactions: boolean;
+  ai_max_message_length: number;
 }
 
 
@@ -184,6 +188,7 @@ const AutoResponseSettings: FC = () => {
   const [aiIncludeReviewsCount, setAiIncludeReviewsCount] = useState(true);
   const [aiIncludeAddress, setAiIncludeAddress] = useState(false);
   const [aiIncludeTransactions, setAiIncludeTransactions] = useState(false);
+  const [aiMaxMessageLength, setAiMaxMessageLength] = useState(160);
 
   // follow-up templates
   const [templates, setTemplates] = useState<FollowUpTemplate[]>([]);
@@ -315,6 +320,7 @@ const AutoResponseSettings: FC = () => {
     ai_include_reviews_count: true,
     ai_include_address: false,
     ai_include_transactions: false,
+    ai_max_message_length: 0,
   };
 
   const resetSettings = () => {
@@ -370,6 +376,7 @@ const AutoResponseSettings: FC = () => {
           setAiIncludeReviewsCount(d.ai_include_reviews_count ?? true);
           setAiIncludeAddress(d.ai_include_address ?? false);
           setAiIncludeTransactions(d.ai_include_transactions ?? false);
+          setAiMaxMessageLength(d.ai_max_message_length ?? 160);
           
           initialSettings.current = {
             enabled: d.enabled,
@@ -397,6 +404,7 @@ const AutoResponseSettings: FC = () => {
             ai_include_reviews_count: true,
             ai_include_address: false,
             ai_include_transactions: false,
+            ai_max_message_length: 0,
           };
           setLoading(false);
         })
@@ -470,6 +478,7 @@ const AutoResponseSettings: FC = () => {
             ai_include_reviews_count: true,
             ai_include_address: false,
             ai_include_transactions: false,
+            ai_max_message_length: 0,
           };
         } else {
           initialSettings.current = {
@@ -494,6 +503,7 @@ const AutoResponseSettings: FC = () => {
             ai_include_reviews_count: true,
             ai_include_address: false,
             ai_include_transactions: false,
+            ai_max_message_length: 0,
           };
         }
       })
@@ -665,6 +675,7 @@ const AutoResponseSettings: FC = () => {
         ai_include_reviews_count: aiIncludeReviewsCount,
         ai_include_address: aiIncludeAddress,
         ai_include_transactions: aiIncludeTransactions,
+        ai_max_message_length: aiMaxMessageLength,
       });
 
       setSettingsId(res.data.id);
@@ -694,6 +705,7 @@ const AutoResponseSettings: FC = () => {
         ai_include_reviews_count: aiIncludeReviewsCount,
         ai_include_address: aiIncludeAddress,
         ai_include_transactions: aiIncludeTransactions,
+        ai_max_message_length: aiMaxMessageLength,
       };
 
       const params = new URLSearchParams();
@@ -889,6 +901,7 @@ const AutoResponseSettings: FC = () => {
         ai_include_reviews_count: aiIncludeReviewsCount,
         ai_include_address: aiIncludeAddress,
         ai_include_transactions: aiIncludeTransactions,
+        ai_max_message_length: aiMaxMessageLength,
       });
 
       setAiPreview(response.data.preview);
@@ -1712,6 +1725,143 @@ const AutoResponseSettings: FC = () => {
                                       label="Include available services/transactions"
                                     />
                                   </FormGroup>
+                                </Box>
+                              </Box>
+
+                              {/* Informational Section - Always Included Data */}
+                              <Box>
+                                <Typography variant="caption" sx={{ mb: 1, display: 'block', fontWeight: 600, color: 'info.main' }}>
+                                  ℹ️ Always Included Customer Data
+                                </Typography>
+                                <Typography variant="caption" sx={{ mb: 2, display: 'block', color: 'text.secondary', fontStyle: 'italic' }}>
+                                  The following customer information is automatically analyzed and included in every AI message (cannot be disabled):
+                                </Typography>
+                                
+                                <Box sx={{ 
+                                  p: 2, 
+                                  backgroundColor: 'info.50', 
+                                  borderRadius: 1, 
+                                  border: '1px solid', 
+                                  borderColor: 'info.200' 
+                                }}>
+                                  <Grid container spacing={1}>
+                                    <Grid item xs={12} sm={6}>
+                                      <Typography variant="caption" sx={{ fontWeight: 600, color: 'info.dark' }}>
+                                        Customer Information:
+                                      </Typography>
+                                      <List dense sx={{ pt: 0.5 }}>
+                                        <ListItem sx={{ py: 0, px: 0 }}>
+                                          <ListItemIcon sx={{ minWidth: 20 }}>
+                                            <PersonIcon sx={{ fontSize: 14, color: 'info.main' }} />
+                                          </ListItemIcon>
+                                          <ListItemText 
+                                            primary="Customer name (if available)"
+                                            primaryTypographyProps={{ variant: 'caption' }}
+                                          />
+                                        </ListItem>
+                                        <ListItem sx={{ py: 0, px: 0 }}>
+                                          <ListItemIcon sx={{ minWidth: 20 }}>
+                                            <PersonIcon sx={{ fontSize: 14, color: 'info.main' }} />
+                                          </ListItemIcon>
+                                          <ListItemText 
+                                            primary="Services of interest (job types)"
+                                            primaryTypographyProps={{ variant: 'caption' }}
+                                          />
+                                        </ListItem>
+                                      </List>
+                                    </Grid>
+                                    <Grid item xs={12} sm={6}>
+                                      <Typography variant="caption" sx={{ fontWeight: 600, color: 'info.dark' }}>
+                                        Context Information:
+                                      </Typography>
+                                      <List dense sx={{ pt: 0.5 }}>
+                                        <ListItem sx={{ py: 0, px: 0 }}>
+                                          <ListItemIcon sx={{ minWidth: 20 }}>
+                                            <InfoIcon sx={{ fontSize: 14, color: 'info.main' }} />
+                                          </ListItemIcon>
+                                          <ListItemText 
+                                            primary="Additional info from customer"
+                                            primaryTypographyProps={{ variant: 'caption' }}
+                                          />
+                                        </ListItem>
+                                        <ListItem sx={{ py: 0, px: 0 }}>
+                                          <ListItemIcon sx={{ minWidth: 20 }}>
+                                            <InfoIcon sx={{ fontSize: 14, color: 'info.main' }} />
+                                          </ListItemIcon>
+                                          <ListItemText 
+                                            primary="Inquiry timing (business hours)"
+                                            primaryTypographyProps={{ variant: 'caption' }}
+                                          />
+                                        </ListItem>
+                                      </List>
+                                    </Grid>
+                                  </Grid>
+                                </Box>
+                              </Box>
+
+                              {/* Message Length Settings */}
+                              <Box>
+                                <Typography variant="caption" sx={{ mb: 1, display: 'block', fontWeight: 600 }}>
+                                  📏 Message Length Settings
+                                </Typography>
+                                <Typography variant="caption" sx={{ mb: 2, display: 'block', color: 'text.secondary', fontStyle: 'italic' }}>
+                                  Control the maximum length of AI-generated messages
+                                </Typography>
+                                
+                                <Box sx={{ 
+                                  p: 2, 
+                                  backgroundColor: 'grey.50', 
+                                  borderRadius: 1, 
+                                  border: '1px solid', 
+                                  borderColor: 'grey.300' 
+                                }}>
+                                  <Stack spacing={2}>
+                                    <Box>
+                                      <TextField
+                                        label="Max Message Length (characters)"
+                                        type="number"
+                                        value={aiMaxMessageLength}
+                                        onChange={e => setAiMaxMessageLength(Number(e.target.value))}
+                                        size="small"
+                                        inputProps={{ 
+                                          min: 0, 
+                                          max: 500,
+                                          step: 10
+                                        }}
+                                        sx={{ 
+                                          width: 200,
+                                          backgroundColor: 'white'
+                                        }}
+                                        helperText={
+                                          aiMaxMessageLength === 0 
+                                            ? "0 = Use global setting (160 characters)" 
+                                            : `${aiMaxMessageLength} characters (SMS-friendly: ≤160)`
+                                        }
+                                      />
+                                    </Box>
+                                    
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                      <Chip
+                                        label={`Current: ${aiMaxMessageLength || 160} chars`}
+                                        size="small"
+                                        color={
+                                          (aiMaxMessageLength || 160) <= 160 ? 'success' : 
+                                          (aiMaxMessageLength || 160) <= 300 ? 'warning' : 'error'
+                                        }
+                                        variant="outlined"
+                                      />
+                                      {(aiMaxMessageLength || 160) <= 160 && (
+                                        <Typography variant="caption" sx={{ color: 'success.main', fontWeight: 600 }}>
+                                          SMS-friendly ✓
+                                        </Typography>
+                                      )}
+                                      {(aiMaxMessageLength || 160) > 160 && (
+                                        <Typography variant="caption" sx={{ color: 'warning.main', fontWeight: 600 }}>
+                                          May be split into multiple SMS
+                                        </Typography>
+                                      )}
+                                    </Box>
+                                  </Stack>
                                 </Box>
                               </Box>
 

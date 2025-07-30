@@ -59,6 +59,7 @@ class AutoResponseSettingsSerializer(serializers.ModelSerializer):
             "ai_include_reviews_count",
             "ai_include_address",
             "ai_include_transactions",
+            "ai_max_message_length",
         ]
         read_only_fields = ["id"]
 

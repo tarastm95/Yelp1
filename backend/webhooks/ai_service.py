@@ -72,7 +72,8 @@ class OpenAIService:
         include_location: bool = False,
         mention_response_time: bool = False,
         custom_prompt: Optional[str] = None,
-        business_data_settings: Optional[Dict[str, bool]] = None
+        business_data_settings: Optional[Dict[str, bool]] = None,
+        max_length: Optional[int] = None
     ) -> Optional[str]:
         """Генерує AI-powered greeting повідомлення на основі контексту ліда"""
         
@@ -131,12 +132,19 @@ class OpenAIService:
             ai_settings = AISettings.objects.first()
             model = ai_settings.openai_model if ai_settings else "gpt-4o"
             temperature = ai_settings.default_temperature if ai_settings else 0.7
-            max_length = ai_settings.max_message_length if ai_settings else 160
+            
+            # Використовуємо бізнес-специфічну довжину якщо надана, інакше глобальну
+            if max_length is not None and max_length > 0:
+                message_length = max_length
+                logger.info(f"[AI-SERVICE] Using business-specific max length: {message_length}")
+            else:
+                message_length = ai_settings.max_message_length if ai_settings else 160
+                logger.info(f"[AI-SERVICE] Using global max length: {message_length}")
             
             logger.info(f"[AI-SERVICE] AI API settings:")
             logger.info(f"[AI-SERVICE] - Model: {model}")
             logger.info(f"[AI-SERVICE] - Temperature: {temperature}")
-            logger.info(f"[AI-SERVICE] - Max tokens: {max_length}")
+            logger.info(f"[AI-SERVICE] - Max tokens: {message_length}")
             
             logger.info(f"[AI-SERVICE] 🤖 Calling OpenAI API...")
             
@@ -150,7 +158,7 @@ class OpenAIService:
                     },
                     {"role": "user", "content": prompt}
                 ],
-                max_tokens=max_length,
+                max_tokens=message_length,
                 temperature=temperature
             )
             
@@ -164,8 +172,8 @@ class OpenAIService:
             logger.info(f"[AI-SERVICE] - Original length: {original_length} characters")
             
             # Обрізаємо повідомлення якщо воно завелике
-            if len(ai_message) > max_length:
-                ai_message = ai_message[:max_length-3] + "..."
+            if len(ai_message) > message_length:
+                ai_message = ai_message[:message_length-3] + "..."
                 logger.info(f"[AI-SERVICE] ✂️ Message truncated to {len(ai_message)} characters")
             else:
                 logger.info(f"[AI-SERVICE] ✅ Message within length limit")
