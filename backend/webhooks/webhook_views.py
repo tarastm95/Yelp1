@@ -1606,6 +1606,6 @@ class WebhookView(APIView):
                         )
                     else:
                         logger.info(
-                            f"[AUTO-RESPONSE] Custom follow-up "{tmpl.name}" scheduled at {due.isoformat()}"
+                            f"[AUTO-RESPONSE] Custom follow-up '{tmpl.name}' scheduled at {due.isoformat()}"
                         )
                         scheduled_texts.add(text)
