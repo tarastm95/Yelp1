@@ -1805,7 +1805,7 @@ const AutoResponseSettings: FC = () => {
                                   📏 Message Length Settings
                                 </Typography>
                                 <Typography variant="caption" sx={{ mb: 2, display: 'block', color: 'text.secondary', fontStyle: 'italic' }}>
-                                  Control the maximum length of AI-generated messages
+                                  Control the maximum length of AI-generated auto-response messages
                                 </Typography>
                                 
                                 <Box sx={{ 
@@ -1835,7 +1835,7 @@ const AutoResponseSettings: FC = () => {
                                         helperText={
                                           aiMaxMessageLength === 0 
                                             ? "0 = Use global setting (160 characters)" 
-                                            : `${aiMaxMessageLength} characters (SMS-friendly: ≤160)`
+                                            : `${aiMaxMessageLength} characters (concise: ≤160)`
                                         }
                                       />
                                     </Box>
@@ -1852,12 +1852,17 @@ const AutoResponseSettings: FC = () => {
                                       />
                                       {(aiMaxMessageLength || 160) <= 160 && (
                                         <Typography variant="caption" sx={{ color: 'success.main', fontWeight: 600 }}>
-                                          SMS-friendly ✓
+                                          Concise & effective ✓
                                         </Typography>
                                       )}
-                                      {(aiMaxMessageLength || 160) > 160 && (
+                                      {(aiMaxMessageLength || 160) > 160 && (aiMaxMessageLength || 160) <= 300 && (
                                         <Typography variant="caption" sx={{ color: 'warning.main', fontWeight: 600 }}>
-                                          May be split into multiple SMS
+                                          Longer message (still acceptable)
+                                        </Typography>
+                                      )}
+                                      {(aiMaxMessageLength || 160) > 300 && (
+                                        <Typography variant="caption" sx={{ color: 'error.main', fontWeight: 600 }}>
+                                          Too long for effective communication
                                         </Typography>
                                       )}
                                     </Box>
