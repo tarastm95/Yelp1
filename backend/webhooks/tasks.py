@@ -142,7 +142,6 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
     logger.info(f"[FOLLOW-UP] - Message hash: {hash(text)}")
     
     # Check existing events with this text
-    from .models import LeadEvent
     existing_events = LeadEvent.objects.filter(lead_id=lead_id, text=text)
     logger.info(f"[FOLLOW-UP] Existing LeadEvent count with same text: {existing_events.count()}")
     
@@ -152,7 +151,6 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
             logger.info(f"[FOLLOW-UP] Event {i+1}: ID={event.pk}, event_id='{event.event_id}', from_backend={event.from_backend}, time={event.time_created}")
     
     # Check existing pending tasks with this text
-    from .models import LeadPendingTask
     existing_tasks = LeadPendingTask.objects.filter(lead_id=lead_id, text=text, active=True)
     if job_id:
         existing_tasks = existing_tasks.exclude(task_id=job_id)
@@ -275,7 +273,6 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
                 
                 # Створюємо LeadEvent з from_backend=True щоб система знала що це наше повідомлення
                 try:
-                    from .models import LeadEvent
                     from django.utils import timezone as django_timezone
                     
                     logger.info(f"[FOLLOW-UP] 📝 Creating LeadEvent with from_backend=True")
