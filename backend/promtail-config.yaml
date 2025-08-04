@@ -1,0 +1,103 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  # Збір логів з Docker контейнерів
+  - job_name: docker
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: docker
+          __path__: /var/lib/docker/containers/*/*-json.log
+
+    pipeline_stages:
+      # Парсинг JSON логів Docker
+      - json:
+          expressions:
+            output: log
+            stream: stream
+            attrs:
+            time: time
+
+      # Парсинг метаданих контейнера
+      - json:
+          source: attrs
+          expressions:
+            tag:
+            container_name:
+            container_id:
+
+      # Витягуємо назву контейнера з тегу
+      - regex:
+          source: tag
+          expression: "^.+/(?P<container_name>[^/]+)$"
+
+      # Форматуємо timestamp
+      - timestamp:
+          source: time
+          format: RFC3339Nano
+
+      # Створюємо лейбли для пошуку
+      - labels:
+          stream:
+          container_name:
+          job:
+
+      # Фільтруємо тільки контейнери нашого проекту
+      - match:
+          selector: '{container_name=~".*backend.*|.*yelp.*"}'
+          stages:
+            - regex:
+                source: output
+                expression: "(?P<level>INFO|DEBUG|WARNING|ERROR|CRITICAL)"
+            - labels:
+                level:
+
+      # Додатковий парсинг для Django логів
+      - match:
+          selector: '{container_name=~".*web.*|.*rqworker.*|.*rqscheduler.*"}'
+          stages:
+            # Парсинг структурованих логів Django
+            - regex:
+                source: output
+                expression: '(?P<timestamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}).*?"name": "(?P<logger>[^"]+)".*?"message": "(?P<message>[^"]+)"'
+            - labels:
+                logger:
+            # Витягуємо lead_id якщо є
+            - regex:
+                source: message
+                expression: "(?i)lead.{0,10}(?P<lead_id>[a-zA-Z0-9_-]{10,25})"
+            - labels:
+                lead_id:
+
+      # Виводимо очищений лог
+      - output:
+          source: output
+
+  # Збір системних логів (опціонально)
+  - job_name: syslog
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: syslog
+          __path__: /var/log/syslog
+    pipeline_stages:
+      - regex:
+          expression: '^(?P<timestamp>\w+ \d+ \d+:\d+:\d+) (?P<hostname>\S+) (?P<service>\S+): (?P<message>.*)$'
+      - labels:
+          hostname:
+          service:
+      - timestamp:
+          source: timestamp
+          format: "Jan 02 15:04:05"
+      - output:
+          source: message

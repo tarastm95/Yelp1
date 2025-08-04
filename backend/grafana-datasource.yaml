@@ -1,0 +1,20 @@
+# Автоматичне налаштування Loki як джерела даних
+apiVersion: 1
+
+datasources:
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    isDefault: true
+    version: 1
+    editable: true
+    jsonData:
+      maxLines: 1000
+      derivedFields:
+        - name: "Lead ID"
+          matcherRegex: "(?i)lead.{0,10}([a-zA-Z0-9_-]{10,25})"
+          url: "http://46.62.139.177:3030/explore?left=[\"now-1h\",\"now\",\"Loki\",{\"expr\":\"{container_name=~\\\".*backend.*\\\"} |~ \\\"${__value.raw}\\\"\"}]"
+        - name: "Business ID"
+          matcherRegex: "business.{0,10}([a-zA-Z0-9_-]{10,25})"
+          url: "http://46.62.139.177:3030/explore?left=[\"now-1h\",\"now\",\"Loki\",{\"expr\":\"{container_name=~\\\".*backend.*\\\"} |~ \\\"${__value.raw}\\\"\"}]"

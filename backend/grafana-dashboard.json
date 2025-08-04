@@ -1,0 +1,70 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Yelp Application Logs",
+    "tags": ["yelp", "logs"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Log Search",
+        "type": "logs",
+        "targets": [
+          {
+            "expr": "{container_name=~\".*backend.*\"} |~ \"\"",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {"h": 12, "w": 24, "x": 0, "y": 0},
+        "options": {
+          "showTime": true,
+          "showLabels": true,
+          "sortOrder": "Descending",
+          "wrapLogMessage": true,
+          "enableLogDetails": true
+        }
+      },
+      {
+        "id": 2,
+        "title": "Error Logs",
+        "type": "logs",
+        "targets": [
+          {
+            "expr": "{container_name=~\".*backend.*\"} |~ \"(?i)(error|exception|failed)\"",
+            "refId": "B"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+        "options": {
+          "showTime": true,
+          "sortOrder": "Descending"
+        }
+      },
+      {
+        "id": 3,
+        "title": "Log Levels",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum by (level) (count_over_time({container_name=~\".*backend.*\"} [1h]))",
+            "refId": "C"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12}
+      }
+    ],
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "refresh": "30s",
+    "variables": [
+      {
+        "name": "search_query",
+        "type": "textbox",
+        "label": "Search Query",
+        "description": "Enter search terms (e.g., lead ID, business ID, error message)"
+      }
+    ]
+  }
+}
