@@ -2890,7 +2890,7 @@ const AutoResponseSettings: FC = () => {
                       📱 SMS Notification Center
                     </Typography>
                     <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>
-                      Налаштуйте коли відправляти SMS повідомлення клієнтам для кожного сценарію
+                      Configure when to send SMS messages to clients for each scenario
                     </Typography>
                     
                     <Stack spacing={2}>
@@ -2905,10 +2905,10 @@ const AutoResponseSettings: FC = () => {
                         label={
                           <Box>
                             <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                              📞 Знайдено номер телефону
+                              📞 Phone Number Found
                             </Typography>
                             <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                              Відправляти SMS коли система знаходить номер телефону в тексті повідомлення клієнта
+                              Send SMS when the system finds a phone number in the customer's message text
                             </Typography>
                           </Box>
                         }
@@ -2925,10 +2925,10 @@ const AutoResponseSettings: FC = () => {
                         label={
                           <Box>
                             <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                              💬 Відповідь клієнта
+                              💬 Customer Reply
                             </Typography>
                             <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                              Відправляти SMS коли клієнт відповідає на повідомлення (навіть без номера)
+                              Send SMS when customer responds to messages (even without phone number)
                             </Typography>
                           </Box>
                         }
@@ -2948,7 +2948,7 @@ const AutoResponseSettings: FC = () => {
                               ✅ Phone Opt-in
                             </Typography>
                             <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                              Відправляти SMS коли клієнт дає згоду на використання телефону
+                              Send SMS when customer gives consent to use their phone number
                             </Typography>
                           </Box>
                         }
