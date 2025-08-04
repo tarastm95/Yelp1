@@ -60,7 +60,7 @@ const TimeBasedGreetings: React.FC<Props> = ({ businessId }) => {
   const loadGreetings = async () => {
     try {
       const params = businessId ? { business_id: businessId } : {};
-      const response = await axios.get('/api/time-greetings/', { params });
+      const response = await axios.get('/time-greetings/', { params });
       setGreetings(response.data);
     } catch (error) {
       console.error('Error loading greetings:', error);
@@ -74,7 +74,7 @@ const TimeBasedGreetings: React.FC<Props> = ({ businessId }) => {
 
     try {
       const data = businessId ? { ...greetings, business_id: businessId } : greetings;
-      await axios.post('/api/time-greetings/', data);
+      await axios.post('/time-greetings/', data);
       setMessage({ type: 'success', text: 'Greeting settings saved successfully!' });
     } catch (error) {
       console.error('Error saving greetings:', error);
