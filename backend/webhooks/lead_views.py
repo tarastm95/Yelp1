@@ -639,11 +639,39 @@ class AITestPreviewView(APIView):
             # Тимчасово змінюємо глобальні налаштування для тесту
             original_settings = AISettings.objects.first()
             
+            # Створюємо mock business object для тестування
+            class MockBusiness:
+                def __init__(self, name):
+                    self.name = name
+                    self.location = "Test Location, Test City"
+                    self.time_zone = "America/New_York"
+                    self.open_days = "Monday-Friday"
+                    self.open_hours = "9:00 AM - 6:00 PM"
+                    self.details = {
+                        "rating": 4.5,
+                        "review_count": 123,
+                        "categories": [
+                            {"title": "Home Services", "alias": "homeservices"},
+                            {"title": "Contractors", "alias": "contractors"}
+                        ],
+                        "display_phone": "(555) 123-4567",
+                        "phone": "+15551234567",
+                        "url": "https://www.yelp.com/biz/test-business",
+                        "price": "$$",
+                        "location": {
+                            "display_address": ["123 Test St", "Test City, TC 12345"],
+                            "city": "Test City",
+                            "state": "TC",
+                            "zip_code": "12345"
+                        },
+                        "transactions": ["delivery", "pickup"]
+                    }
+            
+            mock_business = MockBusiness(test_business_name)
+            
             # Створюємо тестове повідомлення
             preview_message = ai_service.generate_preview_message(
-                business_name=test_business_name,
-                customer_name=test_customer_name,
-                services=test_services,
+                business=mock_business,
                 response_style='auto',
                 include_location=True,
                 mention_response_time=True,
