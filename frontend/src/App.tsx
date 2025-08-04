@@ -31,6 +31,7 @@ import SMSLogs from "./SMSLogs";
 import Subscriptions from "./Subscriptions";
 import LoginPage from "./LoginPage";
 import TopMenu from "./TopMenu";
+import TimeBasedGreetings from "./TimeBasedGreetings";
 
 // A enhanced theme for the application with modern design
 const theme = createTheme({
@@ -264,6 +265,7 @@ const App: FC = () => {
               <Route path="/callback" element={<YelpCallback />} />
               <Route path="/settings" element={<AutoResponseSettings />} />
               <Route path="/ai-settings" element={<AIGlobalSettings />} />
+              <Route path="/time-greetings" element={<TimeBasedGreetings />} />
               <Route path="/tokens" element={<TokenStatus />} />
               <Route path="/subscriptions" element={<Subscriptions />} />
               <Route path="/tasks" element={<TaskLogs />} />

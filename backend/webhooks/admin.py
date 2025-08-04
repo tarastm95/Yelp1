@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import NotificationSetting, AISettings
+from .models import NotificationSetting, AISettings, TimeBasedGreeting
 
 
 @admin.register(NotificationSetting)
@@ -54,3 +54,69 @@ class AISettingsAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         """Дозволити тільки один запис глобальних налаштувань"""
         return not AISettings.objects.exists()
+
+
+@admin.register(TimeBasedGreeting)
+class TimeBasedGreetingAdmin(admin.ModelAdmin):
+    """Django Admin для налаштувань часових привітань"""
+    
+    list_display = [
+        'id',
+        'business_name',
+        'default_style',
+        'morning_formal',
+        'afternoon_formal',
+        'evening_formal',
+        'night_greeting',
+        'created_at'
+    ]
+    
+    list_filter = [
+        'default_style',
+        'created_at',
+        'business'
+    ]
+    
+    fieldsets = (
+        ('🏢 Business Configuration', {
+            'fields': ('business',),
+            'description': 'Leave blank for global default settings'
+        }),
+        ('⏰ Time Ranges', {
+            'fields': (
+                ('morning_start', 'morning_end'),
+                ('afternoon_start', 'afternoon_end'),
+                ('evening_start', 'evening_end'),
+            ),
+        }),
+        ('👔 Formal Greetings', {
+            'fields': (
+                'morning_formal',
+                'afternoon_formal',
+                'evening_formal',
+            ),
+        }),
+        ('😊 Casual Greetings', {
+            'fields': (
+                'morning_casual',
+                'afternoon_casual',
+                'evening_casual',
+            ),
+        }),
+        ('🌙 Night & Style', {
+            'fields': (
+                'night_greeting',
+                'default_style',
+            ),
+        }),
+    )
+    
+    readonly_fields = ['created_at', 'updated_at']
+    
+    def business_name(self, obj):
+        """Відображення назви бізнесу або 'Global Default'"""
+        if obj.business:
+            return obj.business.name
+        return "🌍 Global Default"
+    business_name.short_description = "Business"
+    business_name.admin_order_field = "business__name"

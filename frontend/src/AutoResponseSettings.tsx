@@ -60,14 +60,15 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
 // Helper placeholders used in message templates
 
-const PLACEHOLDERS = ['{name}', '{jobs}', '{sep}', '{reason}'] as const;
+const PLACEHOLDERS = ['{name}', '{jobs}', '{sep}', '{reason}', '{greetings}'] as const;
 type Placeholder = typeof PLACEHOLDERS[number];
 
 const PLACEHOLDER_DESCRIPTIONS: Record<string, string> = {
   '{name}': 'Customer display name',
   '{jobs}': 'List of services requested',
   '{sep}': 'Separator between services',
-  '{reason}': 'Reason for SMS (Phone Found, Customer Reply, Phone Opt-in)'
+  '{reason}': 'Reason for SMS (Phone Found, Customer Reply, Phone Opt-in)',
+  '{greetings}': 'Time-based greeting (Good morning, Good afternoon, etc.)'
 };
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
