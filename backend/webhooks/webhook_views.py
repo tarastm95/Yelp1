@@ -109,14 +109,12 @@ class WebhookView(APIView):
         url = f"https://api.yelp.com/v3/leads/{lead_id}/events"
 
         logger.debug(
-            "[WEBHOOK] Verifying new lead via %s with params=%s",
+            "[WEBHOOK] Verifying new lead via %s (no limit - all events)",
             url,
-            {"limit": 2},
         )
         resp = requests.get(
             url,
             headers={"Authorization": f"Bearer {token}"},
-            params={"limit": 2},
             timeout=10,
         )
         logger.info(
