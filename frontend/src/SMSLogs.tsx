@@ -135,13 +135,13 @@ const SMSLogs: React.FC = () => {
       setHasMore(!!smsRes.data.next);
       
       // Load statistics separately from a dedicated endpoint
-      const params = new URLSearchParams();
-      if (selectedBusiness) params.append('business_id', selectedBusiness);
-      if (selectedPurpose) params.append('purpose', selectedPurpose);
-      if (selectedStatus) params.append('status', selectedStatus);
+      const statsParams = new URLSearchParams();
+      if (selectedBusiness) statsParams.append('business_id', selectedBusiness);
+      if (selectedPurpose) statsParams.append('purpose', selectedPurpose);
+      if (selectedStatus) statsParams.append('status', selectedStatus);
       
       try {
-        const statsRes = await axios.get(`/sms-logs/stats/?${params.toString()}`);
+        const statsRes = await axios.get(`/sms-logs/stats/?${statsParams.toString()}`);
         setStatistics(statsRes.data);
       } catch (statsError) {
         console.error('Failed to load SMS statistics:', statsError);
