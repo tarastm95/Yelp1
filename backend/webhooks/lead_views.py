@@ -744,14 +744,10 @@ class TimeBasedGreetingView(APIView):
                 'afternoon_end': '17:00',
                 'evening_start': '17:00',
                 'evening_end': '21:00',
-                'morning_formal': 'Good morning',
-                'morning_casual': 'Morning!',
-                'afternoon_formal': 'Good afternoon',
-                'afternoon_casual': 'Hi',
-                'evening_formal': 'Good evening',
-                'evening_casual': 'Evening!',
-                'night_greeting': 'Hello',
-                'default_style': 'formal'
+                'morning_greeting': 'Good morning',
+                'afternoon_greeting': 'Good afternoon',
+                'evening_greeting': 'Good evening',
+                'night_greeting': 'Hello'
             })
 
     def post(self, request):
@@ -769,7 +765,7 @@ class TimeBasedGreetingView(APIView):
         else:
             # Global default greetings
             greeting, created = TimeBasedGreeting.objects.get_or_create(
-                business__isnull=True,
+                business=None,
                 defaults=request.data
             )
         
