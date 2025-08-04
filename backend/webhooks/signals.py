@@ -147,6 +147,7 @@ def notify_new_lead(sender, instance: LeadDetail, created: bool, **kwargs):
                 business_id=instance.business_id,
                 lead_id=instance.lead_id,
                 business_name=business.name if business else "",
+                customer_name=getattr(instance, 'user_display_name', '') or 'Customer',
                 timestamp=timezone.now().isoformat(),
                 phone=instance.phone_number,
                 yelp_link=yelp_link,

@@ -40,6 +40,7 @@ const PLACEHOLDERS = [
   '{business_id}',
   '{lead_id}',
   '{business_name}',
+  '{customer_name}',
   '{timestamp}',
   '{phone}',
   '{yelp_link}',
