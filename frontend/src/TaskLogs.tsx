@@ -154,9 +154,9 @@ const TaskLogs: React.FC = () => {
       setHasMoreCanceled(!!canceledRes.data.next);
       
       // Load statistics separately from a dedicated endpoint
-      const businessParam = selectedBusiness ? `?business_id=${selectedBusiness}` : '';
+      const statsBusinessParam = selectedBusiness ? `?business_id=${selectedBusiness}` : '';
       try {
-        const statsRes = await axios.get(`/tasks/stats/${businessParam}`);
+        const statsRes = await axios.get(`/tasks/stats/${statsBusinessParam}`);
         setStatistics(statsRes.data);
       } catch (statsError) {
         console.error('Failed to load task statistics:', statsError);
