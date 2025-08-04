@@ -13,6 +13,7 @@ from .models import (
     NotificationSetting,
     SMSLog,
     AISettings,
+    TimeBasedGreeting,
 )
 
 
@@ -391,6 +392,32 @@ class AISettingsSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
         # Note: openai_api_key is intentionally excluded from serialization for security
+
+
+class TimeBasedGreetingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TimeBasedGreeting
+        fields = [
+            "id",
+            "business",
+            "morning_start",
+            "morning_end", 
+            "afternoon_start",
+            "afternoon_end",
+            "evening_start",
+            "evening_end",
+            "morning_formal",
+            "morning_casual",
+            "afternoon_formal", 
+            "afternoon_casual",
+            "evening_formal",
+            "evening_casual",
+            "night_greeting",
+            "default_style",
+            "created_at",
+            "updated_at"
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 

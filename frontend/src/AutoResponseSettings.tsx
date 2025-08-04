@@ -63,6 +63,13 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 const PLACEHOLDERS = ['{name}', '{jobs}', '{sep}', '{reason}'] as const;
 type Placeholder = typeof PLACEHOLDERS[number];
 
+const PLACEHOLDER_DESCRIPTIONS: Record<string, string> = {
+  '{name}': 'Customer display name',
+  '{jobs}': 'List of services requested',
+  '{sep}': 'Separator between services',
+  '{reason}': 'Reason for SMS (Phone Found, Customer Reply, Phone Opt-in)'
+};
+
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const DAY_FULL_NAMES = {
   'Mon': 'Monday',
@@ -2083,19 +2090,25 @@ const AutoResponseSettings: FC = () => {
                               <Typography variant="caption" sx={{ mb: 1, display: 'block', fontWeight: 600 }}>
                                 Insert Variables
                               </Typography>
-                              <Stack direction="row" spacing={1} flexWrap="wrap" gap={1}>
+                              <Stack spacing={1}>
                                 {PLACEHOLDERS.map(ph => (
-                                  <Chip
-                                    key={ph}
-                                    label={ph}
-                                    size="small"
-                                    variant="outlined"
-                                    clickable
-                                    onClick={() => insertPlaceholder(ph, 'greeting')}
-                                    sx={{ 
-                                      '&:hover': { backgroundColor: 'primary.50' }
-                                    }}
-                                  />
+                                  <Box key={ph} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <Chip
+                                      label={ph}
+                                      size="small"
+                                      variant="outlined"
+                                      clickable
+                                      onClick={() => insertPlaceholder(ph, 'greeting')}
+                                      sx={{ 
+                                        minWidth: '80px',
+                                        fontFamily: 'monospace',
+                                        '&:hover': { backgroundColor: 'primary.50' }
+                                      }}
+                                    />
+                                    <Typography variant="caption" sx={{ color: '#888', fontSize: '0.7rem' }}>
+                                      {PLACEHOLDER_DESCRIPTIONS[ph]}
+                                    </Typography>
+                                  </Box>
                                 ))}
                               </Stack>
                             </Box>
@@ -2364,19 +2377,25 @@ const AutoResponseSettings: FC = () => {
                         <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
                           Insert Variables
                         </Typography>
-                        <Stack direction="row" spacing={1} flexWrap="wrap" gap={1}>
+                        <Stack spacing={1}>
                           {PLACEHOLDERS.map(ph => (
-                            <Chip
-                              key={ph}
-                              label={ph}
-                              size="small"
-                              variant="outlined"
-                              clickable
-                              onClick={() => insertPlaceholder(ph, 'after')}
-                              sx={{ 
-                                '&:hover': { backgroundColor: 'warning.50' }
-                              }}
-                            />
+                            <Box key={ph} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Chip
+                                label={ph}
+                                size="small"
+                                variant="outlined"
+                                clickable
+                                onClick={() => insertPlaceholder(ph, 'after')}
+                                sx={{ 
+                                  minWidth: '80px',
+                                  fontFamily: 'monospace',
+                                  '&:hover': { backgroundColor: 'warning.50' }
+                                }}
+                              />
+                              <Typography variant="caption" sx={{ color: '#888', fontSize: '0.7rem' }}>
+                                {PLACEHOLDER_DESCRIPTIONS[ph]}
+                              </Typography>
+                            </Box>
                           ))}
                         </Stack>
                       </Box>
@@ -2554,19 +2573,25 @@ const AutoResponseSettings: FC = () => {
                     <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
                       Message Template
                     </Typography>
-                    <Stack direction="row" spacing={1} mb={1} flexWrap="wrap">
+                    <Stack spacing={1} sx={{ mb: 1 }}>
                       {PLACEHOLDERS.map(ph => (
-                        <Chip
-                          key={ph}
-                          label={ph}
-                          size="small"
-                          variant="outlined"
-                          clickable
-                          onClick={() => insertPlaceholder(ph, 'template')}
-                          sx={{ 
-                            '&:hover': { backgroundColor: 'primary.50' }
-                          }}
-                        />
+                        <Box key={ph} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Chip
+                            label={ph}
+                            size="small"
+                            variant="outlined"
+                            clickable
+                            onClick={() => insertPlaceholder(ph, 'template')}
+                            sx={{ 
+                              minWidth: '80px',
+                              fontFamily: 'monospace',
+                              '&:hover': { backgroundColor: 'primary.50' }
+                            }}
+                          />
+                          <Typography variant="caption" sx={{ color: '#888', fontSize: '0.7rem' }}>
+                            {PLACEHOLDER_DESCRIPTIONS[ph]}
+                          </Typography>
+                        </Box>
                       ))}
                     </Stack>
                     <TextField
@@ -2699,19 +2724,25 @@ const AutoResponseSettings: FC = () => {
                       <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
                         Message Template
                       </Typography>
-                      <Stack direction="row" spacing={1} mb={1} flexWrap="wrap">
+                      <Stack spacing={1} sx={{ mb: 1 }}>
                         {PLACEHOLDERS.map(ph => (
-                          <Chip
-                            key={ph}
-                            label={ph}
-                            size="small"
-                            variant="outlined"
-                            clickable
-                            onClick={() => setEditText(v => v + ph)}
-                            sx={{ 
-                              '&:hover': { backgroundColor: 'primary.50' }
-                            }}
-                          />
+                          <Box key={ph} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Chip
+                              label={ph}
+                              size="small"
+                              variant="outlined"
+                              clickable
+                              onClick={() => setEditText(v => v + ph)}
+                              sx={{ 
+                                minWidth: '80px',
+                                fontFamily: 'monospace',
+                                '&:hover': { backgroundColor: 'primary.50' }
+                              }}
+                            />
+                            <Typography variant="caption" sx={{ color: '#888', fontSize: '0.7rem' }}>
+                              {PLACEHOLDER_DESCRIPTIONS[ph]}
+                            </Typography>
+                          </Box>
                         ))}
                       </Stack>
                       <TextField

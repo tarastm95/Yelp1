@@ -30,6 +30,7 @@ from .utils import (
     adjust_due_time,
     _already_sent,
     _parse_days,
+    get_time_based_greeting,
 )
 from .tasks import send_follow_up
 
@@ -1287,6 +1288,10 @@ class WebhookView(APIView):
         logger.info(f"[AUTO-RESPONSE] - project.job_names (raw): {raw_job_names}")
         logger.info(f"[AUTO-RESPONSE] - jobs (formatted): '{jobs}'")
         logger.info(f"[AUTO-RESPONSE] - separator: '{sep}'")
+        
+        # Get time-based greeting
+        greetings = get_time_based_greeting(business_id=biz_id)
+        logger.info(f"[AUTO-RESPONSE] - greetings: '{greetings}'")
         logger.info(f"[AUTO-RESPONSE] - Full project data: {ld.project}")
         
         # 🔍 DUPLICATE DETECTION: Check if similar message might already exist
@@ -1297,7 +1302,7 @@ class WebhookView(APIView):
                 # Check for potential template matches
                 if auto_settings and hasattr(auto_settings, 'greeting_template'):
                     try:
-                        alt_text = auto_settings.greeting_template.format(name=name, jobs=alt_jobs, sep=alt_sep, reason=reason)
+                        alt_text = auto_settings.greeting_template.format(name=name, jobs=alt_jobs, sep=alt_sep, reason=reason, greetings=greetings)
                         if _already_sent(lead_id, alt_text):
                             logger.warning(f"[AUTO-RESPONSE] ⚠️ POTENTIAL DUPLICATE DETECTED!")
                             logger.warning(f"[AUTO-RESPONSE] Similar message already sent with jobs='{alt_jobs}'")
@@ -1434,19 +1439,19 @@ class WebhookView(APIView):
                         logger.warning(f"[AUTO-RESPONSE] ⚠️ AI generation returned empty result, using template fallback")
                         # Fallback to template
                         if within_hours:
-                            greet_text = auto_settings.greeting_template.format(name=name, jobs=jobs, sep=sep, reason=reason)
+                            greet_text = auto_settings.greeting_template.format(name=name, jobs=jobs, sep=sep, reason=reason, greetings=greetings)
                             logger.info(f"[AUTO-RESPONSE] Template fallback (within hours): {greet_text[:100]}...")
                         else:
-                            greet_text = auto_settings.greeting_off_hours_template.format(name=name, jobs=jobs, sep=sep, reason=reason)
+                            greet_text = auto_settings.greeting_off_hours_template.format(name=name, jobs=jobs, sep=sep, reason=reason, greetings=greetings)
                             logger.info(f"[AUTO-RESPONSE] Template fallback (off hours): {greet_text[:100]}...")
                 else:
                     logger.warning(f"[AUTO-RESPONSE] ⚠️ AI service not available, using template fallback")
                     # Fallback to template
                     if within_hours:
-                        greet_text = auto_settings.greeting_template.format(name=name, jobs=jobs, sep=sep, reason=reason)
+                        greet_text = auto_settings.greeting_template.format(name=name, jobs=jobs, sep=sep, reason=reason, greetings=greetings)
                         logger.info(f"[AUTO-RESPONSE] Template fallback (within hours): {greet_text[:100]}...")
                     else:
-                        greet_text = auto_settings.greeting_off_hours_template.format(name=name, jobs=jobs, sep=sep, reason=reason)
+                        greet_text = auto_settings.greeting_off_hours_template.format(name=name, jobs=jobs, sep=sep, reason=reason, greetings=greetings)
                         logger.info(f"[AUTO-RESPONSE] Template fallback (off hours): {greet_text[:100]}...")
                         
             except Exception as e:
@@ -1455,10 +1460,10 @@ class WebhookView(APIView):
                 # Fallback to template on any error
                 logger.info(f"[AUTO-RESPONSE] Using template fallback due to AI error")
                 if within_hours:
-                    greet_text = auto_settings.greeting_template.format(name=name, jobs=jobs, sep=sep)
+                    greet_text = auto_settings.greeting_template.format(name=name, jobs=jobs, sep=sep, greetings=greetings)
                     logger.info(f"[AUTO-RESPONSE] Template fallback (within hours): {greet_text[:100]}...")
                 else:
-                    greet_text = auto_settings.greeting_off_hours_template.format(name=name, jobs=jobs, sep=sep)
+                    greet_text = auto_settings.greeting_off_hours_template.format(name=name, jobs=jobs, sep=sep, greetings=greetings)
                     logger.info(f"[AUTO-RESPONSE] Template fallback (off hours): {greet_text[:100]}...")
         else:
             # Traditional template-based approach
@@ -1473,11 +1478,11 @@ class WebhookView(APIView):
             if within_hours:
                 template = auto_settings.greeting_template
                 logger.info(f"[AUTO-RESPONSE] Using regular hours template: {template[:100]}...")
-                greet_text = template.format(name=name, jobs=jobs, sep=sep, reason=reason)
+                greet_text = template.format(name=name, jobs=jobs, sep=sep, reason=reason, greetings=greetings)
             else:
                 template = auto_settings.greeting_off_hours_template
                 logger.info(f"[AUTO-RESPONSE] Using off-hours template: {template[:100]}...")
-                greet_text = template.format(name=name, jobs=jobs, sep=sep, reason=reason)
+                greet_text = template.format(name=name, jobs=jobs, sep=sep, reason=reason, greetings=greetings)
             
             logger.info(f"[AUTO-RESPONSE] Template result: {greet_text[:100]}...")
         
@@ -1582,7 +1587,7 @@ class WebhookView(APIView):
         for tmpl in tpls:
             # Keep exact seconds precision - don't use int() which truncates
             delay = tmpl.delay.total_seconds()
-            text = tmpl.template.format(name=name, jobs=jobs, sep=sep, reason=reason)
+            text = tmpl.template.format(name=name, jobs=jobs, sep=sep, reason=reason, greetings=greetings)
             
             # Enhanced logging for precise timing debug
             logger.info(f"[AUTO-RESPONSE] ========= FOLLOW-UP TIMING DEBUG =========")

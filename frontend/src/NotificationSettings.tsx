@@ -48,6 +48,17 @@ const PLACEHOLDERS = [
 ] as const;
 type Placeholder = typeof PLACEHOLDERS[number];
 
+const PLACEHOLDER_DESCRIPTIONS: Record<string, string> = {
+  '{business_id}': 'Business ID from Yelp',
+  '{lead_id}': 'Unique lead identifier',
+  '{business_name}': 'Name of the business',
+  '{customer_name}': 'Customer display name',
+  '{timestamp}': 'Current date and time',
+  '{phone}': 'Customer phone number',
+  '{yelp_link}': 'Link to Yelp conversation',
+  '{reason}': 'Reason for notification (Phone Found, Customer Reply, Phone Opt-in)'
+};
+
 interface NotificationSetting {
   id: number;
   phone_number: string;
@@ -329,25 +340,30 @@ const NotificationSettings: React.FC<Props> = ({ businessId }) => {
                 <Typography variant="body2" sx={{ color: '#666', mb: 1, fontWeight: 500 }}>
                   Available placeholders:
                 </Typography>
-                <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                <Stack spacing={1}>
                   {PLACEHOLDERS.map(ph => (
-                    <Chip
-                      key={ph}
-                      label={ph}
-                      size="small"
-                      variant="outlined"
-                      clickable
-                      onClick={() => insertPlaceholder(ph, 'new')}
-                      sx={{
-                        borderColor: '#1976d2',
-                        color: '#1976d2',
-                        fontFamily: 'monospace',
-                        fontSize: '0.75rem',
-                        '&:hover': {
-                          backgroundColor: '#e3f2fd',
-                        },
-                      }}
-                    />
+                    <Box key={ph} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Chip
+                        label={ph}
+                        size="small"
+                        variant="outlined"
+                        clickable
+                        onClick={() => insertPlaceholder(ph, 'new')}
+                        sx={{
+                          borderColor: '#1976d2',
+                          color: '#1976d2',
+                          fontFamily: 'monospace',
+                          fontSize: '0.75rem',
+                          minWidth: '120px',
+                          '&:hover': {
+                            backgroundColor: '#e3f2fd',
+                          },
+                        }}
+                      />
+                      <Typography variant="caption" sx={{ color: '#888', fontSize: '0.75rem' }}>
+                        {PLACEHOLDER_DESCRIPTIONS[ph]}
+                      </Typography>
+                    </Box>
                   ))}
                 </Stack>
               </Box>
@@ -517,25 +533,30 @@ const NotificationSettings: React.FC<Props> = ({ businessId }) => {
             <Typography variant="body2" sx={{ color: '#666', mb: 1, fontWeight: 500 }}>
               Available placeholders:
             </Typography>
-            <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+            <Stack spacing={1}>
               {PLACEHOLDERS.map(ph => (
-                <Chip
-                  key={ph}
-                  label={ph}
-                  size="small"
-                  variant="outlined"
-                  clickable
-                  onClick={() => insertPlaceholder(ph, 'edit')}
-                  sx={{
-                    borderColor: '#1976d2',
-                    color: '#1976d2',
-                    fontFamily: 'monospace',
-                    fontSize: '0.75rem',
-                    '&:hover': {
-                      backgroundColor: '#e3f2fd',
-                    },
-                  }}
-                />
+                <Box key={ph} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Chip
+                    label={ph}
+                    size="small"
+                    variant="outlined"
+                    clickable
+                    onClick={() => insertPlaceholder(ph, 'edit')}
+                    sx={{
+                      borderColor: '#1976d2',
+                      color: '#1976d2',
+                      fontFamily: 'monospace',
+                      fontSize: '0.75rem',
+                      minWidth: '120px',
+                      '&:hover': {
+                        backgroundColor: '#e3f2fd',
+                      },
+                    }}
+                  />
+                  <Typography variant="caption" sx={{ color: '#888', fontSize: '0.75rem' }}>
+                    {PLACEHOLDER_DESCRIPTIONS[ph]}
+                  </Typography>
+                </Box>
               ))}
             </Stack>
           </Box>

@@ -24,8 +24,14 @@ import {
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 
-const PLACEHOLDERS = ['{name}', '{jobs}', '{sep}', '{reason}'] as const;
+const PLACEHOLDERS = ['{name}', '{jobs}', '{greetings}'] as const;
 type Placeholder = typeof PLACEHOLDERS[number];
+
+const PLACEHOLDER_DESCRIPTIONS: Record<string, string> = {
+  '{name}': 'Customer display name',
+  '{jobs}': 'List of services requested',
+  '{greetings}': 'Time-based greeting (Good morning, Good afternoon, etc.)'
+};
 
 interface FollowUpTemplate {
   template: string;
@@ -273,11 +279,26 @@ const SettingsTemplates: React.FC = () => {
           <Stack spacing={2} sx={{ mt:1 }}>
             <TextField label="Name" fullWidth value={name} onChange={e=>setName(e.target.value)}/>
             <TextField label="Description" fullWidth value={description} onChange={e=>setDescription(e.target.value)}/>
-            <Stack direction="row" spacing={1} mb={1}>
+            <Stack spacing={1} sx={{ mb: 1 }}>
+              <Typography variant="caption" sx={{ fontWeight: 600 }}>Insert Variables:</Typography>
               {PLACEHOLDERS.map(ph => (
-                <Button key={ph} size="small" variant="outlined" onClick={() => insertPlaceholder(ph, 'greeting')}>
-                  {ph}
-                </Button>
+                <Box key={ph} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Button 
+                    size="small" 
+                    variant="outlined" 
+                    onClick={() => insertPlaceholder(ph, 'greeting')}
+                    sx={{ 
+                      minWidth: '80px',
+                      fontFamily: 'monospace',
+                      fontSize: '0.7rem'
+                    }}
+                  >
+                    {ph}
+                  </Button>
+                  <Typography variant="caption" sx={{ color: '#888', fontSize: '0.7rem' }}>
+                    {PLACEHOLDER_DESCRIPTIONS[ph]}
+                  </Typography>
+                </Box>
               ))}
             </Stack>
             <TextField
@@ -328,11 +349,26 @@ const SettingsTemplates: React.FC = () => {
             </List>
             <Stack direction="row" spacing={2} alignItems="flex-start" flexWrap="wrap" mt={2}>
               <Box flexGrow={1}>
-                <Stack direction="row" spacing={1} mb={1}>
+                <Stack spacing={1} sx={{ mb: 1 }}>
+                  <Typography variant="caption" sx={{ fontWeight: 600 }}>Insert Variables:</Typography>
                   {PLACEHOLDERS.map(ph => (
-                    <Button key={ph} size="small" variant="outlined" onClick={() => insertPlaceholder(ph, 'template')}>
-                      {ph}
-                    </Button>
+                    <Box key={ph} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Button 
+                        size="small" 
+                        variant="outlined" 
+                        onClick={() => insertPlaceholder(ph, 'template')}
+                        sx={{ 
+                          minWidth: '80px',
+                          fontFamily: 'monospace',
+                          fontSize: '0.7rem'
+                        }}
+                      >
+                        {ph}
+                      </Button>
+                      <Typography variant="caption" sx={{ color: '#888', fontSize: '0.7rem' }}>
+                        {PLACEHOLDER_DESCRIPTIONS[ph]}
+                      </Typography>
+                    </Box>
                   ))}
                 </Stack>
                 <TextField

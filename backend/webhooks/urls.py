@@ -13,7 +13,7 @@ from .views import (
     NotificationSettingListCreateView,
     NotificationSettingDetailView,
 )
-from .lead_views import BusinessSMSSettingsView, AIPreviewView, AIGlobalSettingsView, AITestPreviewView
+from .lead_views import BusinessSMSSettingsView, AIPreviewView, AIGlobalSettingsView, AITestPreviewView, TimeBasedGreetingView
 from .task_views import TaskLogListView, TaskStatsView, TaskRevokeView, MessageTaskListView
 from .sms_views import SendSMSAPIView, SMSLogListView, SMSStatsView
 
@@ -103,4 +103,5 @@ urlpatterns = [
     path('notifications/', NotificationSettingListCreateView.as_view(), name='notification-list'),
     path('notifications/<int:pk>/', NotificationSettingDetailView.as_view(), name='notification-detail'),
     path('business-sms-settings/', BusinessSMSSettingsView.as_view(), name='business-sms-settings'),
+    path('time-greetings/', TimeBasedGreetingView.as_view(), name='time-greetings'),
 ]

@@ -478,3 +478,114 @@ def _texts_are_similar(text1: str, text2: str, similarity_threshold: float = 0.8
     
     return ratio >= similarity_threshold
 
+
+def get_time_based_greeting(business_id: str = None, current_time=None):
+    """
+    Get time-based greeting for a business or global default
+    
+    Args:
+        business_id: Business ID for business-specific greetings
+        current_time: datetime object (defaults to now in business timezone)
+    
+    Returns:
+        str: Appropriate greeting based on time of day
+    """
+    from datetime import datetime, time
+    from django.utils import timezone
+    from .models import TimeBasedGreeting, YelpBusiness
+    
+    if current_time is None:
+        current_time = timezone.now()
+    
+    # Get greeting settings
+    greeting_settings = None
+    
+    if business_id:
+        try:
+            business = YelpBusiness.objects.get(business_id=business_id)
+            greeting_settings = TimeBasedGreeting.objects.filter(business=business).first()
+            
+            # Convert to business timezone if available
+            if business.time_zone:
+                import pytz
+                try:
+                    business_tz = pytz.timezone(business.time_zone)
+                    current_time = current_time.astimezone(business_tz)
+                except:
+                    pass  # Use UTC if timezone conversion fails
+        except YelpBusiness.DoesNotExist:
+            pass
+    
+    # Fall back to global default if no business-specific settings
+    if not greeting_settings:
+        greeting_settings = TimeBasedGreeting.objects.filter(business__isnull=True).first()
+    
+    # Use default values if no settings found
+    if not greeting_settings:
+        morning_start = time(5, 0)
+        morning_end = time(12, 0)
+        afternoon_start = time(12, 0) 
+        afternoon_end = time(17, 0)
+        evening_start = time(17, 0)
+        evening_end = time(21, 0)
+        
+        morning_formal = "Good morning"
+        morning_casual = "Morning!"
+        afternoon_formal = "Good afternoon"
+        afternoon_casual = "Hi"
+        evening_formal = "Good evening"
+        evening_casual = "Evening!"
+        night_greeting = "Hello"
+        default_style = "formal"
+    else:
+        morning_start = greeting_settings.morning_start
+        morning_end = greeting_settings.morning_end
+        afternoon_start = greeting_settings.afternoon_start
+        afternoon_end = greeting_settings.afternoon_end
+        evening_start = greeting_settings.evening_start
+        evening_end = greeting_settings.evening_end
+        
+        morning_formal = greeting_settings.morning_formal
+        morning_casual = greeting_settings.morning_casual
+        afternoon_formal = greeting_settings.afternoon_formal
+        afternoon_casual = greeting_settings.afternoon_casual
+        evening_formal = greeting_settings.evening_formal
+        evening_casual = greeting_settings.evening_casual
+        night_greeting = greeting_settings.night_greeting
+        default_style = greeting_settings.default_style
+    
+    current_time_only = current_time.time()
+    
+    # Determine greeting based on time
+    if morning_start <= current_time_only < morning_end:
+        # Morning
+        if default_style == 'casual':
+            return morning_casual
+        elif default_style == 'mixed':
+            # Use formal for early morning, casual later
+            return morning_formal if current_time_only < time(9, 0) else morning_casual
+        else:  # formal
+            return morning_formal
+    
+    elif afternoon_start <= current_time_only < afternoon_end:
+        # Afternoon
+        if default_style == 'casual':
+            return afternoon_casual
+        elif default_style == 'mixed':
+            return afternoon_casual  # Afternoon is usually less formal
+        else:  # formal
+            return afternoon_formal
+    
+    elif evening_start <= current_time_only < evening_end:
+        # Evening
+        if default_style == 'casual':
+            return evening_casual
+        elif default_style == 'mixed':
+            return evening_casual  # Evening is usually casual
+        else:  # formal
+            return evening_formal
+    
+    else:
+        # Night (after evening_end or before morning_start)
+        return night_greeting
+

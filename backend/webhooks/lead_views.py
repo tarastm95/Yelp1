@@ -16,6 +16,7 @@ from .models import (
     LeadEvent,
     NotificationSetting,
     AISettings,
+    TimeBasedGreeting,
 )
 from .pagination import FivePerPagePagination
 from .serializers import (
@@ -28,6 +29,7 @@ from .serializers import (
     LeadEventSerializer,
     NotificationSettingSerializer,
     AISettingsSerializer,
+    TimeBasedGreetingSerializer,
 )
 from .ai_service import OpenAIService
 
@@ -711,3 +713,76 @@ class AITestPreviewView(APIView):
                 'success': False,
                 'error': f'Failed to generate preview: {str(e)}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class TimeBasedGreetingView(APIView):
+    """Manage time-based greetings for businesses"""
+
+    def get(self, request):
+        business_id = request.query_params.get('business_id')
+        
+        if business_id:
+            # Get business-specific greetings
+            try:
+                business = YelpBusiness.objects.get(business_id=business_id)
+                greeting = TimeBasedGreeting.objects.filter(business=business).first()
+            except YelpBusiness.DoesNotExist:
+                return Response({'error': 'Business not found'}, status=status.HTTP_404_NOT_FOUND)
+        else:
+            # Get global default greetings
+            greeting = TimeBasedGreeting.objects.filter(business__isnull=True).first()
+        
+        if greeting:
+            serializer = TimeBasedGreetingSerializer(greeting)
+            return Response(serializer.data)
+        else:
+            # Return default values if no greeting settings exist
+            return Response({
+                'morning_start': '05:00',
+                'morning_end': '12:00',
+                'afternoon_start': '12:00', 
+                'afternoon_end': '17:00',
+                'evening_start': '17:00',
+                'evening_end': '21:00',
+                'morning_formal': 'Good morning',
+                'morning_casual': 'Morning!',
+                'afternoon_formal': 'Good afternoon',
+                'afternoon_casual': 'Hi',
+                'evening_formal': 'Good evening',
+                'evening_casual': 'Evening!',
+                'night_greeting': 'Hello',
+                'default_style': 'formal'
+            })
+
+    def post(self, request):
+        business_id = request.data.get('business_id')
+        
+        if business_id:
+            try:
+                business = YelpBusiness.objects.get(business_id=business_id)
+                greeting, created = TimeBasedGreeting.objects.get_or_create(
+                    business=business,
+                    defaults=request.data
+                )
+            except YelpBusiness.DoesNotExist:
+                return Response({'error': 'Business not found'}, status=status.HTTP_404_NOT_FOUND)
+        else:
+            # Global default greetings
+            greeting, created = TimeBasedGreeting.objects.get_or_create(
+                business__isnull=True,
+                defaults=request.data
+            )
+        
+        if not created:
+            # Update existing greeting
+            serializer = TimeBasedGreetingSerializer(greeting, data=request.data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            serializer = TimeBasedGreetingSerializer(greeting)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def put(self, request):
+        return self.post(request)

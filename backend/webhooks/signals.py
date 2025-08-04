@@ -6,6 +6,7 @@ import logging
 
 from .models import LeadDetail, NotificationSetting, YelpBusiness
 from .twilio_utils import send_sms
+from .utils import get_time_based_greeting
 
 logger = logging.getLogger(__name__)
 
@@ -143,6 +144,10 @@ def notify_new_lead(sender, instance: LeadDetail, created: bool, **kwargs):
             else:
                 reason = "Customer Reply"
             
+            # Get time-based greeting
+            greetings = get_time_based_greeting(business_id=instance.business_id)
+            logger.info(f"[SMS-NOTIFICATION] 🕐 Time-based greeting: {greetings}")
+            
             message = setting.message_template.format(
                 business_id=instance.business_id,
                 lead_id=instance.lead_id,
@@ -152,6 +157,7 @@ def notify_new_lead(sender, instance: LeadDetail, created: bool, **kwargs):
                 phone=instance.phone_number,
                 yelp_link=yelp_link,
                 reason=reason,
+                greetings=greetings,
             )
             logger.info(f"[SMS-NOTIFICATION] ✅ Message formatted successfully")
             logger.info(f"[SMS-NOTIFICATION] Formatted message: {message[:100]}..." + ("" if len(message) <= 100 else " (truncated)"))
