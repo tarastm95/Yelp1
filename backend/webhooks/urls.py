@@ -14,8 +14,8 @@ from .views import (
     NotificationSettingDetailView,
 )
 from .lead_views import BusinessSMSSettingsView, AIPreviewView, AIGlobalSettingsView, AITestPreviewView
-from .task_views import TaskLogListView, MessageTaskListView, TaskRevokeView
-from .sms_views import SendSMSAPIView, SMSLogListView
+from .task_views import TaskLogListView, TaskStatsView, TaskRevokeView, MessageTaskListView
+from .sms_views import SendSMSAPIView, SMSLogListView, SMSStatsView
 
 urlpatterns = [
     path('webhook/', WebhookView.as_view(), name='webhook'),
@@ -94,10 +94,12 @@ urlpatterns = [
     path('follow-up-templates/<int:pk>/', FollowUpTemplateDetailView.as_view(), name='followup-detail'),
     path('tokens/', YelpTokenListView.as_view(), name='token-list'),
     path('tasks/', TaskLogListView.as_view(), name='task-log-list'),
+    path('tasks/stats/', TaskStatsView.as_view(), name='task-stats'),
     path('tasks/<str:task_id>/cancel/', TaskRevokeView.as_view(), name='task-revoke'),
     path('message_tasks/', MessageTaskListView.as_view(), name='message-task-list'),
     path('send-sms/', SendSMSAPIView.as_view(), name='send-sms'),
     path('sms-logs/', SMSLogListView.as_view(), name='sms-log-list'),
+    path('sms-logs/stats/', SMSStatsView.as_view(), name='sms-stats'),
     path('notifications/', NotificationSettingListCreateView.as_view(), name='notification-list'),
     path('notifications/<int:pk>/', NotificationSettingDetailView.as_view(), name='notification-detail'),
     path('business-sms-settings/', BusinessSMSSettingsView.as_view(), name='business-sms-settings'),

@@ -125,6 +125,72 @@ class SendSMSAPIView(APIView):
             raise
 
 
+class SMSStatsView(APIView):
+    """Return SMS statistics without pagination."""
+
+    def get(self, request):
+        """Return counts of SMS by status with optional business filtering."""
+        logger.info(f"[SMS-STATS] 📊 SMS Stats API request")
+        logger.info(f"[SMS-STATS] Query params: {dict(request.query_params)}")
+        
+        # Base queryset
+        qs = SMSLog.objects.all()
+        
+        # Apply business filtering if provided
+        business_id = request.query_params.get("business_id")
+        if business_id:
+            logger.info(f"[SMS-STATS] Filtering by business_id: {business_id}")
+            qs = qs.filter(business_id=business_id)
+        
+        # Apply purpose filtering if provided
+        purpose = request.query_params.get("purpose")
+        if purpose:
+            logger.info(f"[SMS-STATS] Filtering by purpose: {purpose}")
+            qs = qs.filter(purpose=purpose)
+        
+        # Apply status filtering if provided
+        status_param = request.query_params.get("status")
+        if status_param:
+            logger.info(f"[SMS-STATS] Filtering by status: {status_param}")
+            qs = qs.filter(status=status_param)
+        
+        # Optional date filtering
+        sent_after = request.query_params.get("sent_after")
+        if sent_after:
+            logger.info(f"[SMS-STATS] Filtering by sent_after: {sent_after}")
+            qs = qs.filter(sent_at__gte=sent_after)
+        
+        # Count by status - successful includes: queued, accepted, sending, sent, delivered
+        successful_statuses = ['queued', 'accepted', 'sending', 'sent', 'delivered']
+        failed_statuses = ['failed', 'undelivered']
+        pending_statuses = ['queued', 'accepted', 'sending']
+        
+        successful_count = qs.filter(status__iregex=r'^(' + '|'.join(successful_statuses) + ')$').count()
+        failed_count = qs.filter(status__iregex=r'^(' + '|'.join(failed_statuses) + ')$').count()
+        pending_count = qs.filter(status__iregex=r'^(' + '|'.join(pending_statuses) + ')$').count()
+        total_count = qs.count()
+        
+        # Calculate total cost
+        total_cost = 0.0
+        for sms in qs.exclude(price__isnull=True).exclude(price=''):
+            try:
+                price = float(sms.price)
+                total_cost += price
+            except (ValueError, TypeError):
+                pass
+        
+        stats = {
+            'successful': successful_count,
+            'failed': failed_count,
+            'pending': pending_count,
+            'total': total_count,
+            'total_cost': round(total_cost, 3)
+        }
+        
+        logger.info(f"[SMS-STATS] Returning stats: {stats}")
+        return Response(stats)
+
+
 class SMSLogListView(generics.ListAPIView):
     """Return SMS logs with optional filtering by business, status, purpose, etc."""
     

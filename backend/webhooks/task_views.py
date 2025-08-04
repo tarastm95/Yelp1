@@ -76,6 +76,42 @@ class MessageTaskListView(generics.ListAPIView):
         )
 
 
+class TaskStatsView(APIView):
+    """Return task statistics without pagination."""
+
+    def get(self, request):
+        """Return counts of tasks by status with optional business filtering."""
+        logger.info(f"[TASK-STATS] 📊 Task Stats API request")
+        logger.info(f"[TASK-STATS] Query params: {dict(request.query_params)}")
+        
+        # Base queryset
+        qs = CeleryTaskLog.objects.all()
+        
+        # Apply business filtering if provided
+        business_id = request.query_params.get("business_id")
+        if business_id:
+            logger.info(f"[TASK-STATS] Filtering by business_id: {business_id}")
+            qs = qs.filter(business_id=business_id)
+        
+        # Optional date filtering
+        started_after = request.query_params.get("started_after")
+        if started_after:
+            logger.info(f"[TASK-STATS] Filtering by started_after: {started_after}")
+            qs = qs.filter(finished_at__gte=started_after)
+        
+        # Count by status
+        stats = {
+            'successful': qs.filter(status='SUCCESS').count(),
+            'failed': qs.filter(status='FAILURE').count(),
+            'scheduled': qs.filter(status='SCHEDULED').count(),
+            'canceled': qs.filter(status='REVOKED').count(),
+        }
+        stats['total'] = stats['successful'] + stats['failed'] + stats['scheduled'] + stats['canceled']
+        
+        logger.info(f"[TASK-STATS] Returning stats: {stats}")
+        return Response(stats)
+
+
 class TaskRevokeView(APIView):
     """Revoke a scheduled task and log the reason."""
 

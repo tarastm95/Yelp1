@@ -98,6 +98,16 @@ const TaskLogs: React.FC = () => {
   
   // Ref for scroll container
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  
+  // Statistics state (separate from paginated data)
+  const [statistics, setStatistics] = useState({
+    successful: 0,
+    failed: 0,
+    scheduled: 0,
+    canceled: 0,
+    total: 0
+  });
+  
   const [confirmDialog, setConfirmDialog] = useState<{open: boolean, task: TaskLog | null}>({
     open: false,
     task: null
@@ -142,6 +152,23 @@ const TaskLogs: React.FC = () => {
       setHasMoreCompleted(!!completedRes.data.next);
       setHasMoreScheduled(!!scheduledRes.data.next);
       setHasMoreCanceled(!!canceledRes.data.next);
+      
+      // Load statistics separately from a dedicated endpoint
+      const businessParam = selectedBusiness ? `?business_id=${selectedBusiness}` : '';
+      try {
+        const statsRes = await axios.get(`/tasks/stats/${businessParam}`);
+        setStatistics(statsRes.data);
+      } catch (statsError) {
+        console.error('Failed to load task statistics:', statsError);
+        // Fallback to default statistics
+        setStatistics({
+          successful: 0,
+          failed: 0,
+          scheduled: 0,
+          canceled: 0,
+          total: 0
+        });
+      }
       
     } catch (error) {
       setSnackbar({
@@ -338,6 +365,14 @@ const TaskLogs: React.FC = () => {
     try {
       await axios.post(`/tasks/${taskId}/cancel/`, { reason: 'Cancelled via UI' });
       setScheduledTasks(tasks => tasks.filter(t => t.task_id !== taskId));
+      
+      // Update statistics after canceling a task
+      setStatistics(prev => ({
+        ...prev,
+        scheduled: prev.scheduled - 1,
+        canceled: prev.canceled + 1
+      }));
+      
       setSnackbar({
         open: true,
         message: 'Task successfully canceled',
@@ -391,9 +426,6 @@ const TaskLogs: React.FC = () => {
 
   const currentTasks = tab === 'completed' ? completedTasks : 
                      tab === 'scheduled' ? scheduledTasks : canceledTasks;
-
-  const successfulTasks = completedTasks.filter(t => t.status === 'SUCCESS').length;
-  const failedTasks = completedTasks.filter(t => t.status === 'FAILURE').length;
 
   return (
     <Box sx={{ 
@@ -462,7 +494,7 @@ const TaskLogs: React.FC = () => {
                   
                   <Chip
                     icon={<TrendingUpIcon />}
-                    label={`${completedTasks.length + scheduledTasks.length + canceledTasks.length} ${selectedBusiness ? 'Filtered' : 'Total'} Tasks`}
+                    label={`${statistics.total} ${selectedBusiness ? 'Filtered' : 'Total'} Tasks`}
                     sx={{
                       background: 'rgba(255, 255, 255, 0.2)',
                       color: 'white',
@@ -617,7 +649,7 @@ const TaskLogs: React.FC = () => {
                 </Avatar>
                 
                 <Typography variant="h4" sx={{ fontWeight: 700, mb: 1, color: 'success.main' }}>
-                  {successfulTasks}
+                  {statistics.successful}
                 </Typography>
                 
                 <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
@@ -647,7 +679,7 @@ const TaskLogs: React.FC = () => {
                 </Avatar>
                 
                 <Typography variant="h4" sx={{ fontWeight: 700, mb: 1, color: 'info.main' }}>
-                  {scheduledTasks.length}
+                  {statistics.scheduled}
                 </Typography>
                 
                 <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
@@ -677,7 +709,7 @@ const TaskLogs: React.FC = () => {
                 </Avatar>
                 
                 <Typography variant="h4" sx={{ fontWeight: 700, mb: 1, color: 'error.main' }}>
-                  {failedTasks}
+                  {statistics.failed}
                 </Typography>
                 
                 <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
@@ -707,7 +739,7 @@ const TaskLogs: React.FC = () => {
                 </Avatar>
                 
                 <Typography variant="h4" sx={{ fontWeight: 700, mb: 1, color: 'warning.main' }}>
-                  {canceledTasks.length}
+                  {statistics.canceled}
                 </Typography>
                 
                 <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
@@ -763,7 +795,7 @@ const TaskLogs: React.FC = () => {
               <Tab 
                 label={
                   <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <Badge badgeContent={completedTasks.length} color="primary" sx={{ mr: 1 }}>
+                    <Badge badgeContent={statistics.successful + statistics.failed} color="primary" sx={{ mr: 1 }}>
                       <CheckCircleIcon />
                     </Badge>
                     <Typography sx={{ ml: 1 }}>Completed</Typography>
@@ -774,7 +806,7 @@ const TaskLogs: React.FC = () => {
               <Tab 
                 label={
                   <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <Badge badgeContent={scheduledTasks.length} color="info" sx={{ mr: 1 }}>
+                    <Badge badgeContent={statistics.scheduled} color="info" sx={{ mr: 1 }}>
                       <ScheduleIcon />
                     </Badge>
                     <Typography sx={{ ml: 1 }}>Scheduled</Typography>
@@ -785,7 +817,7 @@ const TaskLogs: React.FC = () => {
               <Tab 
                 label={
                   <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <Badge badgeContent={canceledTasks.length} color="warning" sx={{ mr: 1 }}>
+                    <Badge badgeContent={statistics.canceled} color="warning" sx={{ mr: 1 }}>
                       <CancelIcon />
                     </Badge>
                     <Typography sx={{ ml: 1 }}>Canceled</Typography>

@@ -94,6 +94,15 @@ const SMSLogs: React.FC = () => {
   // Ref for scroll container
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   
+  // Statistics state (separate from paginated data)
+  const [statistics, setStatistics] = useState({
+    successful: 0,
+    failed: 0,
+    pending: 0,
+    total: 0,
+    total_cost: 0.0
+  });
+  
   const [snackbar, setSnackbar] = useState<{open: boolean, message: string, severity: 'success' | 'error'}>({
     open: false,
     message: '',
@@ -124,6 +133,27 @@ const SMSLogs: React.FC = () => {
       
       // Update hasMore state based on API response
       setHasMore(!!smsRes.data.next);
+      
+      // Load statistics separately from a dedicated endpoint
+      const params = new URLSearchParams();
+      if (selectedBusiness) params.append('business_id', selectedBusiness);
+      if (selectedPurpose) params.append('purpose', selectedPurpose);
+      if (selectedStatus) params.append('status', selectedStatus);
+      
+      try {
+        const statsRes = await axios.get(`/sms-logs/stats/?${params.toString()}`);
+        setStatistics(statsRes.data);
+      } catch (statsError) {
+        console.error('Failed to load SMS statistics:', statsError);
+        // Fallback to default statistics
+        setStatistics({
+          successful: 0,
+          failed: 0,
+          pending: 0,
+          total: 0,
+          total_cost: 0.0
+        });
+      }
       
     } catch (error) {
       setSnackbar({
@@ -259,29 +289,12 @@ const SMSLogs: React.FC = () => {
     }
   };
 
-  // Stats calculations
-  const totalSMS = smsLogs.length;
-  const sentSMS = smsLogs.filter(sms => {
-    const status = sms.status.toLowerCase();
-    // Successful statuses according to Twilio documentation:
-    // - queued: API request successful, message queued
-    // - accepted: Messaging Service received message
-    // - sending: Twilio is sending to carrier
-    // - sent: Carrier accepted message
-    // - delivered: Message delivered to handset
-    return ['queued', 'accepted', 'sending', 'sent', 'delivered'].includes(status);
-  }).length;
-  const failedSMS = smsLogs.filter(sms => ['failed', 'undelivered'].includes(sms.status.toLowerCase())).length;
-  const pendingSMS = smsLogs.filter(sms => {
-    const status = sms.status.toLowerCase();
-    return ['queued', 'accepted', 'sending'].includes(status);
-  }).length;
-  const totalCost = smsLogs.reduce((sum, sms) => {
-    if (sms.price && !isNaN(parseFloat(sms.price))) {
-      return sum + parseFloat(sms.price);
-    }
-    return sum;
-  }, 0);
+  // Use statistics from API instead of calculating from loaded SMS
+  const totalSMS = statistics.total;
+  const sentSMS = statistics.successful;
+  const failedSMS = statistics.failed;
+  const pendingSMS = statistics.pending;
+  const totalCost = statistics.total_cost;
 
   if (loading) {
     return (
@@ -696,7 +709,7 @@ const SMSLogs: React.FC = () => {
         <Card elevation={2} sx={{ borderRadius: 3, mb: 4 }}>
           <CardContent sx={{ p: 3 }}>
             <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>
-              SMS Messages ({smsLogs.length})
+              SMS Messages ({totalSMS} total, {smsLogs.length} loaded)
             </Typography>
             
             {/* Scrollable container for SMS list */}
