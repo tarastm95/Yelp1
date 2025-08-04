@@ -529,14 +529,10 @@ def get_time_based_greeting(business_id: str = None, current_time=None):
         evening_start = time(17, 0)
         evening_end = time(21, 0)
         
-        morning_formal = "Good morning"
-        morning_casual = "Morning!"
-        afternoon_formal = "Good afternoon"
-        afternoon_casual = "Hi"
-        evening_formal = "Good evening"
-        evening_casual = "Evening!"
+        morning_greeting = "Good morning"
+        afternoon_greeting = "Good afternoon"
+        evening_greeting = "Good evening"
         night_greeting = "Hello"
-        default_style = "formal"
     else:
         morning_start = greeting_settings.morning_start
         morning_end = greeting_settings.morning_end
@@ -545,46 +541,20 @@ def get_time_based_greeting(business_id: str = None, current_time=None):
         evening_start = greeting_settings.evening_start
         evening_end = greeting_settings.evening_end
         
-        morning_formal = greeting_settings.morning_formal
-        morning_casual = greeting_settings.morning_casual
-        afternoon_formal = greeting_settings.afternoon_formal
-        afternoon_casual = greeting_settings.afternoon_casual
-        evening_formal = greeting_settings.evening_formal
-        evening_casual = greeting_settings.evening_casual
+        morning_greeting = greeting_settings.morning_greeting
+        afternoon_greeting = greeting_settings.afternoon_greeting
+        evening_greeting = greeting_settings.evening_greeting
         night_greeting = greeting_settings.night_greeting
-        default_style = greeting_settings.default_style
     
     current_time_only = current_time.time()
     
-    # Determine greeting based on time
+    # Determine greeting based on time - simple and clean
     if morning_start <= current_time_only < morning_end:
-        # Morning
-        if default_style == 'casual':
-            return morning_casual
-        elif default_style == 'mixed':
-            # Use formal for early morning, casual later
-            return morning_formal if current_time_only < time(9, 0) else morning_casual
-        else:  # formal
-            return morning_formal
-    
+        return morning_greeting
     elif afternoon_start <= current_time_only < afternoon_end:
-        # Afternoon
-        if default_style == 'casual':
-            return afternoon_casual
-        elif default_style == 'mixed':
-            return afternoon_casual  # Afternoon is usually less formal
-        else:  # formal
-            return afternoon_formal
-    
+        return afternoon_greeting
     elif evening_start <= current_time_only < evening_end:
-        # Evening
-        if default_style == 'casual':
-            return evening_casual
-        elif default_style == 'mixed':
-            return evening_casual  # Evening is usually casual
-        else:  # formal
-            return evening_formal
-    
+        return evening_greeting
     else:
         # Night (after evening_end or before morning_start)
         return night_greeting

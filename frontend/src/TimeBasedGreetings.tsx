@@ -6,20 +6,19 @@ import {
   Typography,
   TextField,
   Button,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Grid,
   Alert,
   Paper,
   Divider,
   Stack,
-  Switch,
-  FormControlLabel,
+  Chip,
 } from '@mui/material';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import SaveIcon from '@mui/icons-material/Save';
+import WbSunnyIcon from '@mui/icons-material/WbSunny';
+import LightModeIcon from '@mui/icons-material/LightMode';
+import Brightness3Icon from '@mui/icons-material/Brightness3';
+import NightsStayIcon from '@mui/icons-material/NightsStay';
 import axios from 'axios';
 
 interface TimeBasedGreeting {
@@ -31,14 +30,10 @@ interface TimeBasedGreeting {
   afternoon_end: string;
   evening_start: string;
   evening_end: string;
-  morning_formal: string;
-  morning_casual: string;
-  afternoon_formal: string;
-  afternoon_casual: string;
-  evening_formal: string;
-  evening_casual: string;
+  morning_greeting: string;
+  afternoon_greeting: string;
+  evening_greeting: string;
   night_greeting: string;
-  default_style: string;
 }
 
 interface Props {
@@ -53,14 +48,10 @@ const TimeBasedGreetings: React.FC<Props> = ({ businessId }) => {
     afternoon_end: '17:00',
     evening_start: '17:00',
     evening_end: '21:00',
-    morning_formal: 'Good morning',
-    morning_casual: 'Morning!',
-    afternoon_formal: 'Good afternoon',
-    afternoon_casual: 'Hi',
-    evening_formal: 'Good evening',
-    evening_casual: 'Evening!',
+    morning_greeting: 'Good morning',
+    afternoon_greeting: 'Good afternoon',
+    evening_greeting: 'Good evening',
     night_greeting: 'Hello',
-    default_style: 'formal',
   });
 
   const [loading, setLoading] = useState(false);
@@ -102,244 +93,278 @@ const TimeBasedGreetings: React.FC<Props> = ({ businessId }) => {
   };
 
   // Get current greeting based on current time (for preview)
-  const getCurrentGreeting = (): string => {
+  const getCurrentGreeting = (): { greeting: string; period: string; icon: React.ReactNode } => {
     const now = new Date();
     const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
     
     if (currentTime >= greetings.morning_start && currentTime < greetings.morning_end) {
-      return greetings.default_style === 'casual' ? greetings.morning_casual : greetings.morning_formal;
+      return { 
+        greeting: greetings.morning_greeting, 
+        period: 'Morning', 
+        icon: <WbSunnyIcon sx={{ color: '#FF9800', mr: 1 }} /> 
+      };
     } else if (currentTime >= greetings.afternoon_start && currentTime < greetings.afternoon_end) {
-      return greetings.default_style === 'casual' ? greetings.afternoon_casual : greetings.afternoon_formal;
+      return { 
+        greeting: greetings.afternoon_greeting, 
+        period: 'Afternoon', 
+        icon: <LightModeIcon sx={{ color: '#FFC107', mr: 1 }} /> 
+      };
     } else if (currentTime >= greetings.evening_start && currentTime < greetings.evening_end) {
-      return greetings.default_style === 'casual' ? greetings.evening_casual : greetings.evening_formal;
+      return { 
+        greeting: greetings.evening_greeting, 
+        period: 'Evening', 
+        icon: <Brightness3Icon sx={{ color: '#673AB7', mr: 1 }} /> 
+      };
     } else {
-      return greetings.night_greeting;
+      return { 
+        greeting: greetings.night_greeting, 
+        period: 'Night', 
+        icon: <NightsStayIcon sx={{ color: '#3F51B5', mr: 1 }} /> 
+      };
     }
   };
 
+  const currentGreeting = getCurrentGreeting();
+
   return (
-    <Box p={3}>
-      <Card elevation={3}>
-        <CardContent>
-          <Typography variant="h5" gutterBottom sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-            <AccessTimeIcon sx={{ mr: 1, color: 'primary.main' }} />
-            Time-Based Greetings Configuration
+    <Box p={3} sx={{ maxWidth: 1200, mx: 'auto' }}>
+      <Card elevation={4} sx={{ borderRadius: 3, overflow: 'hidden' }}>
+        <Box sx={{ 
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
+          color: 'white', 
+          p: 3 
+        }}>
+          <Typography variant="h4" gutterBottom sx={{ display: 'flex', alignItems: 'center', fontWeight: 600 }}>
+            <AccessTimeIcon sx={{ mr: 2, fontSize: 40 }} />
+            Time-Based Greetings
             {businessId && (
-              <Typography variant="body2" sx={{ ml: 2, color: 'text.secondary' }}>
-                (Business-specific)
-              </Typography>
+              <Chip 
+                label="Business-specific" 
+                size="small" 
+                sx={{ ml: 2, backgroundColor: 'rgba(255,255,255,0.2)', color: 'white' }} 
+              />
             )}
           </Typography>
+          <Typography variant="body1" sx={{ opacity: 0.9 }}>
+            Configure dynamic greetings that change throughout the day
+          </Typography>
+        </Box>
 
+        <CardContent sx={{ p: 4 }}>
           {message && (
             <Alert severity={message.type} sx={{ mb: 3 }} onClose={() => setMessage(null)}>
               {message.text}
             </Alert>
           )}
 
-          {/* Preview Section */}
-          <Paper elevation={1} sx={{ p: 2, mb: 3, backgroundColor: 'primary.50' }}>
-            <Typography variant="h6" gutterBottom>
-              Current Greeting Preview
+          {/* Live Preview */}
+          <Paper 
+            elevation={2} 
+            sx={{ 
+              p: 3, 
+              mb: 4, 
+              background: 'linear-gradient(45deg, #f5f7fa 0%, #c3cfe2 100%)',
+              borderRadius: 2,
+              textAlign: 'center'
+            }}
+          >
+            <Typography variant="h6" gutterBottom sx={{ color: 'text.secondary' }}>
+              🔮 Live Preview
             </Typography>
-            <Typography variant="body1" sx={{ fontWeight: 600, color: 'primary.main' }}>
-              {getCurrentGreeting()}
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2 }}>
+              {currentGreeting.icon}
+              <Chip 
+                label={currentGreeting.period} 
+                variant="outlined" 
+                size="small" 
+                sx={{ ml: 1 }}
+              />
+            </Box>
+            <Typography variant="h5" sx={{ fontWeight: 600, color: '#2c3e50', mb: 1 }}>
+              "{currentGreeting.greeting}"
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              This is what {'{greetings}'} will be replaced with right now
+              This is what <code>{'{greetings}'}</code> will be replaced with right now
             </Typography>
           </Paper>
 
-          <Grid container spacing={3}>
-            {/* Time Ranges */}
+          <Grid container spacing={4}>
+            {/* Time Periods Configuration */}
             <Grid item xs={12}>
-              <Typography variant="h6" gutterBottom>
-                Time Ranges
+              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                ⏰ Time Periods
               </Typography>
-              <Grid container spacing={2}>
-                <Grid item xs={6} md={3}>
-                  <TextField
-                    fullWidth
-                    type="time"
-                    label="Morning Start"
-                    value={greetings.morning_start}
-                    onChange={(e) => handleChange('morning_start', e.target.value)}
-                    InputLabelProps={{ shrink: true }}
-                  />
-                </Grid>
-                <Grid item xs={6} md={3}>
-                  <TextField
-                    fullWidth
-                    type="time"
-                    label="Morning End"
-                    value={greetings.morning_end}
-                    onChange={(e) => handleChange('morning_end', e.target.value)}
-                    InputLabelProps={{ shrink: true }}
-                  />
-                </Grid>
-                <Grid item xs={6} md={3}>
-                  <TextField
-                    fullWidth
-                    type="time"
-                    label="Afternoon Start"
-                    value={greetings.afternoon_start}
-                    onChange={(e) => handleChange('afternoon_start', e.target.value)}
-                    InputLabelProps={{ shrink: true }}
-                  />
-                </Grid>
-                <Grid item xs={6} md={3}>
-                  <TextField
-                    fullWidth
-                    type="time"
-                    label="Afternoon End"
-                    value={greetings.afternoon_end}
-                    onChange={(e) => handleChange('afternoon_end', e.target.value)}
-                    InputLabelProps={{ shrink: true }}
-                  />
-                </Grid>
-                <Grid item xs={6} md={3}>
-                  <TextField
-                    fullWidth
-                    type="time"
-                    label="Evening Start"
-                    value={greetings.evening_start}
-                    onChange={(e) => handleChange('evening_start', e.target.value)}
-                    InputLabelProps={{ shrink: true }}
-                  />
-                </Grid>
-                <Grid item xs={6} md={3}>
-                  <TextField
-                    fullWidth
-                    type="time"
-                    label="Evening End"
-                    value={greetings.evening_end}
-                    onChange={(e) => handleChange('evening_end', e.target.value)}
-                    InputLabelProps={{ shrink: true }}
-                  />
-                </Grid>
-              </Grid>
-            </Grid>
-
-            <Grid item xs={12}>
-              <Divider sx={{ my: 2 }} />
-            </Grid>
-
-            {/* Default Style */}
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel>Default Style</InputLabel>
-                <Select
-                  value={greetings.default_style}
-                  label="Default Style"
-                  onChange={(e) => handleChange('default_style', e.target.value)}
-                >
-                  <MenuItem value="formal">Formal (Good morning, Good afternoon)</MenuItem>
-                  <MenuItem value="casual">Casual (Morning!, Hi, Evening!)</MenuItem>
-                  <MenuItem value="mixed">Mixed (varies by time)</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-
-            <Grid item xs={12}>
-              <Divider sx={{ my: 2 }} />
-            </Grid>
-
-            {/* Greeting Messages */}
-            <Grid item xs={12}>
-              <Typography variant="h6" gutterBottom>
-                Greeting Messages
-              </Typography>
-              <Grid container spacing={2}>
+              
+              <Grid container spacing={3}>
                 {/* Morning */}
-                <Grid item xs={12} md={6}>
-                  <Typography variant="subtitle1" gutterBottom>Morning Greetings</Typography>
-                  <Stack spacing={2}>
-                    <TextField
-                      fullWidth
-                      label="Formal Morning"
-                      value={greetings.morning_formal}
-                      onChange={(e) => handleChange('morning_formal', e.target.value)}
-                      placeholder="Good morning"
-                    />
-                    <TextField
-                      fullWidth
-                      label="Casual Morning"
-                      value={greetings.morning_casual}
-                      onChange={(e) => handleChange('morning_casual', e.target.value)}
-                      placeholder="Morning!"
-                    />
-                  </Stack>
+                <Grid item xs={12} md={6} lg={3}>
+                  <Paper elevation={1} sx={{ p: 3, height: '100%', borderRadius: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                      <WbSunnyIcon sx={{ color: '#FF9800', mr: 1 }} />
+                      <Typography variant="h6" sx={{ color: '#FF9800', fontWeight: 600 }}>
+                        Morning
+                      </Typography>
+                    </Box>
+                    <Stack spacing={2}>
+                      <TextField
+                        fullWidth
+                        type="time"
+                        label="Start"
+                        value={greetings.morning_start}
+                        onChange={(e) => handleChange('morning_start', e.target.value)}
+                        InputLabelProps={{ shrink: true }}
+                        size="small"
+                      />
+                      <TextField
+                        fullWidth
+                        type="time"
+                        label="End"
+                        value={greetings.morning_end}
+                        onChange={(e) => handleChange('morning_end', e.target.value)}
+                        InputLabelProps={{ shrink: true }}
+                        size="small"
+                      />
+                      <TextField
+                        fullWidth
+                        label="Greeting"
+                        value={greetings.morning_greeting}
+                        onChange={(e) => handleChange('morning_greeting', e.target.value)}
+                        placeholder="Good morning"
+                        size="small"
+                      />
+                    </Stack>
+                  </Paper>
                 </Grid>
 
                 {/* Afternoon */}
-                <Grid item xs={12} md={6}>
-                  <Typography variant="subtitle1" gutterBottom>Afternoon Greetings</Typography>
-                  <Stack spacing={2}>
-                    <TextField
-                      fullWidth
-                      label="Formal Afternoon"
-                      value={greetings.afternoon_formal}
-                      onChange={(e) => handleChange('afternoon_formal', e.target.value)}
-                      placeholder="Good afternoon"
-                    />
-                    <TextField
-                      fullWidth
-                      label="Casual Afternoon"
-                      value={greetings.afternoon_casual}
-                      onChange={(e) => handleChange('afternoon_casual', e.target.value)}
-                      placeholder="Hi"
-                    />
-                  </Stack>
+                <Grid item xs={12} md={6} lg={3}>
+                  <Paper elevation={1} sx={{ p: 3, height: '100%', borderRadius: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                      <LightModeIcon sx={{ color: '#FFC107', mr: 1 }} />
+                      <Typography variant="h6" sx={{ color: '#FFC107', fontWeight: 600 }}>
+                        Afternoon
+                      </Typography>
+                    </Box>
+                    <Stack spacing={2}>
+                      <TextField
+                        fullWidth
+                        type="time"
+                        label="Start"
+                        value={greetings.afternoon_start}
+                        onChange={(e) => handleChange('afternoon_start', e.target.value)}
+                        InputLabelProps={{ shrink: true }}
+                        size="small"
+                      />
+                      <TextField
+                        fullWidth
+                        type="time"
+                        label="End"
+                        value={greetings.afternoon_end}
+                        onChange={(e) => handleChange('afternoon_end', e.target.value)}
+                        InputLabelProps={{ shrink: true }}
+                        size="small"
+                      />
+                      <TextField
+                        fullWidth
+                        label="Greeting"
+                        value={greetings.afternoon_greeting}
+                        onChange={(e) => handleChange('afternoon_greeting', e.target.value)}
+                        placeholder="Good afternoon"
+                        size="small"
+                      />
+                    </Stack>
+                  </Paper>
                 </Grid>
 
                 {/* Evening */}
-                <Grid item xs={12} md={6}>
-                  <Typography variant="subtitle1" gutterBottom>Evening Greetings</Typography>
-                  <Stack spacing={2}>
-                    <TextField
-                      fullWidth
-                      label="Formal Evening"
-                      value={greetings.evening_formal}
-                      onChange={(e) => handleChange('evening_formal', e.target.value)}
-                      placeholder="Good evening"
-                    />
-                    <TextField
-                      fullWidth
-                      label="Casual Evening"
-                      value={greetings.evening_casual}
-                      onChange={(e) => handleChange('evening_casual', e.target.value)}
-                      placeholder="Evening!"
-                    />
-                  </Stack>
+                <Grid item xs={12} md={6} lg={3}>
+                  <Paper elevation={1} sx={{ p: 3, height: '100%', borderRadius: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                      <Brightness3Icon sx={{ color: '#673AB7', mr: 1 }} />
+                      <Typography variant="h6" sx={{ color: '#673AB7', fontWeight: 600 }}>
+                        Evening
+                      </Typography>
+                    </Box>
+                    <Stack spacing={2}>
+                      <TextField
+                        fullWidth
+                        type="time"
+                        label="Start"
+                        value={greetings.evening_start}
+                        onChange={(e) => handleChange('evening_start', e.target.value)}
+                        InputLabelProps={{ shrink: true }}
+                        size="small"
+                      />
+                      <TextField
+                        fullWidth
+                        type="time"
+                        label="End"
+                        value={greetings.evening_end}
+                        onChange={(e) => handleChange('evening_end', e.target.value)}
+                        InputLabelProps={{ shrink: true }}
+                        size="small"
+                      />
+                      <TextField
+                        fullWidth
+                        label="Greeting"
+                        value={greetings.evening_greeting}
+                        onChange={(e) => handleChange('evening_greeting', e.target.value)}
+                        placeholder="Good evening"
+                        size="small"
+                      />
+                    </Stack>
+                  </Paper>
                 </Grid>
 
                 {/* Night */}
-                <Grid item xs={12} md={6}>
-                  <Typography variant="subtitle1" gutterBottom>Night Greeting</Typography>
-                  <TextField
-                    fullWidth
-                    label="Night Greeting"
-                    value={greetings.night_greeting}
-                    onChange={(e) => handleChange('night_greeting', e.target.value)}
-                    placeholder="Hello"
-                    helperText="Used after evening_end or before morning_start"
-                  />
+                <Grid item xs={12} md={6} lg={3}>
+                  <Paper elevation={1} sx={{ p: 3, height: '100%', borderRadius: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                      <NightsStayIcon sx={{ color: '#3F51B5', mr: 1 }} />
+                      <Typography variant="h6" sx={{ color: '#3F51B5', fontWeight: 600 }}>
+                        Night
+                      </Typography>
+                    </Box>
+                    <Stack spacing={2}>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                        Used outside other time periods
+                      </Typography>
+                      <TextField
+                        fullWidth
+                        label="Greeting"
+                        value={greetings.night_greeting}
+                        onChange={(e) => handleChange('night_greeting', e.target.value)}
+                        placeholder="Hello"
+                        size="small"
+                      />
+                    </Stack>
+                  </Paper>
                 </Grid>
               </Grid>
             </Grid>
 
             {/* Save Button */}
             <Grid item xs={12}>
-              <Button
-                variant="contained"
-                onClick={saveGreetings}
-                disabled={loading}
-                startIcon={<SaveIcon />}
-                size="large"
-                sx={{ mt: 2 }}
-              >
-                {loading ? 'Saving...' : 'Save Greeting Settings'}
-              </Button>
+              <Box sx={{ textAlign: 'center', mt: 2 }}>
+                <Button
+                  variant="contained"
+                  onClick={saveGreetings}
+                  disabled={loading}
+                  startIcon={<SaveIcon />}
+                  size="large"
+                  sx={{ 
+                    px: 6, 
+                    py: 1.5, 
+                    borderRadius: 3,
+                    background: 'linear-gradient(45deg, #667eea 30%, #764ba2 90%)',
+                    '&:hover': {
+                      background: 'linear-gradient(45deg, #5a6fd8 30%, #6a4190 90%)',
+                    }
+                  }}
+                >
+                  {loading ? 'Saving...' : 'Save Greeting Settings'}
+                </Button>
+              </Box>
             </Grid>
           </Grid>
         </CardContent>

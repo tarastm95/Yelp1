@@ -63,16 +63,14 @@ class TimeBasedGreetingAdmin(admin.ModelAdmin):
     list_display = [
         'id',
         'business_name',
-        'default_style',
-        'morning_formal',
-        'afternoon_formal',
-        'evening_formal',
+        'morning_greeting',
+        'afternoon_greeting',
+        'evening_greeting',
         'night_greeting',
         'created_at'
     ]
     
     list_filter = [
-        'default_style',
         'created_at',
         'business'
     ]
@@ -89,24 +87,12 @@ class TimeBasedGreetingAdmin(admin.ModelAdmin):
                 ('evening_start', 'evening_end'),
             ),
         }),
-        ('👔 Formal Greetings', {
+        ('💬 Greetings', {
             'fields': (
-                'morning_formal',
-                'afternoon_formal',
-                'evening_formal',
-            ),
-        }),
-        ('😊 Casual Greetings', {
-            'fields': (
-                'morning_casual',
-                'afternoon_casual',
-                'evening_casual',
-            ),
-        }),
-        ('🌙 Night & Style', {
-            'fields': (
+                'morning_greeting',
+                'afternoon_greeting',
+                'evening_greeting',
                 'night_greeting',
-                'default_style',
             ),
         }),
     )

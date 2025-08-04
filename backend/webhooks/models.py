@@ -506,24 +506,10 @@ class TimeBasedGreeting(models.Model):
     evening_end = models.TimeField(default="21:00", help_text="Evening greeting end time")
     
     # Greeting messages
-    morning_formal = models.CharField(max_length=100, default="Good morning", help_text="Formal morning greeting")
-    morning_casual = models.CharField(max_length=100, default="Morning!", help_text="Casual morning greeting")
-    
-    afternoon_formal = models.CharField(max_length=100, default="Good afternoon", help_text="Formal afternoon greeting")
-    afternoon_casual = models.CharField(max_length=100, default="Hi", help_text="Casual afternoon greeting")
-    
-    evening_formal = models.CharField(max_length=100, default="Good evening", help_text="Formal evening greeting")
-    evening_casual = models.CharField(max_length=100, default="Evening!", help_text="Casual evening greeting")
-    
+    morning_greeting = models.CharField(max_length=100, default="Good morning", help_text="Morning greeting")
+    afternoon_greeting = models.CharField(max_length=100, default="Good afternoon", help_text="Afternoon greeting")
+    evening_greeting = models.CharField(max_length=100, default="Good evening", help_text="Evening greeting")
     night_greeting = models.CharField(max_length=100, default="Hello", help_text="Late night greeting (after evening_end)")
-    
-    # Style preference
-    GREETING_STYLES = [
-        ('formal', 'Formal (Good morning, Good afternoon)'),
-        ('casual', 'Casual (Morning!, Hi, Evening!)'),
-        ('mixed', 'Mixed (varies by time)')
-    ]
-    default_style = models.CharField(max_length=20, choices=GREETING_STYLES, default='formal')
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

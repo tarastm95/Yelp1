@@ -406,14 +406,10 @@ class TimeBasedGreetingSerializer(serializers.ModelSerializer):
             "afternoon_end",
             "evening_start",
             "evening_end",
-            "morning_formal",
-            "morning_casual",
-            "afternoon_formal", 
-            "afternoon_casual",
-            "evening_formal",
-            "evening_casual",
+            "morning_greeting",
+            "afternoon_greeting",
+            "evening_greeting",
             "night_greeting",
-            "default_style",
             "created_at",
             "updated_at"
         ]
