@@ -179,6 +179,20 @@ class AutoResponseSettings(models.Model):
         default=False, help_text="Записувати нові ліди в Google Sheets"
     )
 
+    # 📱 SMS Notification Settings
+    sms_on_phone_found = models.BooleanField(
+        default=True, 
+        help_text="Відправляти SMS коли система знаходить номер телефону в тексті"
+    )
+    sms_on_customer_reply = models.BooleanField(
+        default=True,
+        help_text="Відправляти SMS коли клієнт відповідає на повідомлення"
+    )
+    sms_on_phone_opt_in = models.BooleanField(
+        default=True,
+        help_text="Відправляти SMS коли приходить phone opt-in від клієнта"
+    )
+
     greeting_open_from = models.TimeField(
         default=time(8, 0),
         help_text="Час початку робочих годин для привітання (локальний час)",

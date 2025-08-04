@@ -244,6 +244,67 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
                 
             logger.info(f"[FOLLOW-UP] ✅ Token obtained successfully")
 
+            # Step 6.5: Check SMS notification settings
+            logger.info(f"[FOLLOW-UP] 📱 STEP 6.5: Checking SMS notification settings")
+            
+            # Determine which SMS setting to check based on context
+            # We need to get the lead detail to understand the context
+            try:
+                lead_detail = LeadDetail.objects.filter(lead_id=lead_id).first()
+                if not lead_detail:
+                    logger.warning(f"[FOLLOW-UP] ⚠️ LeadDetail not found for lead_id={lead_id}")
+                    logger.info(f"[FOLLOW-UP] Proceeding without SMS settings check")
+                else:
+                    # Get AutoResponseSettings to check SMS preferences
+                    from .models import AutoResponseSettings
+                    
+                    # Try business-specific settings first
+                    auto_settings = None
+                    if biz_id:
+                        auto_settings = AutoResponseSettings.objects.filter(
+                            business__business_id=biz_id,
+                            phone_opt_in=lead_detail.phone_opt_in,
+                            phone_available=bool(lead_detail.phone_number)
+                        ).first()
+                    
+                    # Fall back to default settings
+                    if not auto_settings:
+                        auto_settings = AutoResponseSettings.objects.filter(
+                            business__isnull=True,
+                            phone_opt_in=lead_detail.phone_opt_in,
+                            phone_available=bool(lead_detail.phone_number)
+                        ).first()
+                    
+                    if auto_settings:
+                        logger.info(f"[FOLLOW-UP] Found AutoResponseSettings: id={auto_settings.id}")
+                        
+                        # Determine which SMS setting to check
+                        should_send = True
+                        if lead_detail.phone_opt_in:
+                            should_send = getattr(auto_settings, 'sms_on_phone_opt_in', True)
+                            logger.info(f"[FOLLOW-UP] SMS on phone opt-in: {should_send}")
+                        elif lead_detail.phone_number:
+                            should_send = getattr(auto_settings, 'sms_on_phone_found', True)
+                            logger.info(f"[FOLLOW-UP] SMS on phone found: {should_send}")
+                        else:
+                            should_send = getattr(auto_settings, 'sms_on_customer_reply', True)
+                            logger.info(f"[FOLLOW-UP] SMS on customer reply: {should_send}")
+                        
+                        if not should_send:
+                            logger.info(f"[FOLLOW-UP] 🚫 SMS disabled for this scenario")
+                            logger.info(f"[FOLLOW-UP] Lead context: phone_opt_in={lead_detail.phone_opt_in}, phone_number={'present' if lead_detail.phone_number else 'absent'}")
+                            logger.info(f"[FOLLOW-UP] 🛑 RETURN - SMS notifications disabled")
+                            return
+                        
+                        logger.info(f"[FOLLOW-UP] ✅ SMS enabled for this scenario")
+                    else:
+                        logger.info(f"[FOLLOW-UP] No AutoResponseSettings found - proceeding with message")
+                        
+            except Exception as e:
+                logger.error(f"[FOLLOW-UP] ❌ Error checking SMS settings: {e}")
+                logger.exception(f"[FOLLOW-UP] SMS settings check exception")
+                logger.info(f"[FOLLOW-UP] Proceeding with message despite SMS settings error")
+
             # Step 7: Prepare API request
             logger.info(f"[FOLLOW-UP] 📡 STEP 6: Preparing API request")
             url = f"https://api.yelp.com/v3/leads/{lead_id}/events"

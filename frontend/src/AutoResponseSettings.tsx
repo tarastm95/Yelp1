@@ -190,6 +190,11 @@ const AutoResponseSettings: FC = () => {
   const [aiIncludeTransactions, setAiIncludeTransactions] = useState(false);
   const [aiMaxMessageLength, setAiMaxMessageLength] = useState(160);
 
+  // 📱 SMS Notification Settings
+  const [smsOnPhoneFound, setSmsOnPhoneFound] = useState(true);
+  const [smsOnCustomerReply, setSmsOnCustomerReply] = useState(true);
+  const [smsOnPhoneOptIn, setSmsOnPhoneOptIn] = useState(true);
+
   // follow-up templates
   const [templates, setTemplates] = useState<FollowUpTemplate[]>([]);
   const [newText, setNewText] = useState('');
@@ -377,6 +382,11 @@ const AutoResponseSettings: FC = () => {
           setAiIncludeAddress(d.ai_include_address ?? false);
           setAiIncludeTransactions(d.ai_include_transactions ?? false);
           setAiMaxMessageLength(d.ai_max_message_length ?? 160);
+          
+          // Set SMS Notification Settings
+          setSmsOnPhoneFound(d.sms_on_phone_found ?? true);
+          setSmsOnCustomerReply(d.sms_on_customer_reply ?? true);
+          setSmsOnPhoneOptIn(d.sms_on_phone_opt_in ?? true);
           
           initialSettings.current = {
             enabled: d.enabled,
@@ -676,6 +686,10 @@ const AutoResponseSettings: FC = () => {
         ai_include_address: aiIncludeAddress,
         ai_include_transactions: aiIncludeTransactions,
         ai_max_message_length: aiMaxMessageLength,
+        // SMS Notification Settings
+        sms_on_phone_found: smsOnPhoneFound,
+        sms_on_customer_reply: smsOnCustomerReply,
+        sms_on_phone_opt_in: smsOnPhoneOptIn,
       });
 
       setSettingsId(res.data.id);
@@ -706,6 +720,10 @@ const AutoResponseSettings: FC = () => {
         ai_include_address: aiIncludeAddress,
         ai_include_transactions: aiIncludeTransactions,
         ai_max_message_length: aiMaxMessageLength,
+        // SMS Notification Settings
+        sms_on_phone_found: smsOnPhoneFound,
+        sms_on_customer_reply: smsOnCustomerReply,
+        sms_on_phone_opt_in: smsOnPhoneOptIn,
       };
 
       const params = new URLSearchParams();
@@ -2854,6 +2872,84 @@ const AutoResponseSettings: FC = () => {
                           <Box sx={{ display: 'flex', alignItems: 'center' }}>
                             <BusinessCenterIcon sx={{ mr: 0.5, fontSize: 18 }} />
                             Export to Sheets
+                          </Box>
+                        }
+                      />
+                    </Stack>
+                  </Box>
+
+                  {/* 📱 SMS Notification Center */}
+                  <Box sx={{ mt: 3 }}>
+                    <Typography variant="h6" sx={{ 
+                      mb: 2, 
+                      fontWeight: 600, 
+                      display: 'flex', 
+                      alignItems: 'center',
+                      color: 'primary.main'
+                    }}>
+                      📱 SMS Notification Center
+                    </Typography>
+                    <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>
+                      Налаштуйте коли відправляти SMS повідомлення клієнтам для кожного сценарію
+                    </Typography>
+                    
+                    <Stack spacing={2}>
+                      <FormControlLabel
+                        control={
+                          <Switch 
+                            checked={smsOnPhoneFound} 
+                            onChange={e => setSmsOnPhoneFound(e.target.checked)}
+                            color="primary"
+                          />
+                        }
+                        label={
+                          <Box>
+                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                              📞 Знайдено номер телефону
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                              Відправляти SMS коли система знаходить номер телефону в тексті повідомлення клієнта
+                            </Typography>
+                          </Box>
+                        }
+                      />
+                      
+                      <FormControlLabel
+                        control={
+                          <Switch 
+                            checked={smsOnCustomerReply} 
+                            onChange={e => setSmsOnCustomerReply(e.target.checked)}
+                            color="primary"
+                          />
+                        }
+                        label={
+                          <Box>
+                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                              💬 Відповідь клієнта
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                              Відправляти SMS коли клієнт відповідає на повідомлення (навіть без номера)
+                            </Typography>
+                          </Box>
+                        }
+                      />
+                      
+                      <FormControlLabel
+                        control={
+                          <Switch 
+                            checked={smsOnPhoneOptIn} 
+                            onChange={e => setSmsOnPhoneOptIn(e.target.checked)}
+                            color="primary"
+                          />
+                        }
+                        label={
+                          <Box>
+                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                              ✅ Phone Opt-in
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                              Відправляти SMS коли клієнт дає згоду на використання телефону
+                            </Typography>
                           </Box>
                         }
                       />
