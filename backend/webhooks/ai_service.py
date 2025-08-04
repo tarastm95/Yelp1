@@ -194,9 +194,7 @@ class OpenAIService:
     
     def generate_preview_message(
         self,
-        business_name: str,
-        customer_name: str = "John",
-        services: str = "plumbing services",
+        business,  # YelpBusiness object
         response_style: str = 'auto',
         include_location: bool = False,
         mention_response_time: bool = False,
@@ -223,53 +221,83 @@ class OpenAIService:
             }
         
         try:
-            # Створюємо тестовий контекст з повними бізнес-даними
-            sample_business_data = {
-                "name": business_name,
-                "location": "Sample City, CA" if include_location else "",
-                "time_zone": "America/Los_Angeles",
-                "open_days": "Mon, Tue, Wed, Thu, Fri",
-                "open_hours": "Mon: 08:00 - 18:00; Tue: 08:00 - 18:00; Wed: 08:00 - 18:00"
+            # Використовуємо РЕАЛЬНІ дані бізнесу
+            real_business_data = {
+                "name": business.name,
+                "location": business.location if (include_location and business.location) else "",
+                "time_zone": business.time_zone or "",
+                "open_days": business.open_days or "",
+                "open_hours": business.open_hours or ""
             }
             
-            # Додаємо тестові дані на основі налаштувань
-            if business_data_settings.get("include_rating"):
-                sample_business_data["rating"] = 4.8
-                if business_data_settings.get("include_reviews_count"):
-                    sample_business_data["review_count"] = 156
+            # Додаємо реальні дані з business.details JSON якщо вони є
+            if business.details and isinstance(business.details, dict):
+                # Отримуємо реальні дані з Yelp API
+                real_business_data.update({
+                    "rating": business.details.get("rating"),
+                    "review_count": business.details.get("review_count"),
+                    "categories": business.details.get("categories", []),
+                    "phone": business.details.get("display_phone") or business.details.get("phone"),
+                    "website": business.details.get("url"),
+                    "price": business.details.get("price"),
+                    "address": business.details.get("location", {}).get("display_address", []),
+                    "city": business.details.get("location", {}).get("city"),
+                    "state": business.details.get("location", {}).get("state"),
+                    "zip_code": business.details.get("location", {}).get("zip_code"),
+                    "transactions": business.details.get("transactions", [])
+                })
             
-            if business_data_settings.get("include_categories"):
-                sample_business_data["categories"] = ["General Contractors", "Plumbing", "Electrical"]
+            # Фільтруємо тільки ті реальні дані, які увімкнені
+            filtered_business_data = {"name": real_business_data["name"]}
             
-            if business_data_settings.get("include_phone"):
-                sample_business_data["phone"] = "(555) 123-4567"
+            # Додаємо тільки ті дані, які є і увімкнені
+            if business_data_settings.get("include_rating") and real_business_data.get("rating"):
+                filtered_business_data["rating"] = real_business_data["rating"]
+                if business_data_settings.get("include_reviews_count") and real_business_data.get("review_count"):
+                    filtered_business_data["review_count"] = real_business_data["review_count"]
             
-            if business_data_settings.get("include_website"):
-                sample_business_data["website"] = f"https://{business_name.lower().replace(' ', '')}.com"
+            if business_data_settings.get("include_categories") and real_business_data.get("categories"):
+                filtered_business_data["categories"] = real_business_data["categories"]
             
-            if business_data_settings.get("include_price_range"):
-                sample_business_data["price"] = "$$"
+            if business_data_settings.get("include_phone") and real_business_data.get("phone"):
+                filtered_business_data["phone"] = real_business_data["phone"]
             
-            if business_data_settings.get("include_address"):
-                sample_business_data["address"] = ["123 Main St", "Sample City, CA 90210"]
-                sample_business_data["city"] = "Sample City"
-                sample_business_data["state"] = "CA"
-                sample_business_data["zip_code"] = "90210"
+            if business_data_settings.get("include_website") and real_business_data.get("website"):
+                filtered_business_data["website"] = real_business_data["website"]
+            
+            if business_data_settings.get("include_price_range") and real_business_data.get("price"):
+                filtered_business_data["price"] = real_business_data["price"]
+            
+            if business_data_settings.get("include_address") and real_business_data.get("address"):
+                filtered_business_data["address"] = real_business_data["address"]
+                if real_business_data.get("city"):
+                    filtered_business_data["city"] = real_business_data["city"]
+                if real_business_data.get("state"):
+                    filtered_business_data["state"] = real_business_data["state"]
+                if real_business_data.get("zip_code"):
+                    filtered_business_data["zip_code"] = real_business_data["zip_code"]
             
             if business_data_settings.get("include_hours"):
-                sample_business_data["is_open_now"] = True
+                if real_business_data.get("open_hours"):
+                    filtered_business_data["open_hours"] = real_business_data["open_hours"]
+                if real_business_data.get("open_days"):
+                    filtered_business_data["open_days"] = real_business_data["open_days"]
             
-            if business_data_settings.get("include_transactions"):
-                sample_business_data["transactions"] = ["consultation", "estimates", "emergency_services"]
+            if business_data_settings.get("include_transactions") and real_business_data.get("transactions"):
+                filtered_business_data["transactions"] = real_business_data["transactions"]
+            
+            # Додаємо location якщо потрібно
+            if include_location and real_business_data.get("location"):
+                filtered_business_data["location"] = real_business_data["location"]
             
             context = {
-                "customer_name": customer_name,
-                "services": services,
-                "business_name": business_name,
-                "business_location": "Sample City, CA" if include_location else "",
+                "customer_name": "{CLIENT_NAME}",  # Placeholder для невідомого імені
+                "services": "{SERVICES}",  # Placeholder для невідомих послуг
+                "business_name": filtered_business_data["name"],  # РЕАЛЬНЕ ім’я бізнесу
+                "business_location": filtered_business_data.get("location", ""),  # Реальна локація
                 "is_off_hours": False,
                 "mention_response_time": mention_response_time,
-                "business_data": sample_business_data,
+                "business_data": filtered_business_data,  # Тільки реальні дані бізнесу
                 "business_data_settings": business_data_settings
             }
             

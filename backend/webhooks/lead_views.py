@@ -3,7 +3,7 @@ from django.db.models import Q
 from rest_framework import generics, mixins, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.exceptions import NotFound
+from rest_framework.exceptions import NotFound, ValidationError
 
 from .models import (
     Event,
@@ -15,6 +15,7 @@ from .models import (
     YelpToken,
     LeadEvent,
     NotificationSetting,
+    AISettings,
 )
 from .pagination import FivePerPagePagination
 from .serializers import (
@@ -26,7 +27,9 @@ from .serializers import (
     YelpTokenInfoSerializer,
     LeadEventSerializer,
     NotificationSettingSerializer,
+    AISettingsSerializer,
 )
+from .ai_service import OpenAIService
 
 logger = logging.getLogger(__name__)
 
@@ -290,15 +293,30 @@ class NotificationSettingListCreateView(generics.ListCreateAPIView):
         qs = NotificationSetting.objects.all().order_by("id")
         if bid:
             return qs.filter(business__business_id=bid)
-        return qs.filter(business__isnull=True)
+        # No global settings support - return empty queryset
+        return qs.none()
 
     def create(self, request, *args, **kwargs):
         phone = request.data.get("phone_number", "")
         bid = request.query_params.get("business_id")
-        business = YelpBusiness.objects.filter(business_id=bid).first() if bid else None
+        
+        # Require business_id for all SMS notifications
+        if not bid:
+            return Response(
+                {"detail": "business_id parameter is required. Global SMS settings are not supported."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+            
+        business = YelpBusiness.objects.filter(business_id=bid).first()
+        if not business:
+            return Response(
+                {"detail": f"Business with id {bid} not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+            
         if NotificationSetting.objects.filter(phone_number=phone, business=business).exists():
             return Response(
-                {"detail": "Phone number already exists."},
+                {"detail": "Phone number already exists for this business."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         serializer = self.get_serializer(data=request.data)
@@ -318,11 +336,16 @@ class NotificationSettingDetailView(generics.RetrieveUpdateDestroyAPIView):
         qs = NotificationSetting.objects.all()
         if bid:
             return qs.filter(business__business_id=bid)
-        return qs.filter(business__isnull=True)
+        # No global settings support - return empty queryset
+        return qs.none()
 
     def perform_update(self, serializer):
         bid = self.request.query_params.get("business_id")
-        business = YelpBusiness.objects.filter(business_id=bid).first() if bid else None
+        if not bid:
+            raise ValidationError("business_id parameter is required. Global SMS settings are not supported.")
+        business = YelpBusiness.objects.filter(business_id=bid).first()
+        if not business:
+            raise ValidationError(f"Business with id {bid} not found")
         serializer.save(business=business)
 
 
@@ -443,10 +466,23 @@ class AIPreviewView(APIView):
         from rest_framework.response import Response
         
         try:
-            # Отримання параметрів з запиту
-            business_name = request.data.get('business_name', 'Your Business')
-            customer_name = request.data.get('customer_name', 'John')
-            services = request.data.get('services', 'plumbing services')
+            # Отримання business_id для отримання реальних даних
+            business_id = request.data.get('business_id')
+            if not business_id:
+                return Response({
+                    'success': False,
+                    'error': 'business_id is required for generating realistic preview'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Отримуємо реальний бізнес з бази даних
+            business = YelpBusiness.objects.filter(business_id=business_id).first()
+            if not business:
+                return Response({
+                    'success': False,
+                    'error': f'Business with id {business_id} not found'
+                }, status=status.HTTP_404_NOT_FOUND)
+            
+            # Параметри з запиту
             response_style = request.data.get('ai_response_style', 'auto')
             include_location = request.data.get('ai_include_location', False)
             mention_response_time = request.data.get('ai_mention_response_time', False)
@@ -474,11 +510,9 @@ class AIPreviewView(APIView):
                     'preview': 'AI service unavailable - would fallback to template message.'
                 }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
             
-            # Генерація preview повідомлення
+            # Генерація preview повідомлення з реальними даними бізнесу
             preview_message = ai_service.generate_preview_message(
-                business_name=business_name,
-                customer_name=customer_name,
-                services=services,
+                business=business,
                 response_style=response_style,
                 include_location=include_location,
                 mention_response_time=mention_response_time,
@@ -489,9 +523,9 @@ class AIPreviewView(APIView):
             return Response({
                 'preview': preview_message,
                 'parameters': {
-                    'business_name': business_name,
-                    'customer_name': customer_name,
-                    'services': services,
+                    'business_name': business.name,
+                    'customer_name': '{CLIENT_NAME}',
+                    'services': '{SERVICES}',
                     'ai_response_style': response_style,
                     'ai_include_location': include_location,
                     'ai_mention_response_time': mention_response_time,

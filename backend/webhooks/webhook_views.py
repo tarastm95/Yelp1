@@ -327,10 +327,6 @@ class WebhookView(APIView):
                             )
                         updated = True
                         trigger = updated or pending
-                        if pending:
-                            LeadDetail.objects.filter(lead_id=lid).update(
-                                phone_in_dialog=True
-                            )
                         if trigger:
                             reason = (
                                 "Client responded with a number → switched to the 'phone available' scenario"
@@ -645,9 +641,6 @@ class WebhookView(APIView):
                         
                         if pending:
                             logger.info(f"[WEBHOOK] 🔄 PENDING TASKS EXIST - switching scenario")
-                            LeadDetail.objects.filter(lead_id=lid).update(
-                                phone_in_dialog=True
-                            )
                             reason = "Client responded with a number → switched to the 'phone available' scenario"
                             logger.info(f"[WEBHOOK] 🔄 SWITCHING TO PHONE AVAILABLE scenario")
                             logger.info(f"[WEBHOOK] 🚀 TRIGGERING handle_phone_available (pending tasks exist)")
@@ -1488,17 +1481,29 @@ class WebhookView(APIView):
         logger.info(f"[AUTO-RESPONSE] - Generation method: {'AI' if use_ai else 'Template'}")
         logger.info(f"[AUTO-RESPONSE] ===============================")
 
-        # Calculate due time
+        # Calculate due time with enhanced logging
+        logger.info(f"[AUTO-RESPONSE] ========= GREETING TIMING DEBUG =========")
+        logger.info(f"[AUTO-RESPONSE] Greeting delay (seconds): {auto_settings.greeting_delay}")
+        logger.info(f"[AUTO-RESPONSE] Base time (now): {now.isoformat()}")
+        logger.info(f"[AUTO-RESPONSE] Within business hours: {within_hours}")
+        
+        initial_due = now + timedelta(seconds=auto_settings.greeting_delay)
+        logger.info(f"[AUTO-RESPONSE] Initial greeting due time: {initial_due.isoformat()}")
+        
         if within_hours:
             due = adjust_due_time(
-                now + timedelta(seconds=auto_settings.greeting_delay),
+                initial_due,
                 tz_name,
                 auto_settings.greeting_open_from,
                 auto_settings.greeting_open_to,
                 days_setting,
             )
         else:
-            due = now + timedelta(seconds=auto_settings.greeting_delay)
+            due = initial_due
+            
+        logger.info(f"[AUTO-RESPONSE] Final greeting due time: {due.isoformat()}")
+        countdown_greeting = (due - now).total_seconds()
+        logger.info(f"[AUTO-RESPONSE] Greeting countdown (seconds): {countdown_greeting}")
 
         scheduled_texts = set()
 
@@ -1523,11 +1528,10 @@ class WebhookView(APIView):
                 )
                 scheduled_texts.add(greet_text)
             else:
-                countdown = (due - now).total_seconds()
                 res = send_follow_up.apply_async(
                     args=[lead_id, greet_text],
                     headers={"business_id": biz_id},
-                    countdown=countdown,
+                    countdown=countdown_greeting,
                 )
                 try:
                     LeadPendingTask.objects.create(
@@ -1550,7 +1554,8 @@ class WebhookView(APIView):
         if phone_available:
             return
 
-        now = timezone.now()
+        # Use the same 'now' timestamp for consistent timing calculations
+        # instead of calling timezone.now() again
 
         tpls = FollowUpTemplate.objects.filter(
             active=True,
@@ -1567,15 +1572,30 @@ class WebhookView(APIView):
             )
         business = YelpBusiness.objects.filter(business_id=biz_id).first()
         for tmpl in tpls:
-            delay = int(tmpl.delay.total_seconds())
+            # Keep exact seconds precision - don't use int() which truncates
+            delay = tmpl.delay.total_seconds()
             text = tmpl.template.format(name=name, jobs=jobs, sep=sep)
+            
+            # Enhanced logging for precise timing debug
+            logger.info(f"[AUTO-RESPONSE] ========= FOLLOW-UP TIMING DEBUG =========")
+            logger.info(f"[AUTO-RESPONSE] Template: '{tmpl.name}'")
+            logger.info(f"[AUTO-RESPONSE] Raw delay (seconds): {delay}")
+            logger.info(f"[AUTO-RESPONSE] Raw delay formatted: {tmpl.delay}")
+            logger.info(f"[AUTO-RESPONSE] Base time (now): {now.isoformat()}")
+            
+            initial_due = now + timedelta(seconds=delay)
+            logger.info(f"[AUTO-RESPONSE] Initial due time: {initial_due.isoformat()}")
+            
             due = adjust_due_time(
-                now + timedelta(seconds=delay),
+                initial_due,
                 business.time_zone if business else None,
                 tmpl.open_from,
                 tmpl.open_to,
             )
+            
+            logger.info(f"[AUTO-RESPONSE] Adjusted due time: {due.isoformat()}")
             countdown = max((due - now).total_seconds(), 0)
+            logger.info(f"[AUTO-RESPONSE] Final countdown (seconds): {countdown}")
             with transaction.atomic():
                 if (
                     _already_sent(lead_id, text)

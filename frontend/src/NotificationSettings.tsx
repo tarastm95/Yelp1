@@ -41,7 +41,8 @@ const PLACEHOLDERS = [
   '{lead_id}',
   '{business_name}',
   '{timestamp}',
-  '{phone}'
+  '{phone}',
+  '{yelp_link}'
 ] as const;
 type Placeholder = typeof PLACEHOLDERS[number];
 
@@ -95,9 +96,10 @@ const NotificationSettings: React.FC<Props> = ({ businessId }) => {
 
   const loadSMSSettings = async () => {
     if (!businessId) {
-      // If no business ID, SMS settings don't apply (global settings)
+      // Business ID is required - no global settings support
       setSmsEnabled(false);
-      setBusinessName('Global Settings');
+      setBusinessName('Business Required');
+      setError('Business ID is required. SMS notifications are only available for specific businesses.');
       return;
     }
     
@@ -140,13 +142,19 @@ const NotificationSettings: React.FC<Props> = ({ businessId }) => {
   }, [businessId]);
 
   const handleSave = async () => {
+    if (!businessId) {
+      setError('Business ID is required. SMS notifications are only available for specific businesses.');
+      return;
+    }
+    
     if (items.some(i => i.phone_number === phone)) {
       setError('Phone number already exists');
       return;
     }
+    
     try {
       const params = new URLSearchParams();
-      if (businessId) params.append('business_id', businessId);
+      params.append('business_id', businessId);
       await axios.post(`/notifications/?${params.toString()}`, {
         phone_number: phone,
         message_template: template,

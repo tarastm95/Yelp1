@@ -882,11 +882,8 @@ const AutoResponseSettings: FC = () => {
 
     setAiPreviewLoading(true);
     try {
-      const business = businesses.find(b => b.business_id === selectedBusiness);
       const response = await axios.post('/ai/preview/', {
-        business_name: business?.name || 'Your Business',
-        customer_name: 'John Smith',
-        services: 'plumbing services',
+        business_id: selectedBusiness,  // Передаємо business_id для отримання реальних даних
         ai_response_style: aiResponseStyle,
         ai_include_location: aiIncludeLocation,
         ai_mention_response_time: aiMentionResponseTime,

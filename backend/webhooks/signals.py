@@ -67,27 +67,37 @@ def notify_new_lead(sender, instance: LeadDetail, created: bool, **kwargs):
     else:
         logger.info(f"[SMS-NOTIFICATION] ✅ No business context - proceeding with global settings check")
 
-    # Step 4: Look up notification settings
+    # Step 4: Look up business-specific notification settings only
     logger.info(f"[SMS-NOTIFICATION] ⚙️ STEP 3: Looking up notification settings")
     logger.info(f"[SMS-NOTIFICATION] Filtering criteria:")
     logger.info(f"[SMS-NOTIFICATION] - Exclude empty phone numbers")
     logger.info(f"[SMS-NOTIFICATION] - Exclude empty message templates")
+    logger.info(f"[SMS-NOTIFICATION] - Only business-specific settings (no global settings)")
+    logger.info(f"[SMS-NOTIFICATION] - SMS notifications require valid business")
     
     settings = NotificationSetting.objects.exclude(phone_number="").exclude(message_template="")
     initial_count = settings.count()
     logger.info(f"[SMS-NOTIFICATION] Initial settings count (with phone & template): {initial_count}")
     
     if business:
-        logger.info(f"[SMS-NOTIFICATION] Applying business filter (business-specific OR global)")
-        settings = settings.filter(models.Q(business=business) | models.Q(business__isnull=True))
-    else:
-        logger.info(f"[SMS-NOTIFICATION] Applying global-only filter (no business)")
-        settings = settings.filter(business__isnull=True)
+        logger.info(f"[SMS-NOTIFICATION] Applying business-only filter (no global settings)")
         
-    final_count = settings.count()
-    logger.info(f"[SMS-NOTIFICATION] Final settings count after business filter: {final_count}")
+        # Only get business-specific settings
+        business_settings = settings.filter(business=business)
+        logger.info(f"[SMS-NOTIFICATION] Business-specific settings: {business_settings.count()}")
+        
+        settings = list(business_settings)
+        logger.info(f"[SMS-NOTIFICATION] Using only business-specific SMS settings")
+    else:
+        logger.info(f"[SMS-NOTIFICATION] ⚠️ NO BUSINESS found - SMS notifications disabled")
+        logger.info(f"[SMS-NOTIFICATION] Global SMS settings are not supported")
+        logger.info(f"[SMS-NOTIFICATION] 🛑 EARLY RETURN - SMS only for specific businesses")
+        return
+        
+    final_count = len(settings)
+    logger.info(f"[SMS-NOTIFICATION] Final business-specific settings count: {final_count}")
     
-    if not settings.exists():
+    if final_count == 0:
         logger.info(f"[SMS-NOTIFICATION] ⚠️ NO NOTIFICATION SETTINGS found")
         logger.info(f"[SMS-NOTIFICATION] Criteria checked:")
         logger.info(f"[SMS-NOTIFICATION] - Has phone number: ✓")
@@ -96,7 +106,7 @@ def notify_new_lead(sender, instance: LeadDetail, created: bool, **kwargs):
         logger.info(f"[SMS-NOTIFICATION] 🛑 EARLY RETURN - no settings to process")
         return
         
-    logger.info(f"[SMS-NOTIFICATION] ✅ Found {final_count} notification setting(s) to process")
+    logger.info(f"[SMS-NOTIFICATION] ✅ Found {final_count} unique notification setting(s) to process")
     
     # Log details about each setting
     for i, setting in enumerate(settings):
@@ -121,12 +131,17 @@ def notify_new_lead(sender, instance: LeadDetail, created: bool, **kwargs):
         # Format the message
         logger.info(f"[SMS-NOTIFICATION] 📝 Formatting message template")
         try:
+            # Generate Yelp Business Lead Center link
+            yelp_link = f"https://biz.yelp.com/leads_center/{instance.business_id}/leads/{instance.lead_id}"
+            logger.info(f"[SMS-NOTIFICATION] 🔗 Generated Yelp link: {yelp_link}")
+            
             message = setting.message_template.format(
                 business_id=instance.business_id,
                 lead_id=instance.lead_id,
                 business_name=business.name if business else "",
                 timestamp=timezone.now().isoformat(),
                 phone=instance.phone_number,
+                yelp_link=yelp_link,
             )
             logger.info(f"[SMS-NOTIFICATION] ✅ Message formatted successfully")
             logger.info(f"[SMS-NOTIFICATION] Formatted message: {message[:100]}..." + ("" if len(message) <= 100 else " (truncated)"))
@@ -135,7 +150,8 @@ def notify_new_lead(sender, instance: LeadDetail, created: bool, **kwargs):
         except Exception as format_exc:
             logger.error(f"[SMS-NOTIFICATION] ❌ MESSAGE FORMATTING ERROR: {format_exc}")
             logger.error(f"[SMS-NOTIFICATION] Template: {setting.message_template}")
-            logger.error(f"[SMS-NOTIFICATION] Variables: business_id={instance.business_id}, lead_id={instance.lead_id}, business_name={business.name if business else ''}, phone={instance.phone_number}")
+            yelp_link_debug = f"https://biz.yelp.com/leads_center/{instance.business_id}/leads/{instance.lead_id}"
+            logger.error(f"[SMS-NOTIFICATION] Variables: business_id={instance.business_id}, lead_id={instance.lead_id}, business_name={business.name if business else ''}, phone={instance.phone_number}, yelp_link={yelp_link_debug}")
             logger.exception(f"[SMS-NOTIFICATION] Message formatting exception")
             error_count += 1
             continue
