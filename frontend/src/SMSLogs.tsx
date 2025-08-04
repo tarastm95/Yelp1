@@ -176,8 +176,21 @@ const SMSLogs: React.FC = () => {
 
   // Stats calculations
   const totalSMS = smsLogs.length;
-  const sentSMS = smsLogs.filter(sms => ['sent', 'delivered'].includes(sms.status.toLowerCase())).length;
+  const sentSMS = smsLogs.filter(sms => {
+    const status = sms.status.toLowerCase();
+    // Successful statuses according to Twilio documentation:
+    // - queued: API request successful, message queued
+    // - accepted: Messaging Service received message
+    // - sending: Twilio is sending to carrier
+    // - sent: Carrier accepted message
+    // - delivered: Message delivered to handset
+    return ['queued', 'accepted', 'sending', 'sent', 'delivered'].includes(status);
+  }).length;
   const failedSMS = smsLogs.filter(sms => ['failed', 'undelivered'].includes(sms.status.toLowerCase())).length;
+  const pendingSMS = smsLogs.filter(sms => {
+    const status = sms.status.toLowerCase();
+    return ['queued', 'accepted', 'sending'].includes(status);
+  }).length;
   const totalCost = smsLogs.reduce((sum, sms) => {
     if (sms.price && !isNaN(parseFloat(sms.price))) {
       return sum + parseFloat(sms.price);
@@ -497,7 +510,7 @@ const SMSLogs: React.FC = () => {
                 </Typography>
                 
                 <Typography variant="body2" color="text.secondary">
-                  Delivered SMS messages
+                  Successfully sent SMS ({pendingSMS} pending)
                 </Typography>
               </CardContent>
             </Card>
@@ -527,7 +540,7 @@ const SMSLogs: React.FC = () => {
                 </Typography>
                 
                 <Typography variant="body2" color="text.secondary">
-                  Delivery errors
+                  Failed or undelivered SMS
                 </Typography>
               </CardContent>
             </Card>
