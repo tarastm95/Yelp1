@@ -1,6 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, generics
+from rest_framework.pagination import PageNumberPagination
 from django_filters.rest_framework import DjangoFilterBackend, FilterSet, filters
 import logging
 
@@ -9,6 +10,13 @@ from .twilio_utils import send_sms
 from .models import SMSLog
 
 logger = logging.getLogger(__name__)
+
+
+class SMSLogPagination(PageNumberPagination):
+    """Custom pagination for SMS logs - 20 items per page."""
+    page_size = 20
+    page_size_query_param = 'page_size'
+    max_page_size = 100
 
 
 class SMSLogFilterSet(FilterSet):
@@ -123,6 +131,7 @@ class SMSLogListView(generics.ListAPIView):
     serializer_class = SMSLogSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_class = SMSLogFilterSet
+    pagination_class = SMSLogPagination
     
     def get_queryset(self):
         """Return SMS logs ordered by sent_at descending."""

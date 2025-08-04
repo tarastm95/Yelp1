@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import axios from 'axios';
 import {
   Container,
@@ -69,6 +69,13 @@ interface Business {
   time_zone?: string;
 }
 
+interface PaginatedResponse<T> {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: T[];
+}
+
 const TaskLogs: React.FC = () => {
   const [completedTasks, setCompletedTasks] = useState<TaskLog[]>([]);
   const [scheduledTasks, setScheduledTasks] = useState<TaskLog[]>([]);
@@ -78,7 +85,19 @@ const TaskLogs: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [canceling, setCanceling] = useState<string | null>(null);
+  
+  // Infinite scroll state
+  const [completedPage, setCompletedPage] = useState(1);
+  const [scheduledPage, setScheduledPage] = useState(1);
+  const [canceledPage, setCanceledPage] = useState(1);
+  const [hasMoreCompleted, setHasMoreCompleted] = useState(true);
+  const [hasMoreScheduled, setHasMoreScheduled] = useState(true);
+  const [hasMoreCanceled, setHasMoreCanceled] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [tab, setTab] = useState<'completed' | 'scheduled' | 'canceled'>('completed');
+  
+  // Ref for scroll container
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [confirmDialog, setConfirmDialog] = useState<{open: boolean, task: TaskLog | null}>({
     open: false,
     task: null
@@ -95,21 +114,35 @@ const TaskLogs: React.FC = () => {
 
   const loadData = async () => {
     setRefreshing(true);
+    // Reset pagination state
+    setCompletedPage(1);
+    setScheduledPage(1);
+    setCanceledPage(1);
+    setHasMoreCompleted(true);
+    setHasMoreScheduled(true);
+    setHasMoreCanceled(true);
+    
     try {
       // Build query parameters for business filtering
       const businessParam = selectedBusiness ? `&business_id=${selectedBusiness}` : '';
       
       const [completedRes, scheduledRes, canceledRes, businessesRes] = await Promise.all([
-        axios.get<TaskLog[]>(`/tasks/?status=success,failure${businessParam}`).catch(() => ({ data: [] })),
-        axios.get<TaskLog[]>(`/tasks/?status=scheduled${businessParam}`).catch(() => ({ data: [] })),
-        axios.get<TaskLog[]>(`/tasks/?status=revoked${businessParam}`).catch(() => ({ data: [] })),
+        axios.get<PaginatedResponse<TaskLog>>(`/tasks/?page=1&status=success,failure${businessParam}`).catch(() => ({ data: { count: 0, next: null, previous: null, results: [] } })),
+        axios.get<PaginatedResponse<TaskLog>>(`/tasks/?page=1&status=scheduled${businessParam}`).catch(() => ({ data: { count: 0, next: null, previous: null, results: [] } })),
+        axios.get<PaginatedResponse<TaskLog>>(`/tasks/?page=1&status=revoked${businessParam}`).catch(() => ({ data: { count: 0, next: null, previous: null, results: [] } })),
         axios.get<Business[]>('/businesses/').catch(() => ({ data: [] }))
       ]);
 
-      setCompletedTasks(completedRes.data);
-      setScheduledTasks(scheduledRes.data);
-      setCanceledTasks(canceledRes.data);
+      setCompletedTasks(completedRes.data.results);
+      setScheduledTasks(scheduledRes.data.results);
+      setCanceledTasks(canceledRes.data.results);
       setBusinesses(businessesRes.data);
+      
+      // Update hasMore state based on API response
+      setHasMoreCompleted(!!completedRes.data.next);
+      setHasMoreScheduled(!!scheduledRes.data.next);
+      setHasMoreCanceled(!!canceledRes.data.next);
+      
     } catch (error) {
       setSnackbar({
         open: true,
@@ -122,9 +155,119 @@ const TaskLogs: React.FC = () => {
     }
   };
 
+  const loadMoreTasks = async () => {
+    if (loadingMore) return; // Prevent multiple simultaneous requests
+    
+    const currentTab = tab;
+    let nextPage: number;
+    let hasMore: boolean;
+    let status: string;
+    
+    // Determine which tab and page to load
+    switch (currentTab) {
+      case 'completed':
+        if (!hasMoreCompleted) return;
+        nextPage = completedPage + 1;
+        hasMore = hasMoreCompleted;
+        status = 'success,failure';
+        break;
+      case 'scheduled':
+        if (!hasMoreScheduled) return;
+        nextPage = scheduledPage + 1;
+        hasMore = hasMoreScheduled;
+        status = 'scheduled';
+        break;
+      case 'canceled':
+        if (!hasMoreCanceled) return;
+        nextPage = canceledPage + 1;
+        hasMore = hasMoreCanceled;
+        status = 'revoked';
+        break;
+      default:
+        return;
+    }
+    
+    setLoadingMore(true);
+    
+    try {
+      const businessParam = selectedBusiness ? `&business_id=${selectedBusiness}` : '';
+      const response = await axios.get<PaginatedResponse<TaskLog>>(
+        `/tasks/?page=${nextPage}&status=${status}${businessParam}`
+      );
+      
+      const newTasks = response.data.results;
+      const hasMoreData = !!response.data.next;
+      
+      // Update the appropriate state based on current tab
+      switch (currentTab) {
+        case 'completed':
+          setCompletedTasks(prev => [...prev, ...newTasks]);
+          setCompletedPage(nextPage);
+          setHasMoreCompleted(hasMoreData);
+          break;
+        case 'scheduled':
+          setScheduledTasks(prev => [...prev, ...newTasks]);
+          setScheduledPage(nextPage);
+          setHasMoreScheduled(hasMoreData);
+          break;
+        case 'canceled':
+          setCanceledTasks(prev => [...prev, ...newTasks]);
+          setCanceledPage(nextPage);
+          setHasMoreCanceled(hasMoreData);
+          break;
+      }
+      
+    } catch (error) {
+      console.error('Failed to load more tasks:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to load more tasks',
+        severity: 'error'
+      });
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
   useEffect(() => {
     loadData();
   }, [selectedBusiness]); // Re-load data when selected business changes
+
+  // Scroll listener for infinite scroll
+  const handleScroll = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    
+    const { scrollTop, scrollHeight, clientHeight } = container;
+    const isNearBottom = scrollTop + clientHeight >= scrollHeight - 200; // 200px threshold
+    
+    if (isNearBottom && !loadingMore) {
+      let hasMore = false;
+      switch (tab) {
+        case 'completed':
+          hasMore = hasMoreCompleted;
+          break;
+        case 'scheduled':
+          hasMore = hasMoreScheduled;
+          break;
+        case 'canceled':
+          hasMore = hasMoreCanceled;
+          break;
+      }
+      
+      if (hasMore) {
+        loadMoreTasks();
+      }
+    }
+  }, [tab, loadingMore, hasMoreCompleted, hasMoreScheduled, hasMoreCanceled, loadMoreTasks]);
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      container.addEventListener('scroll', handleScroll);
+      return () => container.removeEventListener('scroll', handleScroll);
+    }
+  }, [handleScroll]);
 
   const tzMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -653,7 +796,28 @@ const TaskLogs: React.FC = () => {
             </Tabs>
           </Box>
           
-          <CardContent sx={{ p: 3 }}>
+          <CardContent 
+            ref={scrollContainerRef}
+            sx={{ 
+              p: 3, 
+              maxHeight: '70vh', 
+              overflowY: 'auto',
+              '&::-webkit-scrollbar': {
+                width: '8px',
+              },
+              '&::-webkit-scrollbar-track': {
+                background: '#f1f1f1',
+                borderRadius: '4px',
+              },
+              '&::-webkit-scrollbar-thumb': {
+                background: '#888',
+                borderRadius: '4px',
+              },
+              '&::-webkit-scrollbar-thumb:hover': {
+                background: '#555',
+              },
+            }}
+          >
             {/* Empty State */}
             {currentTasks.length === 0 ? (
               <Paper 
@@ -909,6 +1073,29 @@ const TaskLogs: React.FC = () => {
                     </Card>
                   );
                 })}
+                
+                {/* Loading indicator for infinite scroll */}
+                {loadingMore && (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+                    <CircularProgress size={24} />
+                    <Typography variant="body2" sx={{ ml: 2, color: 'text.secondary' }}>
+                      Loading more tasks...
+                    </Typography>
+                  </Box>
+                )}
+                
+                {/* End of list indicator */}
+                {currentTasks.length > 0 && !loadingMore && (
+                  (tab === 'completed' && !hasMoreCompleted) ||
+                  (tab === 'scheduled' && !hasMoreScheduled) ||
+                  (tab === 'canceled' && !hasMoreCanceled)
+                ) && (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                      No more tasks to load
+                    </Typography>
+                  </Box>
+                )}
               </Stack>
             )}
           </CardContent>

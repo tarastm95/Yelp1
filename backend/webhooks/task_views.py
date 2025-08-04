@@ -3,6 +3,7 @@ from django_filters.rest_framework import DjangoFilterBackend, FilterSet, filter
 from rest_framework import generics, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.pagination import PageNumberPagination
 
 import django_rq
 
@@ -10,6 +11,13 @@ from .models import CeleryTaskLog, LeadPendingTask
 from .serializers import CeleryTaskLogSerializer, MessageTaskSerializer
 
 logger = logging.getLogger(__name__)
+
+
+class TaskLogPagination(PageNumberPagination):
+    """Custom pagination for task logs - 20 items per page."""
+    page_size = 20
+    page_size_query_param = 'page_size'
+    max_page_size = 100
 
 
 class TaskLogFilterSet(FilterSet):
@@ -34,11 +42,12 @@ class TaskLogFilterSet(FilterSet):
 
 
 class TaskLogListView(generics.ListAPIView):
-    """Return task logs with optional filtering."""
+    """Return task logs with optional filtering and pagination."""
 
     serializer_class = CeleryTaskLogSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_class = TaskLogFilterSet
+    pagination_class = TaskLogPagination
 
     def get_queryset(self):
         qs = CeleryTaskLog.objects.all().order_by("-eta")

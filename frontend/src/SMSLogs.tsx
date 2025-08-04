@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import axios from 'axios';
 import {
   Container,
@@ -70,6 +70,13 @@ interface Business {
   time_zone?: string;
 }
 
+interface PaginatedResponse<T> {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: T[];
+}
+
 const SMSLogs: React.FC = () => {
   const [smsLogs, setSmsLogs] = useState<SMSLog[]>([]);
   const [businesses, setBusinesses] = useState<Business[]>([]);
@@ -78,6 +85,15 @@ const SMSLogs: React.FC = () => {
   const [selectedStatus, setSelectedStatus] = useState<string>(''); // '' means "All Statuses"
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  
+  // Infinite scroll state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  
+  // Ref for scroll container
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  
   const [snackbar, setSnackbar] = useState<{open: boolean, message: string, severity: 'success' | 'error'}>({
     open: false,
     message: '',
@@ -86,20 +102,29 @@ const SMSLogs: React.FC = () => {
 
   const loadData = async () => {
     setRefreshing(true);
+    // Reset pagination state
+    setCurrentPage(1);
+    setHasMore(true);
+    
     try {
       // Build query parameters for filtering
       const params = new URLSearchParams();
+      params.append('page', '1');
       if (selectedBusiness) params.append('business_id', selectedBusiness);
       if (selectedPurpose) params.append('purpose', selectedPurpose);
       if (selectedStatus) params.append('status', selectedStatus);
       
       const [smsRes, businessesRes] = await Promise.all([
-        axios.get<SMSLog[]>(`/sms-logs/?${params.toString()}`).catch(() => ({ data: [] })),
+        axios.get<PaginatedResponse<SMSLog>>(`/sms-logs/?${params.toString()}`).catch(() => ({ data: { count: 0, next: null, previous: null, results: [] } })),
         axios.get<Business[]>('/businesses/').catch(() => ({ data: [] }))
       ]);
 
-      setSmsLogs(smsRes.data);
+      setSmsLogs(smsRes.data.results);
       setBusinesses(businessesRes.data);
+      
+      // Update hasMore state based on API response
+      setHasMore(!!smsRes.data.next);
+      
     } catch (error) {
       setSnackbar({
         open: true,
@@ -112,9 +137,69 @@ const SMSLogs: React.FC = () => {
     }
   };
 
+  const loadMoreSMS = async () => {
+    if (loadingMore || !hasMore) return; // Prevent multiple simultaneous requests
+    
+    setLoadingMore(true);
+    
+    try {
+      const nextPage = currentPage + 1;
+      
+      // Build query parameters for filtering
+      const params = new URLSearchParams();
+      params.append('page', nextPage.toString());
+      if (selectedBusiness) params.append('business_id', selectedBusiness);
+      if (selectedPurpose) params.append('purpose', selectedPurpose);
+      if (selectedStatus) params.append('status', selectedStatus);
+      
+      const response = await axios.get<PaginatedResponse<SMSLog>>(
+        `/sms-logs/?${params.toString()}`
+      );
+      
+      const newSMS = response.data.results;
+      const hasMoreData = !!response.data.next;
+      
+      // Append new SMS to existing list
+      setSmsLogs(prev => [...prev, ...newSMS]);
+      setCurrentPage(nextPage);
+      setHasMore(hasMoreData);
+      
+    } catch (error) {
+      console.error('Failed to load more SMS:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to load more SMS',
+        severity: 'error'
+      });
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
   useEffect(() => {
     loadData();
   }, [selectedBusiness, selectedPurpose, selectedStatus]); // Re-load data when filters change
+
+  // Scroll listener for infinite scroll
+  const handleScroll = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    
+    const { scrollTop, scrollHeight, clientHeight } = container;
+    const isNearBottom = scrollTop + clientHeight >= scrollHeight - 200; // 200px threshold
+    
+    if (isNearBottom && !loadingMore && hasMore) {
+      loadMoreSMS();
+    }
+  }, [loadingMore, hasMore, loadMoreSMS]);
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      container.addEventListener('scroll', handleScroll);
+      return () => container.removeEventListener('scroll', handleScroll);
+    }
+  }, [handleScroll]);
 
   const tzMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -614,8 +699,30 @@ const SMSLogs: React.FC = () => {
               SMS Messages ({smsLogs.length})
             </Typography>
             
-            {/* Empty State */}
-            {smsLogs.length === 0 ? (
+            {/* Scrollable container for SMS list */}
+            <Box 
+              ref={scrollContainerRef}
+              sx={{
+                maxHeight: '70vh',
+                overflowY: 'auto',
+                '&::-webkit-scrollbar': {
+                  width: '8px',
+                },
+                '&::-webkit-scrollbar-track': {
+                  background: '#f1f1f1',
+                  borderRadius: '4px',
+                },
+                '&::-webkit-scrollbar-thumb': {
+                  background: '#888',
+                  borderRadius: '4px',
+                },
+                '&::-webkit-scrollbar-thumb:hover': {
+                  background: '#555',
+                },
+              }}
+            >
+              {/* Empty State */}
+              {smsLogs.length === 0 ? (
               <Paper 
                 sx={{ 
                   p: 6, 
@@ -856,8 +963,28 @@ const SMSLogs: React.FC = () => {
                     </Card>
                   );
                 })}
+                
+                {/* Loading indicator for infinite scroll */}
+                {loadingMore && (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+                    <CircularProgress size={24} />
+                    <Typography variant="body2" sx={{ ml: 2, color: 'text.secondary' }}>
+                      Loading more SMS...
+                    </Typography>
+                  </Box>
+                )}
+                
+                {/* End of list indicator */}
+                {smsLogs.length > 0 && !loadingMore && !hasMore && (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                      No more SMS to load
+                    </Typography>
+                  </Box>
+                )}
               </Stack>
             )}
+            </Box>
           </CardContent>
         </Card>
 
