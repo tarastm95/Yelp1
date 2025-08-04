@@ -131,7 +131,7 @@ const AIGlobalSettings: FC = () => {
   const loadSettings = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/webhooks/ai/global-settings/');
+      const response = await fetch('/api/ai/global-settings/');
       const data = await response.json();
       
       if (data.success) {
@@ -155,7 +155,7 @@ const AIGlobalSettings: FC = () => {
   const saveSettings = async () => {
     setSaving(true);
     try {
-      const response = await fetch('/api/webhooks/ai/global-settings/', {
+      const response = await fetch('/api/ai/global-settings/', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -191,7 +191,7 @@ const AIGlobalSettings: FC = () => {
   const generateTestPreview = async () => {
     setPreviewLoading(true);
     try {
-      const response = await fetch('/api/webhooks/ai/test-preview/', {
+      const response = await fetch('/api/ai/test-preview/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
