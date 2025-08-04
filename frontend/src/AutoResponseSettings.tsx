@@ -60,8 +60,8 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
 // Helper placeholders used in message templates
 
-// For Template Configuration and Follow-up Templates - only basic placeholders
-const TEMPLATE_PLACEHOLDERS = ['{name}', '{jobs}'] as const;
+// For Template Configuration and Follow-up Templates - include greetings
+const TEMPLATE_PLACEHOLDERS = ['{name}', '{jobs}', '{greetings}'] as const;
 
 // For Notification Settings and other sections - full placeholders
 const NOTIFICATION_PLACEHOLDERS = ['{name}', '{jobs}', '{sep}', '{reason}', '{greetings}'] as const;

@@ -24,12 +24,13 @@ import {
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 
-const PLACEHOLDERS = ['{name}', '{jobs}'] as const;
+const PLACEHOLDERS = ['{name}', '{jobs}', '{greetings}'] as const;
 type Placeholder = typeof PLACEHOLDERS[number];
 
 const PLACEHOLDER_DESCRIPTIONS: Record<string, string> = {
   '{name}': 'Customer display name',
-  '{jobs}': 'List of services requested'
+  '{jobs}': 'List of services requested',
+  '{greetings}': 'Time-based greeting (Good morning, Good afternoon, etc.)'
 };
 
 interface FollowUpTemplate {
