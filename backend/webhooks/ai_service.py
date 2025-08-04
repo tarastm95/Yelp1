@@ -482,7 +482,14 @@ class OpenAIService:
         
         # Категорії бізнесу
         if business_data_settings.get('include_categories') and business_data.get('categories'):
-            categories = ", ".join(business_data['categories'][:3])  # Перші 3 категорії
+            # Extracting category titles from dictionary objects
+            category_titles = []
+            for cat in business_data['categories'][:3]:  # Перші 3 категорії
+                if isinstance(cat, dict):
+                    category_titles.append(cat.get('title', cat.get('alias', str(cat))))
+                else:
+                    category_titles.append(str(cat))
+            categories = ", ".join(category_titles)
             business_context_parts.append(f"Business specializes in: {categories}")
         
         # Рейтинг та відгуки
@@ -508,7 +515,9 @@ class OpenAIService:
         
         # Адреса
         if business_data_settings.get('include_address') and business_data.get('address'):
-            address = ", ".join(business_data['address'][:2])  # Перші 2 частини адреси
+            # Ensuring all address parts are strings before joining
+            address_parts = [str(part) for part in business_data['address'][:2]]  # Перші 2 частини адреси
+            address = ", ".join(address_parts)
             business_context_parts.append(f"Address: {address}")
         
         # Робочі години
@@ -526,7 +535,9 @@ class OpenAIService:
         
         # Транзакції та послуги
         if business_data_settings.get('include_transactions') and business_data.get('transactions'):
-            transactions = ", ".join(business_data['transactions'][:3])  # Перші 3 транзакції
+            # Ensuring all transaction items are strings before joining
+            transaction_items = [str(item) for item in business_data['transactions'][:3]]  # Перші 3 транзакції
+            transactions = ", ".join(transaction_items)
             business_context_parts.append(f"Available services: {transactions}")
         
         business_context = "\n".join([f"- {part}" for part in business_context_parts])
