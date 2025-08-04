@@ -15,6 +15,7 @@ google-auth
 cryptography
 django-filter
 psycopg2-binary
+pytz>=2023.3
 
 python-json-logger
 sentry-sdk[django]
