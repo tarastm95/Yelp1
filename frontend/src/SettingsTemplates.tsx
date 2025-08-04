@@ -24,7 +24,7 @@ import {
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 
-const PLACEHOLDERS = ['{name}', '{jobs}', '{sep}'] as const;
+const PLACEHOLDERS = ['{name}', '{jobs}', '{sep}', '{reason}'] as const;
 type Placeholder = typeof PLACEHOLDERS[number];
 
 interface FollowUpTemplate {

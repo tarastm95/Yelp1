@@ -60,7 +60,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
 // Helper placeholders used in message templates
 
-const PLACEHOLDERS = ['{name}', '{jobs}', '{sep}'] as const;
+const PLACEHOLDERS = ['{name}', '{jobs}', '{sep}', '{reason}'] as const;
 type Placeholder = typeof PLACEHOLDERS[number];
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -1480,7 +1480,7 @@ const AutoResponseSettings: FC = () => {
                         <Typography variant="body2" sx={{ fontWeight: 600, color: useAiGreeting ? 'info.dark' : 'primary.dark' }}>
                           {useAiGreeting
                             ? '🤖 AI Mode Selected: Messages will be generated automatically using artificial intelligence based on customer information and business context.'
-                            : '📝 Template Mode Selected: Use predefined message templates with placeholders like {name} and {jobs} that will be replaced with actual customer data.'
+                            : '📝 Template Mode Selected: Use predefined message templates with placeholders like {name}, {jobs}, and {reason} that will be replaced with actual customer data.'
                           }
                         </Typography>
                       </Box>
@@ -2068,7 +2068,9 @@ const AutoResponseSettings: FC = () => {
                                         }
                                       </Typography>
                                       <Typography variant="caption" sx={{ display: 'block', mt: 1, color: 'text.secondary' }}>
-                                        💡 Placeholders like {'{name}'}, {'{jobs}'}, {'{sep}'} will be replaced with actual customer data when sent.
+                                        💡 Placeholders like {'{name}'}, {'{jobs}'}, {'{sep}'}, {'{reason}'} will be replaced with actual customer data when sent.
+                                        <br />
+                                        📞 {'{reason}'} shows why SMS was sent: "Phone Number Found", "Customer Reply", or "Phone Opt-in"
                                       </Typography>
                                     </Box>
                                   )}

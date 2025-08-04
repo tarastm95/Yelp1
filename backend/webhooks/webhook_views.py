@@ -1019,6 +1019,16 @@ class WebhookView(APIView):
         logger.info(f"[AUTO-RESPONSE] - phone_opt_in: {phone_opt_in}")
         logger.info(f"[AUTO-RESPONSE] - phone_available: {phone_available}")
         
+        # Determine reason for SMS based on scenario
+        if phone_opt_in:
+            reason = "Phone Opt-in"
+        elif phone_available:
+            reason = "Phone Number Found"
+        else:
+            reason = "Customer Reply"
+        
+        logger.info(f"[AUTO-RESPONSE] SMS Reason: {reason}")
+        
         # Step 1: Look up settings
         logger.info(f"[AUTO-RESPONSE] 🔍 STEP 1: Looking up AutoResponseSettings")
         
@@ -1289,7 +1299,7 @@ class WebhookView(APIView):
                 # Check for potential template matches
                 if auto_settings and hasattr(auto_settings, 'greeting_template'):
                     try:
-                        alt_text = auto_settings.greeting_template.format(name=name, jobs=alt_jobs, sep=alt_sep)
+                        alt_text = auto_settings.greeting_template.format(name=name, jobs=alt_jobs, sep=alt_sep, reason=reason)
                         if _already_sent(lead_id, alt_text):
                             logger.warning(f"[AUTO-RESPONSE] ⚠️ POTENTIAL DUPLICATE DETECTED!")
                             logger.warning(f"[AUTO-RESPONSE] Similar message already sent with jobs='{alt_jobs}'")
@@ -1426,19 +1436,19 @@ class WebhookView(APIView):
                         logger.warning(f"[AUTO-RESPONSE] ⚠️ AI generation returned empty result, using template fallback")
                         # Fallback to template
                         if within_hours:
-                            greet_text = auto_settings.greeting_template.format(name=name, jobs=jobs, sep=sep)
+                            greet_text = auto_settings.greeting_template.format(name=name, jobs=jobs, sep=sep, reason=reason)
                             logger.info(f"[AUTO-RESPONSE] Template fallback (within hours): {greet_text[:100]}...")
                         else:
-                            greet_text = auto_settings.greeting_off_hours_template.format(name=name, jobs=jobs, sep=sep)
+                            greet_text = auto_settings.greeting_off_hours_template.format(name=name, jobs=jobs, sep=sep, reason=reason)
                             logger.info(f"[AUTO-RESPONSE] Template fallback (off hours): {greet_text[:100]}...")
                 else:
                     logger.warning(f"[AUTO-RESPONSE] ⚠️ AI service not available, using template fallback")
                     # Fallback to template
                     if within_hours:
-                        greet_text = auto_settings.greeting_template.format(name=name, jobs=jobs, sep=sep)
+                        greet_text = auto_settings.greeting_template.format(name=name, jobs=jobs, sep=sep, reason=reason)
                         logger.info(f"[AUTO-RESPONSE] Template fallback (within hours): {greet_text[:100]}...")
                     else:
-                        greet_text = auto_settings.greeting_off_hours_template.format(name=name, jobs=jobs, sep=sep)
+                        greet_text = auto_settings.greeting_off_hours_template.format(name=name, jobs=jobs, sep=sep, reason=reason)
                         logger.info(f"[AUTO-RESPONSE] Template fallback (off hours): {greet_text[:100]}...")
                         
             except Exception as e:
@@ -1465,11 +1475,11 @@ class WebhookView(APIView):
             if within_hours:
                 template = auto_settings.greeting_template
                 logger.info(f"[AUTO-RESPONSE] Using regular hours template: {template[:100]}...")
-                greet_text = template.format(name=name, jobs=jobs, sep=sep)
+                greet_text = template.format(name=name, jobs=jobs, sep=sep, reason=reason)
             else:
                 template = auto_settings.greeting_off_hours_template
                 logger.info(f"[AUTO-RESPONSE] Using off-hours template: {template[:100]}...")
-                greet_text = template.format(name=name, jobs=jobs, sep=sep)
+                greet_text = template.format(name=name, jobs=jobs, sep=sep, reason=reason)
             
             logger.info(f"[AUTO-RESPONSE] Template result: {greet_text[:100]}...")
         
@@ -1574,7 +1584,7 @@ class WebhookView(APIView):
         for tmpl in tpls:
             # Keep exact seconds precision - don't use int() which truncates
             delay = tmpl.delay.total_seconds()
-            text = tmpl.template.format(name=name, jobs=jobs, sep=sep)
+            text = tmpl.template.format(name=name, jobs=jobs, sep=sep, reason=reason)
             
             # Enhanced logging for precise timing debug
             logger.info(f"[AUTO-RESPONSE] ========= FOLLOW-UP TIMING DEBUG =========")

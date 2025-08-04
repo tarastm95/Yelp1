@@ -42,7 +42,8 @@ const PLACEHOLDERS = [
   '{business_name}',
   '{timestamp}',
   '{phone}',
-  '{yelp_link}'
+  '{yelp_link}',
+  '{reason}'
 ] as const;
 type Placeholder = typeof PLACEHOLDERS[number];
 

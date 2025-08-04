@@ -135,6 +135,14 @@ def notify_new_lead(sender, instance: LeadDetail, created: bool, **kwargs):
             yelp_link = f"https://biz.yelp.com/leads_center/{instance.business_id}/leads/{instance.lead_id}"
             logger.info(f"[SMS-NOTIFICATION] 🔗 Generated Yelp link: {yelp_link}")
             
+            # Determine reason for contact based on lead context
+            if getattr(instance, 'phone_opt_in', False):
+                reason = "Phone Opt-in"
+            elif instance.phone_number:
+                reason = "Phone Number Found"
+            else:
+                reason = "Customer Reply"
+            
             message = setting.message_template.format(
                 business_id=instance.business_id,
                 lead_id=instance.lead_id,
@@ -142,6 +150,7 @@ def notify_new_lead(sender, instance: LeadDetail, created: bool, **kwargs):
                 timestamp=timezone.now().isoformat(),
                 phone=instance.phone_number,
                 yelp_link=yelp_link,
+                reason=reason,
             )
             logger.info(f"[SMS-NOTIFICATION] ✅ Message formatted successfully")
             logger.info(f"[SMS-NOTIFICATION] Formatted message: {message[:100]}..." + ("" if len(message) <= 100 else " (truncated)"))
