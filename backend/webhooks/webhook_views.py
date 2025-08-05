@@ -851,6 +851,18 @@ class WebhookView(APIView):
         logger.info(f"[AUTO-RESPONSE] Reason: {reason or 'Not specified'}")
         logger.info(f"[AUTO-RESPONSE] Scenario: Phone opt-in received (phone_opt_in=True, phone_available=False)")
         logger.info(f"[AUTO-RESPONSE] Trigger reason: CONSUMER_PHONE_NUMBER_OPT_IN_EVENT received")
+        
+        # ⭐ SIMPLE EXISTENCE CHECK: Skip if ProcessedLead already exists
+        pl_exists = ProcessedLead.objects.filter(lead_id=lead_id).exists()
+        logger.info(f"[AUTO-RESPONSE] ProcessedLead exists for {lead_id}: {pl_exists}")
+        
+        if pl_exists:
+            logger.info(f"[AUTO-RESPONSE] ⏭️ SKIPPING phone opt-in auto-response: ProcessedLead already exists")
+            logger.info(f"[AUTO-RESPONSE] This indicates the lead was already processed before")
+            logger.info(f"[AUTO-RESPONSE] 🛑 EARLY RETURN - ProcessedLead exists")
+            return
+        
+        logger.info(f"[AUTO-RESPONSE] ✅ No ProcessedLead found - proceeding with phone opt-in flow")
         logger.info(f"[AUTO-RESPONSE] Step 1: Cancelling no-phone tasks")
         
         try:
@@ -871,6 +883,18 @@ class WebhookView(APIView):
         logger.info(f"[AUTO-RESPONSE] Reason: {reason or 'Not specified'}")
         logger.info(f"[AUTO-RESPONSE] Scenario: Phone number provided (phone_opt_in=False, phone_available=True)")
         logger.info(f"[AUTO-RESPONSE] Trigger reason: Phone number found in consumer text")
+        
+        # ⭐ SIMPLE EXISTENCE CHECK: Skip if ProcessedLead already exists
+        pl_exists = ProcessedLead.objects.filter(lead_id=lead_id).exists()
+        logger.info(f"[AUTO-RESPONSE] ProcessedLead exists for {lead_id}: {pl_exists}")
+        
+        if pl_exists:
+            logger.info(f"[AUTO-RESPONSE] ⏭️ SKIPPING phone available auto-response: ProcessedLead already exists")
+            logger.info(f"[AUTO-RESPONSE] This indicates the lead was already processed before")
+            logger.info(f"[AUTO-RESPONSE] 🛑 EARLY RETURN - ProcessedLead exists")
+            return
+        
+        logger.info(f"[AUTO-RESPONSE] ✅ No ProcessedLead found - proceeding with phone available flow")
         logger.info(f"[AUTO-RESPONSE] Step 1: Cancelling no-phone tasks")
         
         try:
