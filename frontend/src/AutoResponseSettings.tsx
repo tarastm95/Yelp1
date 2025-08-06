@@ -159,6 +159,9 @@ interface AutoResponseSettingsData {
   ai_include_address: boolean;
   ai_include_transactions: boolean;
   ai_max_message_length: number;
+  // Business-specific AI Model Settings
+  ai_model?: string;
+  ai_temperature?: number | null;
 }
 
 
@@ -206,6 +209,10 @@ const AutoResponseSettings: FC = () => {
   const [aiIncludeAddress, setAiIncludeAddress] = useState(false);
   const [aiIncludeTransactions, setAiIncludeTransactions] = useState(false);
   const [aiMaxMessageLength, setAiMaxMessageLength] = useState(160);
+  
+  // 🤖 Business-specific AI Model Settings
+  const [aiModel, setAiModel] = useState('');
+  const [aiTemperature, setAiTemperature] = useState<number | ''>('');
 
   // 📱 SMS Notification Settings
   const [smsOnPhoneFound, setSmsOnPhoneFound] = useState(true);
@@ -399,6 +406,10 @@ const AutoResponseSettings: FC = () => {
           setAiIncludeAddress(d.ai_include_address ?? false);
           setAiIncludeTransactions(d.ai_include_transactions ?? false);
           setAiMaxMessageLength(d.ai_max_message_length ?? 160);
+          
+          // Set Business-specific AI Model Settings
+          setAiModel(d.ai_model ?? '');
+          setAiTemperature(d.ai_temperature ?? '');
           
           // Set SMS Notification Settings
           setSmsOnPhoneFound(d.sms_on_phone_found ?? true);
@@ -710,6 +721,9 @@ const AutoResponseSettings: FC = () => {
         ai_include_address: aiIncludeAddress,
         ai_include_transactions: aiIncludeTransactions,
         ai_max_message_length: aiMaxMessageLength,
+        // Business-specific AI Model Settings
+        ai_model: aiModel,
+        ai_temperature: aiTemperature === '' ? null : aiTemperature,
         // SMS Notification Settings
         sms_on_phone_found: smsOnPhoneFound,
         sms_on_customer_reply: smsOnCustomerReply,
@@ -942,6 +956,9 @@ const AutoResponseSettings: FC = () => {
         ai_include_address: aiIncludeAddress,
         ai_include_transactions: aiIncludeTransactions,
         ai_max_message_length: aiMaxMessageLength,
+        // Business-specific AI Model Settings
+        ai_model: aiModel,
+        ai_temperature: aiTemperature === '' ? null : aiTemperature,
       });
 
       setAiPreview(response.data.preview);
@@ -1915,6 +1932,90 @@ const AutoResponseSettings: FC = () => {
                                       {(aiMaxMessageLength || 160) > 300 && (
                                         <Typography variant="caption" sx={{ color: 'error.main', fontWeight: 600 }}>
                                           Too long for effective communication
+                                        </Typography>
+                                      )}
+                                    </Box>
+                                  </Stack>
+                                </Box>
+                                
+                                {/* 🤖 Business-specific AI Model Settings */}
+                                <Box sx={{ 
+                                  p: 2, 
+                                  borderRadius: 1, 
+                                  border: '1px solid', 
+                                  borderColor: 'primary.300',
+                                  backgroundColor: 'primary.50'
+                                }}>
+                                  <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600, color: 'primary.main' }}>
+                                    🤖 Advanced AI Model Settings
+                                  </Typography>
+                                  <Typography variant="caption" sx={{ mb: 2, color: 'text.secondary', display: 'block' }}>
+                                    Override global AI settings for this business (leave empty to use global defaults)
+                                  </Typography>
+                                  
+                                  <Stack spacing={2}>
+                                    {/* AI Model Selection */}
+                                    <Box>
+                                      <TextField
+                                        label="OpenAI Model (optional)"
+                                        value={aiModel}
+                                        onChange={e => setAiModel(e.target.value)}
+                                        size="small"
+                                        placeholder="e.g. gpt-4o, gpt-3.5-turbo"
+                                        sx={{ 
+                                          width: 280,
+                                          backgroundColor: 'white'
+                                        }}
+                                        helperText={
+                                          aiModel 
+                                            ? `Using: ${aiModel}` 
+                                            : "Empty = Use global model setting"
+                                        }
+                                      />
+                                    </Box>
+                                    
+                                    {/* AI Temperature */}
+                                    <Box>
+                                      <TextField
+                                        label="AI Temperature (optional)"
+                                        type="number"
+                                        value={aiTemperature}
+                                        onChange={e => setAiTemperature(e.target.value === '' ? '' : Number(e.target.value))}
+                                        size="small"
+                                        placeholder="0.7"
+                                        inputProps={{ 
+                                          min: 0, 
+                                          max: 2,
+                                          step: 0.1
+                                        }}
+                                        sx={{ 
+                                          width: 200,
+                                          backgroundColor: 'white'
+                                        }}
+                                        helperText={
+                                          aiTemperature !== '' 
+                                            ? `Creativity: ${aiTemperature === 0 ? 'Very focused' : aiTemperature <= 0.3 ? 'Focused' : aiTemperature <= 0.7 ? 'Balanced' : aiTemperature <= 1.5 ? 'Creative' : 'Very creative'}` 
+                                            : "Empty = Use global temperature setting"
+                                        }
+                                      />
+                                    </Box>
+                                    
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                                      <Chip
+                                        label={aiModel || 'Global Model'}
+                                        size="small"
+                                        color={aiModel ? 'primary' : 'default'}
+                                        variant="outlined"
+                                      />
+                                      <Chip
+                                        label={aiTemperature !== '' ? `T=${aiTemperature}` : 'Global Temp'}
+                                        size="small"
+                                        color={aiTemperature !== '' ? 'primary' : 'default'}
+                                        variant="outlined"
+                                      />
+                                      {(!aiModel && aiTemperature === '') && (
+                                        <Typography variant="caption" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
+                                          Using global AI settings
                                         </Typography>
                                       )}
                                     </Box>

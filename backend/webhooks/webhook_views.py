@@ -1475,7 +1475,8 @@ class WebhookView(APIView):
                         mention_response_time=getattr(auto_settings, 'ai_mention_response_time', False),
                         custom_prompt=getattr(auto_settings, 'ai_custom_prompt', None),
                         business_data_settings=business_data_settings,
-                        max_length=getattr(auto_settings, 'ai_max_message_length', None)
+                        max_length=getattr(auto_settings, 'ai_max_message_length', None),
+                        business_ai_settings=auto_settings  # 🏢 Передаємо business AI налаштування
                     )
                     
                     if ai_greeting:

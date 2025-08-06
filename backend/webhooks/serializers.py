@@ -61,6 +61,9 @@ class AutoResponseSettingsSerializer(serializers.ModelSerializer):
             "ai_include_address",
             "ai_include_transactions",
             "ai_max_message_length",
+            # Business-specific AI Model Settings
+            "ai_model",
+            "ai_temperature",
             # SMS Notification Settings
             "sms_on_phone_found",
             "sms_on_customer_reply", 

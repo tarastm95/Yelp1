@@ -174,6 +174,19 @@ class AutoResponseSettings(models.Model):
         default=160,
         help_text="Максимальна довжина AI-згенерованого повідомлення (символів). Якщо 0 - використовується глобальне налаштування"
     )
+    
+    # 🤖 Business-specific AI Model Settings
+    ai_model = models.CharField(
+        max_length=50,
+        blank=True,
+        default='',
+        help_text="OpenAI модель для цього бізнесу (якщо порожня - використовується глобальна)"
+    )
+    ai_temperature = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Temperature для AI генерації цього бізнесу (якщо порожня - використовується глобальна)"
+    )
 
     export_to_sheets = models.BooleanField(
         default=False, help_text="Записувати нові ліди в Google Sheets"
@@ -221,21 +234,21 @@ class AISettings(models.Model):
     openai_model = models.CharField(
         max_length=50,
         default="gpt-4o",
-        help_text="Модель OpenAI для використання"
+        help_text="Fallback модель OpenAI (коли не вказана для бізнесу)"
     )
     
     # Global prompt settings
     base_system_prompt = models.TextField(
         default="You are a professional business communication assistant. Generate personalized, friendly, and professional greeting messages for potential customers who have inquired about services.",
-        help_text="Базовий системний промпт для AI"
+        help_text="Fallback системний промпт для AI (коли не вказаний кастомний промпт для бізнесу)"
     )
     max_message_length = models.PositiveIntegerField(
         default=160,
-        help_text="Максимальна довжина згенерованого повідомлення"
+        help_text="Fallback максимальна довжина повідомлення (коли не вказана для бізнесу)"
     )
     default_temperature = models.FloatField(
         default=0.7,
-        help_text="Temperature для AI генерації (0.0-1.0)"
+        help_text="Fallback temperature для AI генерації (коли не вказана для бізнесу)"
     )
     
     # Business rules

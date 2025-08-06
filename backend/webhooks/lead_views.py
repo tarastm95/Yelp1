@@ -484,6 +484,13 @@ class AIPreviewView(APIView):
                     'error': f'Business with id {business_id} not found'
                 }, status=status.HTTP_404_NOT_FOUND)
             
+            # Отримуємо AutoResponseSettings для бізнесу (для AI налаштувань)
+            business_ai_settings = AutoResponseSettings.objects.filter(
+                business=business,
+                phone_opt_in=False,
+                phone_available=False
+            ).first()
+            
             # Параметри з запиту
             response_style = request.data.get('ai_response_style', 'auto')
             include_location = request.data.get('ai_include_location', False)
@@ -523,7 +530,8 @@ class AIPreviewView(APIView):
                 custom_prompt=custom_prompt,
                 business_data_settings=business_data_settings,
                 max_length=max_length,
-                custom_preview_text=custom_preview_text  # 🎯 Додаємо параметр
+                custom_preview_text=custom_preview_text,  # 🎯 Додаємо параметр
+                business_ai_settings=business_ai_settings  # 🤖 Додаємо business AI налаштування
             )
             
             return Response({
@@ -693,7 +701,8 @@ class AITestPreviewView(APIView):
                     "include_address": False,
                     "include_transactions": False
                 },
-                max_length=max_message_length
+                max_length=max_message_length,
+                business_ai_settings=None  # 🧪 Mock test - використовуємо global fallback
             )
             
             return Response({

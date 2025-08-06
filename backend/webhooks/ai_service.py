@@ -7,7 +7,7 @@ from typing import Optional, Dict, Any
 from django.conf import settings
 from django.utils import timezone
 from django.core.cache import cache
-from .models import LeadDetail, YelpBusiness, AISettings
+from .models import LeadDetail, YelpBusiness, AISettings, AutoResponseSettings
 import os
 
 logger = logging.getLogger(__name__)
@@ -48,6 +48,42 @@ class OpenAIService:
         """Перевіряє чи доступний AI сервіс"""
         return self.client is not None
     
+    def _get_ai_settings(self, business_ai_settings: Optional['AutoResponseSettings'] = None) -> Dict[str, Any]:
+        """Отримує AI налаштування з business-specific fallback на global"""
+        # Отримуємо глобальні налаштування як fallback
+        global_ai_settings = AISettings.objects.first()
+        
+        # Модель
+        if business_ai_settings and business_ai_settings.ai_model:
+            model = business_ai_settings.ai_model
+            logger.info(f"[AI-SERVICE] Using business-specific model: {model}")
+        else:
+            model = global_ai_settings.openai_model if global_ai_settings else "gpt-4o"
+            logger.info(f"[AI-SERVICE] Using fallback model: {model}")
+        
+        # Temperature
+        if business_ai_settings and business_ai_settings.ai_temperature is not None:
+            temperature = business_ai_settings.ai_temperature
+            logger.info(f"[AI-SERVICE] Using business-specific temperature: {temperature}")
+        else:
+            temperature = global_ai_settings.default_temperature if global_ai_settings else 0.7
+            logger.info(f"[AI-SERVICE] Using fallback temperature: {temperature}")
+        
+        # Max message length
+        if business_ai_settings and business_ai_settings.ai_max_message_length > 0:
+            max_length = business_ai_settings.ai_max_message_length
+            logger.info(f"[AI-SERVICE] Using business-specific max length: {max_length}")
+        else:
+            max_length = global_ai_settings.max_message_length if global_ai_settings else 160
+            logger.info(f"[AI-SERVICE] Using fallback max length: {max_length}")
+        
+        return {
+            'model': model,
+            'temperature': temperature,
+            'max_length': max_length,
+            'global_settings': global_ai_settings
+        }
+    
     def check_rate_limit(self) -> bool:
         """Перевіряє rate limit для AI запитів"""
         ai_settings = AISettings.objects.first()
@@ -75,7 +111,8 @@ class OpenAIService:
         mention_response_time: bool = False,
         custom_prompt: Optional[str] = None,
         business_data_settings: Optional[Dict[str, bool]] = None,
-        max_length: Optional[int] = None
+        max_length: Optional[int] = None,
+        business_ai_settings: Optional['AutoResponseSettings'] = None
     ) -> Optional[str]:
         """Генерує AI-powered greeting повідомлення на основі контексту ліда"""
         
@@ -130,20 +167,20 @@ class OpenAIService:
             logger.info(f"[AI-SERVICE] ✅ Prompt created (length: {len(prompt)} characters)")
             logger.info(f"[AI-SERVICE] Prompt preview: {prompt[:200]}...")
             
-            # Отримання налаштувань AI
-            ai_settings = AISettings.objects.first()
-            model = ai_settings.openai_model if ai_settings else "gpt-4o"
-            temperature = ai_settings.default_temperature if ai_settings else 0.7
+            # Отримання AI налаштувань з business-specific fallback
+            ai_config = self._get_ai_settings(business_ai_settings)
+            model = ai_config['model']
+            temperature = ai_config['temperature']
             
-            # Використовуємо бізнес-специфічну довжину якщо надана, інакше глобальну
+            # Використовуємо параметр max_length якщо наданий, інакше business/global
             if max_length is not None and max_length > 0:
                 message_length = max_length
-                logger.info(f"[AI-SERVICE] Using business-specific max length: {message_length}")
+                logger.info(f"[AI-SERVICE] Using parameter max length: {message_length}")
             else:
-                message_length = ai_settings.max_message_length if ai_settings else 160
-                logger.info(f"[AI-SERVICE] Using global max length: {message_length}")
+                message_length = ai_config['max_length']
+                logger.info(f"[AI-SERVICE] Using configured max length: {message_length}")
             
-            logger.info(f"[AI-SERVICE] AI API settings:")
+            logger.info(f"[AI-SERVICE] 🤖 Final AI configuration:")
             logger.info(f"[AI-SERVICE] - Model: {model}")
             logger.info(f"[AI-SERVICE] - Temperature: {temperature}")
             logger.info(f"[AI-SERVICE] - Max tokens: {message_length}")
@@ -206,7 +243,8 @@ class OpenAIService:
         custom_prompt: Optional[str] = None,
         business_data_settings: Optional[Dict[str, bool]] = None,
         max_length: Optional[int] = None,
-        custom_preview_text: Optional[str] = None  # 🎯 Додаємо новий параметр
+        custom_preview_text: Optional[str] = None,  # 🎯 Додаємо новий параметр
+        business_ai_settings: Optional['AutoResponseSettings'] = None
     ) -> str:
         """Генерує превʼю повідомлення для тестування налаштувань"""
         
@@ -344,17 +382,18 @@ class OpenAIService:
             
             prompt = self._create_greeting_prompt(context, response_style, custom_prompt)
             
-            ai_settings = AISettings.objects.first()
-            model = ai_settings.openai_model if ai_settings else "gpt-4o"
-            temperature = ai_settings.default_temperature if ai_settings else 0.7
+            # Отримання AI налаштувань з business-specific fallback для preview
+            ai_config = self._get_ai_settings(business_ai_settings)
+            model = ai_config['model']
+            temperature = ai_config['temperature']
             
-            # Використовуємо business-specific довжину якщо надана, інакше глобальну
+            # Використовуємо параметр max_length якщо наданий, інакше business/global
             if max_length is not None and max_length > 0:
                 message_length = max_length
-                logger.info(f"[AI-SERVICE] Preview using business-specific max length: {message_length}")
+                logger.info(f"[AI-SERVICE] Preview using parameter max length: {message_length}")
             else:
-                message_length = ai_settings.max_message_length if ai_settings else 160
-                logger.info(f"[AI-SERVICE] Preview using global max length: {message_length}")
+                message_length = ai_config['max_length']
+                logger.info(f"[AI-SERVICE] Preview using configured max length: {message_length}")
             
             # 🎯 Для contextual AI analysis використовуємо custom prompt як system prompt
             system_prompt = self._get_system_prompt(custom_prompt)
