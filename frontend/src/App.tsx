@@ -32,6 +32,7 @@ import Subscriptions from "./Subscriptions";
 import LoginPage from "./LoginPage";
 import TopMenu from "./TopMenu";
 import TimeBasedGreetings from "./TimeBasedGreetings";
+import JobMappings from "./JobMappings";
 
 // A enhanced theme for the application with modern design
 const theme = createTheme({
@@ -266,6 +267,7 @@ const App: FC = () => {
               <Route path="/settings" element={<AutoResponseSettings />} />
               <Route path="/ai-settings" element={<AIGlobalSettings />} />
               <Route path="/time-greetings" element={<TimeBasedGreetings />} />
+              <Route path="/job-mappings" element={<JobMappings />} />
               <Route path="/tokens" element={<TokenStatus />} />
               <Route path="/subscriptions" element={<Subscriptions />} />
               <Route path="/tasks" element={<TaskLogs />} />

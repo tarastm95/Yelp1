@@ -177,6 +177,38 @@ class WebhookView(APIView):
         )
         return {"new_lead": is_new, "reason": reason}
 
+    def _apply_job_mappings(self, job_names: list) -> list:
+        """Застосовує глобальні налаштування заміни назв послуг"""
+        if not job_names:
+            return job_names
+
+        logger.info(f"[JOB-MAPPING] 🔄 Applying job mappings for: {job_names}")
+        
+        # Отримуємо всі активні маппінги з кешем
+        mappings = {}
+        try:
+            from .models import JobMapping
+            active_mappings = JobMapping.objects.filter(active=True)
+            mappings = {mapping.original_name: mapping.custom_name for mapping in active_mappings}
+            logger.info(f"[JOB-MAPPING] Found {len(mappings)} active mappings")
+        except Exception as e:
+            logger.error(f"[JOB-MAPPING] ❌ Error loading job mappings: {e}")
+            return job_names
+
+        # Застосовуємо маппінги
+        mapped_names = []
+        for job_name in job_names:
+            if job_name in mappings:
+                mapped_name = mappings[job_name]
+                mapped_names.append(mapped_name)
+                logger.info(f"[JOB-MAPPING] ✅ Mapped: '{job_name}' → '{mapped_name}'")
+            else:
+                mapped_names.append(job_name)
+                logger.info(f"[JOB-MAPPING] ➡️ No mapping for: '{job_name}' (using original)")
+
+        logger.info(f"[JOB-MAPPING] 🎯 Final mapped jobs: {mapped_names}")
+        return mapped_names
+
     def post(self, request, *args, **kwargs):
         logger.info("[WEBHOOK] Received POST /webhook/")
         raw = request.data or {}
@@ -1319,7 +1351,10 @@ class WebhookView(APIView):
         
         name = ld.user_display_name
         raw_job_names = ld.project.get("job_names", [])
-        jobs = ", ".join(raw_job_names)
+        
+        # 🔄 Apply custom job mappings before formatting
+        mapped_job_names = self._apply_job_mappings(raw_job_names)
+        jobs = ", ".join(mapped_job_names)
         sep = ", " if name and jobs else ""
         
         # 🔧 DUPLICATE PREVENTION: Check if jobs changed after LeadDetail update
@@ -1334,6 +1369,7 @@ class WebhookView(APIView):
         logger.info(f"[AUTO-RESPONSE] - LeadDetail ID: {ld.pk if ld else 'None'}")
         logger.info(f"[AUTO-RESPONSE] - user_display_name: '{name}'")
         logger.info(f"[AUTO-RESPONSE] - project.job_names (raw): {raw_job_names}")
+        logger.info(f"[AUTO-RESPONSE] - project.job_names (mapped): {mapped_job_names}")
         logger.info(f"[AUTO-RESPONSE] - jobs (formatted): '{jobs}'")
         logger.info(f"[AUTO-RESPONSE] - separator: '{sep}'")
         

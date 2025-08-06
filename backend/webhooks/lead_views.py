@@ -12,6 +12,7 @@ from .models import (
     YelpBusiness,
     LeadDetail,
     FollowUpTemplate,
+    JobMapping,
     YelpToken,
     LeadEvent,
     NotificationSetting,
@@ -25,6 +26,7 @@ from .serializers import (
     ProcessedLeadSerializer,
     LeadDetailSerializer,
     FollowUpTemplateSerializer,
+    JobMappingSerializer,
     YelpTokenInfoSerializer,
     LeadEventSerializer,
     NotificationSettingSerializer,
@@ -821,3 +823,19 @@ class TimeBasedGreetingView(APIView):
 
     def put(self, request):
         return self.post(request)
+
+
+class JobMappingListCreateView(generics.ListCreateAPIView):
+    """API для перегляду та створення відповідностей назв послуг"""
+    serializer_class = JobMappingSerializer
+    queryset = JobMapping.objects.all()
+
+    def get_queryset(self):
+        return JobMapping.objects.filter(active=True).order_by('original_name')
+
+
+class JobMappingDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """API для перегляду, оновлення та видалення конкретної відповідності"""
+    serializer_class = JobMappingSerializer
+    queryset = JobMapping.objects.all()
+    lookup_field = 'id'

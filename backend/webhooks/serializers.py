@@ -5,6 +5,7 @@ from .models import (
     AutoResponseSettings,
     ProcessedLead,
     FollowUpTemplate,
+    JobMapping,
     LeadEvent,
     LeadDetail,
     YelpToken,
@@ -180,6 +181,18 @@ class FollowUpTemplateSerializer(serializers.ModelSerializer):
         return super().update(instance, validated_data)
 
 
+class JobMappingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = JobMapping
+        fields = [
+            'id',
+            'original_name',
+            'custom_name',
+            'active',
+            'created_at',
+            'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
 
 
 class ProcessedLeadSerializer(serializers.ModelSerializer):

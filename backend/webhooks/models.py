@@ -318,6 +318,33 @@ class FollowUpTemplate(models.Model):
         return f"{self.name} (+{self.delay})"
 
 
+class JobMapping(models.Model):
+    """Глобальні налаштування для заміни назв послуг {jobs}"""
+    original_name = models.CharField(
+        max_length=200,
+        unique=True,
+        help_text="Оригінальна назва послуги, яка приходить з Yelp"
+    )
+    custom_name = models.CharField(
+        max_length=200,
+        help_text="Ваша власна назва для цієї послуги"
+    )
+    active = models.BooleanField(
+        default=True,
+        help_text="Чи активна ця заміна"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['original_name']
+        verbose_name = "Job Name Mapping"
+        verbose_name_plural = "Job Name Mappings"
+
+    def __str__(self):
+        return f"{self.original_name} → {self.custom_name}"
+
+
 class LeadEvent(models.Model):
     event_id = models.CharField(max_length=64, unique=True, db_index=True)
     lead_id = models.CharField(max_length=64, db_index=True)
