@@ -64,7 +64,7 @@ const JobMappings: React.FC = () => {
       console.error('Error loading job mappings:', error);
       setSnackbar({
         open: true,
-        message: 'Помилка завантаження налаштувань',
+        message: 'Error loading settings',
         severity: 'error',
       });
     } finally {
@@ -112,7 +112,7 @@ const JobMappings: React.FC = () => {
         await axios.put(`/job-mappings/${editingMapping.id}/`, formData);
         setSnackbar({
           open: true,
-          message: 'Налаштування оновлено успішно',
+          message: 'Settings updated successfully',
           severity: 'success',
         });
       } else {
@@ -120,7 +120,7 @@ const JobMappings: React.FC = () => {
         await axios.post('/job-mappings/', formData);
         setSnackbar({
           open: true,
-          message: 'Налаштування створено успішно',
+          message: 'Settings created successfully',
           severity: 'success',
         });
       }
@@ -130,7 +130,7 @@ const JobMappings: React.FC = () => {
       console.error('Error saving job mapping:', error);
       const errorMessage = error.response?.data?.original_name?.[0] || 
                           error.response?.data?.detail || 
-                          'Помилка збереження налаштувань';
+                          'Error saving settings';
       setSnackbar({
         open: true,
         message: errorMessage,
@@ -140,7 +140,7 @@ const JobMappings: React.FC = () => {
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('Ви впевнені, що хочете видалити це налаштування?')) {
+    if (!window.confirm('Are you sure you want to delete this setting?')) {
       return;
     }
 
@@ -148,7 +148,7 @@ const JobMappings: React.FC = () => {
       await axios.delete(`/job-mappings/${id}/`);
       setSnackbar({
         open: true,
-        message: 'Налаштування видалено успішно',
+        message: 'Settings deleted successfully',
         severity: 'success',
       });
       loadJobMappings();
@@ -156,7 +156,7 @@ const JobMappings: React.FC = () => {
       console.error('Error deleting job mapping:', error);
       setSnackbar({
         open: true,
-        message: 'Помилка видалення налаштувань',
+        message: 'Error deleting settings',
         severity: 'error',
       });
     }
@@ -170,7 +170,7 @@ const JobMappings: React.FC = () => {
       });
       setSnackbar({
         open: true,
-        message: `Налаштування ${!mapping.active ? 'активовано' : 'деактивовано'}`,
+        message: `Settings ${!mapping.active ? 'activated' : 'deactivated'}`,
         severity: 'success',
       });
       loadJobMappings();
@@ -178,7 +178,7 @@ const JobMappings: React.FC = () => {
       console.error('Error toggling job mapping:', error);
       setSnackbar({
         open: true,
-        message: 'Помилка зміни статусу',
+        message: 'Error changing status',
         severity: 'error',
       });
     }
@@ -191,7 +191,7 @@ const JobMappings: React.FC = () => {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <WorkIcon color="primary" />
             <Typography variant="h4">
-              Налаштування назв послуг
+              Job Name Settings
             </Typography>
           </Box>
           <Button
@@ -199,43 +199,43 @@ const JobMappings: React.FC = () => {
             startIcon={<AddIcon />}
             onClick={() => handleOpenDialog()}
           >
-            Додати налаштування
+            Add Setting
           </Button>
         </Box>
 
         <Typography variant="body1" sx={{ mb: 3, color: 'text.secondary' }}>
-          Тут ви можете налаштувати заміну оригінальних назв послуг з Yelp на ваші власні назви.
-          Ці налаштування будуть застосовуватися глобально для всіх повідомлень з плейсхолдером {'{jobs}'}.
+          Here you can configure replacement of original service names from Yelp with your custom names.
+          These settings will be applied globally for all messages with the {'{jobs}'} placeholder.
         </Typography>
 
         <Stack spacing={2} sx={{ mb: 3 }}>
           <Box sx={{ p: 2, backgroundColor: 'info.50', borderRadius: 1, border: '1px solid', borderColor: 'info.200' }}>
             <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'info.main', mb: 1 }}>
-              💡 Як це працює:
+              💡 How it works:
             </Typography>
             <Typography variant="body2" sx={{ color: 'info.dark' }}>
-              • Коли з Yelp приходить lead з послугою "Kitchen remodeling", система перевірить ваші налаштування
+              • When a lead comes from Yelp with a service "Kitchen remodeling", the system will check your settings
               <br />
-              • Якщо ви налаштували заміну "Kitchen remodeling" → "Кухонний ремонт", то в повідомленнях буде використано "Кухонний ремонт"
+              • If you configured a replacement "Kitchen remodeling" → "Kitchen Renovation", then "Kitchen Renovation" will be used in messages
               <br />
-              • Якщо заміни немає, використовується оригінальна назва
+              • If there's no replacement, the original name is used
             </Typography>
           </Box>
         </Stack>
 
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-            <Typography>Завантаження...</Typography>
+            <Typography>Loading...</Typography>
           </Box>
         ) : (
           <TableContainer>
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell><strong>Оригінальна назва</strong></TableCell>
-                  <TableCell><strong>Ваша назва</strong></TableCell>
-                  <TableCell><strong>Статус</strong></TableCell>
-                  <TableCell><strong>Дії</strong></TableCell>
+                  <TableCell><strong>Original Name</strong></TableCell>
+                  <TableCell><strong>Your Name</strong></TableCell>
+                  <TableCell><strong>Status</strong></TableCell>
+                  <TableCell><strong>Actions</strong></TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -243,7 +243,7 @@ const JobMappings: React.FC = () => {
                   <TableRow>
                     <TableCell colSpan={4} sx={{ textAlign: 'center', py: 4 }}>
                       <Typography variant="body2" color="text.secondary">
-                        Поки що немає налаштованих замін. Натисніть "Додати налаштування" щоб створити першу заміну.
+                        No configured replacements yet. Click "Add Setting" to create your first replacement.
                       </Typography>
                     </TableCell>
                   </TableRow>
@@ -275,7 +275,7 @@ const JobMappings: React.FC = () => {
                               color="primary"
                             />
                           }
-                          label={mapping.active ? "Активно" : "Неактивно"}
+                          label={mapping.active ? "Active" : "Inactive"}
                         />
                       </TableCell>
                       <TableCell>
@@ -306,25 +306,25 @@ const JobMappings: React.FC = () => {
       {/* Dialog for adding/editing job mappings */}
       <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
         <DialogTitle>
-          {editingMapping ? 'Редагувати налаштування' : 'Додати налаштування'}
+          {editingMapping ? 'Edit Setting' : 'Add Setting'}
         </DialogTitle>
         <DialogContent>
           <Stack spacing={3} sx={{ mt: 1 }}>
             <TextField
-              label="Оригінальна назва послуги"
+              label="Original Service Name"
               value={formData.original_name}
               onChange={(e) => setFormData({ ...formData, original_name: e.target.value })}
               placeholder="Kitchen remodeling"
               fullWidth
-              helperText="Точна назва послуги, яка приходить з Yelp"
+              helperText="Exact service name that comes from Yelp"
             />
             <TextField
-              label="Ваша назва послуги"
+              label="Your Service Name"
               value={formData.custom_name}
               onChange={(e) => setFormData({ ...formData, custom_name: e.target.value })}
-              placeholder="Кухонний ремонт"
+              placeholder="Kitchen Renovation"
               fullWidth
-              helperText="Назва, яка буде використовуватися в повідомленнях замість оригінальної"
+              helperText="Name that will be used in messages instead of the original"
             />
             <FormControlLabel
               control={
@@ -333,18 +333,18 @@ const JobMappings: React.FC = () => {
                   onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
                 />
               }
-              label="Активне налаштування"
+              label="Active Setting"
             />
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseDialog}>Скасувати</Button>
+          <Button onClick={handleCloseDialog}>Cancel</Button>
           <Button 
             onClick={handleSave} 
             variant="contained"
             disabled={!formData.original_name.trim() || !formData.custom_name.trim()}
           >
-            {editingMapping ? 'Оновити' : 'Створити'}
+            {editingMapping ? 'Update' : 'Create'}
           </Button>
         </DialogActions>
       </Dialog>
