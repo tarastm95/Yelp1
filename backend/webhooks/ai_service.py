@@ -148,13 +148,19 @@ class OpenAIService:
             
             logger.info(f"[AI-SERVICE] 🤖 Calling OpenAI API...")
             
+            # ⭐ Для custom prompt використовуємо простий system prompt
+            if custom_prompt:
+                system_prompt = "You are a helpful assistant. Follow the instructions provided and generate the requested response."
+            else:
+                system_prompt = self._get_system_prompt(custom_prompt)
+            
             # Виклик OpenAI API
             response = self.client.chat.completions.create(
                 model=model,
                 messages=[
                     {
                         "role": "system", 
-                        "content": self._get_system_prompt(custom_prompt)
+                        "content": system_prompt
                     },
                     {"role": "user", "content": prompt}
                 ],
@@ -301,7 +307,12 @@ class OpenAIService:
                 "is_off_hours": False,
                 "mention_response_time": mention_response_time,
                 "business_data": filtered_business_data,  # Тільки реальні дані бізнесу
-                "business_data_settings": business_data_settings
+                "business_data_settings": business_data_settings,
+                # ⭐ ТЕСТОВІ ДАНІ для custom prompt плейсхолдерів
+                "service_type": "Structural repair",  # Тестовий тип послуги
+                "sub_option": "Foundation",  # Тестова підопція
+                "timeline": "As soon as possible",  # Тестовий таймлайн
+                "zip": "91104"  # Тестовий ZIP код
             }
             
             prompt = self._create_greeting_prompt(context, response_style, custom_prompt)
@@ -318,12 +329,18 @@ class OpenAIService:
                 message_length = ai_settings.max_message_length if ai_settings else 160
                 logger.info(f"[AI-SERVICE] Preview using global max length: {message_length}")
             
+            # ⭐ Для custom prompt використовуємо простий system prompt
+            if custom_prompt:
+                system_prompt = "You are a helpful assistant. Follow the instructions provided and generate the requested response."
+            else:
+                system_prompt = self._get_system_prompt(custom_prompt)
+            
             response = self.client.chat.completions.create(
                 model=model,
                 messages=[
                     {
                         "role": "system",
-                        "content": self._get_system_prompt(custom_prompt)
+                        "content": system_prompt
                     },
                     {"role": "user", "content": prompt}
                 ],
@@ -450,6 +467,15 @@ class OpenAIService:
             "business_data_settings": business_data_settings
         })
         
+        # ⭐ ДОДАЄМО ПЛЕЙСХОЛДЕРИ для custom prompt (реальні дані з ліда)
+        project_data = lead_detail.project or {}
+        context.update({
+            "service_type": project_data.get("job_type") or "General contracting",  # Тип послуги з проекту
+            "sub_option": project_data.get("sub_option") or "Other",  # Підопція з проекту
+            "timeline": project_data.get("timeline") or "I'm flexible",  # Таймлайн з проекту
+            "zip": project_data.get("zip_code") or "Unknown"  # ZIP з проекту
+        })
+        
         return context
     
     def _get_system_prompt(self, custom_prompt: Optional[str] = None) -> str:
@@ -470,6 +496,28 @@ class OpenAIService:
         custom_prompt: Optional[str] = None
     ) -> str:
         """Створює промпт для генерації вітального повідомлення з повними бізнес-даними"""
+        
+        # ⭐ ЯКЩО Є CUSTOM PROMPT - використовуємо його замість стандартного
+        if custom_prompt:
+            try:
+                # Заповнюємо плейсхолдери в custom prompt
+                filled_prompt = custom_prompt.format(
+                    CLIENT_NAME=context.get('customer_name', 'Sarah'),
+                    SERVICES=context.get('services', 'your inquiry'),
+                    service_type=context.get('service_type', 'Structural repair'),
+                    sub_option=context.get('sub_option', 'Foundation'),
+                    timeline=context.get('timeline', 'As soon as possible'),
+                    zip=context.get('zip', '91104'),
+                    customer_name=context.get('customer_name', 'Sarah'),
+                    business_name=context.get('business_name', 'Priority Remodeling'),
+                    phone_number=context.get('phone_number', '(555) 123-4567'),
+                    additional_info=context.get('additional_info', '')
+                )
+                return filled_prompt
+            except KeyError as e:
+                # Якщо є невідомі плейсхолдери, повертаємо prompt як є
+                logger.warning(f"[AI-SERVICE] Unknown placeholder in custom prompt: {e}")
+                return custom_prompt
         
         style_instruction = {
             'formal': "Use a formal, professional tone.",
