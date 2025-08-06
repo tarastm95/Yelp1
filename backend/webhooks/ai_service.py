@@ -205,7 +205,8 @@ class OpenAIService:
         mention_response_time: bool = False,
         custom_prompt: Optional[str] = None,
         business_data_settings: Optional[Dict[str, bool]] = None,
-        max_length: Optional[int] = None
+        max_length: Optional[int] = None,
+        custom_preview_text: Optional[str] = None  # 🎯 Додаємо новий параметр
     ) -> str:
         """Генерує превʼю повідомлення для тестування налаштувань"""
         
@@ -296,6 +297,14 @@ class OpenAIService:
             if include_location and real_business_data.get("location"):
                 filtered_business_data["location"] = real_business_data["location"]
             
+            # 🎯 Використовуємо custom preview text якщо надано, інакше мокові дані
+            if custom_preview_text:
+                original_customer_text = custom_preview_text
+                logger.info(f"[AI-SERVICE] 🎯 Using custom preview text: {original_customer_text[:100]}...")
+            else:
+                original_customer_text = "Hi there! Could you help me with my project? Here are my answers to Yelp's questions regarding my project:\n\nWhat type of contracting service do you need?\nStructural repair\n\nWhat structural element(s) need repair? Select all that apply.\nFoundation\n\nWhen do you require this service?\nAs soon as possible\n\nIn what location do you need the service?\n91104"
+                logger.info(f"[AI-SERVICE] Using default mock customer text for preview")
+            
             context = {
                 "customer_name": "Sarah",  # Realistic test name instead of placeholder
                 "services": "kitchen remodeling",  # Realistic test service instead of placeholder
@@ -307,8 +316,7 @@ class OpenAIService:
                 "mention_response_time": mention_response_time,
                 "business_data": filtered_business_data,  # Тільки реальні дані бізнесу
                 "business_data_settings": business_data_settings,
-                # 🎯 ТЕСТОВІ ДАНІ для contextual AI analysis
-                "original_customer_text": "Hi there! Could you help me with my project? Here are my answers to Yelp's questions regarding my project:\n\nWhat type of contracting service do you need?\nStructural repair\n\nWhat structural element(s) need repair? Select all that apply.\nFoundation\n\nWhen do you require this service?\nAs soon as possible\n\nIn what location do you need the service?\n91104"
+                "original_customer_text": original_customer_text  # 🎯 Використовуємо custom або мокові дані
             }
             
             prompt = self._create_greeting_prompt(context, response_style, custom_prompt)

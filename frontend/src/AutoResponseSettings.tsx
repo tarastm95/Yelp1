@@ -193,6 +193,7 @@ const AutoResponseSettings: FC = () => {
   const [aiCustomPrompt, setAiCustomPrompt] = useState('');
   const [aiPreview, setAiPreview] = useState('');
   const [aiPreviewLoading, setAiPreviewLoading] = useState(false);
+  const [aiCustomPreviewText, setAiCustomPreviewText] = useState('');
 
   // AI Business Data Settings
   const [aiIncludeRating, setAiIncludeRating] = useState(true);
@@ -929,6 +930,7 @@ const AutoResponseSettings: FC = () => {
         ai_include_location: aiIncludeLocation,
         ai_mention_response_time: aiMentionResponseTime,
         ai_custom_prompt: aiCustomPrompt || undefined,
+        custom_preview_text: aiCustomPreviewText || undefined, // 🎯 Додаємо custom preview text
         // AI Business Data Settings
         ai_include_rating: aiIncludeRating,
         ai_include_categories: aiIncludeCategories,
@@ -1942,6 +1944,44 @@ const AutoResponseSettings: FC = () => {
                                     }
                                   }}
                                   helperText={`${aiCustomPrompt.length} characters. Be specific about tone, key information to include, or special instructions.`}
+                                />
+                              </Box>
+
+                              {/* Custom Preview Text Field */}
+                              <Box>
+                                <Typography variant="caption" sx={{ fontWeight: 600, mb: 1, display: 'block' }}>
+                                  Custom Preview Text (Optional)
+                                </Typography>
+                                <TextField
+                                  fullWidth
+                                  multiline
+                                  rows={4}
+                                  value={aiCustomPreviewText}
+                                  onChange={(e) => setAiCustomPreviewText(e.target.value)}
+                                  placeholder="Paste a real customer message here to test your AI settings with realistic data, e.g.:
+
+Hi there! Could you help me with my project? Here are my answers to Yelp's questions regarding my project:
+
+What type of contracting service do you need?
+Structural repair
+
+What structural element(s) need repair? Select all that apply.
+Foundation
+
+When do you require this service?
+I'm flexible
+
+In what location do you need the service?
+94103"
+                                  variant="outlined"
+                                  sx={{
+                                    backgroundColor: 'white',
+                                    '& .MuiInputBase-root': {
+                                      fontSize: '0.875rem',
+                                      lineHeight: 1.4
+                                    }
+                                  }}
+                                  helperText={`${aiCustomPreviewText.length} characters. If provided, this text will be used instead of mock data for AI Preview generation.`}
                                 />
                               </Box>
 

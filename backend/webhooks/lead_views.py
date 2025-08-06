@@ -489,6 +489,7 @@ class AIPreviewView(APIView):
             include_location = request.data.get('ai_include_location', False)
             mention_response_time = request.data.get('ai_mention_response_time', False)
             custom_prompt = request.data.get('ai_custom_prompt', None)
+            custom_preview_text = request.data.get('custom_preview_text', None)  # 🎯 Додаємо custom preview text
             max_length = request.data.get('ai_max_message_length', None)
             
             # Отримання налаштувань бізнес-даних
@@ -521,7 +522,8 @@ class AIPreviewView(APIView):
                 mention_response_time=mention_response_time,
                 custom_prompt=custom_prompt,
                 business_data_settings=business_data_settings,
-                max_length=max_length
+                max_length=max_length,
+                custom_preview_text=custom_preview_text  # 🎯 Додаємо параметр
             )
             
             return Response({
