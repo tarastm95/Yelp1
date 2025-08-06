@@ -213,8 +213,12 @@ class OpenAIService:
         if not self.is_available():
             return "AI service not available. Please check your settings."
         
+        # Логування отриманих налаштувань
+        logger.info(f"[AI-SERVICE] 📊 Received business_data_settings: {business_data_settings}")
+        
         # Налаштування за замовчуванням для превʼю
         if not business_data_settings:
+            logger.info(f"[AI-SERVICE] ⚠️ No business_data_settings provided, using defaults")
             business_data_settings = {
                 "include_rating": True,
                 "include_categories": True,
@@ -226,6 +230,8 @@ class OpenAIService:
                 "include_address": False,
                 "include_transactions": False
             }
+        else:
+            logger.info(f"[AI-SERVICE] ✅ Using provided business_data_settings")
         
         try:
             # Використовуємо РЕАЛЬНІ дані бізнесу
@@ -239,8 +245,9 @@ class OpenAIService:
             
             # Додаємо реальні дані з business.details JSON якщо вони є
             if business.details and isinstance(business.details, dict):
+                logger.info(f"[AI-SERVICE] 📋 Business details available, extracting data...")
                 # Отримуємо реальні дані з Yelp API
-                real_business_data.update({
+                details_data = {
                     "rating": business.details.get("rating"),
                     "review_count": business.details.get("review_count"),
                     "categories": business.details.get("categories", []),
@@ -252,7 +259,16 @@ class OpenAIService:
                     "state": business.details.get("location", {}).get("state"),
                     "zip_code": business.details.get("location", {}).get("zip_code"),
                     "transactions": business.details.get("transactions", [])
-                })
+                }
+                
+                # Логування наявних даних
+                for key, value in details_data.items():
+                    if value:
+                        logger.info(f"[AI-SERVICE] 📊 {key}: {value if isinstance(value, (str, int, float)) else f'{type(value).__name__} with {len(value)} items' if hasattr(value, '__len__') else type(value).__name__}")
+                
+                real_business_data.update(details_data)
+            else:
+                logger.warning(f"[AI-SERVICE] ⚠️ No business details available or invalid format")
             
             # Фільтруємо тільки ті реальні дані, які увімкнені
             filtered_business_data = {"name": real_business_data["name"]}
@@ -297,19 +313,26 @@ class OpenAIService:
             if include_location and real_business_data.get("location"):
                 filtered_business_data["location"] = real_business_data["location"]
             
+            # Логування фільтрованих даних
+            logger.info(f"[AI-SERVICE] 🔍 Filtered business_data keys: {list(filtered_business_data.keys())}")
+            logger.info(f"[AI-SERVICE] 📊 Business data includes:")
+            for key, value in filtered_business_data.items():
+                if key != "name":  # Не логуємо ім'я бізнесу
+                    logger.info(f"[AI-SERVICE] - {key}: {'✅ included' if value else '❌ empty'}")
+            
             # 🎯 Використовуємо custom preview text якщо надано, інакше мокові дані
             if custom_preview_text:
                 original_customer_text = custom_preview_text
                 logger.info(f"[AI-SERVICE] 🎯 Using custom preview text: {original_customer_text[:100]}...")
             else:
-                original_customer_text = "Hi there! Could you help me with my project? Here are my answers to Yelp's questions regarding my project:\n\nWhat type of contracting service do you need?\nStructural repair\n\nWhat structural element(s) need repair? Select all that apply.\nFoundation\n\nWhen do you require this service?\nAs soon as possible\n\nIn what location do you need the service?\n91104"
-                logger.info(f"[AI-SERVICE] Using default mock customer text for preview")
+                original_customer_text = "[Customer Message]"
+                logger.info(f"[AI-SERVICE] Using default placeholder customer text for preview")
             
             context = {
-                "customer_name": "Sarah",  # Realistic test name instead of placeholder
-                "services": "kitchen remodeling",  # Realistic test service instead of placeholder
-                "additional_info": "Looking for modern design with granite countertops and stainless steel appliances",  # Test additional info
-                "phone_number": "(555) 123-4567",  # Test phone number
+                "customer_name": "[Client Name]",  # Плейсхолдер замість мокових даних
+                "services": "[Services Requested]",  # Плейсхолдер замість мокових даних
+                "additional_info": "[Additional Information]",  # Плейсхолдер замість мокових даних
+                "phone_number": "[Phone Number]",  # Плейсхолдер замість мокових даних
                 "business_name": filtered_business_data["name"],  # РЕАЛЬНЕ ім'я бізнесу
                 "business_location": filtered_business_data.get("location", ""),  # Реальна локація
                 "is_off_hours": False,
@@ -599,6 +622,11 @@ Please analyze the customer's request and respond according to the instructions 
             business_context_parts.append(f"Available services: {transactions}")
         
         business_context = "\n".join([f"- {part}" for part in business_context_parts])
+        
+        # Логування business context для traditional prompts
+        logger.info(f"[AI-SERVICE] 📋 Business context parts count: {len(business_context_parts)}")
+        for part in business_context_parts:
+            logger.info(f"[AI-SERVICE] 📋 - {part}")
         
         # Контекст часу
         time_context = ""
