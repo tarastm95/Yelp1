@@ -165,6 +165,7 @@ interface AutoResponseSettingsData {
 const AutoResponseSettings: FC = () => {
   // businesses
   const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [businessesLoading, setBusinessesLoading] = useState(true);
   const [selectedBusiness, setSelectedBusiness] = useState('');
   const [phoneOptIn, setPhoneOptIn] = useState(false);
   const [phoneAvailable, setPhoneAvailable] = useState(false);
@@ -603,9 +604,16 @@ const AutoResponseSettings: FC = () => {
 
 
   useEffect(() => {
+    setBusinessesLoading(true);
     axios.get<Business[]>('/businesses/')
-      .then(res => setBusinesses(res.data))
-      .catch(() => setBusinesses([]));
+      .then(res => {
+        setBusinesses(res.data);
+        setBusinessesLoading(false);
+      })
+      .catch(() => {
+        setBusinesses([]);
+        setBusinessesLoading(false);
+      });
 
   }, []);
 
@@ -1003,6 +1011,7 @@ const AutoResponseSettings: FC = () => {
                 displayEmpty
                 fullWidth
                 size="large"
+                disabled={businessesLoading}
                 sx={{ 
                   '& .MuiOutlinedInput-root': {
                     borderRadius: 2,
@@ -1038,11 +1047,22 @@ const AutoResponseSettings: FC = () => {
               </Select>
             </Box>
 
-            {businesses.length === 0 && (
+            {!businessesLoading && businesses.length === 0 && (
               <Alert severity="info" sx={{ borderRadius: 2 }}>
                 <Typography variant="body2">
                   No businesses found. Please make sure you have businesses configured in your account.
                 </Typography>
+              </Alert>
+            )}
+            
+            {businessesLoading && (
+              <Alert severity="info" sx={{ borderRadius: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <CircularProgress size={16} />
+                  <Typography variant="body2">
+                    Loading businesses...
+                  </Typography>
+                </Box>
               </Alert>
             )}
           </CardContent>
