@@ -527,17 +527,87 @@ class OpenAIService:
             customer_name = context.get('customer_name', 'there')
             business_name = context.get('business_name', 'our business')
             
-            # Створюємо контекстуальний user prompt для AI аналізу
+            # Створюємо контекстуальний user prompt для AI аналізу з business data
+            business_data = context.get('business_data', {})
+            business_data_settings = context.get('business_data_settings', {})
+            
+            # Формуємо business information для contextual prompt
+            business_info_parts = []
+            
+            # Address information
+            if business_data_settings.get('include_address') and business_data.get('address'):
+                address = ", ".join(str(addr) for addr in business_data['address']) if isinstance(business_data['address'], list) else str(business_data['address'])
+                city = business_data.get('city', '')
+                state = business_data.get('state', '')
+                zip_code = business_data.get('zip_code', '')
+                
+                if city and state and zip_code:
+                    full_address = f"{address}, {city}, {state} {zip_code}" if address else f"{city}, {state} {zip_code}"
+                    business_info_parts.append(f"Address: {full_address}")
+                elif address:
+                    business_info_parts.append(f"Address: {address}")
+            
+            # Phone
+            if business_data_settings.get('include_phone') and business_data.get('phone'):
+                business_info_parts.append(f"Phone: {business_data['phone']}")
+            
+            # Rating and reviews
+            if business_data_settings.get('include_rating') and business_data.get('rating'):
+                rating = business_data['rating']
+                review_count = business_data.get('review_count', 0)
+                if business_data_settings.get('include_reviews_count') and review_count > 0:
+                    business_info_parts.append(f"Rating: {rating}/5 stars ({review_count} reviews)")
+                else:
+                    business_info_parts.append(f"Rating: {rating}/5 stars")
+            
+            # Categories
+            if business_data_settings.get('include_categories') and business_data.get('categories'):
+                category_titles = []
+                for cat in business_data['categories'][:3]:
+                    if isinstance(cat, dict):
+                        category_titles.append(cat.get('title', cat.get('alias', str(cat))))
+                    else:
+                        category_titles.append(str(cat))
+                if category_titles:
+                    business_info_parts.append(f"Specializes in: {', '.join(category_titles)}")
+            
+            # Website
+            if business_data_settings.get('include_website') and business_data.get('website'):
+                business_info_parts.append("Website available")
+            
+            # Price range
+            if business_data_settings.get('include_price_range') and business_data.get('price'):
+                business_info_parts.append(f"Price range: {business_data['price']}")
+            
+            # Business hours and status
+            if business_data_settings.get('include_hours'):
+                if context.get('is_off_hours'):
+                    business_info_parts.append("Currently closed - outside business hours")
+                elif business_data.get('is_open_now'):
+                    business_info_parts.append("Currently open")
+            
+            # Transactions/services
+            if business_data_settings.get('include_transactions') and business_data.get('transactions'):
+                transaction_items = [str(item) for item in business_data['transactions'][:3]]
+                if transaction_items:
+                    business_info_parts.append(f"Available services: {', '.join(transaction_items)}")
+            
+            business_info = "\n".join(business_info_parts) if business_info_parts else "No additional business information configured."
+            
             contextual_prompt = f"""Customer message:
 "{customer_text}"
 
 Customer name: {customer_name}
 Business name: {business_name}
 
-Please analyze the customer's request and respond according to the instructions provided in the system prompt. Generate a complete, personalized response."""
+Business Information:
+{business_info}
+
+Please analyze the customer's request and respond according to the instructions provided in the system prompt. Use the business information provided above when generating your response. Generate a complete, personalized response."""
             
             logger.info(f"[AI-SERVICE] 🎯 Using contextual AI analysis with custom prompt")
             logger.info(f"[AI-SERVICE] Customer text length: {len(customer_text)} characters")
+            logger.info(f"[AI-SERVICE] Business info parts: {len(business_info_parts)}")
             
             return contextual_prompt
         
