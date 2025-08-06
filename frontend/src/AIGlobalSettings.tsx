@@ -78,7 +78,7 @@ const AIGlobalSettings: FC = () => {
   const loadSettings = async () => {
     setLoading(true);
     try {
-      const response = await axios.get<{success: boolean, data: AIGlobalSettingsData}>('/api/ai/global-settings/');
+      const response = await axios.get<{success: boolean, data: AIGlobalSettingsData}>('/ai/global-settings/');
       
       if (response.data.success) {
         const data = response.data.data;
@@ -100,7 +100,7 @@ const AIGlobalSettings: FC = () => {
   const saveSettings = async () => {
     setSaving(true);
     try {
-      const response = await axios.put<{success: boolean, data: AIGlobalSettingsData}>('/api/ai/global-settings/', settings);
+      const response = await axios.put<{success: boolean, data: AIGlobalSettingsData}>('/ai/global-settings/', settings);
       
       if (response.data.success) {
         const data = response.data.data;
