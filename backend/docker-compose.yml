@@ -213,15 +213,15 @@ services:
     restart: unless-stopped
     ports:
       - "3100:3100"
-    command: -config.file=/etc/loki/local-config.yaml
+    command: -config.file=/etc/loki/local-config.yaml -log.level=warn  # 🔇 Тільки попередження та помилки
     volumes:
       - loki_data:/loki
       - ./loki-config.yaml:/etc/loki/local-config.yaml:ro
     logging:
       driver: "json-file"
       options:
-        max-size: "50m"
-        max-file: "5"
+        max-size: "10m"  # 📉 Зменшити розмір лог файлів
+        max-file: "2"
 
   # Promtail - збирач логів з Docker контейнерів
   promtail:
@@ -232,14 +232,14 @@ services:
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./promtail-config.yaml:/etc/promtail/config.yml:ro
-    command: -config.file=/etc/promtail/config.yml
+    command: -config.file=/etc/promtail/config.yml -log.level=warn  # 🔇 Тільки попередження та помилки
     depends_on:
       - loki
     logging:
       driver: "json-file"
       options:
-        max-size: "50m"
-        max-file: "3"
+        max-size: "10m"  # 📉 Зменшити розмір лог файлів
+        max-file: "2"
 
   # Grafana - веб-інтерфейс для перегляду та пошуку логів
   grafana:
