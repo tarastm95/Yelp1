@@ -1907,14 +1907,21 @@ const AutoResponseSettings: FC = () => {
                                 </Typography>
                                 <TextField
                                   multiline
-                                  rows={2}
+                                  rows={5}
                                   fullWidth
                                   value={aiCustomPrompt}
                                   onChange={e => setAiCustomPrompt(e.target.value)}
-                                  placeholder="Add specific instructions for AI message generation..."
+                                  placeholder="Add specific instructions for AI message generation (e.g., 'Always mention our 24/7 availability', 'Use a casual tone', 'Include our special discount offer')..."
                                   variant="outlined"
                                   size="small"
-                                  sx={{ backgroundColor: 'white' }}
+                                  sx={{ 
+                                    backgroundColor: 'white',
+                                    '& .MuiInputBase-root': {
+                                      fontSize: '0.875rem',
+                                      lineHeight: 1.4
+                                    }
+                                  }}
+                                  helperText={`${aiCustomPrompt.length} characters. Be specific about tone, key information to include, or special instructions.`}
                                 />
                               </Box>
 

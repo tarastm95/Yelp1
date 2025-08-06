@@ -489,6 +489,7 @@ class AIPreviewView(APIView):
             include_location = request.data.get('ai_include_location', False)
             mention_response_time = request.data.get('ai_mention_response_time', False)
             custom_prompt = request.data.get('ai_custom_prompt', None)
+            max_length = request.data.get('ai_max_message_length', None)
             
             # Отримання налаштувань бізнес-даних
             business_data_settings = {
@@ -519,7 +520,8 @@ class AIPreviewView(APIView):
                 include_location=include_location,
                 mention_response_time=mention_response_time,
                 custom_prompt=custom_prompt,
-                business_data_settings=business_data_settings
+                business_data_settings=business_data_settings,
+                max_length=max_length
             )
             
             return Response({
@@ -688,7 +690,8 @@ class AITestPreviewView(APIView):
                     "include_reviews_count": True,
                     "include_address": False,
                     "include_transactions": False
-                }
+                },
+                max_length=max_message_length
             )
             
             return Response({

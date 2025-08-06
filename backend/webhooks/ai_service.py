@@ -199,7 +199,8 @@ class OpenAIService:
         include_location: bool = False,
         mention_response_time: bool = False,
         custom_prompt: Optional[str] = None,
-        business_data_settings: Optional[Dict[str, bool]] = None
+        business_data_settings: Optional[Dict[str, bool]] = None,
+        max_length: Optional[int] = None
     ) -> str:
         """Генерує превʼю повідомлення для тестування налаштувань"""
         
@@ -307,6 +308,14 @@ class OpenAIService:
             model = ai_settings.openai_model if ai_settings else "gpt-4o"
             temperature = ai_settings.default_temperature if ai_settings else 0.7
             
+            # Використовуємо business-specific довжину якщо надана, інакше глобальну
+            if max_length is not None and max_length > 0:
+                message_length = max_length
+                logger.info(f"[AI-SERVICE] Preview using business-specific max length: {message_length}")
+            else:
+                message_length = ai_settings.max_message_length if ai_settings else 160
+                logger.info(f"[AI-SERVICE] Preview using global max length: {message_length}")
+            
             response = self.client.chat.completions.create(
                 model=model,
                 messages=[
@@ -316,7 +325,7 @@ class OpenAIService:
                     },
                     {"role": "user", "content": prompt}
                 ],
-                max_tokens=160,
+                max_tokens=message_length,
                 temperature=temperature
             )
             
