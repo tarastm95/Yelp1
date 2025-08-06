@@ -695,18 +695,37 @@ Generate only the message text, no additional formatting or explanation:
             return self._fallback_parsing(text)
     
     def _get_lead_text(self, lead_detail: LeadDetail) -> str:
-        """Отримує текст з ліда для парсингу"""
+        """📝 Отримує текст з першого TEXT івенту від CONSUMER для парсингу"""
+        from .models import LeadEvent
+        
+        # 🎯 ПРІОРИТЕТ: Шукаємо перший TEXT івент від CONSUMER
+        first_consumer_text = LeadEvent.objects.filter(
+            lead_id=lead_detail.lead_id,
+            event_type="TEXT",
+            user_type="CONSUMER",
+            from_backend=False  # Не наша відповідь
+        ).order_by('time_created').first()
+        
+        if first_consumer_text and first_consumer_text.text:
+            logger.info(f"[AI-SERVICE] 📝 Using TEXT event from CONSUMER: {first_consumer_text.text[:100]}...")
+            return first_consumer_text.text
+        
+        # 🔄 FALLBACK 1: project.additional_info
         project_data = lead_detail.project or {}
         additional_info = project_data.get("additional_info", "")
         
         if additional_info:
+            logger.info(f"[AI-SERVICE] 🔄 Fallback to project.additional_info: {additional_info[:100]}...")
             return additional_info
         
-        # Пробуємо отримати з job_names якщо є
+        # 🔄 FALLBACK 2: project.job_names
         job_names = project_data.get("job_names", [])
         if job_names:
-            return " ".join(job_names)
+            text = " ".join(job_names)
+            logger.info(f"[AI-SERVICE] 🔄 Fallback to project.job_names: {text}")
+            return text
         
+        logger.warning(f"[AI-SERVICE] ⚠️ No text found for lead {lead_detail.lead_id}")
         return ""
     
     def _ai_extract_fields(self, text: str, placeholders: list) -> Dict[str, str]:
