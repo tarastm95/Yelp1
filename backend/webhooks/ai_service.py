@@ -292,9 +292,11 @@ class OpenAIService:
                 filtered_business_data["location"] = real_business_data["location"]
             
             context = {
-                "customer_name": "{CLIENT_NAME}",  # Placeholder для невідомого імені
-                "services": "{SERVICES}",  # Placeholder для невідомих послуг
-                "business_name": filtered_business_data["name"],  # РЕАЛЬНЕ ім’я бізнесу
+                "customer_name": "Sarah",  # Realistic test name instead of placeholder
+                "services": "kitchen remodeling",  # Realistic test service instead of placeholder
+                "additional_info": "Looking for modern design with granite countertops and stainless steel appliances",  # Test additional info
+                "phone_number": "(555) 123-4567",  # Test phone number
+                "business_name": filtered_business_data["name"],  # РЕАЛЬНЕ ім'я бізнесу
                 "business_location": filtered_business_data.get("location", ""),  # Реальна локація
                 "is_off_hours": False,
                 "mention_response_time": mention_response_time,
