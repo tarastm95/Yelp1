@@ -535,17 +535,30 @@ class OpenAIService:
             business_info_parts = []
             
             # Address information
-            if business_data_settings.get('include_address') and business_data.get('address'):
-                address = ", ".join(str(addr) for addr in business_data['address']) if isinstance(business_data['address'], list) else str(business_data['address'])
+            if business_data_settings.get('include_address'):
+                address_parts = []
                 city = business_data.get('city', '')
                 state = business_data.get('state', '')
                 zip_code = business_data.get('zip_code', '')
                 
+                # Якщо є окремі компоненти адреси
                 if city and state and zip_code:
-                    full_address = f"{address}, {city}, {state} {zip_code}" if address else f"{city}, {state} {zip_code}"
+                    address_parts.append(f"{city}, {state} {zip_code}")
+                elif city and state:
+                    address_parts.append(f"{city}, {state}")
+                elif city:
+                    address_parts.append(city)
+                
+                # Якщо є додаткова адреса з Yelp API (наприклад, вулиця)
+                if business_data.get('address'):
+                    yelp_address = ", ".join(str(addr) for addr in business_data['address']) if isinstance(business_data['address'], list) else str(business_data['address'])
+                    # Додаємо тільки якщо це не дублює city
+                    if yelp_address and yelp_address.lower() != city.lower():
+                        address_parts.insert(0, yelp_address)  # Вулиця спереду
+                
+                if address_parts:
+                    full_address = ", ".join(address_parts)
                     business_info_parts.append(f"Address: {full_address}")
-                elif address:
-                    business_info_parts.append(f"Address: {address}")
             
             # Phone
             if business_data_settings.get('include_phone') and business_data.get('phone'):
