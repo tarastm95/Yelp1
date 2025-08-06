@@ -150,11 +150,8 @@ class OpenAIService:
             
             logger.info(f"[AI-SERVICE] 🤖 Calling OpenAI API...")
             
-            # ⭐ Для custom prompt використовуємо простий system prompt
-            if custom_prompt:
-                system_prompt = "You are a helpful assistant. Follow the instructions provided and generate the requested response."
-            else:
-                system_prompt = self._get_system_prompt(custom_prompt)
+            # 🎯 Для contextual AI analysis використовуємо custom prompt як system prompt
+            system_prompt = self._get_system_prompt(custom_prompt)
             
             # Виклик OpenAI API
             response = self.client.chat.completions.create(
@@ -310,11 +307,8 @@ class OpenAIService:
                 "mention_response_time": mention_response_time,
                 "business_data": filtered_business_data,  # Тільки реальні дані бізнесу
                 "business_data_settings": business_data_settings,
-                # ⭐ ТЕСТОВІ ДАНІ для custom prompt плейсхолдерів
-                "service_type": "Structural repair",  # Тестовий тип послуги
-                "sub_option": "Foundation",  # Тестова підопція
-                "timeline": "As soon as possible",  # Тестовий таймлайн
-                "zip": "91104"  # Тестовий ZIP код
+                # 🎯 ТЕСТОВІ ДАНІ для contextual AI analysis
+                "original_customer_text": "Hi there! Could you help me with my project? Here are my answers to Yelp's questions regarding my project:\n\nWhat type of contracting service do you need?\nStructural repair\n\nWhat structural element(s) need repair? Select all that apply.\nFoundation\n\nWhen do you require this service?\nAs soon as possible\n\nIn what location do you need the service?\n91104"
             }
             
             prompt = self._create_greeting_prompt(context, response_style, custom_prompt)
@@ -331,11 +325,8 @@ class OpenAIService:
                 message_length = ai_settings.max_message_length if ai_settings else 160
                 logger.info(f"[AI-SERVICE] Preview using global max length: {message_length}")
             
-            # ⭐ Для custom prompt використовуємо простий system prompt
-            if custom_prompt:
-                system_prompt = "You are a helpful assistant. Follow the instructions provided and generate the requested response."
-            else:
-                system_prompt = self._get_system_prompt(custom_prompt)
+            # 🎯 Для contextual AI analysis використовуємо custom prompt як system prompt
+            system_prompt = self._get_system_prompt(custom_prompt)
             
             response = self.client.chat.completions.create(
                 model=model,
@@ -382,6 +373,9 @@ class OpenAIService:
                 "include_transactions": False
             }
         
+        # Отримуємо оригінальний текст клієнта для contextual analysis
+        original_customer_text = self._get_lead_text(lead_detail)
+        
         # Базова інформація про клієнта
         context = {
             "customer_name": lead_detail.user_display_name or "there",
@@ -390,7 +384,8 @@ class OpenAIService:
             "additional_info": getattr(lead_detail, 'additional_notes', '') or '',
             "created_at": lead_detail.created_at if hasattr(lead_detail, 'created_at') else timezone.now(),
             "is_off_hours": is_off_hours,
-            "mention_response_time": mention_response_time
+            "mention_response_time": mention_response_time,
+            "original_customer_text": original_customer_text  # 🎯 Для contextual AI analysis
         }
         
         if not business:
@@ -470,22 +465,8 @@ class OpenAIService:
             "business_data_settings": business_data_settings
         })
         
-        # ⭐ ДОДАЄМО ПЛЕЙСХОЛДЕРИ для custom prompt (реальні дані з ліда)
-        project_data = lead_detail.project or {}
-        
-        # 🤖 AI-powered парсинг реальних даних з custom prompt
-        parsed_data = self._parse_lead_data(lead_detail, custom_prompt)
-        
-        # Оновлюємо контекст з парсованими даними
-        for key, value in parsed_data.items():
-            if value and value != "Unknown":
-                context[key] = value
-        
-        # Fallback на стандартні поля якщо не знайдено
-        context.setdefault("service_type", project_data.get("job_type") or "General contracting")
-        context.setdefault("sub_option", project_data.get("sub_option") or "Other")
-        context.setdefault("timeline", project_data.get("timeline") or "I'm flexible")
-        context.setdefault("zip", project_data.get("zip_code") or "Unknown")
+        # 🎯 CONTEXTUAL AI: Більше не потрібен парсинг плейсхолдерів 
+        # AI сам аналізує original_customer_text згідно з custom prompt
         
         return context
     
@@ -508,27 +489,26 @@ class OpenAIService:
     ) -> str:
         """Створює промпт для генерації вітального повідомлення з повними бізнес-даними"""
         
-        # ⭐ ЯКЩО Є CUSTOM PROMPT - використовуємо його замість стандартного
+        # 🎯 CONTEXTUAL AI ANALYSIS: Якщо є custom prompt - використовуємо його як system prompt
         if custom_prompt:
-            try:
-                # Заповнюємо плейсхолдери в custom prompt
-                filled_prompt = custom_prompt.format(
-                    CLIENT_NAME=context.get('customer_name', 'Sarah'),
-                    SERVICES=context.get('services', 'your inquiry'),
-                    service_type=context.get('service_type', 'Structural repair'),
-                    sub_option=context.get('sub_option', 'Foundation'),
-                    timeline=context.get('timeline', 'As soon as possible'),
-                    zip=context.get('zip', '91104'),
-                    customer_name=context.get('customer_name', 'Sarah'),
-                    business_name=context.get('business_name', 'Priority Remodeling'),
-                    phone_number=context.get('phone_number', '(555) 123-4567'),
-                    additional_info=context.get('additional_info', '')
-                )
-                return filled_prompt
-            except KeyError as e:
-                # Якщо є невідомі плейсхолдери, повертаємо prompt як є
-                logger.warning(f"[AI-SERVICE] Unknown placeholder in custom prompt: {e}")
-                return custom_prompt
+            # Отримуємо оригінальний текст клієнта
+            customer_text = context.get('original_customer_text', '')
+            customer_name = context.get('customer_name', 'there')
+            business_name = context.get('business_name', 'our business')
+            
+            # Створюємо контекстуальний user prompt для AI аналізу
+            contextual_prompt = f"""Customer message:
+"{customer_text}"
+
+Customer name: {customer_name}
+Business name: {business_name}
+
+Please analyze the customer's request and respond according to the instructions provided in the system prompt. Generate a complete, personalized response."""
+            
+            logger.info(f"[AI-SERVICE] 🎯 Using contextual AI analysis with custom prompt")
+            logger.info(f"[AI-SERVICE] Customer text length: {len(customer_text)} characters")
+            
+            return contextual_prompt
         
         style_instruction = {
             'formal': "Use a formal, professional tone.",
