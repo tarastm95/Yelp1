@@ -29,6 +29,7 @@ from .serializers import (
     LeadEventSerializer,
     NotificationSettingSerializer,
     AISettingsSerializer,
+    AIGlobalSettingsSerializer,
     TimeBasedGreetingSerializer,
 )
 from .ai_service import OpenAIService
@@ -95,6 +96,30 @@ class AutoResponseSettingsView(APIView):
                 greeting_template='',
                 greeting_off_hours_template='',
                 greeting_delay=0,
+                # 🤖 AI Settings with proper defaults
+                use_ai_greeting=False,
+                ai_response_style='auto',
+                ai_include_location=False,
+                ai_mention_response_time=False,
+                ai_custom_prompt='',
+                # 📊 AI Business Data Settings
+                ai_include_rating=True,
+                ai_include_categories=True,
+                ai_include_phone=True,
+                ai_include_website=False,
+                ai_include_price_range=True,
+                ai_include_hours=True,
+                ai_include_reviews_count=True,
+                ai_include_address=False,
+                ai_include_transactions=False,
+                ai_max_message_length=160,  # 🎯 Ось тут проблема!
+                # 🤖 Business-specific AI Model Settings
+                ai_model='',  # Empty = use global
+                ai_temperature=None,  # None = use global
+                # 📱 SMS Settings
+                sms_on_phone_found=True,
+                sms_on_customer_reply=True,
+                sms_on_phone_opt_in=True,
             )
         return self._get_default_settings(phone_opt_in, phone_available)
 
@@ -569,7 +594,7 @@ class AIGlobalSettingsView(APIView):
                 # Створити з default значеннями якщо не існує
                 ai_settings = AISettings.objects.create()
             
-            serializer = AISettingsSerializer(ai_settings)
+            serializer = AIGlobalSettingsSerializer(ai_settings)
             return Response({
                 'success': True,
                 'data': serializer.data
@@ -588,25 +613,25 @@ class AIGlobalSettingsView(APIView):
             ai_settings = AISettings.objects.first()
             if not ai_settings:
                 # Створити новий запис якщо не існує
-                serializer = AISettingsSerializer(data=request.data)
+                serializer = AIGlobalSettingsSerializer(data=request.data)
                 serializer.is_valid(raise_exception=True)
                 ai_settings = serializer.save()
                 
                 return Response({
                     'success': True,
                     'message': 'Global AI settings created successfully',
-                    'data': AISettingsSerializer(ai_settings).data
+                    'data': AIGlobalSettingsSerializer(ai_settings).data
                 }, status=status.HTTP_201_CREATED)
             else:
                 # Оновити існуючий запис
-                serializer = AISettingsSerializer(ai_settings, data=request.data, partial=True)
+                serializer = AIGlobalSettingsSerializer(ai_settings, data=request.data, partial=True)
                 serializer.is_valid(raise_exception=True)
                 ai_settings = serializer.save()
                 
                 return Response({
                     'success': True,
                     'message': 'Global AI settings updated successfully',
-                    'data': AISettingsSerializer(ai_settings).data
+                    'data': AIGlobalSettingsSerializer(ai_settings).data
                 }, status=status.HTTP_200_OK)
                 
         except ValidationError as e:
