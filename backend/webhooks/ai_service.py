@@ -1,6 +1,8 @@
 import openai
 import logging
 import time
+import json
+import re
 from typing import Optional, Dict, Any
 from django.conf import settings
 from django.utils import timezone
@@ -108,7 +110,7 @@ class OpenAIService:
             # Підготовка контексту для AI
             context = self._prepare_lead_context(
                 lead_detail, business, is_off_hours, 
-                include_location, mention_response_time, business_data_settings
+                include_location, mention_response_time, business_data_settings, custom_prompt
             )
             
             logger.info(f"[AI-SERVICE] ✅ Lead context prepared:")
@@ -361,7 +363,8 @@ class OpenAIService:
         is_off_hours: bool,
         include_location: bool,
         mention_response_time: bool,
-        business_data_settings: Optional[Dict[str, bool]] = None
+        business_data_settings: Optional[Dict[str, bool]] = None,
+        custom_prompt: Optional[str] = None
     ) -> Dict[str, Any]:
         """Підготовка контексту ліда для AI з повною інформацією про бізнес"""
         
@@ -469,12 +472,20 @@ class OpenAIService:
         
         # ⭐ ДОДАЄМО ПЛЕЙСХОЛДЕРИ для custom prompt (реальні дані з ліда)
         project_data = lead_detail.project or {}
-        context.update({
-            "service_type": project_data.get("job_type") or "General contracting",  # Тип послуги з проекту
-            "sub_option": project_data.get("sub_option") or "Other",  # Підопція з проекту
-            "timeline": project_data.get("timeline") or "I'm flexible",  # Таймлайн з проекту
-            "zip": project_data.get("zip_code") or "Unknown"  # ZIP з проекту
-        })
+        
+        # 🤖 AI-powered парсинг реальних даних з custom prompt
+        parsed_data = self._parse_lead_data(lead_detail, custom_prompt)
+        
+        # Оновлюємо контекст з парсованими даними
+        for key, value in parsed_data.items():
+            if value and value != "Unknown":
+                context[key] = value
+        
+        # Fallback на стандартні поля якщо не знайдено
+        context.setdefault("service_type", project_data.get("job_type") or "General contracting")
+        context.setdefault("sub_option", project_data.get("sub_option") or "Other")
+        context.setdefault("timeline", project_data.get("timeline") or "I'm flexible")
+        context.setdefault("zip", project_data.get("zip_code") or "Unknown")
         
         return context
     
@@ -649,4 +660,154 @@ Generate only the message text, no additional formatting or explanation:
         if name and name != 'there':
             return f"Hello {name}! Thank you for your inquiry about {services}. We'll get back to you soon!"
         else:
-            return f"Hello! Thank you for your inquiry about {services}. We'll get back to you soon!" 
+            return f"Hello! Thank you for your inquiry about {services}. We'll get back to you soon!"
+    
+    def _parse_lead_data(self, lead_detail: LeadDetail, custom_prompt: Optional[str] = None) -> Dict[str, str]:
+        """🤖 AI-powered парсинг що автоматично витягує будь-які плейсхолдери з custom prompt"""
+        
+        # Отримуємо текст з additional_info або з job_names
+        text = self._get_lead_text(lead_detail)
+        
+        if not text:
+            logger.info(f"[AI-SERVICE] No text found in lead data")
+            return {}
+        
+        logger.info(f"[AI-SERVICE] AI-powered parsing from text: {text[:100]}...")
+        
+        # Якщо немає custom prompt - використовуємо fallback парсинг
+        if not custom_prompt:
+            return self._fallback_parsing(text)
+        
+        # Витягуємо плейсхолдери з custom prompt
+        placeholders = re.findall(r'\{(\w+)\}', custom_prompt)
+        
+        if not placeholders:
+            logger.info(f"[AI-SERVICE] No placeholders found in custom prompt")
+            return self._fallback_parsing(text)
+        
+        logger.info(f"[AI-SERVICE] Found placeholders: {placeholders}")
+        
+        # Пробуємо AI extraction
+        try:
+            return self._ai_extract_fields(text, placeholders)
+        except Exception as e:
+            logger.error(f"[AI-SERVICE] AI extraction failed: {e}")
+            return self._fallback_parsing(text)
+    
+    def _get_lead_text(self, lead_detail: LeadDetail) -> str:
+        """Отримує текст з ліда для парсингу"""
+        project_data = lead_detail.project or {}
+        additional_info = project_data.get("additional_info", "")
+        
+        if additional_info:
+            return additional_info
+        
+        # Пробуємо отримати з job_names якщо є
+        job_names = project_data.get("job_names", [])
+        if job_names:
+            return " ".join(job_names)
+        
+        return ""
+    
+    def _ai_extract_fields(self, text: str, placeholders: list) -> Dict[str, str]:
+        """Використовує AI для витягування конкретних полів з тексту"""
+        
+        # Створюємо промпт для AI extraction
+        extraction_prompt = f"""Extract the following information from this customer inquiry.
+        
+Fields to extract: {', '.join(placeholders)}
+        
+Customer message: "{text}"
+        
+Return ONLY a valid JSON object with the extracted values. 
+If a field cannot be determined from the text, use "Unknown".
+Do not include any explanation or additional text.
+        
+Example format: {{"service_type": "Plumbing", "urgency": "High", "location": "Kitchen"}}
+        
+JSON:"""
+        
+        logger.info(f"[AI-SERVICE] Sending extraction prompt to AI...")
+        
+        try:
+            # Використовуємо той же OpenAI клієнт
+            response = self.client.chat.completions.create(
+                model="gpt-4o-mini",  # Використовуємо більш дешеву модель для extraction
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are a data extraction assistant. Extract only the requested fields from customer messages and return valid JSON."
+                    },
+                    {"role": "user", "content": extraction_prompt}
+                ],
+                max_tokens=200,  # Достатньо для JSON відповіді
+                temperature=0.1  # Низька температура для стабільних результатів
+            )
+            
+            ai_response = response.choices[0].message.content.strip()
+            logger.info(f"[AI-SERVICE] AI extraction response: {ai_response}")
+            
+            # Очищаємо відповідь від можливого markdown
+            if ai_response.startswith('```'):
+                ai_response = ai_response.split('\n', 1)[1].rsplit('\n', 1)[0]
+            
+            # Парсимо JSON
+            result = json.loads(ai_response)
+            
+            # Валідуємо результат
+            if isinstance(result, dict):
+                # Фільтруємо тільки запитувані поля
+                filtered_result = {key: str(value) for key, value in result.items() if key in placeholders}
+                logger.info(f"[AI-SERVICE] ✅ AI extraction successful: {filtered_result}")
+                return filtered_result
+            else:
+                logger.warning(f"[AI-SERVICE] AI returned non-dict result: {result}")
+                return {}
+                
+        except json.JSONDecodeError as e:
+            logger.error(f"[AI-SERVICE] Failed to parse AI JSON response: {e}")
+            return {}
+        except Exception as e:
+            logger.error(f"[AI-SERVICE] AI extraction error: {e}")
+            return {}
+    
+    def _fallback_parsing(self, text: str) -> Dict[str, str]:
+        """Fallback парсинг для базових полів (contracting бізнес)"""
+        
+        result = {}
+        text_lower = text.lower()
+        
+        # Базовий парсинг service_type
+        if "structural repair" in text_lower or "structure repair" in text_lower:
+            result["service_type"] = "Structural repair"
+        elif "remodeling" in text_lower or "remodel" in text_lower:
+            result["service_type"] = "Remodeling"
+        elif "addition" in text_lower:
+            result["service_type"] = "Additions to an existing structure"
+        elif "new structure" in text_lower or "new construction" in text_lower:
+            result["service_type"] = "New structure construction"
+        elif "design" in text_lower:
+            result["service_type"] = "Construction design services"
+        
+        # Базовий парсинг sub_option для structural repair
+        if result.get("service_type") == "Structural repair":
+            if "foundation" in text_lower:
+                result["sub_option"] = "Foundation"
+            elif "roof" in text_lower:
+                result["sub_option"] = "Roof frame"
+            elif "wall" in text_lower:
+                result["sub_option"] = "Walls"
+        
+        # Базовий парсинг timeline
+        if "as soon as possible" in text_lower or "asap" in text_lower:
+            result["timeline"] = "As soon as possible"
+        elif "flexible" in text_lower:
+            result["timeline"] = "I'm flexible"
+        
+        # Базовий парсинг ZIP
+        zip_match = re.search(r'\b\d{5}\b', text)
+        if zip_match:
+            result["zip"] = zip_match.group()
+        
+        logger.info(f"[AI-SERVICE] 🔄 Fallback parsing result: {result}")
+        return result 
