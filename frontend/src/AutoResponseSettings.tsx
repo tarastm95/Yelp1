@@ -2308,9 +2308,11 @@ In what location do you need the service?
                                   </Typography>
                                 </Paper>
                               </Box>
-                            </Stack>
-                          </CardContent>
-                        </Card>
+                              </CardContent>
+                            </Card>
+                          </Grid>
+                        </Grid>
+                        {/* End of AI Configuration Grid */}
                       </>
                     )}
 
