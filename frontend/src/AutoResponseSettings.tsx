@@ -1608,19 +1608,40 @@ const AutoResponseSettings: FC = () => {
                     {/* AI Settings */}
                     {useAiGreeting && (
                       <>
-                        <Box sx={{ textAlign: 'center', py: 1 }}>
-                          <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'info.main', fontWeight: 700 }}>
-                            <PersonIcon sx={{ mr: 1, fontSize: 20 }} />
-                            🤖 AI CONFIGURATION ACTIVE
+                        {/* AI Configuration Header */}
+                        <Box sx={{ 
+                          textAlign: 'center', 
+                          py: 3, 
+                          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                          borderRadius: 2,
+                          color: 'white',
+                          mb: 3
+                        }}>
+                          <Typography variant="h5" sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, mb: 1 }}>
+                            <PersonIcon sx={{ mr: 1, fontSize: 28 }} />
+                            🤖 AI Configuration Active
+                          </Typography>
+                          <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                            Advanced AI-powered response generation is enabled for this business
                           </Typography>
                         </Box>
-                        
-                        <Card elevation={1} sx={{ borderRadius: 2, backgroundColor: 'info.50', border: '2px solid', borderColor: 'info.main' }}>
-                          <CardContent sx={{ p: 2 }}>
-                            <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600, display: 'flex', alignItems: 'center' }}>
-                              <PersonIcon sx={{ mr: 1, color: 'info.main' }} />
-                              AI Settings & Options
-                            </Typography>
+
+                        {/* AI Settings Grid */}
+                        <Grid container spacing={3}>
+                          {/* Basic Settings Card */}
+                          <Grid item xs={12} md={6}>
+                            <Card elevation={2} sx={{ borderRadius: 3, height: '100%' }}>
+                              <Box sx={{ 
+                                background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+                                p: 2,
+                                color: 'white'
+                              }}>
+                                <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', fontWeight: 600 }}>
+                                  <PersonIcon sx={{ mr: 1 }} />
+                                  Basic AI Settings
+                                </Typography>
+                              </Box>
+                              <CardContent sx={{ p: 3 }}>
                             
                             <Stack spacing={2}>
                               {/* Response Style */}
@@ -1669,8 +1690,24 @@ const AutoResponseSettings: FC = () => {
                                   />
                                 </FormGroup>
                               </Box>
+                              </CardContent>
+                            </Card>
+                          </Grid>
 
-                              {/* Business Data Settings */}
+                          {/* Business Information Card */}
+                          <Grid item xs={12} md={6}>
+                            <Card elevation={2} sx={{ borderRadius: 3, height: '100%' }}>
+                              <Box sx={{ 
+                                background: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+                                p: 2,
+                                color: 'white'
+                              }}>
+                                <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', fontWeight: 600 }}>
+                                  <BusinessCenterIcon sx={{ mr: 1 }} />
+                                  Business Information
+                                </Typography>
+                              </Box>
+                              <CardContent sx={{ p: 3 }}>
                               <Box>
                                 <Typography variant="caption" sx={{ mb: 1, display: 'block', fontWeight: 600 }}>
                                   📊 Business Information to Include
@@ -1799,7 +1836,25 @@ const AutoResponseSettings: FC = () => {
                                   </FormGroup>
                                 </Box>
                               </Box>
+                              </CardContent>
+                            </Card>
+                          </Grid>
 
+                          {/* Additional Settings Card */}
+                          <Grid item xs={12}>
+                            <Card elevation={2} sx={{ borderRadius: 3 }}>
+                              <Box sx={{ 
+                                background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+                                p: 2,
+                                color: 'white'
+                              }}>
+                                <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', fontWeight: 600 }}>
+                                  <InfoIcon sx={{ mr: 1 }} />
+                                  Additional Configuration
+                                </Typography>
+                              </Box>
+                              <CardContent sx={{ p: 3 }}>
+                              
                               {/* Informational Section - Always Included Data */}
                               <Box>
                                 <Typography variant="caption" sx={{ mb: 1, display: 'block', fontWeight: 600, color: 'info.main' }}>
