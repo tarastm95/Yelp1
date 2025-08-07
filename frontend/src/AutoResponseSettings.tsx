@@ -1913,8 +1913,8 @@ const AutoResponseSettings: FC = () => {
                                           </MenuItem>
                                           <MenuItem value="160">
                                             <Box>
-                                              <Typography variant="body2">160 characters <Chip label="SMS Standard" size="small" color="success" sx={{ ml: 1 }} /></Typography>
-                                              <Typography variant="caption" color="text.secondary">Perfect for SMS. Concise and direct messages.</Typography>
+                                              <Typography variant="body2">160 characters <Chip label="Message Standard" size="small" color="success" sx={{ ml: 1 }} /></Typography>
+                                              <Typography variant="caption" color="text.secondary">Perfect for messages. Concise and direct communication.</Typography>
                                             </Box>
                                           </MenuItem>
                                           <MenuItem value="250">
@@ -1925,8 +1925,8 @@ const AutoResponseSettings: FC = () => {
                                           </MenuItem>
                                           <MenuItem value="320">
                                             <Box>
-                                              <Typography variant="body2">320 characters <Chip label="Extended SMS" size="small" color="info" sx={{ ml: 1 }} /></Typography>
-                                              <Typography variant="caption" color="text.secondary">Extended SMS length. More detailed responses.</Typography>
+                                              <Typography variant="body2">320 characters <Chip label="Extended Message" size="small" color="info" sx={{ ml: 1 }} /></Typography>
+                                              <Typography variant="caption" color="text.secondary">Extended message length. More detailed responses.</Typography>
                                             </Box>
                                           </MenuItem>
                                           <MenuItem value="500">
