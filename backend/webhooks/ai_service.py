@@ -213,12 +213,8 @@ class OpenAIService:
             logger.info(f"[AI-SERVICE] - Original message: '{ai_message}'")
             logger.info(f"[AI-SERVICE] - Original length: {original_length} characters")
             
-            # Обрізаємо повідомлення якщо воно завелике
-            if len(ai_message) > message_length:
-                ai_message = ai_message[:message_length-3] + "..."
-                logger.info(f"[AI-SERVICE] ✂️ Message truncated to {len(ai_message)} characters")
-            else:
-                logger.info(f"[AI-SERVICE] ✅ Message within length limit")
+            # OpenAI вже обмежив повідомлення через max_tokens, додаткове обрізання не потрібне
+            logger.info(f"[AI-SERVICE] ✅ Message generated within token limit")
             
             logger.info(f"[AI-SERVICE] 🎉 FINAL AI GREETING:")
             logger.info(f"[AI-SERVICE] - Final message: '{ai_message}'")

@@ -15,6 +15,9 @@ import {
   Box,
   Select,
   MenuItem,
+  FormControl,
+  InputLabel,
+  FormHelperText,
   Tabs,
   Tab,
   Card,
@@ -1956,48 +1959,104 @@ const AutoResponseSettings: FC = () => {
                                   <Stack spacing={2}>
                                     {/* AI Model Selection */}
                                     <Box>
-                                      <TextField
-                                        label="OpenAI Model (optional)"
-                                        value={aiModel}
-                                        onChange={e => setAiModel(e.target.value)}
-                                        size="small"
-                                        placeholder="e.g. gpt-4o, gpt-3.5-turbo"
-                                        sx={{ 
-                                          width: 280,
-                                          backgroundColor: 'white'
-                                        }}
-                                        helperText={
-                                          aiModel 
-                                            ? `Using: ${aiModel}` 
-                                            : "Empty = Use global model setting"
-                                        }
-                                      />
+                                      <FormControl size="small" sx={{ width: 320, backgroundColor: 'white' }}>
+                                        <InputLabel>OpenAI Model (optional)</InputLabel>
+                                        <Select
+                                          value={aiModel}
+                                          onChange={e => setAiModel(e.target.value)}
+                                          label="OpenAI Model (optional)"
+                                        >
+                                          <MenuItem value="">
+                                            <Box>
+                                              <Typography variant="body2">Use Global Setting</Typography>
+                                              <Typography variant="caption" color="text.secondary">Uses the model configured in Global AI Settings</Typography>
+                                            </Box>
+                                          </MenuItem>
+                                          <MenuItem value="gpt-4o">
+                                            <Box>
+                                              <Typography variant="body2">GPT-4o <Chip label="Best" size="small" color="success" sx={{ ml: 1 }} /></Typography>
+                                              <Typography variant="caption" color="text.secondary">Latest & most capable model. Best for complex tasks.</Typography>
+                                            </Box>
+                                          </MenuItem>
+                                          <MenuItem value="gpt-4o-mini">
+                                            <Box>
+                                              <Typography variant="body2">GPT-4o Mini <Chip label="Recommended" size="small" color="primary" sx={{ ml: 1 }} /></Typography>
+                                              <Typography variant="caption" color="text.secondary">Faster & cost-effective. Great for customer support.</Typography>
+                                            </Box>
+                                          </MenuItem>
+                                          <MenuItem value="gpt-4-turbo">
+                                            <Box>
+                                              <Typography variant="body2">GPT-4 Turbo</Typography>
+                                              <Typography variant="caption" color="text.secondary">High-quality responses, good for detailed messages.</Typography>
+                                            </Box>
+                                          </MenuItem>
+                                          <MenuItem value="gpt-3.5-turbo">
+                                            <Box>
+                                              <Typography variant="body2">GPT-3.5 Turbo <Chip label="Budget" size="small" color="warning" sx={{ ml: 1 }} /></Typography>
+                                              <Typography variant="caption" color="text.secondary">Most affordable option. Good for simple responses.</Typography>
+                                            </Box>
+                                          </MenuItem>
+                                        </Select>
+                                        <FormHelperText>
+                                          {aiModel 
+                                            ? `Currently using: ${aiModel}` 
+                                            : "Leave empty to use global model setting"}
+                                        </FormHelperText>
+                                      </FormControl>
                                     </Box>
                                     
                                     {/* AI Temperature */}
                                     <Box>
-                                      <TextField
-                                        label="AI Temperature (optional)"
-                                        type="number"
-                                        value={aiTemperature}
-                                        onChange={e => setAiTemperature(e.target.value === '' ? '' : Number(e.target.value))}
-                                        size="small"
-                                        placeholder="0.7"
-                                        inputProps={{ 
-                                          min: 0, 
-                                          max: 2,
-                                          step: 0.1
-                                        }}
-                                        sx={{ 
-                                          width: 200,
-                                          backgroundColor: 'white'
-                                        }}
-                                        helperText={
-                                          aiTemperature !== '' 
-                                            ? `Creativity: ${aiTemperature === 0 ? 'Very focused' : aiTemperature <= 0.3 ? 'Focused' : aiTemperature <= 0.7 ? 'Balanced' : aiTemperature <= 1.5 ? 'Creative' : 'Very creative'}` 
-                                            : "Empty = Use global temperature setting"
-                                        }
-                                      />
+                                      <FormControl size="small" sx={{ width: 280, backgroundColor: 'white' }}>
+                                        <InputLabel>AI Temperature (optional)</InputLabel>
+                                        <Select
+                                          value={aiTemperature === '' ? '' : aiTemperature.toString()}
+                                          onChange={e => setAiTemperature(e.target.value === '' ? '' : Number(e.target.value))}
+                                          label="AI Temperature (optional)"
+                                        >
+                                          <MenuItem value="">
+                                            <Box>
+                                              <Typography variant="body2">Use Global Setting</Typography>
+                                              <Typography variant="caption" color="text.secondary">Uses temperature configured in Global AI Settings</Typography>
+                                            </Box>
+                                          </MenuItem>
+                                          <MenuItem value="0.1">
+                                            <Box>
+                                              <Typography variant="body2">0.1 - Very Focused <Chip label="Consistent" size="small" color="info" sx={{ ml: 1 }} /></Typography>
+                                              <Typography variant="caption" color="text.secondary">Very consistent, predictable responses. Best for formal business.</Typography>
+                                            </Box>
+                                          </MenuItem>
+                                          <MenuItem value="0.3">
+                                            <Box>
+                                              <Typography variant="body2">0.3 - Focused <Chip label="Recommended" size="small" color="primary" sx={{ ml: 1 }} /></Typography>
+                                              <Typography variant="caption" color="text.secondary">Reliable yet natural responses. Great for customer support.</Typography>
+                                            </Box>
+                                          </MenuItem>
+                                          <MenuItem value="0.7">
+                                            <Box>
+                                              <Typography variant="body2">0.7 - Balanced</Typography>
+                                              <Typography variant="caption" color="text.secondary">Good balance of consistency and creativity.</Typography>
+                                            </Box>
+                                          </MenuItem>
+                                          <MenuItem value="1.0">
+                                            <Box>
+                                              <Typography variant="body2">1.0 - Creative</Typography>
+                                              <Typography variant="caption" color="text.secondary">More varied, creative responses. Use with caution.</Typography>
+                                            </Box>
+                                          </MenuItem>
+                                          <MenuItem value="1.5">
+                                            <Box>
+                                              <Typography variant="body2">1.5 - Very Creative <Chip label="Experimental" size="small" color="warning" sx={{ ml: 1 }} /></Typography>
+                                              <Typography variant="caption" color="text.secondary">Highly creative but less predictable responses.</Typography>
+                                            </Box>
+                                          </MenuItem>
+                                        </Select>
+                                        <FormHelperText>
+                                          {aiTemperature !== '' 
+                                            ? `Creativity level: ${aiTemperature <= 0.3 ? 'Very focused' : aiTemperature <= 0.7 ? 'Balanced' : aiTemperature <= 1.0 ? 'Creative' : 'Very creative'}` 
+                                            : "Leave empty to use global temperature setting"}
+                                        </FormHelperText>
+                                      </FormControl>
                                     </Box>
                                     
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
@@ -2030,18 +2089,21 @@ const AutoResponseSettings: FC = () => {
                                 </Typography>
                                 <TextField
                                   multiline
-                                  rows={5}
+                                  rows={8}
                                   fullWidth
                                   value={aiCustomPrompt}
                                   onChange={e => setAiCustomPrompt(e.target.value)}
                                   placeholder="Add specific instructions for AI message generation (e.g., 'Always mention our 24/7 availability', 'Use a casual tone', 'Include our special discount offer')..."
                                   variant="outlined"
-                                  size="small"
                                   sx={{ 
                                     backgroundColor: 'white',
                                     '& .MuiInputBase-root': {
-                                      fontSize: '0.875rem',
-                                      lineHeight: 1.4
+                                      fontSize: '0.9rem',
+                                      lineHeight: 1.5,
+                                      minHeight: '160px'
+                                    },
+                                    '& .MuiInputBase-input': {
+                                      resize: 'vertical'
                                     }
                                   }}
                                   helperText={`${aiCustomPrompt.length} characters. Be specific about tone, key information to include, or special instructions.`}
@@ -2056,7 +2118,7 @@ const AutoResponseSettings: FC = () => {
                                 <TextField
                                   fullWidth
                                   multiline
-                                  rows={4}
+                                  rows={10}
                                   value={aiCustomPreviewText}
                                   onChange={(e) => setAiCustomPreviewText(e.target.value)}
                                   placeholder="Paste a real customer message here to test your AI settings with realistic data, e.g.:
@@ -2078,8 +2140,12 @@ In what location do you need the service?
                                   sx={{
                                     backgroundColor: 'white',
                                     '& .MuiInputBase-root': {
-                                      fontSize: '0.875rem',
-                                      lineHeight: 1.4
+                                      fontSize: '0.9rem',
+                                      lineHeight: 1.5,
+                                      minHeight: '220px'
+                                    },
+                                    '& .MuiInputBase-input': {
+                                      resize: 'vertical'
                                     }
                                   }}
                                   helperText={`${aiCustomPreviewText.length} characters. If provided, this text will be used instead of mock data for AI Preview generation.`}
