@@ -1889,27 +1889,88 @@ const AutoResponseSettings: FC = () => {
                                 }}>
                                   <Stack spacing={2}>
                                     <Box>
-                                      <TextField
-                                        label="Max Message Length (characters)"
-                                        type="number"
-                                        value={aiMaxMessageLength}
-                                        onChange={e => setAiMaxMessageLength(Number(e.target.value))}
-                                        size="small"
-                                        inputProps={{ 
-                                          min: 0, 
-                                          max: 500,
-                                          step: 10
-                                        }}
-                                        sx={{ 
-                                          width: 200,
-                                          backgroundColor: 'white'
-                                        }}
-                                        helperText={
-                                          aiMaxMessageLength === 0 
-                                            ? "0 = Use global setting (160 characters)" 
-                                            : `${aiMaxMessageLength} characters (concise: ≤160)`
-                                        }
-                                      />
+                                      <FormControl size="small" sx={{ width: 280, backgroundColor: 'white' }}>
+                                        <InputLabel>Max Message Length (characters)</InputLabel>
+                                        <Select
+                                          value={[0, 160, 250, 320, 500].includes(aiMaxMessageLength) ? aiMaxMessageLength.toString() : 'custom'}
+                                          onChange={e => {
+                                            if (e.target.value === 'custom') {
+                                              // Якщо вибрано Custom, залишаємо поточне значення або встановлюємо 300
+                                              if ([0, 160, 250, 320, 500].includes(aiMaxMessageLength)) {
+                                                setAiMaxMessageLength(300);
+                                              }
+                                            } else {
+                                              setAiMaxMessageLength(Number(e.target.value));
+                                            }
+                                          }}
+                                          label="Max Message Length (characters)"
+                                        >
+                                          <MenuItem value="0">
+                                            <Box>
+                                              <Typography variant="body2">Use Global Setting <Chip label="Default" size="small" color="default" sx={{ ml: 1 }} /></Typography>
+                                              <Typography variant="caption" color="text.secondary">Uses the length configured in Global AI Settings (160 chars)</Typography>
+                                            </Box>
+                                          </MenuItem>
+                                          <MenuItem value="160">
+                                            <Box>
+                                              <Typography variant="body2">160 characters <Chip label="SMS Standard" size="small" color="success" sx={{ ml: 1 }} /></Typography>
+                                              <Typography variant="caption" color="text.secondary">Perfect for SMS. Concise and direct messages.</Typography>
+                                            </Box>
+                                          </MenuItem>
+                                          <MenuItem value="250">
+                                            <Box>
+                                              <Typography variant="body2">250 characters <Chip label="Balanced" size="small" color="primary" sx={{ ml: 1 }} /></Typography>
+                                              <Typography variant="caption" color="text.secondary">Good balance between detail and brevity.</Typography>
+                                            </Box>
+                                          </MenuItem>
+                                          <MenuItem value="320">
+                                            <Box>
+                                              <Typography variant="body2">320 characters <Chip label="Extended SMS" size="small" color="info" sx={{ ml: 1 }} /></Typography>
+                                              <Typography variant="caption" color="text.secondary">Extended SMS length. More detailed responses.</Typography>
+                                            </Box>
+                                          </MenuItem>
+                                          <MenuItem value="500">
+                                            <Box>
+                                              <Typography variant="body2">500 characters <Chip label="Detailed" size="small" color="warning" sx={{ ml: 1 }} /></Typography>
+                                              <Typography variant="caption" color="text.secondary">Long messages with comprehensive information.</Typography>
+                                            </Box>
+                                          </MenuItem>
+                                          <MenuItem value="custom">
+                                            <Box>
+                                              <Typography variant="body2">Custom Length <Chip label="Advanced" size="small" color="secondary" sx={{ ml: 1 }} /></Typography>
+                                              <Typography variant="caption" color="text.secondary">Set your own character limit</Typography>
+                                            </Box>
+                                          </MenuItem>
+                                        </Select>
+                                        <FormHelperText>
+                                          {aiMaxMessageLength === 0 
+                                            ? "Using global setting (160 characters)" 
+                                            : `${aiMaxMessageLength} characters ${aiMaxMessageLength <= 160 ? '(concise)' : aiMaxMessageLength <= 320 ? '(moderate)' : '(detailed)'}`}
+                                        </FormHelperText>
+                                      </FormControl>
+                                      
+                                      {/* Custom Length Input - показується тільки якщо вибрано нестандартне значення */}
+                                      {![0, 160, 250, 320, 500].includes(aiMaxMessageLength) && (
+                                        <Box sx={{ mt: 2 }}>
+                                          <TextField
+                                            label="Custom Length"
+                                            type="number"
+                                            value={aiMaxMessageLength}
+                                            onChange={e => setAiMaxMessageLength(Number(e.target.value))}
+                                            size="small"
+                                            inputProps={{ 
+                                              min: 50, 
+                                              max: 1000,
+                                              step: 10
+                                            }}
+                                            sx={{ 
+                                              width: 200,
+                                              backgroundColor: 'white'
+                                            }}
+                                            helperText="Enter custom length (50-1000 characters)"
+                                          />
+                                        </Box>
+                                      )}
                                     </Box>
                                     
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
