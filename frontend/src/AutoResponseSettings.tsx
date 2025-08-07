@@ -1690,6 +1690,7 @@ const AutoResponseSettings: FC = () => {
                                   />
                                 </FormGroup>
                               </Box>
+                            </Stack>
                               </CardContent>
                             </Card>
                           </Grid>
