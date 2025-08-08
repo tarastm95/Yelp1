@@ -2208,12 +2208,7 @@ const AutoResponseSettings: FC = () => {
                                               <Typography variant="caption" color="text.secondary">High-quality responses, good for detailed messages.</Typography>
                                             </Box>
                                           </MenuItem>
-                                          <MenuItem value="o1-preview">
-                                            <Box>
-                                              <Typography variant="body2">o1-preview <Chip label="Reasoning" size="small" color="primary" sx={{ ml: 1 }} /></Typography>
-                                              <Typography variant="caption" color="text.secondary">🧠 Advanced reasoning model. Great for complex problem-solving.</Typography>
-                                            </Box>
-                                          </MenuItem>
+
                                           <MenuItem value="o1-mini">
                                             <Box>
                                               <Typography variant="body2">o1-mini <Chip label="Smart" size="small" color="info" sx={{ ml: 1 }} /></Typography>
