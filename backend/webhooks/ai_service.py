@@ -410,6 +410,13 @@ class OpenAIService:
             # 🎯 Для contextual AI analysis використовуємо custom prompt як system prompt
             system_prompt = self._get_system_prompt(custom_prompt)
             
+            # Для GPT-5 моделей використовуємо коротший system prompt
+            if model.startswith('gpt-5'):
+                system_prompt = """You are a professional business assistant for Priority Remodeling. 
+Analyze customer requests and provide: service description, price range, manager contact, next steps.
+Be friendly and professional."""
+                logger.info(f"[AI-SERVICE] Using shortened system prompt for GPT-5")
+            
             # Підготовка повідомлень з урахуванням особливостей моделі
             messages = self._prepare_messages_for_model(model, system_prompt, prompt)
             
@@ -425,8 +432,16 @@ class OpenAIService:
                 logger.info(f"[AI-SERVICE] Response choices count: {len(response.choices)}")
                 
                 if response.choices and len(response.choices) > 0:
-                    content = response.choices[0].message.content
+                    choice = response.choices[0]
+                    # Детальне логування для діагностики
+                    logger.info(f"[AI-SERVICE] Finish reason: {choice.finish_reason}")
+                    logger.info(f"[AI-SERVICE] Message role: {choice.message.role}")
+                    logger.info(f"[AI-SERVICE] Tool calls: {choice.message.tool_calls}")
+                    logger.info(f"[AI-SERVICE] Usage: {response.usage}")
+                    
+                    content = choice.message.content
                     logger.info(f"[AI-SERVICE] Response content length: {len(content) if content else 0}")
+                    logger.info(f"[AI-SERVICE] Response content: '{content}'")
                     
                     if not content:
                         logger.warning(f"[AI-SERVICE] Empty content received from {model}")
@@ -496,11 +511,10 @@ class OpenAIService:
             # o1 моделі не підтримують temperature та max_tokens
             logger.info(f"[AI-SERVICE] o1 model: skipping temperature and max_tokens parameters")
         elif model.startswith("gpt-5"):
-            # GPT-5 моделі використовують max_completion_tokens замість max_tokens
-            # та мають фіксовану temperature = 1
-            params["max_completion_tokens"] = max_tokens
-            params["temperature"] = 1
-            logger.info(f"[AI-SERVICE] GPT-5 model: using max_completion_tokens and fixed temperature=1")
+            # GPT-5 моделі мають проблеми з temperature і max_completion_tokens
+            # Використовуємо стандартний max_tokens і не передаємо temperature
+            params["max_tokens"] = max_tokens
+            logger.info(f"[AI-SERVICE] GPT-5 model: using max_tokens without temperature")
         else:
             # Стандартні моделі підтримують max_tokens
             params["max_tokens"] = max_tokens
