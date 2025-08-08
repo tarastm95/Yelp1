@@ -58,7 +58,7 @@ class OpenAIService:
             model = business_ai_settings.ai_model
             logger.info(f"[AI-SERVICE] Using business-specific model: {model}")
         else:
-            model = global_ai_settings.openai_model if global_ai_settings else "o3-pro"
+            model = global_ai_settings.openai_model if global_ai_settings else "gpt-4o"
             logger.info(f"[AI-SERVICE] Using fallback model: {model}")
         
         # Temperature

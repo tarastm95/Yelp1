@@ -2124,40 +2124,17 @@ const AutoResponseSettings: FC = () => {
                                               <Typography variant="caption" color="text.secondary">Uses the model configured in Global AI Settings</Typography>
                                             </Box>
                                           </MenuItem>
-                                          <MenuItem value="o3-pro">
-                                            <Box>
-                                              <Typography variant="body2">o3-pro <Chip label="BEST" size="small" color="error" sx={{ ml: 1, fontWeight: 'bold' }} /></Typography>
-                                              <Typography variant="caption" color="text.secondary">🚀 Most intelligent model. Perfect for complex reasoning & analysis.</Typography>
-                                            </Box>
-                                          </MenuItem>
-                                          <MenuItem value="o4-mini">
-                                            <Box>
-                                              <Typography variant="body2">o4-mini <Chip label="Latest" size="small" color="secondary" sx={{ ml: 1 }} /></Typography>
-                                              <Typography variant="caption" color="text.secondary">🔬 Advanced visual reasoning. Great for multimodal tasks.</Typography>
-                                            </Box>
-                                          </MenuItem>
-                                          <MenuItem value="o3">
-                                            <Box>
-                                              <Typography variant="body2">o3 <Chip label="Pro" size="small" color="success" sx={{ ml: 1 }} /></Typography>
-                                              <Typography variant="caption" color="text.secondary">💎 Advanced reasoning. Excellent for math, physics & coding.</Typography>
-                                            </Box>
-                                          </MenuItem>
-                                          <MenuItem value="gpt-5">
-                                            <Box>
-                                              <Typography variant="body2">GPT-5 <Chip label="Popular" size="small" color="primary" sx={{ ml: 1 }} /></Typography>
-                                              <Typography variant="caption" color="text.secondary">🔥 Great all-around model. Superior creativity & reasoning.</Typography>
-                                            </Box>
-                                          </MenuItem>
+
                                           <MenuItem value="gpt-4o">
                                             <Box>
-                                              <Typography variant="body2">GPT-4o <Chip label="Best" size="small" color="success" sx={{ ml: 1 }} /></Typography>
-                                              <Typography variant="caption" color="text.secondary">Excellent all-around model. Best for complex tasks.</Typography>
+                                              <Typography variant="body2">GPT-4o <Chip label="BEST" size="small" color="error" sx={{ ml: 1, fontWeight: 'bold' }} /></Typography>
+                                              <Typography variant="caption" color="text.secondary">🏆 Most advanced model available without verification. Excellent for all tasks.</Typography>
                                             </Box>
                                           </MenuItem>
                                           <MenuItem value="gpt-4o-mini">
                                             <Box>
-                                              <Typography variant="body2">GPT-4o Mini <Chip label="Recommended" size="small" color="primary" sx={{ ml: 1 }} /></Typography>
-                                              <Typography variant="caption" color="text.secondary">Faster & cost-effective. Great for customer support.</Typography>
+                                              <Typography variant="body2">GPT-4o Mini <Chip label="Recommended" size="small" color="success" sx={{ ml: 1 }} /></Typography>
+                                              <Typography variant="caption" color="text.secondary">⚡ Fastest & most cost-effective. Perfect for customer support.</Typography>
                                             </Box>
                                           </MenuItem>
                                           <MenuItem value="gpt-4-turbo">
@@ -2168,7 +2145,7 @@ const AutoResponseSettings: FC = () => {
                                           </MenuItem>
                                           <MenuItem value="o1-preview">
                                             <Box>
-                                              <Typography variant="body2">o1-preview <Chip label="Reasoning" size="small" color="secondary" sx={{ ml: 1 }} /></Typography>
+                                              <Typography variant="body2">o1-preview <Chip label="Reasoning" size="small" color="primary" sx={{ ml: 1 }} /></Typography>
                                               <Typography variant="caption" color="text.secondary">🧠 Advanced reasoning model. Great for complex problem-solving.</Typography>
                                             </Box>
                                           </MenuItem>
