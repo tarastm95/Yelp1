@@ -2190,10 +2190,28 @@ const AutoResponseSettings: FC = () => {
                                             </Box>
                                           </MenuItem>
 
+                                          <MenuItem value="gpt-5">
+                                            <Box>
+                                              <Typography variant="body2">GPT-5 <Chip label="SMARTEST" size="small" color="secondary" sx={{ ml: 1, fontWeight: 'bold' }} /></Typography>
+                                              <Typography variant="caption" color="text.secondary">🧠 Most intelligent and accurate. Best for complex tasks: programming, analytics, long texts.</Typography>
+                                            </Box>
+                                          </MenuItem>
+                                          <MenuItem value="gpt-5-mini">
+                                            <Box>
+                                              <Typography variant="body2">GPT-5 Mini <Chip label="BALANCED" size="small" color="primary" sx={{ ml: 1 }} /></Typography>
+                                              <Typography variant="caption" color="text.secondary">⚡ Simpler, cheaper, but faster. Perfect for clear tasks and quick code assistance.</Typography>
+                                            </Box>
+                                          </MenuItem>
+                                          <MenuItem value="gpt-5-nano">
+                                            <Box>
+                                              <Typography variant="body2">GPT-5 Nano <Chip label="ULTRA FAST" size="small" color="warning" sx={{ ml: 1 }} /></Typography>
+                                              <Typography variant="caption" color="text.secondary">🚀 Fastest and cheapest. Great for simple tasks: extract facts, quick answers, data classification.</Typography>
+                                            </Box>
+                                          </MenuItem>
                                           <MenuItem value="gpt-4o">
                                             <Box>
-                                              <Typography variant="body2">GPT-4o <Chip label="BEST" size="small" color="error" sx={{ ml: 1, fontWeight: 'bold' }} /></Typography>
-                                              <Typography variant="caption" color="text.secondary">🏆 Most advanced model available without verification. Excellent for all tasks.</Typography>
+                                              <Typography variant="body2">GPT-4o <Chip label="STABLE" size="small" color="success" sx={{ ml: 1, fontWeight: 'bold' }} /></Typography>
+                                              <Typography variant="caption" color="text.secondary">🏆 Proven powerful model from 2024. Excellent for all tasks.</Typography>
                                             </Box>
                                           </MenuItem>
                                           <MenuItem value="gpt-4o-mini">
