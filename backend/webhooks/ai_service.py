@@ -442,11 +442,16 @@ class OpenAIService:
         if model.startswith("o1"):
             # o1 моделі не підтримують temperature та max_tokens
             logger.info(f"[AI-SERVICE] o1 model: skipping temperature and max_tokens parameters")
+        elif model.startswith("gpt-5"):
+            # GPT-5 моделі використовують max_completion_tokens замість max_tokens
+            params["max_completion_tokens"] = max_tokens
+            params["temperature"] = temperature
+            logger.info(f"[AI-SERVICE] GPT-5 model: using max_completion_tokens and temperature")
         else:
-            # Стандартні моделі підтримують всі параметри
+            # Стандартні моделі підтримують max_tokens
             params["max_tokens"] = max_tokens
             params["temperature"] = temperature
-            logger.info(f"[AI-SERVICE] Standard model: using all parameters")
+            logger.info(f"[AI-SERVICE] Standard model: using max_tokens and temperature")
         
         return params
     
