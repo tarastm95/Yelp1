@@ -2056,6 +2056,7 @@ const AutoResponseSettings: FC = () => {
                                             }
                                           }}
                                           label="Max Message Length (characters)"
+                                          disabled={aiModel?.startsWith('o1')}
                                         >
                                           <MenuItem value="0">
                                             <Box>
@@ -2095,9 +2096,11 @@ const AutoResponseSettings: FC = () => {
                                           </MenuItem>
                                         </Select>
                                         <FormHelperText>
-                                          {aiMaxMessageLength === 0 
-                                            ? "Using global setting (160 characters)" 
-                                            : `${aiMaxMessageLength} characters ${aiMaxMessageLength <= 160 ? '(concise)' : aiMaxMessageLength <= 320 ? '(moderate)' : '(detailed)'}`}
+                                          {aiModel?.startsWith('o1') 
+                                            ? `🔒 o1 models ignore max length (generate unlimited text)` 
+                                            : aiMaxMessageLength === 0 
+                                              ? "Using global setting (160 characters)" 
+                                              : `✅ ${aiMaxMessageLength} characters ${aiMaxMessageLength <= 160 ? '(concise)' : aiMaxMessageLength <= 320 ? '(moderate)' : '(detailed)'} - Supported by current model`}
                                         </FormHelperText>
                                       </FormControl>
                                       
@@ -2127,11 +2130,17 @@ const AutoResponseSettings: FC = () => {
                                     
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                       <Chip
-                                        label={`Current: ${aiMaxMessageLength || 160} chars`}
+                                        label={
+                                          aiModel?.startsWith('o1') 
+                                            ? `❌ ${aiMaxMessageLength || 160} chars (Ignored)` 
+                                            : `✅ ${aiMaxMessageLength || 160} chars`
+                                        }
                                         size="small"
                                         color={
-                                          (aiMaxMessageLength || 160) <= 160 ? 'success' : 
-                                          (aiMaxMessageLength || 160) <= 300 ? 'warning' : 'error'
+                                          aiModel?.startsWith('o1') ? 'error' 
+                                          : (aiMaxMessageLength || 160) <= 160 ? 'success' 
+                                          : (aiMaxMessageLength || 160) <= 300 ? 'warning' 
+                                          : 'info'
                                         }
                                         variant="outlined"
                                       />
@@ -2260,7 +2269,7 @@ const AutoResponseSettings: FC = () => {
                                             handleSaveAiModelSettings(undefined, newValue);
                                           }}
                                           label="AI Temperature (optional)"
-                                          disabled={aiModel?.startsWith('gpt-5')}
+                                          disabled={aiModel?.startsWith('gpt-5') || aiModel?.startsWith('o1')}
                                         >
                                           <MenuItem value="">
                                             <Box>
@@ -2301,10 +2310,12 @@ const AutoResponseSettings: FC = () => {
                                         </Select>
                                         <FormHelperText>
                                           {aiModel?.startsWith('gpt-5') 
-                                            ? "GPT-5 models use fixed temperature = 1.0 (cannot be changed)" 
-                                            : aiTemperature !== '' 
-                                              ? `Creativity level: ${aiTemperature <= 0.3 ? 'Very focused' : aiTemperature <= 0.7 ? 'Balanced' : aiTemperature <= 1.0 ? 'Creative' : 'Very creative'}` 
-                                              : "Leave empty to use global temperature setting"}
+                                            ? "🔒 GPT-5 models use fixed temperature = 1.0 (cannot be changed)" 
+                                            : aiModel?.startsWith('o1')
+                                              ? "🔒 o1 models don't support temperature control (optimized internally)"
+                                              : aiTemperature !== '' 
+                                                ? `Creativity level: ${aiTemperature <= 0.3 ? 'Very focused' : aiTemperature <= 0.7 ? 'Balanced' : aiTemperature <= 1.0 ? 'Creative' : 'Very creative'}` 
+                                                : "Leave empty to use global temperature setting"}
                                         </FormHelperText>
                                       </FormControl>
                                     </Box>
@@ -2317,9 +2328,19 @@ const AutoResponseSettings: FC = () => {
                                         variant="outlined"
                                       />
                                       <Chip
-                                        label={aiModel?.startsWith('gpt-5') ? 'Fixed T=1' : aiTemperature !== '' ? `T=${aiTemperature}` : 'Global Temp'}
+                                        label={
+                                          aiModel?.startsWith('gpt-5') ? 'Fixed T=1' 
+                                          : aiModel?.startsWith('o1') ? 'No Temperature' 
+                                          : aiTemperature !== '' ? `T=${aiTemperature}` 
+                                          : 'Global Temp'
+                                        }
                                         size="small"
-                                        color={aiModel?.startsWith('gpt-5') ? 'warning' : aiTemperature !== '' ? 'primary' : 'default'}
+                                        color={
+                                          aiModel?.startsWith('gpt-5') ? 'warning' 
+                                          : aiModel?.startsWith('o1') ? 'error' 
+                                          : aiTemperature !== '' ? 'primary' 
+                                          : 'default'
+                                        }
                                         variant="outlined"
                                       />
                                       {(!aiModel && aiTemperature === '') && (
@@ -2331,6 +2352,45 @@ const AutoResponseSettings: FC = () => {
                                   </Stack>
                                 </Box>
                               </Box>
+
+                              {/* 📊 Model Support Information */}
+                              {aiModel && (
+                                <Box sx={{ 
+                                  p: 2, 
+                                  borderRadius: 1, 
+                                  backgroundColor: 'info.50',
+                                  border: '1px solid',
+                                  borderColor: 'info.200'
+                                }}>
+                                  <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600, color: 'info.main' }}>
+                                    📊 Model Settings Support
+                                  </Typography>
+                                  <Stack spacing={1}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                      <Typography variant="caption" sx={{ fontWeight: 600, minWidth: 140 }}>
+                                        AI Temperature:
+                                      </Typography>
+                                      {aiModel?.startsWith('gpt-5') ? (
+                                        <Chip label="🔒 Fixed at 1.0" size="small" color="warning" />
+                                      ) : aiModel?.startsWith('o1') ? (
+                                        <Chip label="❌ Not Supported" size="small" color="error" />
+                                      ) : (
+                                        <Chip label="✅ Fully Supported" size="small" color="success" />
+                                      )}
+                                    </Box>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                      <Typography variant="caption" sx={{ fontWeight: 600, minWidth: 140 }}>
+                                        Max Message Length:
+                                      </Typography>
+                                      {aiModel?.startsWith('o1') ? (
+                                        <Chip label="❌ Ignored (Unlimited)" size="small" color="error" />
+                                      ) : (
+                                        <Chip label="✅ Fully Supported" size="small" color="success" />
+                                      )}
+                                    </Box>
+                                  </Stack>
+                                </Box>
+                              )}
 
                               {/* Custom Prompt */}
                               <Box>
