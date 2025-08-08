@@ -1621,9 +1621,44 @@ const AutoResponseSettings: FC = () => {
                             <PersonIcon sx={{ mr: 1, fontSize: 28 }} />
                             🤖 AI Configuration Active
                           </Typography>
-                          <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                          <Typography variant="body2" sx={{ opacity: 0.9, mb: 2 }}>
                             Advanced AI-powered response generation is enabled for this business
                           </Typography>
+                          
+                          {/* Instructions */}
+                          <Box sx={{ 
+                            background: 'rgba(255,255,255,0.1)', 
+                            p: 2, 
+                            borderRadius: 1, 
+                            textAlign: 'left',
+                            fontSize: '0.85rem'
+                          }}>
+                            <Typography variant="body2" sx={{ fontWeight: 600, mb: 1, color: '#fff' }}>
+                              💡 How AI + Checkboxes Work Together:
+                            </Typography>
+                            
+                            <Typography variant="caption" sx={{ display: 'block', mb: 1, color: 'rgba(255,255,255,0.95)' }}>
+                              <strong>Checkboxes control WHAT data AI sees</strong> → <strong>Custom Prompt controls HOW AI uses that data</strong>
+                            </Typography>
+                            
+                            <Box sx={{ mt: 1 }}>
+                              <Typography variant="caption" sx={{ display: 'block', color: 'rgba(255,255,255,0.9)' }}>
+                                ✅ <strong>Example (Good):</strong><br/>
+                                Checkboxes: ✓ Rating, ✓ Phone | Custom Prompt: "If rating available, highlight trust. If phone available, encourage direct contact."<br/>
+                                <em>→ Result: "ABC Contractors (4.8★) can help! Call (555) 123-4567 to discuss."</em>
+                              </Typography>
+                              
+                              <Typography variant="caption" sx={{ display: 'block', mt: 1, color: 'rgba(255,255,255,0.9)' }}>
+                                ❌ <strong>Example (Bad):</strong><br/>
+                                Checkboxes: ✗ Phone | Custom Prompt: "Always mention call (555) 123-4567"<br/>
+                                <em>→ Result: AI might hallucinate or use wrong numbers!</em>
+                              </Typography>
+                            </Box>
+                            
+                            <Typography variant="caption" sx={{ display: 'block', mt: 1.5, fontWeight: 600, color: '#fff' }}>
+                              💡 <strong>Best Practice:</strong> Enable checkboxes for data you want, then use Custom Prompt to describe the communication style.
+                            </Typography>
+                          </Box>
                         </Box>
 
                         {/* AI Settings Grid */}
@@ -2089,10 +2124,28 @@ const AutoResponseSettings: FC = () => {
                                               <Typography variant="caption" color="text.secondary">Uses the model configured in Global AI Settings</Typography>
                                             </Box>
                                           </MenuItem>
+                                          <MenuItem value="o3-pro">
+                                            <Box>
+                                              <Typography variant="body2">o3-pro <Chip label="BEST" size="small" color="error" sx={{ ml: 1, fontWeight: 'bold' }} /></Typography>
+                                              <Typography variant="caption" color="text.secondary">🚀 Most intelligent model. Perfect for complex reasoning & analysis.</Typography>
+                                            </Box>
+                                          </MenuItem>
+                                          <MenuItem value="o4-mini">
+                                            <Box>
+                                              <Typography variant="body2">o4-mini <Chip label="Latest" size="small" color="secondary" sx={{ ml: 1 }} /></Typography>
+                                              <Typography variant="caption" color="text.secondary">🔬 Advanced visual reasoning. Great for multimodal tasks.</Typography>
+                                            </Box>
+                                          </MenuItem>
+                                          <MenuItem value="o3">
+                                            <Box>
+                                              <Typography variant="body2">o3 <Chip label="Pro" size="small" color="success" sx={{ ml: 1 }} /></Typography>
+                                              <Typography variant="caption" color="text.secondary">💎 Advanced reasoning. Excellent for math, physics & coding.</Typography>
+                                            </Box>
+                                          </MenuItem>
                                           <MenuItem value="gpt-5">
                                             <Box>
-                                              <Typography variant="body2">GPT-5 <Chip label="Latest" size="small" color="error" sx={{ ml: 1 }} /></Typography>
-                                              <Typography variant="caption" color="text.secondary">🔥 Newest model from OpenAI. Superior reasoning and creativity.</Typography>
+                                              <Typography variant="body2">GPT-5 <Chip label="Popular" size="small" color="primary" sx={{ ml: 1 }} /></Typography>
+                                              <Typography variant="caption" color="text.secondary">🔥 Great all-around model. Superior creativity & reasoning.</Typography>
                                             </Box>
                                           </MenuItem>
                                           <MenuItem value="gpt-4o">
