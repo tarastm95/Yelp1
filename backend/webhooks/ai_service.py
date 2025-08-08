@@ -390,6 +390,15 @@ class OpenAIService:
             model = ai_config['model']
             temperature = ai_config['temperature']
             
+            # Додаткове логування для debug
+            logger.info(f"[AI-SERVICE] Selected model: {model}")
+            logger.info(f"[AI-SERVICE] Temperature: {temperature}")
+            
+            # Спеціальне повідомлення для GPT-5 моделей
+            if model.startswith('gpt-5'):
+                logger.warning(f"[AI-SERVICE] ⚠️ Using GPT-5 model: {model}")
+                logger.warning(f"[AI-SERVICE] ⚠️ Note: GPT-5 models may not be available in all OpenAI accounts yet")
+            
             # Використовуємо параметр max_length якщо наданий, інакше business/global
             if max_length is not None and max_length > 0:
                 message_length = max_length
@@ -407,9 +416,53 @@ class OpenAIService:
             # Підготовка параметрів API з урахуванням обмежень моделі
             api_params = self._get_api_params_for_model(model, messages, message_length, temperature)
             
-            response = self.client.chat.completions.create(**api_params)
+            logger.info(f"[AI-SERVICE] Making API call with params: {api_params}")
             
-            return response.choices[0].message.content.strip()
+            try:
+                response = self.client.chat.completions.create(**api_params)
+                
+                logger.info(f"[AI-SERVICE] Response received successfully")
+                logger.info(f"[AI-SERVICE] Response choices count: {len(response.choices)}")
+                
+                if response.choices and len(response.choices) > 0:
+                    content = response.choices[0].message.content
+                    logger.info(f"[AI-SERVICE] Response content length: {len(content) if content else 0}")
+                    
+                    if not content:
+                        logger.warning(f"[AI-SERVICE] Empty content received from {model}")
+                        return "Empty response received from AI model."
+                    
+                    return content.strip()
+                else:
+                    logger.error(f"[AI-SERVICE] No choices in response from {model}")
+                    return "No response choices received from AI model."
+                    
+            except Exception as api_error:
+                logger.error(f"[AI-SERVICE] API call failed for {model}: {api_error}")
+                
+                # Fallback для GPT-5 моделей до gpt-4o
+                if model.startswith('gpt-5'):
+                    logger.warning(f"[AI-SERVICE] 🔄 GPT-5 failed, trying fallback to gpt-4o")
+                    try:
+                        fallback_params = self._get_api_params_for_model('gpt-4o', messages, message_length, temperature)
+                        logger.info(f"[AI-SERVICE] Making fallback API call with gpt-4o")
+                        
+                        fallback_response = self.client.chat.completions.create(**fallback_params)
+                        content = fallback_response.choices[0].message.content
+                        
+                        if content:
+                            logger.info(f"[AI-SERVICE] ✅ Fallback successful with gpt-4o")
+                            return content.strip()
+                        else:
+                            logger.error(f"[AI-SERVICE] Fallback also returned empty content")
+                            return "Fallback model also returned empty response."
+                            
+                    except Exception as fallback_error:
+                        logger.error(f"[AI-SERVICE] Fallback to gpt-4o also failed: {fallback_error}")
+                        return f"Both {model} and fallback failed: {str(api_error)}"
+                else:
+                    # Для інших моделей просто повертаємо помилку
+                    return f"API call failed: {str(api_error)}"
             
         except Exception as e:
             logger.error(f"[AI-SERVICE] Error generating preview: {e}")
