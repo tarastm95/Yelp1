@@ -186,9 +186,21 @@ class OpenAIService:
             logger.info(f"[AI-SERVICE] - Max tokens: {message_length}")
             
             logger.info(f"[AI-SERVICE] 🤖 Calling OpenAI API...")
+            logger.info(f"[AI-SERVICE] ========== OPENAI API CALL ==========")
+            logger.info(f"[AI-SERVICE] About to call OpenAI chat completion...")
+            logger.info(f"[AI-SERVICE] API parameters:")
+            logger.info(f"[AI-SERVICE] - Model: {model}")
+            logger.info(f"[AI-SERVICE] - Temperature: {temperature}")
+            logger.info(f"[AI-SERVICE] - Max tokens: {message_length}")
             
             # 🎯 Для contextual AI analysis використовуємо custom prompt як system prompt
             system_prompt = self._get_system_prompt(custom_prompt)
+            logger.info(f"[AI-SERVICE] - System prompt length: {len(system_prompt)} characters")
+            logger.info(f"[AI-SERVICE] - User prompt length: {len(prompt)} characters")
+            
+            logger.info(f"[AI-SERVICE] System prompt preview: {system_prompt[:200]}..." + ("" if len(system_prompt) <= 200 else " (truncated)"))
+            logger.info(f"[AI-SERVICE] User prompt preview: {prompt[:200]}..." + ("" if len(prompt) <= 200 else " (truncated)"))
+            logger.info(f"[AI-SERVICE] 🚀 Making OpenAI API request...")
             
             # Виклик OpenAI API
             response = self.client.chat.completions.create(
@@ -203,7 +215,7 @@ class OpenAIService:
                 max_tokens=message_length,
                 temperature=temperature
             )
-            
+            logger.info(f"[AI-SERVICE] ✅ OpenAI API call completed successfully")
             logger.info(f"[AI-SERVICE] ✅ OpenAI API responded successfully")
             
             ai_message = response.choices[0].message.content.strip()

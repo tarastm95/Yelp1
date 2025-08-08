@@ -32,9 +32,18 @@ def notify_new_lead(sender, instance: LeadDetail, created: bool, **kwargs):
     
     # Step 2: Check if phone number is available
     logger.info(f"[SMS-NOTIFICATION] 📞 STEP 1: Checking phone number availability")
+    logger.info(f"[SMS-NOTIFICATION] ========== PHONE NUMBER CHECK ==========")
+    logger.info(f"[SMS-NOTIFICATION] LeadDetail fields:")
+    logger.info(f"[SMS-NOTIFICATION] - phone_number: '{instance.phone_number}'")
+    logger.info(f"[SMS-NOTIFICATION] - phone_in_text: {getattr(instance, 'phone_in_text', 'Not set')}")
+    logger.info(f"[SMS-NOTIFICATION] - phone_opt_in: {getattr(instance, 'phone_opt_in', 'Not set')}")
+    logger.info(f"[SMS-NOTIFICATION] - user_display_name: '{getattr(instance, 'user_display_name', 'Not set')}'")
+    
     if not instance.phone_number:
         logger.info(f"[SMS-NOTIFICATION] ⚠️ NO PHONE NUMBER - cannot send SMS notifications")
         logger.info(f"[SMS-NOTIFICATION] Phone number field value: '{instance.phone_number}'")
+        logger.info(f"[SMS-NOTIFICATION] ❗ CRITICAL: NotificationSetting SMS requires phone_number to be set")
+        logger.info(f"[SMS-NOTIFICATION] 💡 This is different from AutoResponseSettings SMS which can work without phone")
         logger.info(f"[SMS-NOTIFICATION] 🛑 EARLY RETURN - SMS requires phone number")
         return
         
@@ -70,6 +79,17 @@ def notify_new_lead(sender, instance: LeadDetail, created: bool, **kwargs):
 
     # Step 4: Look up business-specific notification settings only
     logger.info(f"[SMS-NOTIFICATION] ⚙️ STEP 3: Looking up notification settings")
+    logger.info(f"[SMS-NOTIFICATION] ========== NOTIFICATION SETTINGS LOOKUP ==========")
+    
+    # Debug: Show all NotificationSetting in database
+    all_notification_settings = NotificationSetting.objects.all()
+    logger.info(f"[SMS-NOTIFICATION] 📊 ALL NotificationSettings in database:")
+    if all_notification_settings.exists():
+        for setting in all_notification_settings:
+            logger.info(f"[SMS-NOTIFICATION] - ID={setting.id}, business={setting.business}, phone={setting.phone_number}, template_length={len(setting.message_template)}")
+    else:
+        logger.info(f"[SMS-NOTIFICATION] ❌ NO NotificationSettings found in database!")
+    
     logger.info(f"[SMS-NOTIFICATION] Filtering criteria:")
     logger.info(f"[SMS-NOTIFICATION] - Exclude empty phone numbers")
     logger.info(f"[SMS-NOTIFICATION] - Exclude empty message templates")
@@ -82,10 +102,20 @@ def notify_new_lead(sender, instance: LeadDetail, created: bool, **kwargs):
     
     if business:
         logger.info(f"[SMS-NOTIFICATION] Applying business-only filter (no global settings)")
+        logger.info(f"[SMS-NOTIFICATION] Looking for business: {business.business_id} (ID: {business.id})")
         
         # Only get business-specific settings
         business_settings = settings.filter(business=business)
-        logger.info(f"[SMS-NOTIFICATION] Business-specific settings: {business_settings.count()}")
+        business_count = business_settings.count()
+        logger.info(f"[SMS-NOTIFICATION] Business-specific settings: {business_count}")
+        
+        if business_count > 0:
+            logger.info(f"[SMS-NOTIFICATION] ✅ Found {business_count} NotificationSettings for business {business.business_id}")
+            for setting in business_settings:
+                logger.info(f"[SMS-NOTIFICATION] - Setting ID={setting.id}, phone={setting.phone_number}")
+        else:
+            logger.error(f"[SMS-NOTIFICATION] ❌ NO NotificationSettings found for business {business.business_id}")
+            logger.error(f"[SMS-NOTIFICATION] This means no SMS will be sent!")
         
         settings = list(business_settings)
         logger.info(f"[SMS-NOTIFICATION] Using only business-specific SMS settings")
@@ -97,6 +127,7 @@ def notify_new_lead(sender, instance: LeadDetail, created: bool, **kwargs):
         
     final_count = len(settings)
     logger.info(f"[SMS-NOTIFICATION] Final business-specific settings count: {final_count}")
+    logger.info(f"[SMS-NOTIFICATION] ==============================================")
     
     if final_count == 0:
         logger.info(f"[SMS-NOTIFICATION] ⚠️ NO NOTIFICATION SETTINGS found")

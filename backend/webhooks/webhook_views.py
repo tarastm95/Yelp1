@@ -688,11 +688,41 @@ class WebhookView(APIView):
                         logger.info(f"[WEBHOOK] ==============================================")
                     elif pending:
                         logger.info(f"[WEBHOOK] 🚫 CLIENT RESPONDED WITHOUT PHONE NUMBER")
-                        logger.info(f"[WEBHOOK] Will cancel pending no-phone tasks")
+                        logger.info(f"[WEBHOOK] ========== CUSTOMER REPLY SCENARIO (NO PHONE) ==========")
+                        logger.info(f"[WEBHOOK] Lead ID: {lid}")
+                        logger.info(f"[WEBHOOK] Event ID: {eid}")
+                        logger.info(f"[WEBHOOK] Event text: '{text[:100]}...'" + ("" if len(text) <= 100 else " (truncated)"))
+                        logger.info(f"[WEBHOOK] Has pending no-phone tasks: {pending}")
+                        logger.info(f"[WEBHOOK] Phone number found in text: {has_phone}")
+                        logger.info(f"[WEBHOOK] ❗ This SHOULD trigger Customer Reply SMS but currently only cancels tasks")
+                        logger.info(f"[WEBHOOK] 🎯 SMS DECISION ANALYSIS:")
+                        logger.info(f"[WEBHOOK] - Scenario: Customer Reply (phone_opt_in=False, phone_available=False)")
+                        logger.info(f"[WEBHOOK] - Current behavior: Only cancel pending tasks")
+                        logger.info(f"[WEBHOOK] - Missing: _process_auto_response call for Customer Reply SMS")
+                        
                         reason = "Client responded, but no number was found"
                         self._cancel_no_phone_tasks(lid, reason=reason)
+                        
+                        logger.info(f"[WEBHOOK] 💡 POTENTIAL SMS TRIGGER POINT:")
+                        logger.info(f"[WEBHOOK] Should call: self._process_auto_response({lid}, phone_opt_in=False, phone_available=False)")
+                        logger.info(f"[WEBHOOK] ==============================================")
                     else:
                         logger.info(f"[WEBHOOK] ℹ️ CLIENT RESPONDED but no pending tasks to handle")
+                        logger.info(f"[WEBHOOK] ========== CUSTOMER REPLY SCENARIO (NO PENDING TASKS) ==========")
+                        logger.info(f"[WEBHOOK] Lead ID: {lid}")
+                        logger.info(f"[WEBHOOK] Event ID: {eid}")
+                        logger.info(f"[WEBHOOK] Event text: '{text[:100]}...'" + ("" if len(text) <= 100 else " (truncated)"))
+                        logger.info(f"[WEBHOOK] Has pending no-phone tasks: {pending}")
+                        logger.info(f"[WEBHOOK] Phone number found in text: {has_phone}")
+                        logger.info(f"[WEBHOOK] ❗ This COULD BE a Customer Reply SMS scenario")
+                        logger.info(f"[WEBHOOK] 🎯 SMS DECISION ANALYSIS:")
+                        logger.info(f"[WEBHOOK] - Scenario: Customer Reply (phone_opt_in=False, phone_available=False)")
+                        logger.info(f"[WEBHOOK] - Current behavior: No action taken")
+                        logger.info(f"[WEBHOOK] - Missing: _process_auto_response call for Customer Reply SMS")
+                        
+                        logger.info(f"[WEBHOOK] 💡 POTENTIAL SMS TRIGGER POINT:")
+                        logger.info(f"[WEBHOOK] Should call: self._process_auto_response({lid}, phone_opt_in=False, phone_available=False)")
+                        logger.info(f"[WEBHOOK] ==============================================")
                 elif created and e.get("user_type") == "CONSUMER":
                     logger.info(f"[WEBHOOK] 📊 CONSUMER EVENT RECORDED but NOT PROCESSED as new")
                     logger.info(f"[WEBHOOK] Reason: Event happened BEFORE lead processing")
@@ -1110,15 +1140,43 @@ class WebhookView(APIView):
         
         # Step 1: Look up settings
         logger.info(f"[AUTO-RESPONSE] 🔍 STEP 1: Looking up AutoResponseSettings")
+        logger.info(f"[AUTO-RESPONSE] ========== SMS SETTINGS LOOKUP ==========")
+        logger.info(f"[AUTO-RESPONSE] Search criteria:")
+        logger.info(f"[AUTO-RESPONSE] - business__isnull=True (global settings)")
+        logger.info(f"[AUTO-RESPONSE] - phone_opt_in={phone_opt_in}")
+        logger.info(f"[AUTO-RESPONSE] - phone_available={phone_available}")
+        
+        # Debug: Show all AutoResponseSettings in database
+        all_auto_settings = AutoResponseSettings.objects.all()
+        logger.info(f"[AUTO-RESPONSE] 📊 ALL AutoResponseSettings in database:")
+        if all_auto_settings.exists():
+            for setting in all_auto_settings:
+                logger.info(f"[AUTO-RESPONSE] - ID={setting.id}, business={setting.business}, phone_opt_in={setting.phone_opt_in}, phone_available={setting.phone_available}, enabled={setting.enabled}")
+                if hasattr(setting, 'sms_on_customer_reply'):
+                    logger.info(f"[AUTO-RESPONSE]   sms_on_customer_reply={setting.sms_on_customer_reply}, sms_on_phone_found={setting.sms_on_phone_found}, sms_on_phone_opt_in={setting.sms_on_phone_opt_in}")
+        else:
+            logger.info(f"[AUTO-RESPONSE] ❌ NO AutoResponseSettings found in database!")
         
         default_settings = AutoResponseSettings.objects.filter(
             business__isnull=True,
             phone_opt_in=phone_opt_in,
             phone_available=phone_available,
         ).first()
-        logger.info(f"[AUTO-RESPONSE] Default settings found: {default_settings is not None}")
+        logger.info(f"[AUTO-RESPONSE] 🎯 Default settings found: {default_settings is not None}")
         if default_settings:
-            logger.info(f"[AUTO-RESPONSE] Default settings ID: {default_settings.id}, enabled: {default_settings.enabled}")
+            logger.info(f"[AUTO-RESPONSE] ✅ Default settings details:")
+            logger.info(f"[AUTO-RESPONSE] - ID: {default_settings.id}")
+            logger.info(f"[AUTO-RESPONSE] - enabled: {default_settings.enabled}")
+            logger.info(f"[AUTO-RESPONSE] - phone_opt_in: {default_settings.phone_opt_in}")
+            logger.info(f"[AUTO-RESPONSE] - phone_available: {default_settings.phone_available}")
+            if hasattr(default_settings, 'sms_on_customer_reply'):
+                logger.info(f"[AUTO-RESPONSE] - sms_on_customer_reply: {default_settings.sms_on_customer_reply}")
+                logger.info(f"[AUTO-RESPONSE] - sms_on_phone_found: {default_settings.sms_on_phone_found}")
+                logger.info(f"[AUTO-RESPONSE] - sms_on_phone_opt_in: {default_settings.sms_on_phone_opt_in}")
+        else:
+            logger.error(f"[AUTO-RESPONSE] ❌ NO MATCHING AutoResponseSettings!")
+            logger.error(f"[AUTO-RESPONSE] This means SMS won't be sent for {reason} scenario")
+            logger.error(f"[AUTO-RESPONSE] Need AutoResponseSettings with business=null, phone_opt_in={phone_opt_in}, phone_available={phone_available}")
         
         logger.debug(
             f"[AUTO-RESPONSE] Looking up ProcessedLead for lead_id={lead_id}"
@@ -1192,6 +1250,40 @@ class WebhookView(APIView):
             logger.info(f"[AUTO-RESPONSE] - use_ai_greeting: {getattr(auto_settings, 'use_ai_greeting', False)}")
             logger.info(f"[AUTO-RESPONSE] - export_to_sheets: {auto_settings.export_to_sheets}")
             logger.info(f"[AUTO-RESPONSE] - greeting_template: {auto_settings.greeting_template[:50]}...")
+            
+            # ⭐ CRITICAL SMS SETTINGS LOGGING ⭐
+            logger.info(f"[AUTO-RESPONSE] 🚨 SMS SETTINGS ANALYSIS:")
+            logger.info(f"[AUTO-RESPONSE] - sms_on_phone_found: {getattr(auto_settings, 'sms_on_phone_found', 'MISSING FIELD')}")
+            logger.info(f"[AUTO-RESPONSE] - sms_on_customer_reply: {getattr(auto_settings, 'sms_on_customer_reply', 'MISSING FIELD')}")
+            logger.info(f"[AUTO-RESPONSE] - sms_on_phone_opt_in: {getattr(auto_settings, 'sms_on_phone_opt_in', 'MISSING FIELD')}")
+            
+            # Check if the current scenario should trigger SMS
+            should_send_sms = False
+            sms_reason_field = ""
+            if phone_opt_in:
+                should_send_sms = getattr(auto_settings, 'sms_on_phone_opt_in', False)
+                sms_reason_field = "sms_on_phone_opt_in"
+            elif phone_available:
+                should_send_sms = getattr(auto_settings, 'sms_on_phone_found', False)
+                sms_reason_field = "sms_on_phone_found"
+            else:
+                should_send_sms = getattr(auto_settings, 'sms_on_customer_reply', False)
+                sms_reason_field = "sms_on_customer_reply"
+            
+            logger.info(f"[AUTO-RESPONSE] 🔥 SMS DECISION FOR SCENARIO '{reason}':")
+            logger.info(f"[AUTO-RESPONSE] - Field checked: {sms_reason_field}")
+            logger.info(f"[AUTO-RESPONSE] - SMS should be sent: {should_send_sms}")
+            logger.info(f"[AUTO-RESPONSE] - Settings enabled: {auto_settings.enabled}")
+            logger.info(f"[AUTO-RESPONSE] - FINAL SMS DECISION: {should_send_sms and auto_settings.enabled}")
+            
+            if not should_send_sms:
+                logger.error(f"[AUTO-RESPONSE] ❌ SMS WILL NOT BE SENT!")
+                logger.error(f"[AUTO-RESPONSE] Reason: {sms_reason_field} = {should_send_sms}")
+            elif not auto_settings.enabled:
+                logger.error(f"[AUTO-RESPONSE] ❌ SMS WILL NOT BE SENT!")
+                logger.error(f"[AUTO-RESPONSE] Reason: AutoResponseSettings.enabled = {auto_settings.enabled}")
+            else:
+                logger.info(f"[AUTO-RESPONSE] ✅ SMS SHOULD BE SENT! ({reason})")
         else:
             logger.warning(f"[AUTO-RESPONSE] ❌ NO AutoResponseSettings found!")
             logger.warning(f"[AUTO-RESPONSE] Query filters used:")
@@ -1275,13 +1367,34 @@ class WebhookView(APIView):
             f"[AUTO-RESPONSE] LeadDetail {'created' if created else 'updated'} pk={ld.pk}"
         )
 
+        # ✅ DETAILED PHONE DETECTION WITH EXTENSIVE LOGGING
+        logger.info(f"[AUTO-RESPONSE] ======== PHONE DETECTION CHECK ========")
+        logger.info(f"[AUTO-RESPONSE] Current scenario: phone_available={phone_available}")
+        logger.info(f"[AUTO-RESPONSE] Checking for phone in additional_info...")
+        
+        additional_info = detail_data["project"].get("additional_info", "")
+        logger.info(f"[AUTO-RESPONSE] additional_info content: '{additional_info[:200]}...'" + ("" if len(additional_info) <= 200 else " (truncated)"))
+        logger.info(f"[AUTO-RESPONSE] additional_info length: {len(additional_info)} characters")
+        
+        phone_match = PHONE_RE.search(additional_info)
+        logger.info(f"[AUTO-RESPONSE] Phone regex match found: {phone_match is not None}")
+        
+        if phone_match:
+            logger.info(f"[AUTO-RESPONSE] Phone match details: '{phone_match.group()}'")
+        
         # If a phone number is present in additional_info when the lead detail is
         # fetched for the first time, treat it as a real phone provided by the
         # consumer and switch to the phone available flow.
-        if not phone_available and PHONE_RE.search(
-            detail_data["project"].get("additional_info", "")
-        ):
+        if not phone_available and phone_match:
+            logger.info(f"[AUTO-RESPONSE] 📞 PHONE DETECTED IN ADDITIONAL INFO")
+            logger.info(f"[AUTO-RESPONSE] ========== SWITCHING TO PHONE AVAILABLE FLOW ==========")
+            logger.info(f"[AUTO-RESPONSE] Current scenario was: phone_available=False")
+            logger.info(f"[AUTO-RESPONSE] Found phone number: {phone_match.group()}")
+            logger.info(f"[AUTO-RESPONSE] Will switch to phone_available=True scenario")
+            logger.info(f"[AUTO-RESPONSE] This will trigger handle_phone_available()")
+            
             if auto_settings and auto_settings.export_to_sheets:
+                logger.info(f"[AUTO-RESPONSE] Exporting to Google Sheets first...")
                 try:
                     from .utils import append_lead_to_sheet
 
@@ -1292,27 +1405,43 @@ class WebhookView(APIView):
                     )
                     append_lead_to_sheet(detail_data)
                     logger.info(
-                        "[AUTO-RESPONSE] Lead %s (business=%s) exported to Google Sheets",
+                        "[AUTO-RESPONSE] ✅ Lead %s (business=%s) exported to Google Sheets",
                         lead_id,
                         biz_id,
                     )
                 except Exception:
                     logger.exception(
-                        "[AUTO-RESPONSE] Google Sheets export failed for lead=%s",
+                        "[AUTO-RESPONSE] ❌ Google Sheets export failed for lead=%s",
                         lead_id,
                     )
 
+            logger.info(f"[AUTO-RESPONSE] Updating LeadDetail with phone information...")
+            
             if not ld.phone_in_additional_info:
                 ld.phone_in_additional_info = True
                 ld.save(update_fields=["phone_in_additional_info"])
+                logger.info(f"[AUTO-RESPONSE] ✅ Set phone_in_additional_info=True")
+            
             if phone_number:
                 ld.phone_number = phone_number
                 ld.save(update_fields=["phone_number"])
-            logger.info("[AUTO-RESPONSE] Phone found in additional_info")
+                logger.info(f"[AUTO-RESPONSE] ✅ Set phone_number='{phone_number}'")
+            
+            logger.info("[AUTO-RESPONSE] ✅ Phone found in additional_info")
+            logger.info(f"[AUTO-RESPONSE] 🔄 TRIGGERING handle_phone_available")
+            logger.info(f"[AUTO-RESPONSE] 🛑 EARLY RETURN - switching to phone available flow")
+            
             self.handle_phone_available(
                 lead_id, reason="phone number found in additional_info"
             )
             return
+        else:
+            logger.info(f"[AUTO-RESPONSE] ℹ️ NO PHONE SWITCH NEEDED")
+            logger.info(f"[AUTO-RESPONSE] - phone_available: {phone_available}")
+            logger.info(f"[AUTO-RESPONSE] - phone found in additional_info: {phone_match is not None}")
+            logger.info(f"[AUTO-RESPONSE] Continuing with current scenario...")
+        
+        logger.info(f"[AUTO-RESPONSE] ========================================")
 
         if auto_settings and auto_settings.export_to_sheets:
             try:
@@ -1341,9 +1470,34 @@ class WebhookView(APIView):
                 lead_id,
             )
 
-        if not auto_settings or not auto_settings.enabled:
-            logger.info("[AUTO-RESPONSE] Auto responses disabled; skipping messages")
+        # ✅ DETAILED ENABLED CHECK WITH EXTENSIVE LOGGING
+        logger.info(f"[AUTO-RESPONSE] ======== CRITICAL ENABLED CHECK ========")
+        logger.info(f"[AUTO-RESPONSE] About to check if auto responses are enabled...")
+        logger.info(f"[AUTO-RESPONSE] auto_settings is None: {auto_settings is None}")
+        
+        if auto_settings is not None:
+            logger.info(f"[AUTO-RESPONSE] auto_settings exists - checking enabled flag...")
+            logger.info(f"[AUTO-RESPONSE] auto_settings.enabled: {auto_settings.enabled}")
+            logger.info(f"[AUTO-RESPONSE] auto_settings.enabled type: {type(auto_settings.enabled)}")
+            
+            if auto_settings.enabled:
+                logger.info(f"[AUTO-RESPONSE] ✅ AUTO RESPONSES ARE ENABLED")
+                logger.info(f"[AUTO-RESPONSE] Proceeding with message generation...")
+            else:
+                logger.info(f"[AUTO-RESPONSE] ❌ AUTO RESPONSES ARE DISABLED")
+                logger.info(f"[AUTO-RESPONSE] auto_settings.enabled = {auto_settings.enabled}")
+                logger.info(f"[AUTO-RESPONSE] This is why no message will be sent")
+                logger.info(f"[AUTO-RESPONSE] 🛑 EARLY RETURN - auto responses disabled")
+                return
+        else:
+            logger.info(f"[AUTO-RESPONSE] ❌ NO AUTO SETTINGS FOUND")
+            logger.info(f"[AUTO-RESPONSE] auto_settings is None - no configuration exists")
+            logger.info(f"[AUTO-RESPONSE] This is why no message will be sent")
+            logger.info(f"[AUTO-RESPONSE] 🛑 EARLY RETURN - no auto settings")
             return
+
+        logger.info(f"[AUTO-RESPONSE] ✅ ENABLED CHECK PASSED - continuing with message generation")
+        logger.info(f"[AUTO-RESPONSE] =======================================")
 
         # Enhanced logging for message variables preparation
         logger.info(f"[AUTO-RESPONSE] ============ MESSAGE VARIABLES ============")
@@ -1468,15 +1622,21 @@ class WebhookView(APIView):
         
         if use_ai:
             logger.info(f"[AUTO-RESPONSE] 🤖 USING AI for greeting generation")
+            logger.info(f"[AUTO-RESPONSE] ========== AI GENERATION PATH ==========")
             logger.info(f"[AUTO-RESPONSE] AI generation path selected")
+            logger.info(f"[AUTO-RESPONSE] use_ai_greeting setting: {use_ai}")
+            logger.info(f"[AUTO-RESPONSE] Attempting to import OpenAI service...")
+            
             try:
                 from .ai_service import OpenAIService
                 ai_service = OpenAIService()
+                logger.info(f"[AUTO-RESPONSE] ✅ OpenAI service imported successfully")
                 
                 logger.info(f"[AUTO-RESPONSE] AI service availability check...")
                 
                 if ai_service.is_available():
                     logger.info(f"[AUTO-RESPONSE] ✅ AI service is available")
+                    logger.info(f"[AUTO-RESPONSE] Proceeding with AI generation...")
                     
                     # Підготовка налаштувань бізнес-інформації для AI
                     business_data_settings = {
@@ -1531,6 +1691,8 @@ class WebhookView(APIView):
                             logger.info(f"[AUTO-RESPONSE] Template fallback (off hours): {greet_text[:100]}...")
                 else:
                     logger.warning(f"[AUTO-RESPONSE] ⚠️ AI service not available, using template fallback")
+                    logger.warning(f"[AUTO-RESPONSE] AI service unavailability reason: check API keys/network")
+                    logger.info(f"[AUTO-RESPONSE] 🔄 SWITCHING TO TEMPLATE FALLBACK")
                     # Fallback to template
                     if within_hours:
                         greet_text = auto_settings.greeting_template.format(name=name, jobs=jobs, sep=sep, reason=reason, greetings=greetings)
@@ -1543,7 +1705,7 @@ class WebhookView(APIView):
                 logger.error(f"[AUTO-RESPONSE] ❌ AI generation error: {e}")
                 logger.exception(f"[AUTO-RESPONSE] AI generation exception details")
                 # Fallback to template on any error
-                logger.info(f"[AUTO-RESPONSE] Using template fallback due to AI error")
+                logger.info(f"[AUTO-RESPONSE] 🔄 SWITCHING TO TEMPLATE FALLBACK due to AI error")
                 if within_hours:
                     greet_text = auto_settings.greeting_template.format(name=name, jobs=jobs, sep=sep, greetings=greetings)
                     logger.info(f"[AUTO-RESPONSE] Template fallback (within hours): {greet_text[:100]}...")
@@ -1553,7 +1715,9 @@ class WebhookView(APIView):
         else:
             # Traditional template-based approach
             logger.info(f"[AUTO-RESPONSE] 📝 USING TEMPLATE-BASED greeting generation")
+            logger.info(f"[AUTO-RESPONSE] ========== TEMPLATE GENERATION PATH ==========")
             logger.info(f"[AUTO-RESPONSE] Template generation path selected")
+            logger.info(f"[AUTO-RESPONSE] use_ai_greeting setting: {use_ai} (AI disabled)")
             logger.info(f"[AUTO-RESPONSE] Template variables:")
             logger.info(f"[AUTO-RESPONSE] - name: '{name}'")
             logger.info(f"[AUTO-RESPONSE] - jobs: '{jobs}'")
@@ -1564,10 +1728,12 @@ class WebhookView(APIView):
                 template = auto_settings.greeting_template
                 logger.info(f"[AUTO-RESPONSE] Using regular hours template: {template[:100]}...")
                 greet_text = template.format(name=name, jobs=jobs, sep=sep, reason=reason, greetings=greetings)
+                logger.info(f"[AUTO-RESPONSE] ✅ Template generated (within hours)")
             else:
                 template = auto_settings.greeting_off_hours_template
                 logger.info(f"[AUTO-RESPONSE] Using off-hours template: {template[:100]}...")
                 greet_text = template.format(name=name, jobs=jobs, sep=sep, reason=reason, greetings=greetings)
+                logger.info(f"[AUTO-RESPONSE] ✅ Template generated (off hours)")
             
             logger.info(f"[AUTO-RESPONSE] Template result: {greet_text[:100]}...")
         
@@ -1605,47 +1771,88 @@ class WebhookView(APIView):
 
         scheduled_texts = set()
 
+        # ✅ DETAILED DUPLICATE DETECTION WITH EXTENSIVE LOGGING
+        logger.info(f"[AUTO-RESPONSE] ======== DUPLICATE DETECTION CHECK ========")
+        logger.info(f"[AUTO-RESPONSE] About to check if greeting was already sent...")
+        logger.info(f"[AUTO-RESPONSE] Greeting text to check: '{greet_text[:100]}...'" + ("" if len(greet_text) <= 100 else " (truncated)"))
+        logger.info(f"[AUTO-RESPONSE] Greeting text length: {len(greet_text)} characters")
+        logger.info(f"[AUTO-RESPONSE] Lead ID: {lead_id}")
+        
+        # Check if already sent via _already_sent function
+        already_sent_result = _already_sent(lead_id, greet_text)
+        logger.info(f"[AUTO-RESPONSE] _already_sent result: {already_sent_result}")
+        
+        # Check if there are active pending tasks with same text
+        pending_tasks_count = LeadPendingTask.objects.filter(lead_id=lead_id, text=greet_text, active=True).count()
+        logger.info(f"[AUTO-RESPONSE] Active pending tasks with same text: {pending_tasks_count}")
+        
+        if pending_tasks_count > 0:
+            logger.info(f"[AUTO-RESPONSE] Found {pending_tasks_count} active pending task(s) with same text")
+            pending_tasks = LeadPendingTask.objects.filter(lead_id=lead_id, text=greet_text, active=True)[:3]
+            for i, task in enumerate(pending_tasks):
+                logger.info(f"[AUTO-RESPONSE] Pending task {i+1}: ID={task.id}, task_id={task.task_id}, created_at={task.created_at}")
+
         with transaction.atomic():
             if (
-                _already_sent(lead_id, greet_text)
+                already_sent_result
                 or LeadPendingTask.objects.select_for_update()
                 .filter(lead_id=lead_id, text=greet_text, active=True)
                 .exists()
             ):
+                logger.info(f"[AUTO-RESPONSE] ❌ GREETING DUPLICATE DETECTED")
+                logger.info(f"[AUTO-RESPONSE] - Already sent: {already_sent_result}")
+                logger.info(f"[AUTO-RESPONSE] - Active pending tasks: {pending_tasks_count > 0}")
+                logger.info(f"[AUTO-RESPONSE] 🛑 SKIPPING GREETING - duplicate detected")
                 logger.info(
                     "[AUTO-RESPONSE] Greeting already sent or queued → skipping"
                 )
             elif due <= now:
+                logger.info(f"[AUTO-RESPONSE] ✅ GREETING WILL BE SENT IMMEDIATELY")
+                logger.info(f"[AUTO-RESPONSE] Due time: {due.isoformat()}")
+                logger.info(f"[AUTO-RESPONSE] Current time: {now.isoformat()}")
+                logger.info(f"[AUTO-RESPONSE] Sending greeting via Celery with countdown=0")
+                logger.info(f"[AUTO-RESPONSE] 🚀 DISPATCHING GREETING TASK")
+                
                 send_follow_up.apply_async(
                     args=[lead_id, greet_text],
                     headers={"business_id": biz_id},
                     countdown=0,
                 )
                 logger.info(
-                    "[AUTO-RESPONSE] Greeting dispatched immediately via Celery"
+                    "[AUTO-RESPONSE] ✅ Greeting dispatched immediately via Celery"
                 )
                 scheduled_texts.add(greet_text)
             else:
+                logger.info(f"[AUTO-RESPONSE] ✅ GREETING WILL BE SCHEDULED")
+                logger.info(f"[AUTO-RESPONSE] Due time: {due.isoformat()}")
+                logger.info(f"[AUTO-RESPONSE] Current time: {now.isoformat()}")
+                logger.info(f"[AUTO-RESPONSE] Countdown: {countdown_greeting} seconds")
+                logger.info(f"[AUTO-RESPONSE] 🚀 SCHEDULING GREETING TASK")
+                
                 res = send_follow_up.apply_async(
                     args=[lead_id, greet_text],
                     headers={"business_id": biz_id},
                     countdown=countdown_greeting,
                 )
+                logger.info(f"[AUTO-RESPONSE] ✅ Celery task created with ID: {res.id}")
+                logger.info(f"[AUTO-RESPONSE] Creating LeadPendingTask record...")
+                
                 try:
-                    LeadPendingTask.objects.create(
+                    task_record = LeadPendingTask.objects.create(
                         lead_id=lead_id,
                         task_id=res.id,
                         text=greet_text,
                         phone_opt_in=phone_opt_in,
                         phone_available=phone_available,
                     )
+                    logger.info(f"[AUTO-RESPONSE] ✅ LeadPendingTask created with ID: {task_record.id}")
                 except IntegrityError:
                     logger.info(
-                        "[AUTO-RESPONSE] Duplicate pending task already exists → skipping"
+                        "[AUTO-RESPONSE] ❌ Duplicate pending task already exists → skipping"
                     )
                 else:
                     logger.info(
-                        f"[AUTO-RESPONSE] Greeting scheduled at {due.isoformat()}"
+                        f"[AUTO-RESPONSE] ✅ Greeting scheduled at {due.isoformat()}"
                     )
                     scheduled_texts.add(greet_text)
 
@@ -1725,6 +1932,17 @@ class WebhookView(APIView):
                         )
                     else:
                         logger.info(
-                            f"[AUTO-RESPONSE] Custom follow-up '{tmpl.name}' scheduled at {due.isoformat()}"
+                            f"[AUTO-RESPONSE] ✅ Custom follow-up '{tmpl.name}' scheduled at {due.isoformat()}"
                         )
                         scheduled_texts.add(text)
+        
+        # ✅ COMPLETION LOGGING
+        logger.info(f"[AUTO-RESPONSE] ========== PROCESS COMPLETION ==========")
+        logger.info(f"[AUTO-RESPONSE] _process_auto_response completed successfully")
+        logger.info(f"[AUTO-RESPONSE] Lead ID: {lead_id}")
+        logger.info(f"[AUTO-RESPONSE] Scenario: phone_opt_in={phone_opt_in}, phone_available={phone_available}")
+        logger.info(f"[AUTO-RESPONSE] Messages scheduled: {len(scheduled_texts)}")
+        logger.info(f"[AUTO-RESPONSE] Auto responses enabled: {auto_settings.enabled if auto_settings else 'N/A'}")
+        logger.info(f"[AUTO-RESPONSE] AI generation used: {getattr(auto_settings, 'use_ai_greeting', False) if auto_settings else 'N/A'}")
+        logger.info(f"[AUTO-RESPONSE] ✅ PROCESS AUTO RESPONSE COMPLETED")
+        logger.info(f"[AUTO-RESPONSE] =======================================")
