@@ -2089,10 +2089,16 @@ const AutoResponseSettings: FC = () => {
                                               <Typography variant="caption" color="text.secondary">Uses the model configured in Global AI Settings</Typography>
                                             </Box>
                                           </MenuItem>
+                                          <MenuItem value="gpt-5">
+                                            <Box>
+                                              <Typography variant="body2">GPT-5 <Chip label="Latest" size="small" color="error" sx={{ ml: 1 }} /></Typography>
+                                              <Typography variant="caption" color="text.secondary">🔥 Newest model from OpenAI. Superior reasoning and creativity.</Typography>
+                                            </Box>
+                                          </MenuItem>
                                           <MenuItem value="gpt-4o">
                                             <Box>
                                               <Typography variant="body2">GPT-4o <Chip label="Best" size="small" color="success" sx={{ ml: 1 }} /></Typography>
-                                              <Typography variant="caption" color="text.secondary">Latest & most capable model. Best for complex tasks.</Typography>
+                                              <Typography variant="caption" color="text.secondary">Excellent all-around model. Best for complex tasks.</Typography>
                                             </Box>
                                           </MenuItem>
                                           <MenuItem value="gpt-4o-mini">
@@ -2105,6 +2111,18 @@ const AutoResponseSettings: FC = () => {
                                             <Box>
                                               <Typography variant="body2">GPT-4 Turbo</Typography>
                                               <Typography variant="caption" color="text.secondary">High-quality responses, good for detailed messages.</Typography>
+                                            </Box>
+                                          </MenuItem>
+                                          <MenuItem value="o1-preview">
+                                            <Box>
+                                              <Typography variant="body2">o1-preview <Chip label="Reasoning" size="small" color="secondary" sx={{ ml: 1 }} /></Typography>
+                                              <Typography variant="caption" color="text.secondary">🧠 Advanced reasoning model. Great for complex problem-solving.</Typography>
+                                            </Box>
+                                          </MenuItem>
+                                          <MenuItem value="o1-mini">
+                                            <Box>
+                                              <Typography variant="body2">o1-mini <Chip label="Smart" size="small" color="info" sx={{ ml: 1 }} /></Typography>
+                                              <Typography variant="caption" color="text.secondary">⚡ Faster reasoning model. Good for coding and math.</Typography>
                                             </Box>
                                           </MenuItem>
                                           <MenuItem value="gpt-3.5-turbo">

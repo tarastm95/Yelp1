@@ -233,7 +233,7 @@ class AISettings(models.Model):
     )
     openai_model = models.CharField(
         max_length=50,
-        default="gpt-4o",
+        default="gpt-5",
         help_text="Fallback модель OpenAI (коли не вказана для бізнесу)"
     )
     
