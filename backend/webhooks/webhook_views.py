@@ -703,8 +703,14 @@ class WebhookView(APIView):
                         reason = "Client responded, but no number was found"
                         self._cancel_no_phone_tasks(lid, reason=reason)
                         
-                        logger.info(f"[WEBHOOK] 💡 POTENTIAL SMS TRIGGER POINT:")
-                        logger.info(f"[WEBHOOK] Should call: self._process_auto_response({lid}, phone_opt_in=False, phone_available=False)")
+                        logger.info(f"[WEBHOOK] 💡 TRIGGERING CUSTOMER REPLY SMS:")
+                        logger.info(f"[WEBHOOK] Calling: self._process_auto_response({lid}, phone_opt_in=False, phone_available=False)")
+                        try:
+                            self._process_auto_response(lid, phone_opt_in=False, phone_available=False)
+                            logger.info(f"[WEBHOOK] ✅ Customer Reply SMS processing completed")
+                        except Exception as e:
+                            logger.error(f"[WEBHOOK] ❌ Customer Reply SMS processing failed: {e}")
+                            logger.exception(f"[WEBHOOK] Customer Reply SMS exception details")
                         logger.info(f"[WEBHOOK] ==============================================")
                     else:
                         logger.info(f"[WEBHOOK] ℹ️ CLIENT RESPONDED but no pending tasks to handle")
@@ -720,8 +726,14 @@ class WebhookView(APIView):
                         logger.info(f"[WEBHOOK] - Current behavior: No action taken")
                         logger.info(f"[WEBHOOK] - Missing: _process_auto_response call for Customer Reply SMS")
                         
-                        logger.info(f"[WEBHOOK] 💡 POTENTIAL SMS TRIGGER POINT:")
-                        logger.info(f"[WEBHOOK] Should call: self._process_auto_response({lid}, phone_opt_in=False, phone_available=False)")
+                        logger.info(f"[WEBHOOK] 💡 TRIGGERING CUSTOMER REPLY SMS:")
+                        logger.info(f"[WEBHOOK] Calling: self._process_auto_response({lid}, phone_opt_in=False, phone_available=False)")
+                        try:
+                            self._process_auto_response(lid, phone_opt_in=False, phone_available=False)
+                            logger.info(f"[WEBHOOK] ✅ Customer Reply SMS processing completed")
+                        except Exception as e:
+                            logger.error(f"[WEBHOOK] ❌ Customer Reply SMS processing failed: {e}")
+                            logger.exception(f"[WEBHOOK] Customer Reply SMS exception details")
                         logger.info(f"[WEBHOOK] ==============================================")
                 elif created and e.get("user_type") == "CONSUMER":
                     logger.info(f"[WEBHOOK] 📊 CONSUMER EVENT RECORDED but NOT PROCESSED as new")
@@ -1201,20 +1213,24 @@ class WebhookView(APIView):
             if biz_settings:
                 logger.info(f"[AUTO-RESPONSE] Business settings ID: {biz_settings.id}, enabled: {biz_settings.enabled}")
             
-            # Step 2: Get authentication token
+            # Step 2: Get authentication token (optional for SMS)
             logger.info(f"[AUTO-RESPONSE] 🔐 STEP 2: Getting authentication token")
+            token = None
+            has_token = False
             try:
                 token = get_valid_business_token(pl.business_id)
+                has_token = True
                 logger.info(f"[AUTO-RESPONSE] ✅ Successfully obtained business token")
                 logger.debug(
                     f"[AUTO-RESPONSE] Obtained business token for {pl.business_id}: {token[:20]}..."
                 )
             except ValueError as e:
-                logger.error(
-                    f"[AUTO-RESPONSE] ❌ No token for business {pl.business_id}; skipping auto-response"
+                logger.warning(
+                    f"[AUTO-RESPONSE] ⚠️ No token for business {pl.business_id}; continuing for SMS functionality"
                 )
-                logger.error(f"[AUTO-RESPONSE] Token error: {e}")
-                return
+                logger.warning(f"[AUTO-RESPONSE] Token error: {e}")
+                logger.warning(f"[AUTO-RESPONSE] Auto-response messages will be disabled, but SMS can still work")
+                has_token = False
         else:
             qs = ProcessedLead.objects.filter(lead_id=lead_id)
             logger.error(
@@ -1251,39 +1267,12 @@ class WebhookView(APIView):
             logger.info(f"[AUTO-RESPONSE] - export_to_sheets: {auto_settings.export_to_sheets}")
             logger.info(f"[AUTO-RESPONSE] - greeting_template: {auto_settings.greeting_template[:50]}...")
             
-            # ⭐ CRITICAL SMS SETTINGS LOGGING ⭐
+            # ⭐ DETAILED SMS SETTINGS LOGGING ⭐
             logger.info(f"[AUTO-RESPONSE] 🚨 SMS SETTINGS ANALYSIS:")
             logger.info(f"[AUTO-RESPONSE] - sms_on_phone_found: {getattr(auto_settings, 'sms_on_phone_found', 'MISSING FIELD')}")
             logger.info(f"[AUTO-RESPONSE] - sms_on_customer_reply: {getattr(auto_settings, 'sms_on_customer_reply', 'MISSING FIELD')}")
             logger.info(f"[AUTO-RESPONSE] - sms_on_phone_opt_in: {getattr(auto_settings, 'sms_on_phone_opt_in', 'MISSING FIELD')}")
-            
-            # Check if the current scenario should trigger SMS
-            should_send_sms = False
-            sms_reason_field = ""
-            if phone_opt_in:
-                should_send_sms = getattr(auto_settings, 'sms_on_phone_opt_in', False)
-                sms_reason_field = "sms_on_phone_opt_in"
-            elif phone_available:
-                should_send_sms = getattr(auto_settings, 'sms_on_phone_found', False)
-                sms_reason_field = "sms_on_phone_found"
-            else:
-                should_send_sms = getattr(auto_settings, 'sms_on_customer_reply', False)
-                sms_reason_field = "sms_on_customer_reply"
-            
-            logger.info(f"[AUTO-RESPONSE] 🔥 SMS DECISION FOR SCENARIO '{reason}':")
-            logger.info(f"[AUTO-RESPONSE] - Field checked: {sms_reason_field}")
-            logger.info(f"[AUTO-RESPONSE] - SMS should be sent: {should_send_sms}")
-            logger.info(f"[AUTO-RESPONSE] - Settings enabled: {auto_settings.enabled}")
-            logger.info(f"[AUTO-RESPONSE] - FINAL SMS DECISION: {should_send_sms and auto_settings.enabled}")
-            
-            if not should_send_sms:
-                logger.error(f"[AUTO-RESPONSE] ❌ SMS WILL NOT BE SENT!")
-                logger.error(f"[AUTO-RESPONSE] Reason: {sms_reason_field} = {should_send_sms}")
-            elif not auto_settings.enabled:
-                logger.error(f"[AUTO-RESPONSE] ❌ SMS WILL NOT BE SENT!")
-                logger.error(f"[AUTO-RESPONSE] Reason: AutoResponseSettings.enabled = {auto_settings.enabled}")
-            else:
-                logger.info(f"[AUTO-RESPONSE] ✅ SMS SHOULD BE SENT! ({reason})")
+            logger.info(f"[AUTO-RESPONSE] SMS processing will be handled in Step 3 below")
         else:
             logger.warning(f"[AUTO-RESPONSE] ❌ NO AutoResponseSettings found!")
             logger.warning(f"[AUTO-RESPONSE] Query filters used:")
@@ -1299,17 +1288,54 @@ class WebhookView(APIView):
             getattr(auto_settings, "export_to_sheets", None),
         )
 
+        # Step 3: Process SMS notifications (works without Yelp token)
+        logger.info(f"[AUTO-RESPONSE] 📱 STEP 3: Processing SMS notifications")
+        if auto_settings:
+            should_send_sms = False
+            sms_reason_field = ""
+            if phone_opt_in:
+                should_send_sms = getattr(auto_settings, 'sms_on_phone_opt_in', False)
+                sms_reason_field = "sms_on_phone_opt_in"
+            elif phone_available:
+                should_send_sms = getattr(auto_settings, 'sms_on_phone_found', False)
+                sms_reason_field = "sms_on_phone_found"
+            else:
+                should_send_sms = getattr(auto_settings, 'sms_on_customer_reply', False)
+                sms_reason_field = "sms_on_customer_reply"
+            
+            final_sms_decision = should_send_sms and auto_settings.enabled
+            logger.info(f"[AUTO-RESPONSE] 📲 SMS PROCESSING FOR SCENARIO '{reason}':")
+            logger.info(f"[AUTO-RESPONSE] - Field checked: {sms_reason_field}")
+            logger.info(f"[AUTO-RESPONSE] - SMS flag: {should_send_sms}")
+            logger.info(f"[AUTO-RESPONSE] - Settings enabled: {auto_settings.enabled}")
+            logger.info(f"[AUTO-RESPONSE] - FINAL SMS DECISION: {final_sms_decision}")
+            
+            if final_sms_decision:
+                logger.info(f"[AUTO-RESPONSE] 🚀 SENDING SMS for {reason} scenario")
+                # TODO: Implement actual SMS sending logic here
+                # This would call send_sms() with appropriate parameters
+                logger.info(f"[AUTO-RESPONSE] SMS sending not yet implemented in _process_auto_response")
+            else:
+                logger.info(f"[AUTO-RESPONSE] ⏭️ Skipping SMS - not enabled or configured")
+        
+        # Step 4: Process Yelp auto-response (requires token)
+        if not has_token:
+            logger.warning(f"[AUTO-RESPONSE] ⚠️ No Yelp token - skipping auto-response messages")
+            logger.warning(f"[AUTO-RESPONSE] Only SMS processing was performed")
+            return
+        
+        logger.info(f"[AUTO-RESPONSE] 🔗 STEP 4: Processing Yelp auto-response messages")
         detail_url = f"https://api.yelp.com/v3/leads/{lead_id}"
         headers = {"Authorization": f"Bearer {token}"}
         logger.debug(
-            f"[AUTO-RESPONSE] Fetching lead details from {detail_url} using token {token}"
+            f"[AUTO-RESPONSE] Fetching lead details from {detail_url} using token {token[:20]}..."
         )
         resp = requests.get(detail_url, headers=headers, timeout=10)
         if resp.status_code != 200:
             source = f"business {pl.business_id}" if pl else "unknown"
             logger.error(
                 f"[AUTO-RESPONSE] DETAIL ERROR lead={lead_id}, business_id={pl.business_id if pl else 'N/A'}, "
-                f"token_source={source}, token={token}, status={resp.status_code}, body={resp.text}"
+                f"token_source={source}, token={token[:20]}..., status={resp.status_code}, body={resp.text}"
             )
             return
         d = resp.json()

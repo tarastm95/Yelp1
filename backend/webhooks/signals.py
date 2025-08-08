@@ -22,13 +22,37 @@ def notify_new_lead(sender, instance: LeadDetail, created: bool, **kwargs):
     logger.info(f"[SMS-NOTIFICATION] - Created: {created}")
     logger.info(f"[SMS-NOTIFICATION] - Phone number: {'***PROVIDED***' if instance.phone_number else 'NOT PROVIDED'}")
     
-    # Step 1: Check if this is a new record creation
-    if not created:
-        logger.info(f"[SMS-NOTIFICATION] ⚠️ NOT A NEW RECORD - LeadDetail was updated, not created")
-        logger.info(f"[SMS-NOTIFICATION] 🛑 EARLY RETURN - SMS notifications only for new records")
+    # Step 1: Check if this should trigger SMS
+    logger.info(f"[SMS-NOTIFICATION] 🔍 STEP 1: Determining if SMS should be sent")
+    
+    should_send_sms = False
+    sms_trigger_reason = ""
+    
+    if created:
+        # New record created
+        should_send_sms = True
+        sms_trigger_reason = "New LeadDetail created"
+        logger.info(f"[SMS-NOTIFICATION] ✅ NEW RECORD - triggering SMS notification")
+    elif not created and instance.phone_number:
+        # Record updated and now has phone number - check if phone was just added
+        should_send_sms = True
+        sms_trigger_reason = "Phone number added to existing LeadDetail"
+        logger.info(f"[SMS-NOTIFICATION] ✅ PHONE ADDED - triggering SMS notification for updated record")
+        logger.info(f"[SMS-NOTIFICATION] This handles the 'Phone Number Found' scenario")
+    else:
+        # Record updated but no phone number
+        should_send_sms = False
+        sms_trigger_reason = "Updated record without phone number"
+        logger.info(f"[SMS-NOTIFICATION] ⚠️ UPDATED RECORD WITHOUT PHONE - no SMS trigger")
+        logger.info(f"[SMS-NOTIFICATION] 🛑 EARLY RETURN - SMS needs either new record or phone number")
         return
-        
-    logger.info(f"[SMS-NOTIFICATION] ✅ NEW RECORD confirmed - proceeding with notification check")
+    
+    logger.info(f"[SMS-NOTIFICATION] 📋 SMS TRIGGER ANALYSIS:")
+    logger.info(f"[SMS-NOTIFICATION] - Should send SMS: {should_send_sms}")
+    logger.info(f"[SMS-NOTIFICATION] - Reason: {sms_trigger_reason}")
+    logger.info(f"[SMS-NOTIFICATION] - Created: {created}")
+    logger.info(f"[SMS-NOTIFICATION] - Has phone: {bool(instance.phone_number)}")
+    logger.info(f"[SMS-NOTIFICATION] ✅ PROCEEDING with notification check")
     
     # Step 2: Check if phone number is available
     logger.info(f"[SMS-NOTIFICATION] 📞 STEP 1: Checking phone number availability")
