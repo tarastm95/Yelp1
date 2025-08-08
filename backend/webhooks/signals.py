@@ -33,19 +33,41 @@ def notify_new_lead(sender, instance: LeadDetail, created: bool, **kwargs):
         should_send_sms = True
         sms_trigger_reason = "New LeadDetail created"
         logger.info(f"[SMS-NOTIFICATION] ✅ NEW RECORD - triggering SMS notification")
-    elif not created and instance.phone_number:
-        # Record updated and now has phone number - check if phone was just added
+    elif not created and (instance.phone_number or getattr(instance, 'phone_in_text', False) or getattr(instance, 'phone_in_additional_info', False)):
+        # Record updated and now has phone number OR phone detected in text/additional_info
         should_send_sms = True
-        sms_trigger_reason = "Phone number added to existing LeadDetail"
-        logger.info(f"[SMS-NOTIFICATION] ✅ PHONE ADDED - triggering SMS notification for updated record")
-        logger.info(f"[SMS-NOTIFICATION] This handles the 'Phone Number Found' scenario")
+        phone_sources = []
+        if instance.phone_number:
+            phone_sources.append("phone_number set")
+        if getattr(instance, 'phone_in_text', False):
+            phone_sources.append("phone_in_text=True")
+        if getattr(instance, 'phone_in_additional_info', False):
+            phone_sources.append("phone_in_additional_info=True")
+        
+        sms_trigger_reason = f"Phone Number Found: {', '.join(phone_sources)}"
+        logger.info(f"[SMS-NOTIFICATION] ✅ PHONE NUMBER FOUND - triggering SMS notification for updated record")
+        logger.info(f"[SMS-NOTIFICATION] Phone sources detected: {phone_sources}")
+        logger.info(f"[SMS-NOTIFICATION] This handles the 'Phone Number Found' scenario (phone_in_text OR phone_in_additional_info)")
     else:
-        # Record updated but no phone number
-        should_send_sms = False
-        sms_trigger_reason = "Updated record without phone number"
-        logger.info(f"[SMS-NOTIFICATION] ⚠️ UPDATED RECORD WITHOUT PHONE - no SMS trigger")
-        logger.info(f"[SMS-NOTIFICATION] 🛑 EARLY RETURN - SMS needs either new record or phone number")
-        return
+        # Record updated but no phone - this could be Customer Reply scenario
+        has_phone_flags = (getattr(instance, 'phone_in_text', False) or 
+                          getattr(instance, 'phone_in_additional_info', False) or 
+                          getattr(instance, 'phone_opt_in', False))
+        
+        if not created and not instance.phone_number and not has_phone_flags:
+            # This is a Customer Reply scenario - customer responded without providing phone
+            should_send_sms = True
+            sms_trigger_reason = "Customer Reply (without phone)"
+            logger.info(f"[SMS-NOTIFICATION] ✅ CUSTOMER REPLY - triggering SMS notification")
+            logger.info(f"[SMS-NOTIFICATION] This handles the '💬 Customer Reply' scenario")
+            logger.info(f"[SMS-NOTIFICATION] Customer responded but no phone number provided")
+        else:
+            # Record updated but conditions not met for any SMS scenario
+            should_send_sms = False
+            sms_trigger_reason = "Updated record - no SMS trigger conditions met"
+            logger.info(f"[SMS-NOTIFICATION] ⚠️ UPDATED RECORD - no SMS trigger conditions met")
+            logger.info(f"[SMS-NOTIFICATION] 🛑 EARLY RETURN - no valid SMS scenario detected")
+            return
     
     logger.info(f"[SMS-NOTIFICATION] 📋 SMS TRIGGER ANALYSIS:")
     logger.info(f"[SMS-NOTIFICATION] - Should send SMS: {should_send_sms}")
@@ -60,16 +82,34 @@ def notify_new_lead(sender, instance: LeadDetail, created: bool, **kwargs):
     logger.info(f"[SMS-NOTIFICATION] LeadDetail fields:")
     logger.info(f"[SMS-NOTIFICATION] - phone_number: '{instance.phone_number}'")
     logger.info(f"[SMS-NOTIFICATION] - phone_in_text: {getattr(instance, 'phone_in_text', 'Not set')}")
+    logger.info(f"[SMS-NOTIFICATION] - phone_in_additional_info: {getattr(instance, 'phone_in_additional_info', 'Not set')}")
     logger.info(f"[SMS-NOTIFICATION] - phone_opt_in: {getattr(instance, 'phone_opt_in', 'Not set')}")
     logger.info(f"[SMS-NOTIFICATION] - user_display_name: '{getattr(instance, 'user_display_name', 'Not set')}'")
     
-    if not instance.phone_number:
+    # 📊 Determine which SMS scenario this is
+    scenario = "Unknown"
+    if getattr(instance, 'phone_opt_in', False):
+        scenario = "✅ Phone Opt-in"
+    elif getattr(instance, 'phone_in_text', False) or getattr(instance, 'phone_in_additional_info', False):
+        scenario = "📞 Phone Number Found"
+    elif not instance.phone_number:
+        scenario = "💬 Customer Reply"
+    
+    logger.info(f"[SMS-NOTIFICATION] 🎯 Detected SMS scenario: {scenario}")
+    
+    # For Customer Reply scenario, we don't need phone_number (SMS will be sent to business, not customer)
+    is_customer_reply = scenario == "💬 Customer Reply"
+    
+    if not instance.phone_number and not is_customer_reply:
         logger.info(f"[SMS-NOTIFICATION] ⚠️ NO PHONE NUMBER - cannot send SMS notifications")
         logger.info(f"[SMS-NOTIFICATION] Phone number field value: '{instance.phone_number}'")
         logger.info(f"[SMS-NOTIFICATION] ❗ CRITICAL: NotificationSetting SMS requires phone_number to be set")
-        logger.info(f"[SMS-NOTIFICATION] 💡 This is different from AutoResponseSettings SMS which can work without phone")
-        logger.info(f"[SMS-NOTIFICATION] 🛑 EARLY RETURN - SMS requires phone number")
+        logger.info(f"[SMS-NOTIFICATION] 💡 Exception: Customer Reply SMS can work without customer phone")
+        logger.info(f"[SMS-NOTIFICATION] 🛑 EARLY RETURN - SMS requires phone number (except Customer Reply)")
         return
+    elif is_customer_reply and not instance.phone_number:
+        logger.info(f"[SMS-NOTIFICATION] ℹ️ Customer Reply scenario - SMS will be sent to business notification numbers")
+        logger.info(f"[SMS-NOTIFICATION] Customer phone not required for this scenario")
         
     logger.info(f"[SMS-NOTIFICATION] ✅ Phone number available - can proceed with notifications")
     logger.debug(f"[SMS-NOTIFICATION] Phone number: {instance.phone_number}")

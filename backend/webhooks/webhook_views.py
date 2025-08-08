@@ -1312,9 +1312,60 @@ class WebhookView(APIView):
             
             if final_sms_decision:
                 logger.info(f"[AUTO-RESPONSE] 🚀 SENDING SMS for {reason} scenario")
-                # TODO: Implement actual SMS sending logic here
-                # This would call send_sms() with appropriate parameters
-                logger.info(f"[AUTO-RESPONSE] SMS sending not yet implemented in _process_auto_response")
+                
+                # Get NotificationSettings for this business to send SMS
+                from .models import NotificationSetting
+                notification_settings = NotificationSetting.objects.exclude(
+                    phone_number=""
+                ).exclude(message_template="")
+                
+                if pl and pl.business_id:
+                    # Look for business-specific notification settings
+                    business_settings = notification_settings.filter(
+                        business__business_id=pl.business_id
+                    )
+                    logger.info(f"[AUTO-RESPONSE] Found {business_settings.count()} notification settings for business {pl.business_id}")
+                    
+                    if business_settings.exists():
+                        for setting in business_settings:
+                            try:
+                                # Format message for AutoResponseSettings SMS
+                                business_name = pl.business.name if hasattr(pl, 'business') and pl.business else pl.business_id
+                                message = setting.message_template.format(
+                                    business_id=pl.business_id,
+                                    lead_id=lead_id,
+                                    business_name=business_name,
+                                    customer_name="Customer",  # We don't have customer name here
+                                    timestamp=timezone.now().isoformat(),
+                                    phone="N/A",  # AutoResponse SMS doesn't need customer phone
+                                    reason=reason,
+                                    greetings="Hello"
+                                )
+                                
+                                logger.info(f"[AUTO-RESPONSE] 📤 Sending AutoResponseSettings SMS to {setting.phone_number}")
+                                
+                                from .twilio_utils import send_sms
+                                sid = send_sms(
+                                    to=setting.phone_number,
+                                    body=message,
+                                    lead_id=lead_id,
+                                    business_id=pl.business_id,
+                                    purpose="auto_response"
+                                )
+                                
+                                logger.info(f"[AUTO-RESPONSE] ✅ AutoResponseSettings SMS sent successfully!")
+                                logger.info(f"[AUTO-RESPONSE] - SID: {sid}")
+                                logger.info(f"[AUTO-RESPONSE] - To: {setting.phone_number}")
+                                logger.info(f"[AUTO-RESPONSE] - Scenario: {reason}")
+                                
+                            except Exception as sms_error:
+                                logger.error(f"[AUTO-RESPONSE] ❌ AutoResponseSettings SMS failed: {sms_error}")
+                                logger.exception(f"[AUTO-RESPONSE] SMS sending exception")
+                    else:
+                        logger.warning(f"[AUTO-RESPONSE] ⚠️ No NotificationSettings found for business {pl.business_id}")
+                        logger.warning(f"[AUTO-RESPONSE] SMS decision was True but no phone numbers to send to")
+                else:
+                    logger.error(f"[AUTO-RESPONSE] ❌ Cannot send SMS - no business context found")
             else:
                 logger.info(f"[AUTO-RESPONSE] ⏭️ Skipping SMS - not enabled or configured")
         
