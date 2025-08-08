@@ -818,6 +818,67 @@ const AutoResponseSettings: FC = () => {
     }
   };
 
+  // auto-save AI model settings
+  const handleSaveAiModelSettings = async (newAiModel?: string, newAiTemperature?: number | '') => {
+    if (!selectedBusiness) return; // Only save if a business is selected
+    
+    const params = new URLSearchParams();
+    params.append('phone_opt_in', phoneOptIn ? 'true' : 'false');
+    params.append('phone_available', phoneAvailable ? 'true' : 'false');
+    params.append('business_id', selectedBusiness);
+    const url = `/settings/auto-response/?${params.toString()}`;
+    
+    const greetDelaySecs =
+      greetingDelayHours * 3600 +
+      greetingDelayMinutes * 60 +
+      greetingDelaySeconds;
+    
+    try {
+      await axios.put<AutoResponse>(url, {
+        enabled,
+        greeting_template: greetingTemplate,
+        greeting_off_hours_template: greetingAfterTemplate,
+        greeting_delay: greetDelaySecs,
+        greeting_open_from: greetingOpenFrom,
+        greeting_open_to: greetingOpenTo,
+        greeting_open_days: greetingOpenDays,
+        export_to_sheets: exportToSheets,
+        // AI fields
+        use_ai_greeting: useAiGreeting,
+        ai_response_style: aiResponseStyle,
+        ai_include_location: aiIncludeLocation,
+        ai_mention_response_time: aiMentionResponseTime,
+        ai_custom_prompt: aiCustomPrompt,
+        // AI Business Data Settings
+        ai_include_rating: aiIncludeRating,
+        ai_include_categories: aiIncludeCategories,
+        ai_include_phone: aiIncludePhone,
+        ai_include_website: aiIncludeWebsite,
+        ai_include_price_range: aiIncludePriceRange,
+        ai_include_hours: aiIncludeHours,
+        ai_include_reviews_count: aiIncludeReviewsCount,
+        ai_include_address: aiIncludeAddress,
+        ai_include_transactions: aiIncludeTransactions,
+        ai_max_message_length: aiMaxMessageLength,
+        // Business-specific AI Model Settings (use new values if provided, otherwise current state)
+        ai_model: newAiModel !== undefined ? newAiModel : aiModel,
+        ai_temperature: newAiTemperature !== undefined 
+          ? (newAiTemperature === '' ? null : newAiTemperature)
+          : (aiTemperature === '' ? null : aiTemperature),
+        // SMS Notification Settings
+        sms_on_phone_found: smsOnPhoneFound,
+        sms_on_customer_reply: smsOnCustomerReply,
+        sms_on_phone_opt_in: smsOnPhoneOptIn,
+      });
+      
+      // Show brief success indicator (optional)
+      console.log('AI model settings auto-saved');
+    } catch (error) {
+      console.error('Failed to auto-save AI model settings:', error);
+      // Could show a brief error message here if desired
+    }
+  };
+
   // add new template
   const handleAddTemplate = () => {
     setTplLoading(true);
@@ -2115,7 +2176,11 @@ const AutoResponseSettings: FC = () => {
                                         <InputLabel>OpenAI Model (optional)</InputLabel>
                                         <Select
                                           value={aiModel}
-                                          onChange={e => setAiModel(e.target.value)}
+                                          onChange={e => {
+                                            const newValue = e.target.value;
+                                            setAiModel(newValue);
+                                            handleSaveAiModelSettings(newValue, undefined);
+                                          }}
                                           label="OpenAI Model (optional)"
                                         >
                                           <MenuItem value="">
@@ -2176,7 +2241,11 @@ const AutoResponseSettings: FC = () => {
                                         <InputLabel>AI Temperature (optional)</InputLabel>
                                         <Select
                                           value={aiTemperature === '' ? '' : aiTemperature.toString()}
-                                          onChange={e => setAiTemperature(e.target.value === '' ? '' : Number(e.target.value))}
+                                          onChange={e => {
+                                            const newValue = e.target.value === '' ? '' : Number(e.target.value);
+                                            setAiTemperature(newValue);
+                                            handleSaveAiModelSettings(undefined, newValue);
+                                          }}
                                           label="AI Temperature (optional)"
                                         >
                                           <MenuItem value="">
