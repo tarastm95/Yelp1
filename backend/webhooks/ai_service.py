@@ -410,12 +410,9 @@ class OpenAIService:
             # 🎯 Для contextual AI analysis використовуємо custom prompt як system prompt
             system_prompt = self._get_system_prompt(custom_prompt)
             
-            # Для GPT-5 моделей використовуємо коротший system prompt
+            # Для GPT-5 моделей використовуємо повний кастомний промт без обмежень
             if model.startswith('gpt-5'):
-                system_prompt = """You are a professional business assistant for Priority Remodeling. 
-Analyze customer requests and provide: service description, price range, manager contact, next steps.
-Be friendly and professional."""
-                logger.info(f"[AI-SERVICE] Using shortened system prompt for GPT-5")
+                logger.info(f"[AI-SERVICE] GPT-5: Using full custom system prompt (length: {len(system_prompt)})")
             
             # Підготовка повідомлень з урахуванням особливостей моделі
             messages = self._prepare_messages_for_model(model, system_prompt, prompt)
