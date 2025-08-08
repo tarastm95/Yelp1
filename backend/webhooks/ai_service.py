@@ -202,19 +202,14 @@ class OpenAIService:
             logger.info(f"[AI-SERVICE] User prompt preview: {prompt[:200]}..." + ("" if len(prompt) <= 200 else " (truncated)"))
             logger.info(f"[AI-SERVICE] 🚀 Making OpenAI API request...")
             
+            # Підготовка повідомлень з урахуванням особливостей моделі
+            messages = self._prepare_messages_for_model(model, system_prompt, prompt)
+            
+            # Підготовка параметрів API з урахуванням обмежень моделі
+            api_params = self._get_api_params_for_model(model, messages, message_length, temperature)
+            
             # Виклик OpenAI API
-            response = self.client.chat.completions.create(
-                model=model,
-                messages=[
-                    {
-                        "role": "system", 
-                        "content": system_prompt
-                    },
-                    {"role": "user", "content": prompt}
-                ],
-                max_tokens=message_length,
-                temperature=temperature
-            )
+            response = self.client.chat.completions.create(**api_params)
             logger.info(f"[AI-SERVICE] ✅ OpenAI API call completed successfully")
             logger.info(f"[AI-SERVICE] ✅ OpenAI API responded successfully")
             
@@ -406,24 +401,54 @@ class OpenAIService:
             # 🎯 Для contextual AI analysis використовуємо custom prompt як system prompt
             system_prompt = self._get_system_prompt(custom_prompt)
             
-            response = self.client.chat.completions.create(
-                model=model,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": system_prompt
-                    },
-                    {"role": "user", "content": prompt}
-                ],
-                max_tokens=message_length,
-                temperature=temperature
-            )
+            # Підготовка повідомлень з урахуванням особливостей моделі
+            messages = self._prepare_messages_for_model(model, system_prompt, prompt)
+            
+            # Підготовка параметрів API з урахуванням обмежень моделі
+            api_params = self._get_api_params_for_model(model, messages, message_length, temperature)
+            
+            response = self.client.chat.completions.create(**api_params)
             
             return response.choices[0].message.content.strip()
             
         except Exception as e:
             logger.error(f"[AI-SERVICE] Error generating preview: {e}")
             return f"Error generating preview: {str(e)}"
+
+    def _prepare_messages_for_model(self, model: str, system_prompt: str, user_prompt: str) -> list:
+        """Підготовка повідомлень з урахуванням особливостей різних моделей"""
+        
+        if model.startswith("o1"):
+            # o1 моделі не підтримують system role
+            # Комбінуємо system prompt з user prompt
+            combined_prompt = f"{system_prompt}\n\nUser request: {user_prompt}"
+            logger.info(f"[AI-SERVICE] o1 model detected: combining system and user prompts")
+            return [{"role": "user", "content": combined_prompt}]
+        else:
+            # Стандартні моделі підтримують system role
+            return [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ]
+
+    def _get_api_params_for_model(self, model: str, messages: list, max_tokens: int, temperature: float) -> dict:
+        """Отримання параметрів API з урахуванням обмежень моделі"""
+        
+        params = {
+            "model": model,
+            "messages": messages
+        }
+        
+        if model.startswith("o1"):
+            # o1 моделі не підтримують temperature та max_tokens
+            logger.info(f"[AI-SERVICE] o1 model: skipping temperature and max_tokens parameters")
+        else:
+            # Стандартні моделі підтримують всі параметри
+            params["max_tokens"] = max_tokens
+            params["temperature"] = temperature
+            logger.info(f"[AI-SERVICE] Standard model: using all parameters")
+        
+        return params
     
     def _prepare_lead_context(
         self, 
@@ -895,19 +920,18 @@ JSON:"""
         logger.info(f"[AI-SERVICE] Sending extraction prompt to AI...")
         
         try:
+            # Використовуємо більш дешеву модель для extraction
+            extraction_model = "gpt-4o-mini"
+            system_prompt = "You are a data extraction assistant. Extract only the requested fields from customer messages and return valid JSON."
+            
+            # Підготовка повідомлень з урахуванням особливостей моделі
+            messages = self._prepare_messages_for_model(extraction_model, system_prompt, extraction_prompt)
+            
+            # Підготовка параметрів API з урахуванням обмежень моделі
+            api_params = self._get_api_params_for_model(extraction_model, messages, 200, 0.1)
+            
             # Використовуємо той же OpenAI клієнт
-            response = self.client.chat.completions.create(
-                model="gpt-4o-mini",  # Використовуємо більш дешеву модель для extraction
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are a data extraction assistant. Extract only the requested fields from customer messages and return valid JSON."
-                    },
-                    {"role": "user", "content": extraction_prompt}
-                ],
-                max_tokens=200,  # Достатньо для JSON відповіді
-                temperature=0.1  # Низька температура для стабільних результатів
-            )
+            response = self.client.chat.completions.create(**api_params)
             
             ai_response = response.choices[0].message.content.strip()
             logger.info(f"[AI-SERVICE] AI extraction response: {ai_response}")
