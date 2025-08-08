@@ -2260,6 +2260,7 @@ const AutoResponseSettings: FC = () => {
                                             handleSaveAiModelSettings(undefined, newValue);
                                           }}
                                           label="AI Temperature (optional)"
+                                          disabled={aiModel?.startsWith('gpt-5')}
                                         >
                                           <MenuItem value="">
                                             <Box>
@@ -2299,9 +2300,11 @@ const AutoResponseSettings: FC = () => {
                                           </MenuItem>
                                         </Select>
                                         <FormHelperText>
-                                          {aiTemperature !== '' 
-                                            ? `Creativity level: ${aiTemperature <= 0.3 ? 'Very focused' : aiTemperature <= 0.7 ? 'Balanced' : aiTemperature <= 1.0 ? 'Creative' : 'Very creative'}` 
-                                            : "Leave empty to use global temperature setting"}
+                                          {aiModel?.startsWith('gpt-5') 
+                                            ? "GPT-5 models use fixed temperature = 1.0 (cannot be changed)" 
+                                            : aiTemperature !== '' 
+                                              ? `Creativity level: ${aiTemperature <= 0.3 ? 'Very focused' : aiTemperature <= 0.7 ? 'Balanced' : aiTemperature <= 1.0 ? 'Creative' : 'Very creative'}` 
+                                              : "Leave empty to use global temperature setting"}
                                         </FormHelperText>
                                       </FormControl>
                                     </Box>
@@ -2314,9 +2317,9 @@ const AutoResponseSettings: FC = () => {
                                         variant="outlined"
                                       />
                                       <Chip
-                                        label={aiTemperature !== '' ? `T=${aiTemperature}` : 'Global Temp'}
+                                        label={aiModel?.startsWith('gpt-5') ? 'Fixed T=1' : aiTemperature !== '' ? `T=${aiTemperature}` : 'Global Temp'}
                                         size="small"
-                                        color={aiTemperature !== '' ? 'primary' : 'default'}
+                                        color={aiModel?.startsWith('gpt-5') ? 'warning' : aiTemperature !== '' ? 'primary' : 'default'}
                                         variant="outlined"
                                       />
                                       {(!aiModel && aiTemperature === '') && (
