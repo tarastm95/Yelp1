@@ -296,14 +296,38 @@ def notify_new_lead(sender, instance: LeadDetail, created: bool, **kwargs):
             greetings = get_time_based_greeting(business_id=instance.business_id)
             logger.info(f"[SMS-NOTIFICATION] 🕐 Time-based greeting: {greetings}")
             
-            # 🔍 DETAILED PHONE NUMBER DEBUG
+            # 🔍 DETAILED PHONE NUMBER DEBUG AND RESOLUTION
             logger.info(f"[SMS-NOTIFICATION] 🔍 PHONE NUMBER DEBUG:")
             logger.info(f"[SMS-NOTIFICATION] - instance.phone_number VALUE: '{instance.phone_number}'")
             logger.info(f"[SMS-NOTIFICATION] - instance.phone_number TYPE: {type(instance.phone_number)}")
-            logger.info(f"[SMS-NOTIFICATION] - instance.phone_number LENGTH: {len(str(instance.phone_number)) if instance.phone_number else 0}")
             logger.info(f"[SMS-NOTIFICATION] - instance.phone_number BOOL: {bool(instance.phone_number)}")
-            logger.info(f"[SMS-NOTIFICATION] - Raw phone value that will be in SMS: '{instance.phone_number}'")
+            logger.info(f"[SMS-NOTIFICATION] - phone_in_text: {getattr(instance, 'phone_in_text', False)}")
+            logger.info(f"[SMS-NOTIFICATION] - phone_in_additional_info: {getattr(instance, 'phone_in_additional_info', False)}")
             logger.info(f"[SMS-NOTIFICATION] - SMS trigger scenario: {sms_trigger_reason}")
+            
+            # SMART PHONE RESOLUTION: Get actual phone number for SMS
+            actual_phone = instance.phone_number or ""
+            if not actual_phone and getattr(instance, 'phone_in_text', False):
+                # Try to get phone from recent LeadEvent if phone_in_text=True but phone_number is empty
+                from .models import LeadEvent
+                recent_events = LeadEvent.objects.filter(
+                    lead_id=instance.lead_id,
+                    from_backend=False
+                ).order_by('-event_time')[:5]  # Check last 5 events
+                
+                logger.info(f"[SMS-NOTIFICATION] 🔍 SEARCHING for phone in recent events (phone_in_text=True but phone_number empty)")
+                for event in recent_events:
+                    if event.text:
+                        from .webhook_views import WebhookView
+                        phone_in_event = WebhookView()._extract_phone(event.text)
+                        if phone_in_event:
+                            actual_phone = phone_in_event
+                            logger.info(f"[SMS-NOTIFICATION] ✅ FOUND phone in event {event.id}: '{phone_in_event}'")
+                            break
+                        else:
+                            logger.info(f"[SMS-NOTIFICATION] - Event {event.id}: no phone found in '{event.text[:50]}...'")
+            
+            logger.info(f"[SMS-NOTIFICATION] - Final phone for SMS: '{actual_phone}'")
             logger.info(f"[SMS-NOTIFICATION] - This SMS will have reason: {reason}")
             
             message = setting.message_template.format(
@@ -312,7 +336,7 @@ def notify_new_lead(sender, instance: LeadDetail, created: bool, **kwargs):
                 business_name=business.name if business else "",
                 customer_name=getattr(instance, 'user_display_name', '') or 'Customer',
                 timestamp=timezone.now().isoformat(),
-                phone=instance.phone_number,
+                phone=actual_phone,  # Use resolved phone number
                 yelp_link=yelp_link,
                 reason=reason,
                 greetings=greetings,
