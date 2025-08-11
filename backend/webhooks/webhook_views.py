@@ -1009,6 +1009,18 @@ class WebhookView(APIView):
         logger.info(f"[CUSTOMER-REPLY-SMS] 🔧 STARTING _send_customer_reply_sms_only")
         logger.info(f"[CUSTOMER-REPLY-SMS] Lead ID: {lead_id}")
         
+        # Check if SMS was already sent for this lead
+        ld = LeadDetail.objects.filter(lead_id=lead_id).first()
+        if not ld:
+            logger.error(f"[CUSTOMER-REPLY-SMS] ❌ No LeadDetail found for lead_id={lead_id}")
+            return
+            
+        if getattr(ld, 'phone_sms_sent', False):
+            logger.info(f"[CUSTOMER-REPLY-SMS] 🚫 SKIPPING Customer Reply SMS for lead {lead_id}")
+            logger.info(f"[CUSTOMER-REPLY-SMS] Reason: SMS already sent for this lead (phone_sms_sent=True)")
+            logger.info(f"[CUSTOMER-REPLY-SMS] Policy: Maximum one SMS per lead")
+            return
+        
         # Get ProcessedLead to find business
         pl = ProcessedLead.objects.filter(lead_id=lead_id).first()
         if not pl:
@@ -1016,6 +1028,7 @@ class WebhookView(APIView):
             return
         
         logger.info(f"[CUSTOMER-REPLY-SMS] Business ID: {pl.business_id}")
+        logger.info(f"[CUSTOMER-REPLY-SMS] ✅ SMS allowed - no previous SMS sent for this lead")
         
         # Get NotificationSettings for SMS
         from .models import NotificationSetting
@@ -1071,10 +1084,15 @@ class WebhookView(APIView):
                     purpose="customer_reply"
                 )
                 
+                # Mark SMS as sent to prevent future SMS for this lead
+                ld.phone_sms_sent = True
+                ld.save(update_fields=['phone_sms_sent'])
+                
                 logger.info(f"[CUSTOMER-REPLY-SMS] ✅ Customer Reply SMS sent successfully!")
                 logger.info(f"[CUSTOMER-REPLY-SMS] - SID: {sid}")
                 logger.info(f"[CUSTOMER-REPLY-SMS] - To: {setting.phone_number}")
                 logger.info(f"[CUSTOMER-REPLY-SMS] - Purpose: customer_reply")
+                logger.info(f"[CUSTOMER-REPLY-SMS] 🏁 Marked phone_sms_sent=True for lead {lead_id} to prevent future SMS")
                 
             except Exception as sms_error:
                 logger.error(f"[CUSTOMER-REPLY-SMS] ❌ Customer Reply SMS failed: {sms_error}")

@@ -399,7 +399,7 @@ class LeadDetail(models.Model):
     )
     phone_sms_sent = models.BooleanField(
         default=False,
-        help_text="Phone Number Found SMS has already been sent (to prevent duplicate SMS)",
+        help_text="Any SMS notification has already been sent for this lead (to prevent duplicate SMS)",
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
