@@ -4,7 +4,7 @@ from django.dispatch import receiver
 from django.utils import timezone
 import logging
 
-from .models import LeadDetail, NotificationSetting, YelpBusiness
+from .models import LeadDetail, NotificationSetting, YelpBusiness, LeadEvent
 from .twilio_utils import send_sms
 from .utils import get_time_based_greeting
 
@@ -63,16 +63,32 @@ def notify_new_lead(sender, instance: LeadDetail, created: bool, **kwargs):
         
         if not created and not instance.phone_number and not has_phone_flags:
             # This is a Customer Reply scenario - customer responded without providing phone
+            # Ensure that an actual consumer event exists to avoid false positives from
+            # the immediate save after lead creation
+            has_consumer_event = LeadEvent.objects.filter(
+                lead_id=instance.lead_id, user_type="CONSUMER"
+            ).exists()
+            if not has_consumer_event:
+                should_send_sms = False
+                sms_trigger_reason = "Customer Reply (no consumer events)"
+                logger.info(
+                    f"[SMS-NOTIFICATION] 🚫 CUSTOMER REPLY SKIPPED - no CONSUMER events recorded"
+                )
+                logger.info(
+                    f"[SMS-NOTIFICATION] 🛑 EARLY RETURN - awaiting real customer reply"
+                )
+                return
+
             # Check if customer has already replied before
             has_already_replied = getattr(instance, 'customer_replied', False)
-            
+
             if not has_already_replied:
                 should_send_sms = True
                 sms_trigger_reason = "Customer Reply (first time)"
                 logger.info(f"[SMS-NOTIFICATION] ✅ CUSTOMER REPLY (FIRST TIME) - triggering SMS notification")
                 logger.info(f"[SMS-NOTIFICATION] This handles the '💬 Customer Reply' scenario (first reply only)")
                 logger.info(f"[SMS-NOTIFICATION] Customer responded for the first time without phone number")
-                
+
                 # Mark that customer has replied to prevent future Customer Reply SMS
                 instance.customer_replied = True
                 instance.save(update_fields=['customer_replied'])
@@ -305,7 +321,6 @@ def notify_new_lead(sender, instance: LeadDetail, created: bool, **kwargs):
             actual_phone = instance.phone_number or ""
             if not actual_phone and getattr(instance, 'phone_in_text', False):
                 # Try to get phone from recent LeadEvent if phone_in_text=True but phone_number is empty
-                from .models import LeadEvent
                 recent_events = LeadEvent.objects.filter(
                     lead_id=instance.lead_id,
                     from_backend=False
