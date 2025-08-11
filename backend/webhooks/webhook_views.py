@@ -920,12 +920,13 @@ class WebhookView(APIView):
         logger.info(f"[AUTO-RESPONSE] =================== NEW LEAD HANDLER ===================")
         logger.info(f"[AUTO-RESPONSE] Lead ID: {lead_id}")
         logger.info(f"[AUTO-RESPONSE] Handler type: NEW_LEAD")
-        logger.info(f"[AUTO-RESPONSE] Scenario: New lead processing (SMS disabled for new leads)")
+        logger.info(f"[AUTO-RESPONSE] Scenario: New lead processing (will create LeadDetail + follow-ups, no SMS)")
         logger.info(f"[AUTO-RESPONSE] Trigger reason: ProcessedLead was created for this lead")
-        logger.info(f"[AUTO-RESPONSE] About to call _process_new_lead_follow_up_only")
+        logger.info(f"[AUTO-RESPONSE] About to call _process_auto_response with phone_opt_in=False, phone_available=False")
         
         try:
-            self._process_new_lead_follow_up_only(lead_id)
+            # Call _process_auto_response to create LeadDetail but disable SMS for new leads
+            self._process_auto_response(lead_id, phone_opt_in=False, phone_available=False)
             logger.info(f"[AUTO-RESPONSE] ✅ handle_new_lead completed successfully for {lead_id}")
         except Exception as e:
             logger.error(f"[AUTO-RESPONSE] ❌ handle_new_lead failed for {lead_id}: {e}")
