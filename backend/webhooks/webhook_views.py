@@ -723,24 +723,17 @@ class WebhookView(APIView):
                         logger.info(f"[WEBHOOK] Event text: '{text[:100]}...'" + ("" if len(text) <= 100 else " (truncated)"))
                         logger.info(f"[WEBHOOK] Has pending no-phone tasks: {pending}")
                         logger.info(f"[WEBHOOK] Phone number found in text: {has_phone}")
-                        logger.info(f"[WEBHOOK] ❗ This SHOULD trigger Customer Reply SMS but currently only cancels tasks")
+                        logger.info(f"[WEBHOOK] ❗ Customer Reply scenario - cancelling tasks + sending Customer Reply SMS")
                         logger.info(f"[WEBHOOK] 🎯 SMS DECISION ANALYSIS:")
                         logger.info(f"[WEBHOOK] - Scenario: Customer Reply (phone_opt_in=False, phone_available=False)")
-                        logger.info(f"[WEBHOOK] - Current behavior: Only cancel pending tasks")
-                        logger.info(f"[WEBHOOK] - Missing: _process_auto_response call for Customer Reply SMS")
+                        logger.info(f"[WEBHOOK] - Current behavior: Cancel pending tasks + Customer Reply SMS")
                         
                         reason = "Client responded, but no number was found"
                         self._cancel_no_phone_tasks(lid, reason=reason)
                         
-                        logger.info(f"[WEBHOOK] 💡 TRIGGERING CUSTOMER REPLY SMS:")
-                        logger.info(f"[WEBHOOK] Calling: self._process_auto_response({lid}, phone_opt_in=False, phone_available=False)")
-                        try:
-                            self._process_auto_response(lid, phone_opt_in=False, phone_available=False)
-                            logger.info(f"[WEBHOOK] ✅ Customer Reply SMS processing completed")
-                        except Exception as e:
-                            logger.error(f"[WEBHOOK] ❌ Customer Reply SMS processing failed: {e}")
-                            logger.exception(f"[WEBHOOK] Customer Reply SMS exception details")
-                        logger.info(f"[WEBHOOK] ==============================================")
+                        # Send SMS notification for Customer Reply (without follow-up)
+                        logger.info(f"[WEBHOOK] 📱 SENDING Customer Reply SMS (no follow-up)")
+                        self._send_customer_reply_sms_only(lid)
                     else:
                         logger.info(f"[WEBHOOK] ℹ️ CLIENT RESPONDED but no pending tasks to handle")
                         logger.info(f"[WEBHOOK] ========== CUSTOMER REPLY SCENARIO (NO PENDING TASKS) ==========")
@@ -749,21 +742,14 @@ class WebhookView(APIView):
                         logger.info(f"[WEBHOOK] Event text: '{text[:100]}...'" + ("" if len(text) <= 100 else " (truncated)"))
                         logger.info(f"[WEBHOOK] Has pending no-phone tasks: {pending}")
                         logger.info(f"[WEBHOOK] Phone number found in text: {has_phone}")
-                        logger.info(f"[WEBHOOK] ❗ This COULD BE a Customer Reply SMS scenario")
+                        logger.info(f"[WEBHOOK] ❗ Customer Reply scenario detected - no pending tasks to cancel")
                         logger.info(f"[WEBHOOK] 🎯 SMS DECISION ANALYSIS:")
                         logger.info(f"[WEBHOOK] - Scenario: Customer Reply (phone_opt_in=False, phone_available=False)")
-                        logger.info(f"[WEBHOOK] - Current behavior: No action taken")
-                        logger.info(f"[WEBHOOK] - Missing: _process_auto_response call for Customer Reply SMS")
+                        logger.info(f"[WEBHOOK] - Current behavior: Customer Reply SMS (no follow-up)")
                         
-                        logger.info(f"[WEBHOOK] 💡 TRIGGERING CUSTOMER REPLY SMS:")
-                        logger.info(f"[WEBHOOK] Calling: self._process_auto_response({lid}, phone_opt_in=False, phone_available=False)")
-                        try:
-                            self._process_auto_response(lid, phone_opt_in=False, phone_available=False)
-                            logger.info(f"[WEBHOOK] ✅ Customer Reply SMS processing completed")
-                        except Exception as e:
-                            logger.error(f"[WEBHOOK] ❌ Customer Reply SMS processing failed: {e}")
-                            logger.exception(f"[WEBHOOK] Customer Reply SMS exception details")
-                        logger.info(f"[WEBHOOK] ==============================================")
+                        # Send SMS notification for Customer Reply (without follow-up)
+                        logger.info(f"[WEBHOOK] 📱 SENDING Customer Reply SMS (no follow-up)")
+                        self._send_customer_reply_sms_only(lid)
                 elif created and e.get("user_type") == "CONSUMER":
                     logger.info(f"[WEBHOOK] 📊 CONSUMER EVENT RECORDED but NOT PROCESSED as new")
                     logger.info(f"[WEBHOOK] Reason: Event happened BEFORE lead processing")
@@ -1017,6 +1003,82 @@ class WebhookView(APIView):
             logger.error(f"[AUTO-RESPONSE] ❌ handle_phone_available failed for {lead_id}: {e}")
             logger.exception(f"[AUTO-RESPONSE] Exception details for handle_phone_available")
             raise
+
+    def _send_customer_reply_sms_only(self, lead_id: str):
+        """Send SMS notification for Customer Reply scenario without follow-up messages."""
+        logger.info(f"[CUSTOMER-REPLY-SMS] 🔧 STARTING _send_customer_reply_sms_only")
+        logger.info(f"[CUSTOMER-REPLY-SMS] Lead ID: {lead_id}")
+        
+        # Get ProcessedLead to find business
+        pl = ProcessedLead.objects.filter(lead_id=lead_id).first()
+        if not pl:
+            logger.error(f"[CUSTOMER-REPLY-SMS] ❌ No ProcessedLead found for lead_id={lead_id}")
+            return
+        
+        logger.info(f"[CUSTOMER-REPLY-SMS] Business ID: {pl.business_id}")
+        
+        # Get NotificationSettings for SMS
+        from .models import NotificationSetting
+        notification_settings = NotificationSetting.objects.exclude(
+            phone_number=""
+        ).exclude(message_template="")
+        
+        # Look for business-specific notification settings
+        business_settings = notification_settings.filter(
+            business__business_id=pl.business_id
+        )
+        logger.info(f"[CUSTOMER-REPLY-SMS] Found {business_settings.count()} notification settings for business {pl.business_id}")
+        
+        if not business_settings.exists():
+            logger.warning(f"[CUSTOMER-REPLY-SMS] ⚠️ No NotificationSettings found for business {pl.business_id}")
+            return
+        
+        # LIMIT TO FIRST SETTING ONLY to prevent duplicate SMS
+        business_settings_list = list(business_settings)
+        if len(business_settings_list) > 1:
+            logger.info(f"[CUSTOMER-REPLY-SMS] ⚠️ Multiple NotificationSettings found ({len(business_settings_list)}), using only the first one")
+            business_settings_list = business_settings_list[:1]
+        
+        for setting in business_settings_list:
+            try:
+                # Format message for Customer Reply SMS
+                business_name = pl.business.name if hasattr(pl, 'business') and pl.business else pl.business_id
+                yelp_link = f"https://biz.yelp.com/leads_center/{pl.business_id}/leads/{lead_id}"
+                
+                # Get customer phone number if available
+                customer_phone = pl.phone_number if pl and hasattr(pl, 'phone_number') and pl.phone_number else ""
+                
+                message = setting.message_template.format(
+                    business_id=pl.business_id,
+                    lead_id=lead_id,
+                    business_name=business_name,
+                    customer_name="Customer",
+                    timestamp=timezone.now().isoformat(),
+                    phone=customer_phone,
+                    reason="Customer Reply",  # Fixed reason
+                    greetings="Hello",
+                    yelp_link=yelp_link
+                )
+                
+                logger.info(f"[CUSTOMER-REPLY-SMS] 📤 Sending Customer Reply SMS to {setting.phone_number}")
+                
+                from .twilio_utils import send_sms
+                sid = send_sms(
+                    to=setting.phone_number,
+                    body=message,
+                    lead_id=lead_id,
+                    business_id=pl.business_id,
+                    purpose="customer_reply"
+                )
+                
+                logger.info(f"[CUSTOMER-REPLY-SMS] ✅ Customer Reply SMS sent successfully!")
+                logger.info(f"[CUSTOMER-REPLY-SMS] - SID: {sid}")
+                logger.info(f"[CUSTOMER-REPLY-SMS] - To: {setting.phone_number}")
+                logger.info(f"[CUSTOMER-REPLY-SMS] - Purpose: customer_reply")
+                
+            except Exception as sms_error:
+                logger.error(f"[CUSTOMER-REPLY-SMS] ❌ Customer Reply SMS failed: {sms_error}")
+                logger.exception(f"[CUSTOMER-REPLY-SMS] SMS sending exception")
 
     def _cancel_no_phone_tasks(self, lead_id: str, reason: str | None = None):
         logger.info(f"[AUTO-RESPONSE] 🚫 STARTING _cancel_no_phone_tasks")
