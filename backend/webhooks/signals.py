@@ -243,6 +243,14 @@ def notify_new_lead(sender, instance: LeadDetail, created: bool, **kwargs):
             greetings = get_time_based_greeting(business_id=instance.business_id)
             logger.info(f"[SMS-NOTIFICATION] 🕐 Time-based greeting: {greetings}")
             
+            # 🔍 DETAILED PHONE NUMBER DEBUG
+            logger.info(f"[SMS-NOTIFICATION] 🔍 PHONE NUMBER DEBUG:")
+            logger.info(f"[SMS-NOTIFICATION] - instance.phone_number VALUE: '{instance.phone_number}'")
+            logger.info(f"[SMS-NOTIFICATION] - instance.phone_number TYPE: {type(instance.phone_number)}")
+            logger.info(f"[SMS-NOTIFICATION] - instance.phone_number LENGTH: {len(str(instance.phone_number)) if instance.phone_number else 0}")
+            logger.info(f"[SMS-NOTIFICATION] - instance.phone_number BOOL: {bool(instance.phone_number)}")
+            logger.info(f"[SMS-NOTIFICATION] - Raw phone value that will be in SMS: '{instance.phone_number}'")
+            
             message = setting.message_template.format(
                 business_id=instance.business_id,
                 lead_id=instance.lead_id,

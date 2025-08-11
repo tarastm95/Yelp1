@@ -45,13 +45,35 @@ DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
 
 def _extract_phone(text: str) -> str | None:
     """Return first phone number found in text, if any."""
+    logger.info(f"[PHONE-REGEX] 📞 _extract_phone called with text: '{text}'")
+    logger.info(f"[PHONE-REGEX] - Text type: {type(text)}")
+    logger.info(f"[PHONE-REGEX] - Text length: {len(text) if text else 0}")
+    
     if not text:
+        logger.info(f"[PHONE-REGEX] ❌ No text provided - returning None")
         return None
-    for m in PHONE_RE.finditer(text):
+        
+    logger.info(f"[PHONE-REGEX] 🔍 Searching for phone patterns using regex: {PHONE_RE.pattern}")
+    
+    matches_found = list(PHONE_RE.finditer(text))
+    logger.info(f"[PHONE-REGEX] - Found {len(matches_found)} potential phone matches")
+    
+    for i, m in enumerate(matches_found):
         candidate = m.group()
         digits = re.sub(r"\D", "", candidate)
+        logger.info(f"[PHONE-REGEX] - Match {i+1}: '{candidate}'")
+        logger.info(f"[PHONE-REGEX] - Digits only: '{digits}'")
+        logger.info(f"[PHONE-REGEX] - Digits length: {len(digits)}")
+        logger.info(f"[PHONE-REGEX] - Is valid length (>=10): {len(digits) >= 10}")
+        logger.info(f"[PHONE-REGEX] - Matches date pattern: {bool(DATE_RE.fullmatch(candidate))}")
+        
         if len(digits) >= 10 and not DATE_RE.fullmatch(candidate):
+            logger.info(f"[PHONE-REGEX] ✅ Valid phone number found: '{candidate}'")
             return candidate
+        else:
+            logger.info(f"[PHONE-REGEX] ❌ Invalid phone number (too short or date-like): '{candidate}'")
+    
+    logger.info(f"[PHONE-REGEX] ❌ No valid phone numbers found in text")
     return None
 
 
@@ -1411,7 +1433,26 @@ class WebhookView(APIView):
         else:
             survey_list = raw_answers
 
-        phone_number = _extract_phone(raw_proj.get("additional_info", "")) or ""
+        # 🔍 DETAILED PHONE NUMBER EXTRACTION DEBUG
+        additional_info_raw = raw_proj.get("additional_info", "")
+        logger.info(f"[PHONE-EXTRACTION] 📞 PHONE NUMBER EXTRACTION DEBUG:")
+        logger.info(f"[PHONE-EXTRACTION] - additional_info raw: '{additional_info_raw}'")
+        logger.info(f"[PHONE-EXTRACTION] - additional_info type: {type(additional_info_raw)}")
+        logger.info(f"[PHONE-EXTRACTION] - additional_info length: {len(additional_info_raw)}")
+        
+        phone_number = _extract_phone(additional_info_raw) or ""
+        
+        logger.info(f"[PHONE-EXTRACTION] - _extract_phone result: '{phone_number}'")
+        logger.info(f"[PHONE-EXTRACTION] - phone_number type: {type(phone_number)}")
+        logger.info(f"[PHONE-EXTRACTION] - phone_number length: {len(phone_number) if phone_number else 0}")
+        logger.info(f"[PHONE-EXTRACTION] - phone_number bool: {bool(phone_number)}")
+        logger.info(f"[PHONE-EXTRACTION] - Final phone_number value: '{phone_number}'")
+
+        # 🔍 DETAILED LEAD DATA PREPARATION DEBUG
+        logger.info(f"[LEAD-DATA] 📋 PREPARING DETAIL_DATA:")
+        logger.info(f"[LEAD-DATA] - phone_number for detail_data: '{phone_number}'")
+        logger.info(f"[LEAD-DATA] - phone_number type: {type(phone_number)}")
+        logger.info(f"[LEAD-DATA] - phone_number bool: {bool(phone_number)}")
 
         display_name = d.get("user", {}).get("display_name", "")
         first_name = display_name.split()[0] if display_name else ""
@@ -1443,6 +1484,15 @@ class WebhookView(APIView):
         logger.info(
             f"[AUTO-RESPONSE] LeadDetail {'created' if created else 'updated'} pk={ld.pk}"
         )
+        
+        # 🔍 DETAILED DATABASE SAVE VERIFICATION
+        logger.info(f"[LEAD-SAVE] 💾 LEADDETAL SAVE VERIFICATION:")
+        logger.info(f"[LEAD-SAVE] - Created: {created}")
+        logger.info(f"[LEAD-SAVE] - LeadDetail.id: {ld.id}")
+        logger.info(f"[LEAD-SAVE] - LeadDetail.phone_number from DB: '{ld.phone_number}'")
+        logger.info(f"[LEAD-SAVE] - LeadDetail.phone_number type: {type(ld.phone_number)}")
+        logger.info(f"[LEAD-SAVE] - LeadDetail.phone_number bool: {bool(ld.phone_number)}")
+        logger.info(f"[LEAD-SAVE] - Original phone_number variable: '{phone_number}'")
 
         # ✅ DETAILED PHONE DETECTION WITH EXTENSIVE LOGGING
         logger.info(f"[AUTO-RESPONSE] ======== PHONE DETECTION CHECK ========")
@@ -1500,9 +1550,17 @@ class WebhookView(APIView):
                 logger.info(f"[AUTO-RESPONSE] ✅ Set phone_in_additional_info=True")
             
             if phone_number:
+                logger.info(f"[PHONE-SAVE] 💾 SAVING PHONE NUMBER TO DATABASE:")
+                logger.info(f"[PHONE-SAVE] - Before save: ld.phone_number = '{ld.phone_number}'")
+                logger.info(f"[PHONE-SAVE] - New value to save: '{phone_number}'")
+                logger.info(f"[PHONE-SAVE] - Phone type: {type(phone_number)}")
+                logger.info(f"[PHONE-SAVE] - Phone length: {len(phone_number)}")
+                
                 ld.phone_number = phone_number
                 ld.save(update_fields=["phone_number"])
-                logger.info(f"[AUTO-RESPONSE] ✅ Set phone_number='{phone_number}'")
+                
+                logger.info(f"[PHONE-SAVE] - After save: ld.phone_number = '{ld.phone_number}'")
+                logger.info(f"[PHONE-SAVE] ✅ Phone number saved successfully to LeadDetail")
             
             logger.info("[AUTO-RESPONSE] ✅ Phone found in additional_info")
             logger.info(f"[AUTO-RESPONSE] 🔄 TRIGGERING handle_phone_available")
