@@ -57,11 +57,16 @@ def notify_new_lead(sender, instance: LeadDetail, created: bool, **kwargs):
             logger.info(f"[SMS-NOTIFICATION] This handles the '💬 Customer Reply' scenario")
             logger.info(f"[SMS-NOTIFICATION] Customer responded but no phone number provided")
         else:
-            # Record updated but conditions not met for any SMS scenario
+            # Record updated but conditions not met for any SMS scenario OR new record created
             should_send_sms = False
-            sms_trigger_reason = "Updated record - no SMS trigger conditions met"
-            logger.info(f"[SMS-NOTIFICATION] ⚠️ UPDATED RECORD - no SMS trigger conditions met")
-            logger.info(f"[SMS-NOTIFICATION] 🛑 EARLY RETURN - no valid SMS scenario detected")
+            if created:
+                sms_trigger_reason = "New lead created - SMS disabled for new leads without phone"
+                logger.info(f"[SMS-NOTIFICATION] 🚫 NEW LEAD - SMS disabled for new leads without phone numbers")
+                logger.info(f"[SMS-NOTIFICATION] 🛑 EARLY RETURN - new lead SMS notifications are disabled")
+            else:
+                sms_trigger_reason = "Updated record - no SMS trigger conditions met"
+                logger.info(f"[SMS-NOTIFICATION] ⚠️ UPDATED RECORD - no SMS trigger conditions met")
+                logger.info(f"[SMS-NOTIFICATION] 🛑 EARLY RETURN - no valid SMS scenario detected")
             return
     
     logger.info(f"[SMS-NOTIFICATION] 📋 SMS TRIGGER ANALYSIS:")
@@ -231,8 +236,11 @@ def notify_new_lead(sender, instance: LeadDetail, created: bool, **kwargs):
                 reason = "Phone Opt-in"
             elif instance.phone_number:
                 reason = "Phone Number Found"
-            else:
+            elif not created:
                 reason = "Customer Reply"
+            else:
+                # This shouldn't happen since we return early for new leads without phone
+                reason = "New Lead (unexpected)"
             
             # Get time-based greeting
             greetings = get_time_based_greeting(business_id=instance.business_id)
