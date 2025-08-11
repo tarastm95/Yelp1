@@ -680,7 +680,10 @@ class WebhookView(APIView):
                         ld = LeadDetail.objects.get(lead_id=lid)
                         ld.phone_in_text = True
                         ld.phone_number = phone
-                        ld.save(update_fields=['phone_in_text', 'phone_number'])
+                        # Reset phone_sms_sent to allow SMS notification when phone is actually found
+                        ld.phone_sms_sent = False
+                        logger.info(f"[WEBHOOK] 🔄 Reset phone_sms_sent=False to allow SMS notification with real phone number")
+                        ld.save(update_fields=['phone_in_text', 'phone_number', 'phone_sms_sent'])
                         
                         logger.info(f"[WEBHOOK] ✅ LeadDetail updated with phone information (triggers SMS signal)")
                         logger.info(f"[WEBHOOK] - phone_in_text: {ld.phone_in_text}")
