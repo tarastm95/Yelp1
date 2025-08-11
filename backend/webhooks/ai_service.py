@@ -644,7 +644,7 @@ class OpenAIService:
         return context
     
     def _get_system_prompt(self, custom_prompt: Optional[str] = None) -> str:
-        """Отримує системний промпт (кастомний або глобальний)"""
+        """Отримує системний промпт (тільки кастомний)"""
         if custom_prompt:
             return custom_prompt
         
@@ -652,7 +652,8 @@ class OpenAIService:
         if ai_settings and ai_settings.base_system_prompt:
             return ai_settings.base_system_prompt
         
-        return "You are a professional business communication assistant. Generate personalized, friendly, and professional greeting messages for potential customers who have inquired about services."
+        # Повертаємо порожній рядок замість захардкодженого промпта
+        return ""
     
     def _create_greeting_prompt(
         self, 
@@ -766,131 +767,9 @@ Please analyze the customer's request and respond according to the instructions 
             
             return contextual_prompt
         
-        style_instruction = {
-            'formal': "Use a formal, professional tone.",
-            'casual': "Use a casual, friendly tone.",
-            'auto': "Use an appropriate tone based on the context."
-        }.get(response_style, "Use an appropriate tone based on the context.")
-        
-        # Отримуємо бізнес-дані та налаштування
-        business_data = context.get('business_data', {})
-        business_data_settings = context.get('business_data_settings', {})
-        
-        # Формуємо розширену інформацію про бізнес для промпта
-        business_context_parts = []
-        
-        # Основна інформація
-        if business_data.get('name'):
-            business_context_parts.append(f"Business name: {business_data['name']}")
-        
-        if context.get('business_location') and business_data.get('location'):
-            business_context_parts.append(f"Location: {business_data['location']}")
-        
-        # Категорії бізнесу
-        if business_data_settings.get('include_categories') and business_data.get('categories'):
-            # Extracting category titles from dictionary objects
-            category_titles = []
-            for cat in business_data['categories'][:3]:  # Перші 3 категорії
-                if isinstance(cat, dict):
-                    category_titles.append(cat.get('title', cat.get('alias', str(cat))))
-                else:
-                    category_titles.append(str(cat))
-            categories = ", ".join(category_titles)
-            business_context_parts.append(f"Business specializes in: {categories}")
-        
-        # Рейтинг та відгуки
-        if business_data_settings.get('include_rating') and business_data.get('rating'):
-            rating = business_data['rating']
-            review_count = business_data.get('review_count', 0)
-            if business_data_settings.get('include_reviews_count') and review_count > 0:
-                business_context_parts.append(f"Rating: {rating}/5 stars ({review_count} reviews)")
-            else:
-                business_context_parts.append(f"Rating: {rating}/5 stars")
-        
-        # Ціновий діапазон
-        if business_data_settings.get('include_price_range') and business_data.get('price'):
-            business_context_parts.append(f"Price range: {business_data['price']}")
-        
-        # Телефон
-        if business_data_settings.get('include_phone') and business_data.get('phone'):
-            business_context_parts.append(f"Phone: {business_data['phone']}")
-        
-        # Веб-сайт
-        if business_data_settings.get('include_website') and business_data.get('website'):
-            business_context_parts.append(f"Website available")
-        
-        # Адреса
-        if business_data_settings.get('include_address') and business_data.get('address'):
-            # Ensuring all address parts are strings before joining
-            address_parts = [str(part) for part in business_data['address'][:2]]  # Перші 2 частини адреси
-            address = ", ".join(address_parts)
-            business_context_parts.append(f"Address: {address}")
-        
-        # Робочі години
-        hours_context = ""
-        if business_data_settings.get('include_hours'):
-            if context.get('is_off_hours'):
-                hours_context = "IMPORTANT: Currently outside business hours"
-                business_context_parts.append("Currently closed - outside business hours")
-            elif business_data.get('is_open_now'):
-                business_context_parts.append("Currently open")
-            
-            if business_data.get('open_hours'):
-                hours_summary = business_data['open_hours'][:50] + "..." if len(business_data.get('open_hours', '')) > 50 else business_data.get('open_hours', '')
-                business_context_parts.append(f"Business hours: {hours_summary}")
-        
-        # Транзакції та послуги
-        if business_data_settings.get('include_transactions') and business_data.get('transactions'):
-            # Ensuring all transaction items are strings before joining
-            transaction_items = [str(item) for item in business_data['transactions'][:3]]  # Перші 3 транзакції
-            transactions = ", ".join(transaction_items)
-            business_context_parts.append(f"Available services: {transactions}")
-        
-        business_context = "\n".join([f"- {part}" for part in business_context_parts])
-        
-        # Логування business context для traditional prompts
-        logger.info(f"[AI-SERVICE] 📋 Business context parts count: {len(business_context_parts)}")
-        for part in business_context_parts:
-            logger.info(f"[AI-SERVICE] 📋 - {part}")
-        
-        # Контекст часу
-        time_context = ""
-        if context.get('is_off_hours'):
-            time_context = "IMPORTANT: This message is being sent outside business hours. Acknowledge this and mention when they can expect a response."
-        
-        response_time_context = ""
-        if context.get('mention_response_time'):
-            response_time_context = "Mention expected response time (within 24 hours or based on business hours)."
-        
-        return f"""
-You are representing a business and responding to a potential customer inquiry. Use ALL the business information provided to create a personalized, professional response that showcases the business's strengths.
-
-CUSTOMER INFORMATION:
-- Customer name: {context.get('customer_name', 'there')}
-- Services interested in: {context.get('services', 'our services')}
-- Inquiry time: {context.get('created_at', 'recently')}
-
-BUSINESS INFORMATION:
-{business_context}
-
-CONTEXT:
-{time_context}
-{response_time_context}
-
-STYLE REQUIREMENTS:
-- {style_instruction}
-- Keep it under 160 characters (SMS friendly)
-- Be professional but warm and welcoming
-- Mention their specific service interest
-- Use their name if provided
-- Include a clear next step or call to action
-- Leverage the business's strengths (rating, specialization, location, etc.)
-- Make it feel personal and authentic to this specific business
-- If rating/reviews are available, subtly highlight business credibility
-- If specialization is available, mention relevant expertise
-
-Generate only the message text, no additional formatting or explanation:
-        """.strip()
+        # 🚫 БЕЗ CUSTOM INSTRUCTIONS - повертаємо порожній промпт
+        logger.warning(f"[AI-SERVICE] ⚠️ No custom instructions provided - returning empty prompt")
+        return ""
     
     def _fallback_message(self, context: Dict[str, Any]) -> str:
         """Fallback повідомлення якщо AI не працює"""
@@ -972,27 +851,15 @@ Generate only the message text, no additional formatting or explanation:
     def _ai_extract_fields(self, text: str, placeholders: list) -> Dict[str, str]:
         """Використовує AI для витягування конкретних полів з тексту"""
         
-        # Створюємо промпт для AI extraction
-        extraction_prompt = f"""Extract the following information from this customer inquiry.
-        
-Fields to extract: {', '.join(placeholders)}
-        
-Customer message: "{text}"
-        
-Return ONLY a valid JSON object with the extracted values. 
-If a field cannot be determined from the text, use "Unknown".
-Do not include any explanation or additional text.
-        
-Example format: {{"service_type": "Plumbing", "urgency": "High", "location": "Kitchen"}}
-        
-JSON:"""
+        # Не використовуємо захардкоджені промпти для extraction
+        extraction_prompt = f"Customer message: {text}"
         
         logger.info(f"[AI-SERVICE] Sending extraction prompt to AI...")
         
         try:
             # Використовуємо більш дешеву модель для extraction
             extraction_model = "gpt-4o-mini"
-            system_prompt = "You are a data extraction assistant. Extract only the requested fields from customer messages and return valid JSON."
+            system_prompt = ""  # Не використовуємо захардкоджені промпти
             
             # Підготовка повідомлень з урахуванням особливостей моделі
             messages = self._prepare_messages_for_model(extraction_model, system_prompt, extraction_prompt)
