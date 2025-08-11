@@ -1353,15 +1353,21 @@ class WebhookView(APIView):
                             try:
                                 # Format message for AutoResponseSettings SMS
                                 business_name = pl.business.name if hasattr(pl, 'business') and pl.business else pl.business_id
+                                yelp_link = f"https://biz.yelp.com/leads_center/{pl.business_id}/leads/{lead_id}"
+                                
+                                # Get customer phone number if available
+                                customer_phone = pl.phone_number if pl and hasattr(pl, 'phone_number') and pl.phone_number else ""
+                                
                                 message = setting.message_template.format(
                                     business_id=pl.business_id,
                                     lead_id=lead_id,
                                     business_name=business_name,
                                     customer_name="Customer",  # We don't have customer name here
                                     timestamp=timezone.now().isoformat(),
-                                    phone="N/A",  # AutoResponse SMS doesn't need customer phone
+                                    phone=customer_phone,  # Real customer phone number or empty
                                     reason=reason,
-                                    greetings="Hello"
+                                    greetings="Hello",
+                                    yelp_link=yelp_link
                                 )
                                 
                                 logger.info(f"[AUTO-RESPONSE] 📤 Sending AutoResponseSettings SMS to {setting.phone_number}")
