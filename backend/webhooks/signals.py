@@ -215,6 +215,16 @@ def notify_new_lead(sender, instance: LeadDetail, created: bool, **kwargs):
         
         settings = list(business_settings)
         logger.info(f"[SMS-NOTIFICATION] Using only business-specific SMS settings")
+        
+        # LIMIT TO FIRST SETTING ONLY to prevent duplicate SMS
+        if len(settings) > 1:
+            logger.info(f"[SMS-NOTIFICATION] ⚠️ Multiple NotificationSettings found ({len(settings)}), using only the first one")
+            logger.info(f"[SMS-NOTIFICATION] This prevents duplicate SMS notifications")
+            logger.info(f"[SMS-NOTIFICATION] Available settings:")
+            for i, s in enumerate(settings, 1):
+                logger.info(f"[SMS-NOTIFICATION] - Setting #{i}: ID={s.id}, phone={s.phone_number}")
+            settings = settings[:1]  # Take only the first setting
+            logger.info(f"[SMS-NOTIFICATION] Selected setting: ID={settings[0].id}, phone={settings[0].phone_number}")
     else:
         logger.info(f"[SMS-NOTIFICATION] ⚠️ NO BUSINESS found - SMS notifications disabled")
         logger.info(f"[SMS-NOTIFICATION] Global SMS settings are not supported")

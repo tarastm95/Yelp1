@@ -1337,7 +1337,18 @@ class WebhookView(APIView):
                     logger.info(f"[AUTO-RESPONSE] Found {business_settings.count()} notification settings for business {pl.business_id}")
                     
                     if business_settings.exists():
-                        for setting in business_settings:
+                        # LIMIT TO FIRST SETTING ONLY to prevent duplicate SMS
+                        business_settings_list = list(business_settings)
+                        if len(business_settings_list) > 1:
+                            logger.info(f"[AUTO-RESPONSE] ⚠️ Multiple NotificationSettings found ({len(business_settings_list)}), using only the first one")
+                            logger.info(f"[AUTO-RESPONSE] This prevents duplicate AutoResponse SMS notifications")
+                            logger.info(f"[AUTO-RESPONSE] Available settings:")
+                            for i, s in enumerate(business_settings_list, 1):
+                                logger.info(f"[AUTO-RESPONSE] - Setting #{i}: ID={s.id}, phone={s.phone_number}")
+                            business_settings_list = business_settings_list[:1]  # Take only the first setting
+                            logger.info(f"[AUTO-RESPONSE] Selected setting: ID={business_settings_list[0].id}, phone={business_settings_list[0].phone_number}")
+                        
+                        for setting in business_settings_list:
                             try:
                                 # Format message for AutoResponseSettings SMS
                                 business_name = pl.business.name if hasattr(pl, 'business') and pl.business else pl.business_id
