@@ -1142,13 +1142,26 @@ class WebhookView(APIView):
         
         logger.info(f"[NEW-LEAD-FOLLOW-UP] Customer name: '{customer_name}'")
         
-        # Get job mappings for template
-        from .models import JobMapping
-        job_mappings = JobMapping.objects.filter(business__business_id=pl.business_id).first()
-        jobs = job_mappings.jobs if job_mappings else "your project"
-        sep = job_mappings.separator if job_mappings else " and "
+        # Get job details from ProcessedLead and apply mappings
+        job_names = ["your project"]  # default
         
-        logger.info(f"[NEW-LEAD-FOLLOW-UP] Jobs: '{jobs}', Separator: '{sep}'")
+        # Try to get job names from ProcessedLead
+        if hasattr(pl, 'project_data') and pl.project_data:
+            try:
+                import json
+                project = json.loads(pl.project_data) if isinstance(pl.project_data, str) else pl.project_data
+                if isinstance(project, dict) and 'job_names' in project:
+                    job_names = project['job_names']
+            except Exception as e:
+                logger.warning(f"[NEW-LEAD-FOLLOW-UP] Error parsing project_data: {e}")
+        
+        # Apply job mappings using existing method
+        mapped_job_names = self._apply_job_mappings(job_names)
+        jobs = ', '.join(mapped_job_names) if mapped_job_names else "your project"
+        sep = ", "
+        
+        logger.info(f"[NEW-LEAD-FOLLOW-UP] Original jobs: {job_names}")
+        logger.info(f"[NEW-LEAD-FOLLOW-UP] Mapped jobs: '{jobs}', Separator: '{sep}'")
         
         # Get follow-up templates for new leads (phone_opt_in=False, phone_available=False)
         now = timezone.now()
