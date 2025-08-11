@@ -48,10 +48,6 @@ def notify_new_lead(sender, instance: LeadDetail, created: bool, **kwargs):
             logger.info(f"[SMS-NOTIFICATION] Phone sources detected: {phone_sources}")
             logger.info(f"[SMS-NOTIFICATION] This handles the 'Phone Number Found' scenario (first time only)")
             
-            # Mark that we sent Phone Number Found SMS to prevent duplicates
-            instance.phone_sms_sent = True
-            instance.save(update_fields=['phone_sms_sent'])
-            logger.info(f"[SMS-NOTIFICATION] 🏃 Marked phone_sms_sent=True to prevent duplicate SMS")
         else:
             should_send_sms = False
             sms_trigger_reason = "Phone Number Found (SMS already sent)"
@@ -375,6 +371,12 @@ def notify_new_lead(sender, instance: LeadDetail, created: bool, **kwargs):
                 business_id=instance.business_id, 
                 purpose="notification"
             )
+            if 'Phone Number Found' in sms_trigger_reason and not getattr(instance, 'phone_sms_sent', False):
+                instance.phone_sms_sent = True
+                instance.save(update_fields=['phone_sms_sent'])
+                logger.info(
+                    f"[SMS-NOTIFICATION] 🏁 Marked phone_sms_sent=True for lead {instance.lead_id} after notification SMS"
+                )
             logger.info(f"[SMS-NOTIFICATION] ✅ SMS sent successfully!")
             logger.info(
                 f"[SMS-NOTIFICATION] SMS delivery details",
