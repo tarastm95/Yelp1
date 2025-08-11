@@ -30,19 +30,35 @@ def notify_new_lead(sender, instance: LeadDetail, created: bool, **kwargs):
     
     if not created and (instance.phone_number or getattr(instance, 'phone_in_text', False) or getattr(instance, 'phone_in_additional_info', False)):
         # Record updated and now has phone number OR phone detected in text/additional_info
-        should_send_sms = True
-        phone_sources = []
-        if instance.phone_number:
-            phone_sources.append("phone_number set")
-        if getattr(instance, 'phone_in_text', False):
-            phone_sources.append("phone_in_text=True")
-        if getattr(instance, 'phone_in_additional_info', False):
-            phone_sources.append("phone_in_additional_info=True")
+        # Check if we already sent Phone Number Found SMS
+        phone_sms_sent = getattr(instance, 'phone_sms_sent', False)
         
-        sms_trigger_reason = f"Phone Number Found: {', '.join(phone_sources)}"
-        logger.info(f"[SMS-NOTIFICATION] ✅ PHONE NUMBER FOUND - triggering SMS notification for updated record")
-        logger.info(f"[SMS-NOTIFICATION] Phone sources detected: {phone_sources}")
-        logger.info(f"[SMS-NOTIFICATION] This handles the 'Phone Number Found' scenario (phone_in_text OR phone_in_additional_info)")
+        if not phone_sms_sent:
+            should_send_sms = True
+            phone_sources = []
+            if instance.phone_number:
+                phone_sources.append("phone_number set")
+            if getattr(instance, 'phone_in_text', False):
+                phone_sources.append("phone_in_text=True")
+            if getattr(instance, 'phone_in_additional_info', False):
+                phone_sources.append("phone_in_additional_info=True")
+            
+            sms_trigger_reason = f"Phone Number Found: {', '.join(phone_sources)}"
+            logger.info(f"[SMS-NOTIFICATION] ✅ PHONE NUMBER FOUND (FIRST TIME) - triggering SMS notification")
+            logger.info(f"[SMS-NOTIFICATION] Phone sources detected: {phone_sources}")
+            logger.info(f"[SMS-NOTIFICATION] This handles the 'Phone Number Found' scenario (first time only)")
+            
+            # Mark that we sent Phone Number Found SMS to prevent duplicates
+            instance.phone_sms_sent = True
+            instance.save(update_fields=['phone_sms_sent'])
+            logger.info(f"[SMS-NOTIFICATION] 🏃 Marked phone_sms_sent=True to prevent duplicate SMS")
+        else:
+            should_send_sms = False
+            sms_trigger_reason = "Phone Number Found (SMS already sent)"
+            logger.info(f"[SMS-NOTIFICATION] 🚫 PHONE NUMBER FOUND SMS SKIPPED - already sent before")
+            logger.info(f"[SMS-NOTIFICATION] phone_sms_sent={phone_sms_sent} - preventing duplicate Phone Number Found SMS")
+            logger.info(f"[SMS-NOTIFICATION] 🛑 EARLY RETURN - Phone Number Found SMS already sent")
+            return
     else:
         # Record updated but no phone - this could be Customer Reply scenario
         has_phone_flags = (getattr(instance, 'phone_in_text', False) or 
@@ -51,11 +67,27 @@ def notify_new_lead(sender, instance: LeadDetail, created: bool, **kwargs):
         
         if not created and not instance.phone_number and not has_phone_flags:
             # This is a Customer Reply scenario - customer responded without providing phone
-            should_send_sms = True
-            sms_trigger_reason = "Customer Reply (without phone)"
-            logger.info(f"[SMS-NOTIFICATION] ✅ CUSTOMER REPLY - triggering SMS notification")
-            logger.info(f"[SMS-NOTIFICATION] This handles the '💬 Customer Reply' scenario")
-            logger.info(f"[SMS-NOTIFICATION] Customer responded but no phone number provided")
+            # Check if customer has already replied before
+            has_already_replied = getattr(instance, 'customer_replied', False)
+            
+            if not has_already_replied:
+                should_send_sms = True
+                sms_trigger_reason = "Customer Reply (first time)"
+                logger.info(f"[SMS-NOTIFICATION] ✅ CUSTOMER REPLY (FIRST TIME) - triggering SMS notification")
+                logger.info(f"[SMS-NOTIFICATION] This handles the '💬 Customer Reply' scenario (first reply only)")
+                logger.info(f"[SMS-NOTIFICATION] Customer responded for the first time without phone number")
+                
+                # Mark that customer has replied to prevent future Customer Reply SMS
+                instance.customer_replied = True
+                instance.save(update_fields=['customer_replied'])
+                logger.info(f"[SMS-NOTIFICATION] 🏃 Marked customer_replied=True to prevent repeated SMS")
+            else:
+                should_send_sms = False
+                sms_trigger_reason = "Customer Reply (already replied before)"
+                logger.info(f"[SMS-NOTIFICATION] 🚫 CUSTOMER REPLY SKIPPED - customer has already replied before")
+                logger.info(f"[SMS-NOTIFICATION] customer_replied={has_already_replied} - preventing repeated Customer Reply SMS")
+                logger.info(f"[SMS-NOTIFICATION] 🛑 EARLY RETURN - Customer Reply SMS already sent")
+                return
         else:
             # Record updated but conditions not met for any SMS scenario OR new record created
             should_send_sms = False
@@ -232,6 +264,12 @@ def notify_new_lead(sender, instance: LeadDetail, created: bool, **kwargs):
             logger.info(f"[SMS-NOTIFICATION] 🔗 Generated Yelp link: {yelp_link}")
             
             # Determine reason for contact based on lead context
+            logger.info(f"[SMS-NOTIFICATION] 🎯 REASON DETERMINATION:")
+            logger.info(f"[SMS-NOTIFICATION] - phone_opt_in: {getattr(instance, 'phone_opt_in', False)}")
+            logger.info(f"[SMS-NOTIFICATION] - phone_number: '{instance.phone_number}'")
+            logger.info(f"[SMS-NOTIFICATION] - created: {created}")
+            logger.info(f"[SMS-NOTIFICATION] - sms_trigger_reason: {sms_trigger_reason}")
+            
             if getattr(instance, 'phone_opt_in', False):
                 reason = "Phone Opt-in"
             elif instance.phone_number:
@@ -241,6 +279,8 @@ def notify_new_lead(sender, instance: LeadDetail, created: bool, **kwargs):
             else:
                 # This shouldn't happen since we return early for new leads without phone
                 reason = "New Lead (unexpected)"
+                
+            logger.info(f"[SMS-NOTIFICATION] - Final SMS reason: {reason}")
             
             # Get time-based greeting
             greetings = get_time_based_greeting(business_id=instance.business_id)
@@ -253,6 +293,8 @@ def notify_new_lead(sender, instance: LeadDetail, created: bool, **kwargs):
             logger.info(f"[SMS-NOTIFICATION] - instance.phone_number LENGTH: {len(str(instance.phone_number)) if instance.phone_number else 0}")
             logger.info(f"[SMS-NOTIFICATION] - instance.phone_number BOOL: {bool(instance.phone_number)}")
             logger.info(f"[SMS-NOTIFICATION] - Raw phone value that will be in SMS: '{instance.phone_number}'")
+            logger.info(f"[SMS-NOTIFICATION] - SMS trigger scenario: {sms_trigger_reason}")
+            logger.info(f"[SMS-NOTIFICATION] - This SMS will have reason: {reason}")
             
             message = setting.message_template.format(
                 business_id=instance.business_id,

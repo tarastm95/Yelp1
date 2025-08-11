@@ -393,6 +393,14 @@ class LeadDetail(models.Model):
         default=False,
         help_text="Consumer provided phone number inside additional_info",
     )
+    customer_replied = models.BooleanField(
+        default=False,
+        help_text="Customer has already replied at least once (to prevent repeated Customer Reply SMS)",
+    )
+    phone_sms_sent = models.BooleanField(
+        default=False,
+        help_text="Phone Number Found SMS has already been sent (to prevent duplicate SMS)",
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
