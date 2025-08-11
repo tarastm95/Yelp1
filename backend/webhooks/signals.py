@@ -28,12 +28,7 @@ def notify_new_lead(sender, instance: LeadDetail, created: bool, **kwargs):
     should_send_sms = False
     sms_trigger_reason = ""
     
-    if created:
-        # New record created
-        should_send_sms = True
-        sms_trigger_reason = "New LeadDetail created"
-        logger.info(f"[SMS-NOTIFICATION] ✅ NEW RECORD - triggering SMS notification")
-    elif not created and (instance.phone_number or getattr(instance, 'phone_in_text', False) or getattr(instance, 'phone_in_additional_info', False)):
+    if not created and (instance.phone_number or getattr(instance, 'phone_in_text', False) or getattr(instance, 'phone_in_additional_info', False)):
         # Record updated and now has phone number OR phone detected in text/additional_info
         should_send_sms = True
         phone_sources = []
