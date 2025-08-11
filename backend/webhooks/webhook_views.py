@@ -920,12 +920,12 @@ class WebhookView(APIView):
         logger.info(f"[AUTO-RESPONSE] =================== NEW LEAD HANDLER ===================")
         logger.info(f"[AUTO-RESPONSE] Lead ID: {lead_id}")
         logger.info(f"[AUTO-RESPONSE] Handler type: NEW_LEAD")
-        logger.info(f"[AUTO-RESPONSE] Scenario: Basic new lead (phone_opt_in=False, phone_available=False)")
+        logger.info(f"[AUTO-RESPONSE] Scenario: New lead processing (SMS disabled for new leads)")
         logger.info(f"[AUTO-RESPONSE] Trigger reason: ProcessedLead was created for this lead")
-        logger.info(f"[AUTO-RESPONSE] About to call _process_auto_response")
+        logger.info(f"[AUTO-RESPONSE] About to call _process_new_lead_follow_up_only")
         
         try:
-            self._process_auto_response(lead_id, phone_opt_in=False, phone_available=False)
+            self._process_new_lead_follow_up_only(lead_id)
             logger.info(f"[AUTO-RESPONSE] ✅ handle_new_lead completed successfully for {lead_id}")
         except Exception as e:
             logger.error(f"[AUTO-RESPONSE] ❌ handle_new_lead failed for {lead_id}: {e}")
@@ -1079,6 +1079,149 @@ class WebhookView(APIView):
             except Exception as sms_error:
                 logger.error(f"[CUSTOMER-REPLY-SMS] ❌ Customer Reply SMS failed: {sms_error}")
                 logger.exception(f"[CUSTOMER-REPLY-SMS] SMS sending exception")
+
+    def _process_new_lead_follow_up_only(self, lead_id: str):
+        """Process new lead follow-up messages without SMS notifications."""
+        logger.info(f"[NEW-LEAD-FOLLOW-UP] 🔧 STARTING _process_new_lead_follow_up_only")
+        logger.info(f"[NEW-LEAD-FOLLOW-UP] Lead ID: {lead_id}")
+        logger.info(f"[NEW-LEAD-FOLLOW-UP] This function sends ONLY follow-up messages, NO SMS")
+        
+        # Get ProcessedLead to find business
+        pl = ProcessedLead.objects.filter(lead_id=lead_id).first()
+        if not pl:
+            logger.error(f"[NEW-LEAD-FOLLOW-UP] ❌ No ProcessedLead found for lead_id={lead_id}")
+            return
+        
+        logger.info(f"[NEW-LEAD-FOLLOW-UP] Business ID: {pl.business_id}")
+        
+        # Get authentication token for Yelp API
+        logger.info(f"[NEW-LEAD-FOLLOW-UP] 🔐 Getting authentication token")
+        try:
+            from .utils import get_valid_business_token
+            token = get_valid_business_token(pl.business_id)
+            logger.info(f"[NEW-LEAD-FOLLOW-UP] ✅ Successfully obtained business token")
+        except ValueError as e:
+            logger.warning(f"[NEW-LEAD-FOLLOW-UP] ⚠️ No token for business {pl.business_id}: {e}")
+            logger.warning(f"[NEW-LEAD-FOLLOW-UP] Cannot send follow-up messages without token")
+            return
+        
+        # Skip SMS processing entirely - go straight to follow-up scheduling
+        logger.info(f"[NEW-LEAD-FOLLOW-UP] 📱 SKIPPING SMS processing for new leads")
+        logger.info(f"[NEW-LEAD-FOLLOW-UP] 🎯 PROCEEDING WITH follow-up scheduling only")
+        
+        # Process follow-up messages (copy from _process_auto_response but without SMS)
+        from .models import FollowUpTemplate, YelpBusiness
+        from .utils import adjust_due_time
+        from django.db import transaction
+        from django.utils import timezone
+        from datetime import timedelta
+        import django_rq
+        
+        # Get customer name and job details for template formatting
+        customer_name = getattr(pl, 'customer_name', 'Customer')
+        if not customer_name or customer_name.strip() == '':
+            customer_name = 'Customer'
+        
+        logger.info(f"[NEW-LEAD-FOLLOW-UP] Customer name: '{customer_name}'")
+        
+        # Get job mappings for template
+        from .models import JobMapping
+        job_mappings = JobMapping.objects.filter(business__business_id=pl.business_id).first()
+        jobs = job_mappings.jobs if job_mappings else "your project"
+        sep = job_mappings.separator if job_mappings else " and "
+        
+        logger.info(f"[NEW-LEAD-FOLLOW-UP] Jobs: '{jobs}', Separator: '{sep}'")
+        
+        # Get follow-up templates for new leads (phone_opt_in=False, phone_available=False)
+        now = timezone.now()
+        phone_opt_in = False
+        phone_available = False
+        
+        logger.info(f"[NEW-LEAD-FOLLOW-UP] Looking for FollowUpTemplate with phone_opt_in=False, phone_available=False")
+        
+        tpls = FollowUpTemplate.objects.filter(
+            active=True,
+            phone_opt_in=phone_opt_in,
+            phone_available=phone_available,
+            business__business_id=pl.business_id,
+        )
+        if not tpls.exists():
+            tpls = FollowUpTemplate.objects.filter(
+                active=True,
+                phone_opt_in=phone_opt_in,
+                phone_available=phone_available,
+                business__isnull=True,
+            )
+        
+        logger.info(f"[NEW-LEAD-FOLLOW-UP] Found {tpls.count()} follow-up templates")
+        
+        if not tpls.exists():
+            logger.warning(f"[NEW-LEAD-FOLLOW-UP] ⚠️ No follow-up templates found for new leads")
+            return
+        
+        business = YelpBusiness.objects.filter(business_id=pl.business_id).first()
+        scheduled_count = 0
+        
+        for tmpl in tpls:
+            delay = tmpl.delay.total_seconds()
+            text = tmpl.template.format(
+                name=customer_name, 
+                jobs=jobs, 
+                sep=sep, 
+                reason="New Lead",  # Fixed reason for new leads
+                greetings="Hello"
+            )
+            
+            logger.info(f"[NEW-LEAD-FOLLOW-UP] Scheduling template: '{tmpl.name}' with delay: {tmpl.delay}")
+            
+            initial_due = now + timedelta(seconds=delay)
+            due = adjust_due_time(
+                initial_due,
+                business.time_zone if business else None,
+                tmpl.open_from,
+                tmpl.open_to,
+            )
+            
+            countdown = max((due - now).total_seconds(), 0)
+            
+            logger.info(f"[NEW-LEAD-FOLLOW-UP] Scheduling follow-up in {countdown} seconds")
+            
+            with transaction.atomic():
+                try:
+                    from .models import LeadPendingTask
+                    LeadPendingTask.objects.create(
+                        lead_id=lead_id,
+                        text=text,
+                        task_id="",  # Will be set when task is enqueued
+                        phone_opt_in=phone_opt_in,
+                        phone_available=phone_available,
+                        active=True,
+                    )
+                    
+                    queue = django_rq.get_queue("default")
+                    job = queue.enqueue_in(
+                        timedelta(seconds=countdown),
+                        "webhooks.tasks.send_follow_up",
+                        lead_id,
+                        text,
+                        business_id=pl.business_id,
+                    )
+                    
+                    # Update task with job ID
+                    LeadPendingTask.objects.filter(
+                        lead_id=lead_id, text=text, task_id=""
+                    ).update(task_id=job.id)
+                    
+                    scheduled_count += 1
+                    logger.info(f"[NEW-LEAD-FOLLOW-UP] ✅ Scheduled follow-up '{tmpl.name}' with job ID: {job.id}")
+                    
+                except Exception as e:
+                    logger.error(f"[NEW-LEAD-FOLLOW-UP] ❌ Failed to schedule follow-up '{tmpl.name}': {e}")
+        
+        logger.info(f"[NEW-LEAD-FOLLOW-UP] ✅ NEW LEAD FOLLOW-UP COMPLETED")
+        logger.info(f"[NEW-LEAD-FOLLOW-UP] - Lead ID: {lead_id}")
+        logger.info(f"[NEW-LEAD-FOLLOW-UP] - Follow-ups scheduled: {scheduled_count}")
+        logger.info(f"[NEW-LEAD-FOLLOW-UP] - SMS sent: 0 (disabled for new leads)")
 
     def _cancel_no_phone_tasks(self, lead_id: str, reason: str | None = None):
         logger.info(f"[AUTO-RESPONSE] 🚫 STARTING _cancel_no_phone_tasks")
