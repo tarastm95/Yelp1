@@ -676,11 +676,15 @@ class WebhookView(APIView):
                         logger.info(f"[WEBHOOK] Pending no-phone tasks exist: {pending}")
                         logger.info(f"[WEBHOOK] Updating LeadDetail with phone_in_text=True, phone_number={phone}")
                         
-                        LeadDetail.objects.filter(lead_id=lid).update(
-                            phone_in_text=True, phone_number=phone
-                        )
+                        # Use .save() instead of .update() to trigger post_save signal for SMS notifications
+                        ld = LeadDetail.objects.get(lead_id=lid)
+                        ld.phone_in_text = True
+                        ld.phone_number = phone
+                        ld.save(update_fields=['phone_in_text', 'phone_number'])
                         
-                        logger.info(f"[WEBHOOK] ✅ LeadDetail updated with phone information")
+                        logger.info(f"[WEBHOOK] ✅ LeadDetail updated with phone information (triggers SMS signal)")
+                        logger.info(f"[WEBHOOK] - phone_in_text: {ld.phone_in_text}")
+                        logger.info(f"[WEBHOOK] - phone_number: {ld.phone_number}")
                         
                         try:
                             from .utils import update_phone_in_sheet
@@ -954,21 +958,13 @@ class WebhookView(APIView):
         
         if pl:
             time_since_processed = timezone.now() - pl.processed_at
-            freshness_threshold_minutes = 5  # 5 minutes threshold for "fresh" ProcessedLead
             
             logger.info(f"[AUTO-RESPONSE] ProcessedLead freshness check:")
             logger.info(f"[AUTO-RESPONSE] - Processed at: {pl.processed_at}")
             logger.info(f"[AUTO-RESPONSE] - Time since processed: {time_since_processed.total_seconds():.1f} seconds")
-            logger.info(f"[AUTO-RESPONSE] - Freshness threshold: {freshness_threshold_minutes} minutes")
-            
-            if time_since_processed > timedelta(minutes=freshness_threshold_minutes):
-                logger.info(f"[AUTO-RESPONSE] ⏭️ SKIPPING phone opt-in auto-response: ProcessedLead too old")
-                logger.info(f"[AUTO-RESPONSE] This indicates the lead was processed before this webhook")
-                logger.info(f"[AUTO-RESPONSE] 🛑 EARLY RETURN - ProcessedLead not fresh")
-                return
-            else:
-                logger.info(f"[AUTO-RESPONSE] ✅ ProcessedLead is fresh - proceeding with phone opt-in")
-                logger.info(f"[AUTO-RESPONSE] This ProcessedLead was likely created during this webhook processing")
+            logger.info(f"[AUTO-RESPONSE] - Scenario: Phone Opt-in - NO FRESHNESS LIMIT")
+            logger.info(f"[AUTO-RESPONSE] ✅ Proceeding with phone opt-in auto-response (no time restrictions for Phone scenarios)")
+            logger.info(f"[AUTO-RESPONSE] Phone scenarios allow auto-response regardless of ProcessedLead age")
         else:
             logger.info(f"[AUTO-RESPONSE] ✅ No ProcessedLead found - proceeding with phone opt-in flow")
         logger.info(f"[AUTO-RESPONSE] Step 1: Cancelling no-phone tasks")
@@ -998,21 +994,13 @@ class WebhookView(APIView):
         
         if pl:
             time_since_processed = timezone.now() - pl.processed_at
-            freshness_threshold_minutes = 5  # 5 minutes threshold for "fresh" ProcessedLead
             
             logger.info(f"[AUTO-RESPONSE] ProcessedLead freshness check:")
             logger.info(f"[AUTO-RESPONSE] - Processed at: {pl.processed_at}")
             logger.info(f"[AUTO-RESPONSE] - Time since processed: {time_since_processed.total_seconds():.1f} seconds")
-            logger.info(f"[AUTO-RESPONSE] - Freshness threshold: {freshness_threshold_minutes} minutes")
-            
-            if time_since_processed > timedelta(minutes=freshness_threshold_minutes):
-                logger.info(f"[AUTO-RESPONSE] ⏭️ SKIPPING phone available auto-response: ProcessedLead too old")
-                logger.info(f"[AUTO-RESPONSE] This indicates the lead was processed before this webhook")
-                logger.info(f"[AUTO-RESPONSE] 🛑 EARLY RETURN - ProcessedLead not fresh")
-                return
-            else:
-                logger.info(f"[AUTO-RESPONSE] ✅ ProcessedLead is fresh - proceeding with phone available")
-                logger.info(f"[AUTO-RESPONSE] This ProcessedLead was likely created during this webhook processing")
+            logger.info(f"[AUTO-RESPONSE] - Scenario: Phone Found - NO FRESHNESS LIMIT")
+            logger.info(f"[AUTO-RESPONSE] ✅ Proceeding with phone available auto-response (no time restrictions for Phone Found scenario)")
+            logger.info(f"[AUTO-RESPONSE] Phone Found scenario allows auto-response regardless of ProcessedLead age")
         else:
             logger.info(f"[AUTO-RESPONSE] ✅ No ProcessedLead found - proceeding with phone available flow")
         logger.info(f"[AUTO-RESPONSE] Step 1: Cancelling no-phone tasks")
