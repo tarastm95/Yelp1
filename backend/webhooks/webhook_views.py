@@ -1352,6 +1352,12 @@ class WebhookView(APIView):
                             logger.info(f"[AUTO-RESPONSE] Selected setting: ID={business_settings_list[0].id}, phone={business_settings_list[0].phone_number}")
                         
                         for setting in business_settings_list:
+                            ld = LeadDetail.objects.filter(lead_id=lead_id).first()
+                            if phone_available and ld and getattr(ld, "phone_sms_sent", False):
+                                logger.info(
+                                    f"[AUTO-RESPONSE] 🚫 Skipping AutoResponseSettings SMS for lead {lead_id} - phone_sms_sent already True"
+                                )
+                                continue
                             try:
                                 # Format message for AutoResponseSettings SMS
                                 business_name = pl.business.name if hasattr(pl, 'business') and pl.business else pl.business_id
@@ -1382,6 +1388,12 @@ class WebhookView(APIView):
                                     business_id=pl.business_id,
                                     purpose="auto_response"
                                 )
+                                if phone_available and ld and not getattr(ld, "phone_sms_sent", False):
+                                    ld.phone_sms_sent = True
+                                    ld.save(update_fields=["phone_sms_sent"])
+                                    logger.info(
+                                        f"[AUTO-RESPONSE] 🏁 Marked phone_sms_sent=True for lead {lead_id} after AutoResponse SMS"
+                                    )
                                 
                                 logger.info(f"[AUTO-RESPONSE] ✅ AutoResponseSettings SMS sent successfully!")
                                 logger.info(f"[AUTO-RESPONSE] - SID: {sid}")
