@@ -1611,7 +1611,27 @@ class WebhookView(APIView):
                                 yelp_link = f"https://biz.yelp.com/leads_center/{pl.business_id}/leads/{lead_id}"
                                 
                                 # Get customer phone number if available
-                                customer_phone = pl.phone_number if pl and hasattr(pl, 'phone_number') and pl.phone_number else ""
+                                # First try to get from ProcessedLead, then from extracted phone_number
+                                customer_phone = ""
+                                if pl and hasattr(pl, 'phone_number') and pl.phone_number:
+                                    customer_phone = pl.phone_number
+                                else:
+                                    # Try to extract from detail_data if phone wasn't saved yet
+                                    if hasattr(ld, 'phone_number') and ld.phone_number:
+                                        customer_phone = ld.phone_number
+                                    else:
+                                        # Extract from additional_info like we do later in the function
+                                        try:
+                                            additional_info = detail_data.get("project", {}).get("additional_info", "")
+                                            if additional_info:
+                                                extracted_phone = self._extract_phone(additional_info)
+                                                if extracted_phone:
+                                                    customer_phone = extracted_phone
+                                                    logger.info(f"[AUTO-RESPONSE] 📞 Extracted phone for SMS: '{customer_phone}'")
+                                        except Exception as e:
+                                            logger.warning(f"[AUTO-RESPONSE] Failed to extract phone for SMS: {e}")
+                                
+                                logger.info(f"[AUTO-RESPONSE] Final customer_phone for SMS: '{customer_phone}'")
                                 
                                 message = setting.message_template.format(
                                     business_id=pl.business_id,
