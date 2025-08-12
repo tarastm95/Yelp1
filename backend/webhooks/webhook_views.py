@@ -1047,11 +1047,11 @@ class WebhookView(APIView):
             logger.warning(f"[CUSTOMER-REPLY-SMS] ⚠️ No NotificationSettings found for business {pl.business_id}")
             return
         
-        # LIMIT TO FIRST SETTING ONLY to prevent duplicate SMS
+        # SEND TO ALL CONFIGURED PHONE NUMBERS
         business_settings_list = list(business_settings)
         if len(business_settings_list) > 1:
-            logger.info(f"[CUSTOMER-REPLY-SMS] ⚠️ Multiple NotificationSettings found ({len(business_settings_list)}), using only the first one")
-            business_settings_list = business_settings_list[:1]
+            logger.info(f"[CUSTOMER-REPLY-SMS] 📱 Multiple NotificationSettings found ({len(business_settings_list)}), sending to ALL numbers")
+            logger.info(f"[CUSTOMER-REPLY-SMS] This ensures all configured recipients get Customer Reply notifications")
         
         for setting in business_settings_list:
             try:
@@ -1587,16 +1587,15 @@ class WebhookView(APIView):
                     logger.info(f"[AUTO-RESPONSE] Found {business_settings.count()} notification settings for business {pl.business_id}")
                     
                     if business_settings.exists():
-                        # LIMIT TO FIRST SETTING ONLY to prevent duplicate SMS
+                        # SEND TO ALL CONFIGURED PHONE NUMBERS
                         business_settings_list = list(business_settings)
                         if len(business_settings_list) > 1:
-                            logger.info(f"[AUTO-RESPONSE] ⚠️ Multiple NotificationSettings found ({len(business_settings_list)}), using only the first one")
-                            logger.info(f"[AUTO-RESPONSE] This prevents duplicate AutoResponse SMS notifications")
+                            logger.info(f"[AUTO-RESPONSE] 📱 Multiple NotificationSettings found ({len(business_settings_list)}), sending to ALL numbers")
+                            logger.info(f"[AUTO-RESPONSE] This ensures all configured recipients get AutoResponse SMS notifications")
                             logger.info(f"[AUTO-RESPONSE] Available settings:")
                             for i, s in enumerate(business_settings_list, 1):
                                 logger.info(f"[AUTO-RESPONSE] - Setting #{i}: ID={s.id}, phone={s.phone_number}")
-                            business_settings_list = business_settings_list[:1]  # Take only the first setting
-                            logger.info(f"[AUTO-RESPONSE] Selected setting: ID={business_settings_list[0].id}, phone={business_settings_list[0].phone_number}")
+                            logger.info(f"[AUTO-RESPONSE] All {len(business_settings_list)} settings will be used for SMS sending")
                         
                         for setting in business_settings_list:
                             ld = LeadDetail.objects.filter(lead_id=lead_id).first()
