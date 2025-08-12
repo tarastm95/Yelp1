@@ -926,7 +926,7 @@ class WebhookView(APIView):
         
         try:
             # Call _process_auto_response to create LeadDetail but disable SMS for new leads
-            self._process_auto_response(lead_id, phone_opt_in=False, phone_available=False, is_new_lead=True)
+            self._process_auto_response(lead_id, phone_opt_in=False, phone_available=False)
             logger.info(f"[AUTO-RESPONSE] ✅ handle_new_lead completed successfully for {lead_id}")
         except Exception as e:
             logger.error(f"[AUTO-RESPONSE] ❌ handle_new_lead failed for {lead_id}: {e}")
@@ -1382,22 +1382,19 @@ class WebhookView(APIView):
         logger.info(f"[AUTO-RESPONSE] ✅ _cancel_all_tasks completed")
 
     def _process_auto_response(
-        self, lead_id: str, phone_opt_in: bool, phone_available: bool, is_new_lead: bool = False
+        self, lead_id: str, phone_opt_in: bool, phone_available: bool
     ):
         logger.info(f"[AUTO-RESPONSE] 🔧 STARTING _process_auto_response")
         logger.info(f"[AUTO-RESPONSE] Parameters:")
         logger.info(f"[AUTO-RESPONSE] - Lead ID: {lead_id}")
         logger.info(f"[AUTO-RESPONSE] - phone_opt_in: {phone_opt_in}")
         logger.info(f"[AUTO-RESPONSE] - phone_available: {phone_available}")
-        logger.info(f"[AUTO-RESPONSE] - is_new_lead: {is_new_lead}")
         
         # Determine reason for SMS based on scenario
         if phone_opt_in:
             reason = "Phone Opt-in"
         elif phone_available:
             reason = "Phone Number Found"
-        elif is_new_lead:
-            reason = "New Lead"
         else:
             reason = "Customer Reply"
         
@@ -1556,14 +1553,7 @@ class WebhookView(APIView):
                 should_send_sms = getattr(auto_settings, 'sms_on_customer_reply', False)
                 sms_reason_field = "sms_on_customer_reply"
             
-            # Disable SMS for new leads regardless of AutoResponseSettings
-            if is_new_lead:
-                logger.info(f"[AUTO-RESPONSE] 🚫 SMS DISABLED for New Lead scenario")
-                logger.info(f"[AUTO-RESPONSE] - New leads should not trigger SMS notifications")
-                final_sms_decision = False
-            else:
-                final_sms_decision = should_send_sms and auto_settings.enabled
-            
+            final_sms_decision = should_send_sms and auto_settings.enabled
             logger.info(f"[AUTO-RESPONSE] 📲 SMS PROCESSING FOR SCENARIO '{reason}':")
             logger.info(f"[AUTO-RESPONSE] - Field checked: {sms_reason_field}")
             logger.info(f"[AUTO-RESPONSE] - SMS flag: {should_send_sms}")
