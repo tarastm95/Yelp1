@@ -56,62 +56,20 @@ def notify_new_lead(sender, instance: LeadDetail, created: bool, **kwargs):
             logger.info(f"[SMS-NOTIFICATION] 🛑 EARLY RETURN - Phone Number Found SMS already sent")
             return
     else:
-        # Record updated but no phone - this could be Customer Reply scenario
-        has_phone_flags = (getattr(instance, 'phone_in_text', False) or 
-                          getattr(instance, 'phone_in_additional_info', False) or 
-                          getattr(instance, 'phone_opt_in', False))
-        
-        if not created and not instance.phone_number and not has_phone_flags:
-            # This is a Customer Reply scenario - customer responded without providing phone
-            # Ensure that an actual consumer event exists to avoid false positives from
-            # the immediate save after lead creation
-            has_consumer_event = LeadEvent.objects.filter(
-                lead_id=instance.lead_id, user_type="CONSUMER"
-            ).exists()
-            if not has_consumer_event:
-                should_send_sms = False
-                sms_trigger_reason = "Customer Reply (no consumer events)"
-                logger.info(
-                    f"[SMS-NOTIFICATION] 🚫 CUSTOMER REPLY SKIPPED - no CONSUMER events recorded"
-                )
-                logger.info(
-                    f"[SMS-NOTIFICATION] 🛑 EARLY RETURN - awaiting real customer reply"
-                )
-                return
-
-            # Check if customer has already replied before
-            has_already_replied = getattr(instance, 'customer_replied', False)
-
-            if not has_already_replied:
-                should_send_sms = True
-                sms_trigger_reason = "Customer Reply (first time)"
-                logger.info(f"[SMS-NOTIFICATION] ✅ CUSTOMER REPLY (FIRST TIME) - triggering SMS notification")
-                logger.info(f"[SMS-NOTIFICATION] This handles the '💬 Customer Reply' scenario (first reply only)")
-                logger.info(f"[SMS-NOTIFICATION] Customer responded for the first time without phone number")
-
-                # Mark that customer has replied to prevent future Customer Reply SMS
-                instance.customer_replied = True
-                instance.save(update_fields=['customer_replied'])
-                logger.info(f"[SMS-NOTIFICATION] 🏃 Marked customer_replied=True to prevent repeated SMS")
-            else:
-                should_send_sms = False
-                sms_trigger_reason = "Customer Reply (already replied before)"
-                logger.info(f"[SMS-NOTIFICATION] 🚫 CUSTOMER REPLY SKIPPED - customer has already replied before")
-                logger.info(f"[SMS-NOTIFICATION] customer_replied={has_already_replied} - preventing repeated Customer Reply SMS")
-                logger.info(f"[SMS-NOTIFICATION] 🛑 EARLY RETURN - Customer Reply SMS already sent")
-                return
+        # Record updated but no phone - Customer Reply scenario 
+        # is now handled EXCLUSIVELY by webhook_views.py to avoid duplication
+        should_send_sms = False
+        if created:
+            sms_trigger_reason = "New lead created - SMS disabled for new leads"
+            logger.info(f"[SMS-NOTIFICATION] 🚫 NEW LEAD - SMS disabled for new leads")
+            logger.info(f"[SMS-NOTIFICATION] 🛑 EARLY RETURN - new lead SMS notifications are disabled")
         else:
-            # Record updated but conditions not met for any SMS scenario OR new record created
-            should_send_sms = False
-            if created:
-                sms_trigger_reason = "New lead created - SMS disabled for new leads without phone"
-                logger.info(f"[SMS-NOTIFICATION] 🚫 NEW LEAD - SMS disabled for new leads without phone numbers")
-                logger.info(f"[SMS-NOTIFICATION] 🛑 EARLY RETURN - new lead SMS notifications are disabled")
-            else:
-                sms_trigger_reason = "Updated record - no SMS trigger conditions met"
-                logger.info(f"[SMS-NOTIFICATION] ⚠️ UPDATED RECORD - no SMS trigger conditions met")
-                logger.info(f"[SMS-NOTIFICATION] 🛑 EARLY RETURN - no valid SMS scenario detected")
-            return
+            sms_trigger_reason = "Customer Reply - handled by webhook_views.py"
+            logger.info(f"[SMS-NOTIFICATION] 🔄 CUSTOMER REPLY - delegated to webhook_views.py")
+            logger.info(f"[SMS-NOTIFICATION] signals.py only handles 'Phone Number Found' scenario")
+            logger.info(f"[SMS-NOTIFICATION] This prevents SMS duplication for Customer Reply")
+            logger.info(f"[SMS-NOTIFICATION] 🛑 EARLY RETURN - Customer Reply SMS delegated to webhook views")
+        return
     
     logger.info(f"[SMS-NOTIFICATION] 📋 SMS TRIGGER ANALYSIS:")
     logger.info(f"[SMS-NOTIFICATION] - Should send SMS: {should_send_sms}")
