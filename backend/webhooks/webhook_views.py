@@ -1044,7 +1044,6 @@ class WebhookView(APIView):
         logger.info(f"[CUSTOMER-REPLY-SMS] Found {business_settings.count()} notification settings for business {pl.business_id}")
         
         # Check if SMS notifications are enabled for this business
-        from .models import YelpBusiness
         business = YelpBusiness.objects.filter(business_id=pl.business_id).first()
         if business and not business.sms_notifications_enabled:
             logger.info(f"[CUSTOMER-REPLY-SMS] ⚠️ SMS NOTIFICATIONS DISABLED for business: {business.business_id}")
@@ -1143,7 +1142,7 @@ class WebhookView(APIView):
         logger.info(f"[NEW-LEAD-FOLLOW-UP] 🎯 PROCEEDING WITH follow-up scheduling only")
         
         # Process follow-up messages (copy from _process_auto_response but without SMS)
-        from .models import FollowUpTemplate, YelpBusiness
+        from .models import FollowUpTemplate
         from .utils import adjust_due_time
         from django.db import transaction
         from django.utils import timezone
@@ -1601,7 +1600,6 @@ class WebhookView(APIView):
                     logger.info(f"[AUTO-RESPONSE] Found {business_settings.count()} notification settings for business {pl.business_id}")
                     
                     # Check if SMS notifications are enabled for this business
-                    from .models import YelpBusiness
                     business = YelpBusiness.objects.filter(business_id=pl.business_id).first()
                     if business and not business.sms_notifications_enabled:
                         logger.info(f"[AUTO-RESPONSE] ⚠️ SMS NOTIFICATIONS DISABLED for business: {business.business_id}")
