@@ -926,7 +926,12 @@ class WebhookView(APIView):
         
         try:
             # Call _process_auto_response to create LeadDetail but disable SMS for new leads
+            logger.info(f"[AUTO-RESPONSE] 🚀 ABOUT TO CALL _process_auto_response")
+            logger.info(f"[AUTO-RESPONSE] Parameters: phone_opt_in=False, phone_available=False, is_new_lead=True")
+            
             self._process_auto_response(lead_id, phone_opt_in=False, phone_available=False, is_new_lead=True)
+            
+            logger.info(f"[AUTO-RESPONSE] ✅ _process_auto_response RETURNED SUCCESSFULLY")
             logger.info(f"[AUTO-RESPONSE] ✅ handle_new_lead completed successfully for {lead_id}")
         except Exception as e:
             logger.error(f"[AUTO-RESPONSE] ❌ handle_new_lead failed for {lead_id}: {e}")
@@ -1398,11 +1403,14 @@ class WebhookView(APIView):
         self, lead_id: str, phone_opt_in: bool, phone_available: bool, is_new_lead: bool = False
     ):
         logger.info(f"[AUTO-RESPONSE] 🔧 STARTING _process_auto_response")
+        logger.info(f"[AUTO-RESPONSE] ========== FUNCTION ENTRY ==========")
+        logger.info(f"[AUTO-RESPONSE] Function entered successfully")
         logger.info(f"[AUTO-RESPONSE] Parameters:")
         logger.info(f"[AUTO-RESPONSE] - Lead ID: {lead_id}")
         logger.info(f"[AUTO-RESPONSE] - phone_opt_in: {phone_opt_in}")
         logger.info(f"[AUTO-RESPONSE] - phone_available: {phone_available}")
         logger.info(f"[AUTO-RESPONSE] - is_new_lead: {is_new_lead}")
+        logger.info(f"[AUTO-RESPONSE] =======================================")
         
         # Determine reason for SMS based on scenario
         if phone_opt_in:
@@ -2260,11 +2268,21 @@ class WebhookView(APIView):
                 logger.info(f"[AUTO-RESPONSE] Sending greeting via Celery with countdown=0")
                 logger.info(f"[AUTO-RESPONSE] 🚀 DISPATCHING GREETING TASK")
                 
-                send_follow_up.apply_async(
+                logger.info(f"[TASK-DEBUG] ========= IMMEDIATE CELERY DISPATCH =========")
+                logger.info(f"[TASK-DEBUG] About to call send_follow_up.apply_async()")
+                logger.info(f"[TASK-DEBUG] args: [{lead_id}, '{greet_text[:50]}...']")
+                logger.info(f"[TASK-DEBUG] business_id: {biz_id}")
+                
+                task_result = send_follow_up.apply_async(
                     args=[lead_id, greet_text],
                     headers={"business_id": biz_id},
                     countdown=0,
                 )
+                
+                logger.info(f"[TASK-DEBUG] ✅ Task dispatched successfully!")
+                logger.info(f"[TASK-DEBUG] Task ID: {task_result.id}")
+                logger.info(f"[TASK-DEBUG] ===========================================")
+                
                 logger.info(
                     "[AUTO-RESPONSE] ✅ Greeting dispatched immediately via Celery"
                 )
@@ -2276,11 +2294,22 @@ class WebhookView(APIView):
                 logger.info(f"[AUTO-RESPONSE] Countdown: {countdown_greeting} seconds")
                 logger.info(f"[AUTO-RESPONSE] 🚀 SCHEDULING GREETING TASK")
                 
+                logger.info(f"[TASK-DEBUG] ========= SCHEDULED CELERY DISPATCH =========")
+                logger.info(f"[TASK-DEBUG] About to call send_follow_up.apply_async()")
+                logger.info(f"[TASK-DEBUG] args: [{lead_id}, '{greet_text[:50]}...']")
+                logger.info(f"[TASK-DEBUG] business_id: {biz_id}")
+                logger.info(f"[TASK-DEBUG] countdown: {countdown_greeting}")
+                
                 res = send_follow_up.apply_async(
                     args=[lead_id, greet_text],
                     headers={"business_id": biz_id},
                     countdown=countdown_greeting,
                 )
+                
+                logger.info(f"[TASK-DEBUG] ✅ Task scheduled successfully!")
+                logger.info(f"[TASK-DEBUG] Task ID: {res.id}")
+                logger.info(f"[TASK-DEBUG] ===========================================")
+                
                 logger.info(f"[AUTO-RESPONSE] ✅ Celery task created with ID: {res.id}")
                 logger.info(f"[AUTO-RESPONSE] Creating LeadPendingTask record...")
                 
