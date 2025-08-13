@@ -196,10 +196,28 @@ class JobMappingSerializer(serializers.ModelSerializer):
 
 
 class ProcessedLeadSerializer(serializers.ModelSerializer):
+    business_name = serializers.SerializerMethodField()
+
     class Meta:
         model = ProcessedLead
-        fields = ["lead_id", "business_id", "processed_at"]
-        read_only_fields = ["lead_id", "business_id", "processed_at"]
+        fields = ["lead_id", "business_id", "business_name", "processed_at"]
+        read_only_fields = ["lead_id", "business_id", "business_name", "processed_at"]
+
+    def get_business_name(self, obj):
+        """Get business name from YelpBusiness model if it exists"""
+        try:
+            from .models import YelpBusiness
+            # Use a class-level cache to avoid repeated queries for the same business
+            if not hasattr(self.__class__, '_business_cache'):
+                self.__class__._business_cache = {}
+            
+            if obj.business_id not in self.__class__._business_cache:
+                business = YelpBusiness.objects.filter(business_id=obj.business_id).first()
+                self.__class__._business_cache[obj.business_id] = business.name if business else obj.business_id
+            
+            return self.__class__._business_cache[obj.business_id]
+        except Exception:
+            return obj.business_id
 
 
 class LeadEventSerializer(serializers.ModelSerializer):

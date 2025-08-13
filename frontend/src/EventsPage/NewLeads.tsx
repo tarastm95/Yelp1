@@ -179,7 +179,7 @@ const NewLeads: FC<Props> = ({
   return (
     <Box sx={{ mt: 2 }}>
       <Stack spacing={3}>
-        {uniqueLeads.slice(0, visibleCount).map(({ lead_id, business_id, processed_at }) => {
+        {uniqueLeads.slice(0, visibleCount).map(({ lead_id, business_id, business_name, processed_at }) => {
           const detail = leadDetails[lead_id] || {};
           const matchedEvent = events.find(e => e.lead_id === lead_id);
           const eventId = matchedEvent ? String(matchedEvent.event_id) : fetchedEvents[lead_id];
@@ -278,10 +278,13 @@ const NewLeads: FC<Props> = ({
                             borderColor: 'grey.200'
                           }}>
                             <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
-                              BUSINESS ID
+                              BUSINESS
                             </Typography>
-                            <Typography variant="body2" sx={{ fontWeight: 500, mt: 0.5 }}>
-                              {business_id}
+                            <Typography variant="body2" sx={{ fontWeight: 600, mt: 0.5, color: 'primary.main' }}>
+                              {business_name}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace', fontSize: '0.7rem' }}>
+                              ID: {business_id}
                             </Typography>
                           </Box>
                         </Grid>

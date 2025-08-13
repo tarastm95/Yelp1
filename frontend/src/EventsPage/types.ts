@@ -61,6 +61,7 @@ export interface LeadDetail {
 export interface ProcessedLead {
   lead_id: string;
   business_id: string;
+  business_name: string;
   processed_at: string;
 }
 

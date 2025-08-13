@@ -157,7 +157,7 @@ class ProcessedLeadListView(generics.ListAPIView):
     pagination_class = FivePerPagePagination
 
     def get_queryset(self):
-        qs = ProcessedLead.objects.order_by("-processed_at")
+        qs = ProcessedLead.objects.select_related().order_by("-processed_at")
         bid = self.request.query_params.get("business_id")
         if bid:
             qs = qs.filter(business_id=bid)
