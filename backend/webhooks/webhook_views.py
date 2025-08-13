@@ -932,6 +932,14 @@ class WebhookView(APIView):
             self._process_auto_response(lead_id, phone_opt_in=False, phone_available=False, is_new_lead=True)
             
             logger.info(f"[AUTO-RESPONSE] ✅ _process_auto_response RETURNED SUCCESSFULLY")
+            
+            # NEW: Add guaranteed follow-up scheduling for new leads
+            logger.info(f"[AUTO-RESPONSE] 🚀 ABOUT TO CALL _process_new_lead_follow_up_only")
+            logger.info(f"[AUTO-RESPONSE] This will schedule follow-up messages even if auto_settings.enabled=False")
+            
+            self._process_new_lead_follow_up_only(lead_id)
+            
+            logger.info(f"[AUTO-RESPONSE] ✅ _process_new_lead_follow_up_only RETURNED SUCCESSFULLY")
             logger.info(f"[AUTO-RESPONSE] ✅ handle_new_lead completed successfully for {lead_id}")
         except Exception as e:
             logger.error(f"[AUTO-RESPONSE] ❌ handle_new_lead failed for {lead_id}: {e}")
@@ -2332,8 +2340,10 @@ class WebhookView(APIView):
                     )
                     scheduled_texts.add(greet_text)
 
-        if phone_available:
-            return
+        # Removed early return for phone_available - now follow-ups work for all scenarios
+        logger.info(f"[AUTO-RESPONSE] 🔄 PROCEEDING WITH FOLLOW-UP SCHEDULING")
+        logger.info(f"[AUTO-RESPONSE] - Scenario: phone_opt_in={phone_opt_in}, phone_available={phone_available}")
+        logger.info(f"[AUTO-RESPONSE] - Follow-ups will be scheduled based on matching FollowUpTemplate records")
 
         # Use the same 'now' timestamp for consistent timing calculations
         # instead of calling timezone.now() again
