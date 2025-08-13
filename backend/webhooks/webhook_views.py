@@ -1635,18 +1635,18 @@ class WebhookView(APIView):
                     
                     # Check if SMS notifications are enabled for this business
                     business = YelpBusiness.objects.filter(business_id=pl.business_id).first()
+                    sms_enabled_for_business = True
                     if business and not business.sms_notifications_enabled:
                         logger.info(f"[AUTO-RESPONSE] ⚠️ SMS NOTIFICATIONS DISABLED for business: {business.business_id}")
                         logger.info(f"[AUTO-RESPONSE] Business admin has turned off SMS notifications")
                         logger.info(f"[AUTO-RESPONSE] 🛑 SKIPPING SMS - notifications disabled for this business")
-                        return
-
-                    if business and business.sms_notifications_enabled:
+                        sms_enabled_for_business = False
+                    elif business and business.sms_notifications_enabled:
                         logger.info(f"[AUTO-RESPONSE] ✅ SMS NOTIFICATIONS ENABLED for business: {business.business_id}")
                     elif business is None:
                         logger.info(f"[AUTO-RESPONSE] ⚠️ Business not found for ID: {pl.business_id}")
-                    
-                    if business_settings.exists():
+
+                    if sms_enabled_for_business and business_settings.exists():
                         # SEND TO ALL CONFIGURED PHONE NUMBERS
                         business_settings_list = list(business_settings)
                         if len(business_settings_list) > 1:
@@ -1729,7 +1729,7 @@ class WebhookView(APIView):
                             except Exception as sms_error:
                                 logger.error(f"[AUTO-RESPONSE] ❌ AutoResponseSettings SMS failed: {sms_error}")
                                 logger.exception(f"[AUTO-RESPONSE] SMS sending exception")
-                    else:
+                    elif sms_enabled_for_business:
                         logger.warning(f"[AUTO-RESPONSE] ⚠️ No NotificationSettings found for business {pl.business_id}")
                         logger.warning(f"[AUTO-RESPONSE] SMS decision was True but no phone numbers to send to")
                 else:
