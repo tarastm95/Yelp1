@@ -1244,35 +1244,53 @@ class WebhookView(APIView):
             
             logger.info(f"[NEW-LEAD-FOLLOW-UP] Scheduling follow-up in {countdown} seconds")
             
+            # Check for duplicates before creating task
+            from .utils import _already_sent
+            from django.db import IntegrityError
+            
             with transaction.atomic():
                 try:
                     from .models import LeadPendingTask
-                    LeadPendingTask.objects.create(
-                        lead_id=lead_id,
-                        text=text,
-                        task_id="",  # Will be set when task is enqueued
-                        phone_opt_in=phone_opt_in,
-                        phone_available=phone_available,
-                        active=True,
-                    )
                     
-                    queue = django_rq.get_queue("default")
-                    job = queue.enqueue_in(
-                        timedelta(seconds=countdown),
-                        "webhooks.tasks.send_follow_up",
-                        lead_id,
-                        text,
-                        business_id=pl.business_id,
-                    )
-                    
-                    # Update task with job ID
-                    LeadPendingTask.objects.filter(
-                        lead_id=lead_id, text=text, task_id=""
-                    ).update(task_id=job.id)
-                    
-                    scheduled_count += 1
-                    logger.info(f"[NEW-LEAD-FOLLOW-UP] ✅ Scheduled follow-up '{tmpl.name}' with job ID: {job.id}")
-                    
+                    # Check if this message is already sent or scheduled
+                    duplicate_exists = (_already_sent(lead_id, text) or 
+                        LeadPendingTask.objects.select_for_update()
+                        .filter(lead_id=lead_id, text=text, active=True)
+                        .exists())
+                        
+                    if duplicate_exists:
+                        logger.info(f"[NEW-LEAD-FOLLOW-UP] ⚠️ Follow-up '{tmpl.name}' already sent or scheduled → skipping")
+                    else:
+                        # Create task and enqueue job
+                        try:
+                            LeadPendingTask.objects.create(
+                                lead_id=lead_id,
+                                text=text,
+                                task_id="",  # Will be set when task is enqueued
+                                phone_opt_in=phone_opt_in,
+                                phone_available=phone_available,
+                                active=True,
+                            )
+                            
+                            queue = django_rq.get_queue("default")
+                            job = queue.enqueue_in(
+                                timedelta(seconds=countdown),
+                                "webhooks.tasks.send_follow_up",
+                                lead_id,
+                                text,
+                                business_id=pl.business_id,
+                            )
+                            
+                            # Update task with job ID
+                            LeadPendingTask.objects.filter(
+                                lead_id=lead_id, text=text, task_id=""
+                            ).update(task_id=job.id)
+                            
+                            scheduled_count += 1
+                            logger.info(f"[NEW-LEAD-FOLLOW-UP] ✅ Scheduled follow-up '{tmpl.name}' with job ID: {job.id}")
+                        except IntegrityError:
+                            logger.info(f"[NEW-LEAD-FOLLOW-UP] ⚠️ Duplicate task already exists for '{tmpl.name}' → skipping")
+                        
                 except Exception as e:
                     logger.error(f"[NEW-LEAD-FOLLOW-UP] ❌ Failed to schedule follow-up '{tmpl.name}': {e}")
         
