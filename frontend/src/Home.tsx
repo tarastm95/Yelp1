@@ -566,32 +566,21 @@ const Home: FC = () => {
                   <Grid item xs={12} md={6} lg={3} key={service.title}>
                     <Card sx={{
                       height: '100%',
-                      background: 'linear-gradient(135deg, #ffffff 0%, #fafbfc 100%)',
-                      border: '2px solid rgba(226, 232, 240, 0.6)',
-                      borderRadius: 4,
+                      background: '#ffffff',
+                      border: '2px solid #e2e8f0',
+                      borderRadius: 3,
                       overflow: 'hidden',
                       position: 'relative',
-                      transition: 'all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)',
+                      transition: 'all 0.2s ease-in-out',
                       cursor: 'pointer',
-                      boxShadow: '0 4px 20px rgba(100, 116, 139, 0.08)',
+                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
                       
                       '&:hover': {
-                        transform: 'translateY(-10px)',
-                        boxShadow: '0 25px 50px rgba(59, 130, 246, 0.2)',
                         borderColor: service.color,
-                        background: 'linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%)',
+                        boxShadow: '0 8px 25px rgba(0, 0, 0, 0.1)',
                         
                         '& .service-icon': {
-                          transform: 'scale(1.1)',
-                          boxShadow: `0 10px 25px ${service.color}40`,
-                        },
-                        '& .service-arrow': {
-                          transform: 'translateX(8px)',
-                          color: service.color
-                        },
-                        '& .service-stats': {
-                          background: `${service.color}15`,
-                          borderColor: service.color
+                          transform: 'scale(1.05)',
                         }
                       }
                     }}
@@ -600,24 +589,21 @@ const Home: FC = () => {
                   >
                     <CardContent 
                       sx={{ 
-                        p: 4, 
+                        p: 3.5, 
                         height: '100%',
                         display: 'flex',
-                        flexDirection: 'column',
-                        position: 'relative'
+                        flexDirection: 'column'
                       }}
                     >
-                      <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
                         <Avatar
                           className="service-icon"
                           sx={{
-                            background: `linear-gradient(135deg, ${service.color}, ${service.color}cc)`,
-                            width: 64,
-                            height: 64,
+                            background: service.color,
+                            width: 56,
+                            height: 56,
                             mr: 2,
-                            boxShadow: `0 8px 20px ${service.color}30`,
-                            border: '3px solid rgba(255, 255, 255, 0.9)',
-                            transition: 'all 0.3s ease-in-out'
+                            transition: 'all 0.2s ease-in-out'
                           }}
                         >
                           {service.icon}
@@ -627,63 +613,27 @@ const Home: FC = () => {
                           <Typography 
                             variant="h6" 
                             sx={{ 
-                              fontWeight: 700,
-                              mb: 1,
-                              lineHeight: 1.2
+                              fontWeight: 600,
+                              mb: 0.5,
+                              lineHeight: 1.3,
+                              color: 'text.primary'
                             }}
                           >
                             {service.title}
                           </Typography>
-                          <ArrowForwardIcon 
-                            className="service-arrow"
-                            sx={{ 
-                              position: 'absolute',
-                              top: 20,
-                              right: 20,
-                              transition: 'all 0.3s ease-in-out',
-                              opacity: 0.4,
-                              fontSize: '1.5rem',
-                              color: 'text.secondary'
-                            }} 
-                          />
                         </Box>
                       </Box>
                       
                       <Typography 
                         variant="body2" 
                         sx={{ 
-                          opacity: 0.8,
-                          lineHeight: 1.6,
-                          flex: 1,
-                          mb: 2
+                          color: 'text.secondary',
+                          lineHeight: 1.5,
+                          fontSize: '0.875rem'
                         }}
                       >
                         {service.description}
                       </Typography>
-
-                      {/* Service Stats */}
-                      <Box sx={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        mt: 'auto'
-                      }}>
-                        <Typography variant="caption" sx={{ opacity: 0.7 }}>
-                          {service.stats.label}
-                        </Typography>
-                        <Chip
-                          className="service-stats"
-                          label={loading ? '...' : service.stats.value}
-                          size="small"
-                          sx={{
-                            background: 'rgba(226, 232, 240, 0.5)',
-                            color: 'text.secondary',
-                            fontWeight: 600,
-                            border: '2px solid rgba(226, 232, 240, 0.8)',
-                            transition: 'all 0.3s ease-in-out'
-                          }}
-                        />
-                      </Box>
                     </CardContent>
                   </Card>
                 </Grid>
