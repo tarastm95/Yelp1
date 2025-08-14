@@ -5,8 +5,6 @@ import { Link as RouterLink } from 'react-router-dom';
 import {
   Container,
   Typography,
-  Card,
-  CardContent,
   Button,
   Grow,
   Box,
@@ -375,41 +373,43 @@ const Home: FC = () => {
               <Grid container spacing={3}>
                 {category.services.map((service, serviceIndex) => (
                   <Grid item xs={12} md={6} lg={3} key={service.title}>
-                    <Card sx={{
-                      height: 200,
-                      background: `linear-gradient(135deg, ${service.color} 0%, ${service.color}dd 100%)`,
-                      borderRadius: 3,
-                      overflow: 'hidden',
-                      position: 'relative',
-                      transition: 'all 0.3s ease-in-out',
-                      cursor: 'pointer',
-                      boxShadow: '0 8px 25px rgba(0, 0, 0, 0.15)',
-                      border: 'none',
-                      
-                      '&:hover': {
-                        transform: 'translateY(-8px)',
-                        boxShadow: '0 15px 40px rgba(0, 0, 0, 0.25)',
+                    <Box
+                      component={RouterLink}
+                      to={service.href}
+                      sx={{
+                        display: 'block',
+                        textDecoration: 'none',
+                        height: 200,
+                        background: `linear-gradient(135deg, ${service.color} 0%, ${service.color}dd 100%)`,
+                        borderRadius: 3,
+                        overflow: 'hidden',
+                        position: 'relative',
+                        transition: 'all 0.3s ease-in-out',
+                        cursor: 'pointer',
+                        boxShadow: '0 8px 25px rgba(0, 0, 0, 0.15)',
                         
-                        '& .service-button': {
-                          gap: 1.5,
-                          '& .arrow-icon': {
-                            transform: 'translateX(4px)'
+                        '&:hover': {
+                          transform: 'translateY(-8px)',
+                          boxShadow: '0 15px 40px rgba(0, 0, 0, 0.25)',
+                          
+                          '& .service-button': {
+                            gap: 1.5,
+                            '& .arrow-icon': {
+                              transform: 'translateX(4px)'
+                            }
                           }
                         }
-                      }
-                    }}
-                    component={RouterLink}
-                    to={service.href}
-                  >
-                    <CardContent 
-                      sx={{ 
-                        p: 3, 
-                        height: '100%',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        justifyContent: 'space-between'
                       }}
                     >
+                      <Box
+                        sx={{
+                          p: 3,
+                          height: '100%',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between'
+                        }}
+                      >
                       <Box>
                         <Typography 
                           variant="h6" 
@@ -467,8 +467,8 @@ const Home: FC = () => {
                           }} 
                         />
                       </Button>
-                    </CardContent>
-                  </Card>
+                      </Box>
+                    </Box>
                 </Grid>
               ))}
             </Grid>
