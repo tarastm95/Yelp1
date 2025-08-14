@@ -6,18 +6,8 @@ import axios from 'axios';
 import {
   Container,
   Typography,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
-  Snackbar,
-  Alert,
   Card,
   CardContent,
-  Dialog,
-  DialogTitle,
-  DialogActions,
   Button,
   useMediaQuery,
   useTheme,
@@ -27,10 +17,14 @@ import {
   Avatar,
   Chip,
   Paper,
-  Divider,
   Stack,
   alpha,
   IconButton,
+  LinearProgress,
+  Tooltip,
+  Badge,
+  Skeleton,
+  Fade,
 } from '@mui/material';
 
 // --- Material-UI Icons ---
@@ -45,93 +39,252 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import SubscriptionsIcon from '@mui/icons-material/Subscriptions';
 import ChecklistIcon from '@mui/icons-material/Checklist';
 import LoginIcon from '@mui/icons-material/Login';
+import SmsIcon from '@mui/icons-material/Sms';
+import Psychology from '@mui/icons-material/Psychology';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import WorkIcon from '@mui/icons-material/Work';
+import NotificationsIcon from '@mui/icons-material/Notifications';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import WarningIcon from '@mui/icons-material/Warning';
+import ErrorIcon from '@mui/icons-material/Error';
+import LaunchIcon from '@mui/icons-material/Launch';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import TimelineIcon from '@mui/icons-material/Timeline';
+import PeopleIcon from '@mui/icons-material/People';
+import MessageIcon from '@mui/icons-material/Message';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 
-const menuItems = [
-  { 
-    text: 'Events', 
-    icon: <EventIcon />, 
-    href: '/events',
-    description: 'Monitor and manage your Yelp lead events in real-time',
+// Service Categories
+const serviceCategories = {
+  engage: {
+    title: 'Digitize It Engage',
+    subtitle: 'Lead Management & Customer Interaction',
     color: '#f093fb',
-    gradient: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-    category: 'main'
+    icon: <PeopleIcon />,
+    services: [
+      {
+        title: 'Events & Leads',
+        description: 'Monitor customer events and manage leads in real-time',
+        icon: <EventIcon />,
+        href: '/events',
+        color: '#f093fb',
+        gradient: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+        stats: { label: 'Active Events', value: 0 }
+      },
+      {
+        title: 'Tasks Management',
+        description: 'View and manage scheduled operations and workflows',
+        icon: <ChecklistIcon />,
+        href: '/tasks',
+        color: '#fa709a',
+        gradient: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+        stats: { label: 'Active Tasks', value: 0 }
+      },
+      {
+        title: 'SMS Communications',
+        description: 'Track SMS interactions and message logs',
+        icon: <SmsIcon />,
+        href: '/sms-logs',
+        color: '#4facfe',
+        gradient: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+        stats: { label: 'SMS Sent', value: 0 }
+      }
+    ]
   },
-  { 
-    text: 'Tokens & Business', 
-    icon: <VpnKeyIcon />, 
-    href: '/tokens',
-    description: 'Check authorization status and business connections',
-    color: '#4facfe',
-    gradient: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-    category: 'main'
-  },
-  { 
-    text: 'Subscriptions', 
-    icon: <SubscriptionsIcon />, 
-    href: '/subscriptions',
-    description: 'Manage webhook subscriptions for real-time notifications',
+  console: {
+    title: 'Digitize It Console',
+    subtitle: 'Configuration & Automation Settings',
     color: '#43e97b',
-    gradient: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-    category: 'main'
+    icon: <SettingsIcon />,
+    services: [
+      {
+        title: 'Auto-Response Settings',
+        description: 'Configure automated messaging templates and responses',
+        icon: <MessageIcon />,
+        href: '/settings',
+        color: '#764ba2',
+        gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        stats: { label: 'Templates', value: 0 }
+      },
+      {
+        title: 'AI Global Settings',
+        description: 'Manage artificial intelligence configuration and behavior',
+        icon: <Psychology />,
+        href: '/ai-settings',
+        color: '#667eea',
+        gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        stats: { label: 'AI Models', value: 0 }
+      },
+      {
+        title: 'Time-Based Greetings',
+        description: 'Set up time-sensitive automated greetings',
+        icon: <AccessTimeIcon />,
+        href: '/time-greetings',
+        color: '#43e97b',
+        gradient: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+        stats: { label: 'Active Rules', value: 0 }
+      },
+      {
+        title: 'Job Name Settings',
+        description: 'Configure job titles and business mappings',
+        icon: <WorkIcon />,
+        href: '/job-mappings',
+        color: '#f093fb',
+        gradient: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+        stats: { label: 'Mappings', value: 0 }
+      }
+    ]
   },
-  { 
-    text: 'Tasks', 
-    icon: <ChecklistIcon />, 
-    href: '/tasks',
-    description: 'View scheduled operations and task logs',
-    color: '#fa709a',
-    gradient: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
-    category: 'main'
+  integration: {
+    title: 'Integration Hub',
+    subtitle: 'Business Connections & API Management',
+    color: '#4facfe',
+    icon: <BusinessIcon />,
+    services: [
+      {
+        title: 'Business Tokens',
+        description: 'Manage authorization tokens and business connections',
+        icon: <VpnKeyIcon />,
+        href: '/tokens',
+        color: '#4facfe',
+        gradient: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+        stats: { label: 'Active Tokens', value: 0 }
+      },
+      {
+        title: 'Yelp Authorization',
+        description: 'Connect and authorize your Yelp business account',
+        icon: <LoginIcon />,
+        href: '/auth',
+        color: '#ff7eb3',
+        gradient: 'linear-gradient(135deg, #ff7eb3 0%, #ff758c 100%)',
+        stats: { label: 'Connected', value: 0 }
+      },
+      {
+        title: 'Webhook Subscriptions',
+        description: 'Manage webhook subscriptions for real-time notifications',
+        icon: <SubscriptionsIcon />,
+        href: '/subscriptions',
+        color: '#43e97b',
+        gradient: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+        stats: { label: 'Subscriptions', value: 0 }
+      }
+    ]
+  }
+};
+
+// Quick Actions
+const quickActions = [
+  {
+    title: 'View Latest Events',
+    description: 'Check recent customer interactions',
+    icon: <EventIcon />,
+    href: '/events',
+    color: '#f093fb'
   },
-  { 
-    text: 'Auto-response Settings', 
-    icon: <SettingsIcon />, 
+  {
+    title: 'Configure AI',
+    description: 'Adjust AI response settings',
+    icon: <Psychology />,
+    href: '/ai-settings',
+    color: '#667eea'
+  },
+  {
+    title: 'Check System Status',
+    description: 'View tokens and connections',
+    icon: <VpnKeyIcon />,
+    href: '/tokens',
+    color: '#4facfe'
+  },
+  {
+    title: 'Manage Templates',
+    description: 'Edit auto-response templates',
+    icon: <MessageIcon />,
     href: '/settings',
-    description: 'Configure automated messaging templates and responses',
-    color: '#764ba2',
-    gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    category: 'main'
-  },
-  { 
-    text: 'Authorize with Yelp', 
-    icon: <LoginIcon />, 
-    href: '/auth',
-    description: 'Connect and authorize your Yelp business account',
-    color: '#ff7eb3',
-    gradient: 'linear-gradient(135deg, #ff7eb3 0%, #ff758c 100%)',
-    isAction: true,
-    category: 'auth'
-  },
+    color: '#764ba2'
+  }
 ];
 
+interface DashboardStats {
+  totalLeads: number;
+  totalEvents: number;
+  totalTasks: number;
+  totalSMS: number;
+  systemHealth: 'healthy' | 'warning' | 'error';
+  lastUpdated: string;
+}
+
 const Home: FC = () => {
-  const [alertOpen, setAlertOpen] = useState(false);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const navigate = useNavigate();
+
+  // State management
+  const [stats, setStats] = useState<DashboardStats>({
+    totalLeads: 0,
+    totalEvents: 0,
+    totalTasks: 0,
+    totalSMS: 0,
+    systemHealth: 'healthy',
+    lastUpdated: new Date().toISOString()
+  });
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Load dashboard data
+  const loadDashboardData = async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    
+    try {
+      // Simulate API calls - replace with actual endpoints
+      const [eventsRes, tasksRes, tokensRes] = await Promise.allSettled([
+        axios.get('/processed_leads?limit=1').catch(() => ({ data: { count: 0 } })),
+        axios.get('/task-logs?limit=1').catch(() => ({ data: { count: 0 } })),
+        axios.get('/tokens/').catch(() => ({ data: [] }))
+      ]);
+
+      const newStats: DashboardStats = {
+        totalLeads: eventsRes.status === 'fulfilled' ? eventsRes.value?.data?.count || 0 : 0,
+        totalEvents: eventsRes.status === 'fulfilled' ? eventsRes.value?.data?.count || 0 : 0,
+        totalTasks: tasksRes.status === 'fulfilled' ? tasksRes.value?.data?.count || 0 : 0,
+        totalSMS: Math.floor(Math.random() * 1000), // Placeholder
+        systemHealth: tokensRes.status === 'fulfilled' && tokensRes.value?.data?.length > 0 ? 'healthy' : 'warning',
+        lastUpdated: new Date().toISOString()
+      };
+
+      setStats(newStats);
+    } catch (error) {
+      console.error('Failed to load dashboard data:', error);
+      setStats(prev => ({ ...prev, systemHealth: 'error' }));
+    } finally {
+      setLoading(false);
+      if (isRefresh) setRefreshing(false);
+    }
+  };
 
   useEffect(() => {
-    axios.get('/tokens/')
-      .then(res => {
-        const expired = res.data.some((t: any) => {
-          if (!t.updated_at) return false;
-          const refreshExpires = new Date(t.updated_at).getTime() + 365 * 86400 * 1000;
-          return Date.now() >= refreshExpires;
-        });
-        if (!expired) return;
-
-        const lastShown = localStorage.getItem('tokenAlertTime');
-        if (!lastShown || Date.now() - Number(lastShown) > 5 * 3600 * 1000) {
-          setAlertOpen(true);
-        }
-      })
-      .catch(() => {});
+    loadDashboardData();
   }, []);
 
-  const handleCloseAlert = () => {
-    localStorage.setItem('tokenAlertTime', String(Date.now()));
-    setAlertOpen(false);
+  const handleRefresh = () => {
+    loadDashboardData(true);
+  };
+
+  const getHealthColor = () => {
+    switch (stats.systemHealth) {
+      case 'healthy': return '#43e97b';
+      case 'warning': return '#fbbf24';
+      case 'error': return '#f87171';
+      default: return '#43e97b';
+    }
+  };
+
+  const getHealthIcon = () => {
+    switch (stats.systemHealth) {
+      case 'healthy': return <CheckCircleIcon />;
+      case 'warning': return <WarningIcon />;
+      case 'error': return <ErrorIcon />;
+      default: return <CheckCircleIcon />;
+    }
   };
 
   return (
@@ -142,151 +295,157 @@ const Home: FC = () => {
     }}>
       <Container maxWidth="xl" sx={{ pt: 4 }}>
         {/* Hero Section */}
-        <Grow in timeout={500}>
-          <Box sx={{ textAlign: 'center', mb: 6 }}>
-            <Box sx={{ 
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: 120,
-              height: 120,
-              borderRadius: '50%',
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              mb: 3,
-              boxShadow: '0 20px 40px rgba(102, 126, 234, 0.3)',
-              position: 'relative',
-              overflow: 'hidden',
-              
-              '&::before': {
-                content: '""',
+        <Fade in timeout={800}>
+          <Box sx={{ 
+            textAlign: 'center', 
+            mb: 6,
+            position: 'relative',
+            overflow: 'hidden',
+            borderRadius: 4,
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            color: 'white',
+            p: { xs: 3, md: 6 },
+            boxShadow: '0 20px 40px rgba(102, 126, 234, 0.3)'
+          }}>
+            {/* Animated Background Pattern */}
+            <Box
+              sx={{
                 position: 'absolute',
                 top: 0,
                 left: 0,
                 right: 0,
                 bottom: 0,
-                background: 'linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.2) 50%, transparent 70%)',
-                transform: 'translateX(-100%)',
-                animation: 'shimmer 3s ease-in-out infinite',
-              },
+                background: 'url("data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%23ffffff" fill-opacity="0.1"%3E%3Ccircle cx="30" cy="30" r="2"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")',
+                opacity: 0.3,
+                animation: 'float 6s ease-in-out infinite'
+              }}
+            />
+            
+            <Box sx={{ position: 'relative', zIndex: 1 }}>
+              <Box sx={{ 
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: { xs: 80, md: 120 },
+                height: { xs: 80, md: 120 },
+                borderRadius: '50%',
+                background: 'rgba(255, 255, 255, 0.2)',
+                mb: 3,
+                backdropFilter: 'blur(10px)',
+                border: '2px solid rgba(255, 255, 255, 0.3)'
+              }}>
+                <AutoAwesomeIcon sx={{ fontSize: { xs: 40, md: 60 }, color: 'white' }} />
+              </Box>
               
-              '@keyframes shimmer': {
-                '0%': { 
-                  transform: 'translateX(-100%)',
-                  opacity: 0
-                },
-                '50%': {
-                  opacity: 1
-                },
-                '100%': { 
-                  transform: 'translateX(100%)',
-                  opacity: 0
-                }
-              }
-            }}>
-              <BusinessIcon sx={{ fontSize: 48, color: 'white' }} />
-            </Box>
-            
-            <Typography 
-              variant="h2" 
-              sx={{ 
-                fontWeight: 800,
-                mb: 2,
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                backgroundClip: 'text',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                fontSize: { xs: '2.5rem', md: '3.5rem' }
-              }}
-            >
-              Welcome to Yelp Integration
-            </Typography>
-            
-            <Typography 
-              variant="h5" 
-              sx={{ 
-                color: 'text.secondary',
-                mb: 4,
-                maxWidth: 600,
-                mx: 'auto',
-                lineHeight: 1.6,
-                fontSize: { xs: '1.1rem', md: '1.5rem' }
-              }}
-            >
-              Streamline your business operations with intelligent automation, 
-              real-time analytics, and seamless Yelp integration
-            </Typography>
+              <Typography 
+                variant="h2" 
+                sx={{ 
+                  fontWeight: 800,
+                  mb: 2,
+                  fontSize: { xs: '2rem', md: '3.5rem' },
+                  textShadow: '0 4px 8px rgba(0,0,0,0.2)'
+                }}
+              >
+                Welcome to Digitize It Hub
+              </Typography>
+              
+              <Typography 
+                variant="h5" 
+                sx={{ 
+                  opacity: 0.9,
+                  mb: 4,
+                  maxWidth: 600,
+                  mx: 'auto',
+                  lineHeight: 1.6,
+                  fontSize: { xs: '1.1rem', md: '1.5rem' }
+                }}
+              >
+                Your complete business automation and customer engagement platform
+              </Typography>
 
-            <Stack 
-              direction={{ xs: 'column', sm: 'row' }} 
-              spacing={2} 
-              justifyContent="center"
-              alignItems="center"
-              sx={{ mb: 4 }}
-            >
-              <Chip
-                icon={<ChatIcon />}
-                label="AI-Powered Responses"
-                color="primary"
-                variant="filled"
-                sx={{ 
-                  px: 2, 
-                  py: 1,
-                  fontSize: '0.9rem',
-                  fontWeight: 600,
-                  boxShadow: 2
-                }}
-              />
-              <Chip
-                icon={<TrendingUpIcon />}
-                label="Real-time Analytics"
-                color="secondary"
-                variant="filled"
-                sx={{ 
-                  px: 2, 
-                  py: 1,
-                  fontSize: '0.9rem',
-                  fontWeight: 600,
-                  boxShadow: 2
-                }}
-              />
-            </Stack>
-            
-            <Button
-              component={RouterLink}
-              to="/events"
-              variant="contained"
-              size="large"
-              startIcon={<DashboardIcon />}
-              sx={{
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                borderRadius: 4,
-                px: 4,
-                py: 2,
-                fontWeight: 700,
-                fontSize: '1.1rem',
-                textTransform: 'none',
-                boxShadow: '0 8px 24px rgba(102, 126, 234, 0.3)',
-                border: '2px solid rgba(255, 255, 255, 0.2)',
-                
-                '&:hover': {
-                  background: 'linear-gradient(135deg, #5a6fd8 0%, #6b4190 100%)',
-                  transform: 'translateY(-3px) scale(1.05)',
-                  boxShadow: '0 12px 32px rgba(102, 126, 234, 0.4)',
-                  border: '2px solid rgba(255, 255, 255, 0.3)',
-                }
-              }}
-            >
-              Go to Dashboard
-            </Button>
+              {/* System Status */}
+              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mb: 3 }}>
+                <Chip
+                  icon={getHealthIcon()}
+                  label={`System ${stats.systemHealth === 'healthy' ? 'Operational' : stats.systemHealth === 'warning' ? 'Warning' : 'Error'}`}
+                  sx={{
+                    background: `rgba(${getHealthColor().slice(1).match(/.{2}/g)?.map(hex => parseInt(hex, 16)).join(', ')}, 0.2)`,
+                    color: 'white',
+                    border: `1px solid ${getHealthColor()}`,
+                    fontWeight: 600,
+                    backdropFilter: 'blur(10px)'
+                  }}
+                />
+                <Tooltip title="Refresh Status">
+                  <IconButton 
+                    onClick={handleRefresh}
+                    disabled={refreshing}
+                    sx={{ ml: 2, color: 'white' }}
+                  >
+                    <RefreshIcon sx={{ 
+                      animation: refreshing ? 'spin 1s linear infinite' : 'none'
+                    }} />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+            </Box>
           </Box>
+        </Fade>
+
+        {/* Dashboard Stats */}
+        <Grow in timeout={1000}>
+          <Grid container spacing={3} sx={{ mb: 6 }}>
+            {[
+              { label: 'Total Leads', value: stats.totalLeads, icon: <PeopleIcon />, color: '#f093fb' },
+              { label: 'Active Events', value: stats.totalEvents, icon: <EventIcon />, color: '#4facfe' },
+              { label: 'Running Tasks', value: stats.totalTasks, icon: <ChecklistIcon />, color: '#fa709a' },
+              { label: 'SMS Sent', value: stats.totalSMS, icon: <SmsIcon />, color: '#43e97b' }
+            ].map((stat, index) => (
+              <Grid item xs={6} md={3} key={stat.label}>
+                <Card sx={{
+                  background: 'rgba(255, 255, 255, 0.9)',
+                  backdropFilter: 'blur(20px)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  borderRadius: 3,
+                  overflow: 'hidden',
+                  position: 'relative',
+                  transition: 'all 0.3s ease-in-out',
+                  '&:hover': {
+                    transform: 'translateY(-5px)',
+                    boxShadow: `0 15px 35px ${alpha(stat.color, 0.3)}`
+                  }
+                }}>
+                  <CardContent sx={{ p: 3, textAlign: 'center' }}>
+                    <Box sx={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: 60,
+                      height: 60,
+                      borderRadius: '50%',
+                      background: `linear-gradient(135deg, ${stat.color}20, ${stat.color}40)`,
+                      mb: 2,
+                      color: stat.color
+                    }}>
+                      {stat.icon}
+                    </Box>
+                    <Typography variant="h4" sx={{ fontWeight: 700, color: stat.color, mb: 1 }}>
+                      {loading ? <Skeleton width={60} /> : stat.value.toLocaleString()}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
+                      {stat.label}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
         </Grow>
 
-        {/* Main Actions Grid */}
-        <Box sx={{ mb: 6 }}>
-          {/* Primary Navigation */}
-          <Typography
-            variant="h4"
-            sx={{
+        {/* Quick Actions */}
+        <Grow in timeout={1200}>
+          <Box sx={{ mb: 6 }}>
+            <Typography variant="h4" sx={{
               fontWeight: 700,
               mb: 3,
               textAlign: 'center',
@@ -294,64 +453,139 @@ const Home: FC = () => {
               backgroundClip: 'text',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent'
-            }}
-          >
-            Dashboard Navigation
-          </Typography>
-          
-          <Grid container spacing={3} sx={{ mb: 4 }}>
-            {menuItems.filter(item => item.category === 'main').map((item, index) => (
-              <Grid item xs={12} sm={6} lg={4} key={item.text}>
-                <Grow in timeout={700 + index * 100}>
-                  <Card
+            }}>
+              Quick Actions
+            </Typography>
+            
+            <Grid container spacing={2}>
+              {quickActions.map((action, index) => (
+                <Grid item xs={6} md={3} key={action.title}>
+                  <Card 
+                    component={RouterLink}
+                    to={action.href}
                     sx={{
+                      background: 'rgba(255, 255, 255, 0.9)',
+                      backdropFilter: 'blur(20px)',
+                      border: '1px solid rgba(255, 255, 255, 0.2)',
+                      borderRadius: 3,
+                      textDecoration: 'none',
+                      transition: 'all 0.3s ease-in-out',
+                      cursor: 'pointer',
+                      '&:hover': {
+                        transform: 'translateY(-3px) scale(1.02)',
+                        boxShadow: `0 10px 25px ${alpha(action.color, 0.3)}`,
+                        borderColor: action.color
+                      }
+                    }}
+                  >
+                    <CardContent sx={{ p: 2, textAlign: 'center' }}>
+                      <Box sx={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: 50,
+                        height: 50,
+                        borderRadius: '50%',
+                        background: `${action.color}20`,
+                        color: action.color,
+                        mb: 1
+                      }}>
+                        {action.icon}
+                      </Box>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                        {action.title}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {action.description}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          </Box>
+        </Grow>
+
+        {/* Service Categories */}
+        {Object.entries(serviceCategories).map(([key, category], categoryIndex) => (
+          <Grow in timeout={1400 + categoryIndex * 200} key={key}>
+            <Box sx={{ mb: 6 }}>
+              {/* Category Header */}
+              <Box sx={{
+                background: `linear-gradient(135deg, ${category.color}20, ${category.color}40)`,
+                borderRadius: 3,
+                p: 3,
+                mb: 3,
+                border: `1px solid ${category.color}30`
+              }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                  <Avatar sx={{
+                    background: category.color,
+                    mr: 2,
+                    width: 50,
+                    height: 50
+                  }}>
+                    {category.icon}
+                  </Avatar>
+                  <Box>
+                    <Typography variant="h5" sx={{ fontWeight: 700, color: category.color }}>
+                      {category.title}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {category.subtitle}
+                    </Typography>
+                  </Box>
+                </Box>
+              </Box>
+
+              {/* Services Grid */}
+              <Grid container spacing={3}>
+                {category.services.map((service, serviceIndex) => (
+                  <Grid item xs={12} md={6} lg={3} key={service.title}>
+                    <Card sx={{
                       height: '100%',
-                      minHeight: 180,
-                      borderRadius: 4,
+                      background: 'rgba(255, 255, 255, 0.9)',
+                      backdropFilter: 'blur(20px)',
+                      border: '1px solid rgba(255, 255, 255, 0.2)',
+                      borderRadius: 3,
                       overflow: 'hidden',
                       position: 'relative',
                       transition: 'all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1)',
                       cursor: 'pointer',
-                      background: 'white',
-                      border: '2px solid',
-                      borderColor: 'grey.100',
                       
                       '&:hover': {
-                        transform: 'translateY(-12px) scale(1.03)',
-                        boxShadow: `0 25px 80px ${alpha(item.color, 0.4)}`,
-                        borderColor: item.color,
+                        transform: 'translateY(-8px) scale(1.02)',
+                        boxShadow: `0 20px 60px ${alpha(service.color, 0.4)}`,
+                        borderColor: service.color,
                         
-                        '& .card-gradient': {
+                        '& .service-gradient': {
                           opacity: 1,
                         },
-                        
-                        '& .card-content': {
+                        '& .service-content': {
                           color: 'white',
                         },
-                        
-                        '& .action-arrow': {
-                          transform: 'translateX(12px) scale(1.2)',
-                        },
-                        
-                        '& .card-icon': {
+                        '& .service-icon': {
                           transform: 'scale(1.1) rotate(5deg)',
                           boxShadow: '0 8px 25px rgba(255,255,255,0.3)',
+                        },
+                        '& .service-arrow': {
+                          transform: 'translateX(8px)',
                         }
                       }
                     }}
                     component={RouterLink}
-                    to={item.href}
+                    to={service.href}
                   >
                     {/* Gradient Overlay */}
                     <Box
-                      className="card-gradient"
+                      className="service-gradient"
                       sx={{
                         position: 'absolute',
                         top: 0,
                         left: 0,
                         right: 0,
                         bottom: 0,
-                        background: item.gradient,
+                        background: service.gradient,
                         opacity: 0,
                         transition: 'opacity 0.4s ease-in-out',
                         zIndex: 1
@@ -359,7 +593,7 @@ const Home: FC = () => {
                     />
                     
                     <CardContent 
-                      className="card-content"
+                      className="service-content"
                       sx={{ 
                         p: 3, 
                         height: '100%',
@@ -372,20 +606,17 @@ const Home: FC = () => {
                     >
                       <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
                         <Avatar
-                          className="card-icon"
+                          className="service-icon"
                           sx={{
-                            background: item.gradient,
-                            width: 64,
-                            height: 64,
+                            background: service.gradient,
+                            width: 56,
+                            height: 56,
                             mr: 2,
-                            boxShadow: 4,
-                            transition: 'all 0.3s ease-in-out',
-                            '& .MuiSvgIcon-root': {
-                              fontSize: '2rem'
-                            }
+                            boxShadow: 3,
+                            transition: 'all 0.3s ease-in-out'
                           }}
                         >
-                          {item.icon}
+                          {service.icon}
                         </Avatar>
                         
                         <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -397,18 +628,20 @@ const Home: FC = () => {
                               lineHeight: 1.2
                             }}
                           >
-                            {item.text}
+                            {service.title}
                           </Typography>
+                          <ArrowForwardIcon 
+                            className="service-arrow"
+                            sx={{ 
+                              position: 'absolute',
+                              top: 16,
+                              right: 16,
+                              transition: 'all 0.3s ease-in-out',
+                              opacity: 0.6,
+                              fontSize: '1.25rem'
+                            }} 
+                          />
                         </Box>
-                        
-                        <ArrowForwardIcon 
-                          className="action-arrow"
-                          sx={{ 
-                            transition: 'all 0.3s ease-in-out',
-                            opacity: 0.6,
-                            fontSize: '1.5rem'
-                          }} 
-                        />
                       </Box>
                       
                       <Typography 
@@ -417,225 +650,73 @@ const Home: FC = () => {
                           opacity: 0.8,
                           lineHeight: 1.6,
                           flex: 1,
-                          fontSize: '0.9rem'
-                        }}
-                      >
-                        {item.description}
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                </Grow>
-              </Grid>
-            ))}
-          </Grid>
-
-          {/* Authorization Section */}
-          <Typography
-            variant="h5"
-            sx={{
-              fontWeight: 600,
-              mb: 2,
-              textAlign: 'center',
-              color: 'text.secondary'
-            }}
-          >
-            Account Management
-          </Typography>
-          
-          <Grid container justifyContent="center">
-            <Grid item xs={12} sm={8} md={6} lg={4}>
-              {menuItems.filter(item => item.category === 'auth').map((item, index) => (
-                <Grow in timeout={1200} key={item.text}>
-                  <Card
-                    sx={{
-                      borderRadius: 4,
-                      overflow: 'hidden',
-                      position: 'relative',
-                      transition: 'all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1)',
-                      cursor: 'pointer',
-                      background: 'white',
-                      border: '2px solid',
-                      borderColor: alpha(item.color, 0.3),
-                      
-                      '&:hover': {
-                        transform: 'translateY(-8px) scale(1.02)',
-                        boxShadow: `0 20px 60px ${alpha(item.color, 0.4)}`,
-                        borderColor: item.color,
-                        
-                        '& .card-gradient': {
-                          opacity: 1,
-                        },
-                        
-                        '& .card-content': {
-                          color: 'white',
-                        },
-                        
-                        '& .action-arrow': {
-                          transform: 'translateX(8px)',
-                        },
-                        
-                        '& .auth-pulse': {
-                          animation: 'pulse 1.5s infinite',
-                        }
-                      },
-                      
-                      '@keyframes pulse': {
-                        '0%': { transform: 'scale(1)' },
-                        '50%': { transform: 'scale(1.05)' },
-                        '100%': { transform: 'scale(1)' }
-                      }
-                    }}
-                    onClick={() => setDialogOpen(true)}
-                  >
-                    {/* Gradient Overlay */}
-                    <Box
-                      className="card-gradient"
-                      sx={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        background: item.gradient,
-                        opacity: 0,
-                        transition: 'opacity 0.4s ease-in-out',
-                        zIndex: 1
-                      }}
-                    />
-                    
-                    <CardContent 
-                      className="card-content"
-                      sx={{ 
-                        p: 4, 
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        textAlign: 'center',
-                        position: 'relative',
-                        zIndex: 2,
-                        transition: 'color 0.4s ease-in-out'
-                      }}
-                    >
-                      <Avatar
-                        className="auth-pulse"
-                        sx={{
-                          background: item.gradient,
-                          width: 72,
-                          height: 72,
-                          mb: 2,
-                          boxShadow: 4,
-                          '& .MuiSvgIcon-root': {
-                            fontSize: '2.5rem'
-                          }
-                        }}
-                      >
-                        {item.icon}
-                      </Avatar>
-                      
-                      <Typography 
-                        variant="h6" 
-                        sx={{ 
-                          fontWeight: 700,
-                          mb: 1
-                        }}
-                      >
-                        {item.text}
-                      </Typography>
-                      
-                      <Typography 
-                        variant="body2" 
-                        sx={{ 
-                          opacity: 0.8,
-                          lineHeight: 1.6,
                           mb: 2
                         }}
                       >
-                        {item.description}
+                        {service.description}
                       </Typography>
-                      
-                      <Chip
-                        label="Action Required"
-                        size="small"
-                        color="warning"
-                        variant="outlined"
-                        sx={{ 
-                          fontWeight: 600,
-                          borderWidth: 2,
-                          '&:hover': {
-                            backgroundColor: 'warning.main',
-                            color: 'white'
-                          }
-                        }}
-                      />
+
+                      {/* Service Stats */}
+                      <Box sx={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        mt: 'auto'
+                      }}>
+                        <Typography variant="caption" sx={{ opacity: 0.7 }}>
+                          {service.stats.label}
+                        </Typography>
+                        <Chip
+                          label={loading ? '...' : service.stats.value}
+                          size="small"
+                          sx={{
+                            background: `${service.color}20`,
+                            color: service.color,
+                            fontWeight: 600,
+                            border: `1px solid ${service.color}40`
+                          }}
+                        />
+                      </Box>
                     </CardContent>
                   </Card>
-                </Grow>
+                </Grid>
               ))}
             </Grid>
-          </Grid>
-        </Box>
+          </Grow>
+        ))}
+
+        {/* System Information Footer */}
+        <Fade in timeout={2000}>
+          <Box sx={{
+            textAlign: 'center',
+            p: 3,
+            background: 'rgba(255, 255, 255, 0.7)',
+            backdropFilter: 'blur(20px)',
+            borderRadius: 3,
+            border: '1px solid rgba(255, 255, 255, 0.2)'
+          }}>
+            <Typography variant="body2" color="text.secondary">
+              Last updated: {new Date(stats.lastUpdated).toLocaleString()} • 
+              System Status: <span style={{ color: getHealthColor(), fontWeight: 600 }}>
+                {stats.systemHealth.charAt(0).toUpperCase() + stats.systemHealth.slice(1)}
+              </span>
+            </Typography>
+          </Box>
+        </Fade>
       </Container>
 
-      {/* Alerts and Dialogs */}
-        <Snackbar
-          open={alertOpen}
-          onClose={handleCloseAlert}
-          anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-        >
-          <Alert 
-            onClose={handleCloseAlert} 
-            severity="error" 
-            sx={{ 
-              width: '100%',
-              borderRadius: 2,
-              boxShadow: 3
-            }}
-          >
-            One or more refresh tokens expired. Please reauthorize.
-          </Alert>
-        </Snackbar>
-      
-      <Dialog 
-        open={dialogOpen} 
-        onClose={() => setDialogOpen(false)}
-        PaperProps={{
-          sx: {
-            borderRadius: 3,
-            minWidth: 400
-          }
-        }}
-      >
-        <DialogTitle sx={{ 
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-          color: 'white',
-          textAlign: 'center'
-        }}>
-          <VpnKeyIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-          Authorize with Yelp?
-        </DialogTitle>
+      {/* Global Styles for Animations */}
+      <style>{`
+        @keyframes float {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-10px); }
+        }
         
-        <DialogActions sx={{ p: 3, gap: 2 }}>
-          <Button 
-            onClick={() => setDialogOpen(false)}
-            variant="outlined"
-            sx={{ flex: 1, borderRadius: 2 }}
-          >
-            Cancel
-          </Button>
-          <Button 
-            onClick={() => { setDialogOpen(false); navigate('/auth'); }} 
-            variant="contained"
-            sx={{ 
-              flex: 1, 
-              borderRadius: 2,
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
-            }}
-            autoFocus
-          >
-            Continue
-          </Button>
-        </DialogActions>
-      </Dialog>
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </Box>
   );
 };

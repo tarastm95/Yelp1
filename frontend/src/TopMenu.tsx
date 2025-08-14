@@ -46,7 +46,7 @@ const menuGroups = {
     ]
   },
   leads: {
-    title: 'Lead Management',
+    title: 'Digitize It Engage',
     icon: <ManageAccountsIcon />,
     color: '#f093fb',
     items: [
@@ -56,7 +56,7 @@ const menuGroups = {
     ]
   },
   config: {
-    title: 'Configuration',
+    title: 'Digitize It Console',
     icon: <TuneIcon />,
     color: '#43e97b',
     items: [
@@ -151,7 +151,7 @@ const TopMenu: React.FC<Props> = ({ onLogout }) => {
                 textShadow: '0 2px 4px rgba(0,0,0,0.1)'
               }}
             >
-              Yelp Integration
+              Digitize It Hub
             </Typography>
             <Typography 
               variant="caption" 

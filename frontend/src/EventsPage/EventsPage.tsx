@@ -450,10 +450,10 @@ const EventsPage: FC = () => {
           <Box sx={{ position: 'relative', zIndex: 1 }}>
             <EventNoteIcon sx={{ fontSize: 48, mb: 1, opacity: 0.9 }} />
             <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
-              Events & Leads Dashboard
+              Digitize It Engage
             </Typography>
             <Typography variant="body1" sx={{ opacity: 0.9 }}>
-              Monitor and manage your Yelp events and customer leads
+              Monitor and manage your customer engagement and lead interactions
             </Typography>
           </Box>
         </Box>
