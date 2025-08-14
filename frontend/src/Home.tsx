@@ -682,6 +682,7 @@ const Home: FC = () => {
                 </Grid>
               ))}
             </Grid>
+            </Box>
           </Grow>
         ))}
 
