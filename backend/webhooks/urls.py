@@ -15,7 +15,7 @@ from .views import (
 )
 from .lead_views import BusinessSMSSettingsView, AIPreviewView, AIGlobalSettingsView, AITestPreviewView, TimeBasedGreetingView, JobMappingListCreateView, JobMappingDetailView, LeadTimeSeriesView
 from .task_views import TaskLogListView, TaskStatsView, TaskRevokeView, MessageTaskListView, TaskTimeSeriesView
-from .sms_views import SendSMSAPIView, SMSLogListView, SMSStatsView, SMSTimeSeriesView
+from .sms_views import SendSMSAPIView, SMSLogListView, SMSStatsView, SMSTimeSeriesView, SMSUpdatePricesView
 
 urlpatterns = [
     path('webhook/', WebhookView.as_view(), name='webhook'),
@@ -110,4 +110,6 @@ urlpatterns = [
     path('sms-logs/timeseries/', SMSTimeSeriesView.as_view(), name='sms-timeseries'),
     path('tasks/timeseries/', TaskTimeSeriesView.as_view(), name='task-timeseries'),
     path('leads/timeseries/', LeadTimeSeriesView.as_view(), name='lead-timeseries'),
+    # SMS price update endpoint
+    path('sms-logs/update-prices/', SMSUpdatePricesView.as_view(), name='sms-update-prices'),
 ]

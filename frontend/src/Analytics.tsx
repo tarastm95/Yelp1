@@ -80,6 +80,7 @@ const Analytics: FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [timeRange, setTimeRange] = useState<TimeRange>('30days');
+  const [updatingPrices, setUpdatingPrices] = useState(false);
 
   const timeRangeOptions = [
     { value: '7days', label: 'Last 7 Days' },
@@ -229,6 +230,26 @@ const Analytics: FC = () => {
     return total > 0 ? Math.round((successful / total) * 100) : 0;
   };
 
+  const updateSMSPrices = async () => {
+    try {
+      setUpdatingPrices(true);
+      
+      const response = await axios.post('/sms-logs/update-prices/', {
+        days: 30
+      });
+      
+      if (response.data.success) {
+        console.log('SMS prices updated:', response.data);
+        // Reload analytics data after price update
+        await loadAnalyticsData();
+      }
+    } catch (error) {
+      console.error('Failed to update SMS prices:', error);
+    } finally {
+      setUpdatingPrices(false);
+    }
+  };
+
   if (loading && !data) {
     return (
       <Box sx={{ 
@@ -343,6 +364,27 @@ const Analytics: FC = () => {
                     backdropFilter: 'blur(10px)'
                   }}
                 />
+                
+                <Button
+                  variant="contained"
+                  onClick={updateSMSPrices}
+                  disabled={updatingPrices}
+                  sx={{
+                    background: 'rgba(255, 255, 255, 0.2)',
+                    color: 'white',
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(255, 255, 255, 0.3)',
+                    '&:hover': {
+                      background: 'rgba(255, 255, 255, 0.3)'
+                    },
+                    '&:disabled': {
+                      background: 'rgba(255, 255, 255, 0.1)',
+                      color: 'rgba(255, 255, 255, 0.5)'
+                    }
+                  }}
+                >
+                  {updatingPrices ? 'Updating...' : '💰 Update SMS Prices'}
+                </Button>
                 
                 <FormControl sx={{ minWidth: 150 }}>
                   <InputLabel sx={{ color: 'white' }}>Time Range</InputLabel>

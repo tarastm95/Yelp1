@@ -312,3 +312,103 @@ class SMSTimeSeriesView(APIView):
         logger.info(f"[SMS-TIMESERIES] Returning {len(final_result)} daily records")
         return Response(final_result)
 
+
+class SMSUpdatePricesView(APIView):
+    """Update SMS prices from Twilio Messages API for records with missing prices."""
+    
+    def post(self, request):
+        """Update prices for SMS messages that don't have price data."""
+        import os
+        from twilio.rest import Client
+        from datetime import timedelta
+        
+        logger.info(f"[SMS-UPDATE-PRICES] 💰 Starting SMS price update")
+        
+        # Get Twilio credentials
+        account_sid = os.getenv("TWILIO_ACCOUNT_SID")
+        auth_token = os.getenv("TWILIO_AUTH_TOKEN")
+        
+        if not all([account_sid, auth_token]):
+            return Response({
+                'error': 'Twilio credentials not configured'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        try:
+            client = Client(account_sid, auth_token)
+            
+            # Get SMS records without price (from last 30 days)
+            days_back = int(request.data.get('days', 30))
+            since_date = timezone.now() - timedelta(days=days_back)
+            
+            sms_without_price = SMSLog.objects.filter(
+                Q(price__isnull=True) | Q(price='') | Q(price='None'),
+                sent_at__gte=since_date,
+                status__in=['sent', 'delivered', 'received']  # Only for successfully sent messages
+            ).exclude(sid__startswith='FAILED_')[:100]  # Limit to 100 to avoid API limits
+            
+            logger.info(f"[SMS-UPDATE-PRICES] Found {len(sms_without_price)} SMS records without price")
+            
+            updated_count = 0
+            error_count = 0
+            
+            for sms_log in sms_without_price:
+                try:
+                    # Fetch message details from Twilio
+                    message = client.messages(sms_log.sid).fetch()
+                    
+                    # Update price if available
+                    if hasattr(message, 'price') and message.price is not None:
+                        sms_log.price = str(message.price)
+                        sms_log.price_unit = getattr(message, 'price_unit', 'USD')
+                        sms_log.status = getattr(message, 'status', sms_log.status)
+                        sms_log.save(update_fields=['price', 'price_unit', 'status', 'updated_at'])
+                        
+                        logger.info(f"[SMS-UPDATE-PRICES] Updated SID {sms_log.sid}: {message.price} {message.price_unit}")
+                        updated_count += 1
+                    else:
+                        logger.info(f"[SMS-UPDATE-PRICES] SID {sms_log.sid}: price still not available")
+                        
+                except Exception as e:
+                    logger.error(f"[SMS-UPDATE-PRICES] Error updating SID {sms_log.sid}: {e}")
+                    error_count += 1
+                    continue
+            
+            # Also try Usage Records API for aggregate data
+            usage_updated = 0
+            try:
+                # Get today's usage records
+                today = timezone.now().date()
+                usage_records = client.usage.records.list(
+                    category='sms',
+                    start_date=today - timedelta(days=1),
+                    end_date=today,
+                    granularity='daily'
+                )
+                
+                total_usage_cost = 0
+                for record in usage_records:
+                    total_usage_cost += float(record.price)
+                    usage_updated += 1
+                
+                logger.info(f"[SMS-UPDATE-PRICES] Usage Records: {usage_updated} records, total cost: ${total_usage_cost}")
+                
+            except Exception as usage_error:
+                logger.error(f"[SMS-UPDATE-PRICES] Usage Records error: {usage_error}")
+            
+            result = {
+                'success': True,
+                'messages_checked': len(sms_without_price),
+                'prices_updated': updated_count,
+                'errors': error_count,
+                'usage_records_found': usage_updated
+            }
+            
+            logger.info(f"[SMS-UPDATE-PRICES] 📊 Update completed: {result}")
+            return Response(result)
+            
+        except Exception as e:
+            logger.error(f"[SMS-UPDATE-PRICES] Fatal error: {e}")
+            return Response({
+                'error': f'Failed to update SMS prices: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
