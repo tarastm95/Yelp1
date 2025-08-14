@@ -285,10 +285,11 @@ const Home: FC = () => {
             <Grid container spacing={2}>
               {quickActions.map((action, index) => (
                 <Grid item xs={6} md={3} key={action.title}>
-                  <Card
+                  <Box
                     component={RouterLink}
                     to={action.href}
                     sx={{
+                      display: 'block',
                       background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
                       border: '2px solid rgba(226, 232, 240, 0.6)',
                       borderRadius: 4,
@@ -304,7 +305,7 @@ const Home: FC = () => {
                       }
                     }}
                   >
-                    <CardContent sx={{ p: 2, textAlign: 'center' }}>
+                    <Box sx={{ p: 2, textAlign: 'center' }}>
                       <Box sx={{
                         display: 'inline-flex',
                         alignItems: 'center',
@@ -326,8 +327,8 @@ const Home: FC = () => {
                       <Typography variant="caption" color="text.secondary">
                         {action.description}
                       </Typography>
-                    </CardContent>
-                  </Card>
+                    </Box>
+                  </Box>
                 </Grid>
               ))}
             </Grid>
