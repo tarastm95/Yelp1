@@ -1756,8 +1756,9 @@ class WebhookView(APIView):
                 f"[AUTO-RESPONSE] DETAIL ERROR lead={lead_id}, business_id={pl.business_id if pl else 'N/A'}, "
                 f"token_source={source}, token={token[:20]}..., status={resp.status_code}, body={resp.text}"
             )
-            return
-        d = resp.json()
+            d = {}
+        else:
+            d = resp.json()
 
         last_time = None
         ev_resp = requests.get(
@@ -1812,11 +1813,11 @@ class WebhookView(APIView):
 
         detail_data = {
             "lead_id": lead_id,
-            "business_id": d.get("business_id"),
-            "conversation_id": d.get("conversation_id"),
+            "business_id": d.get("business_id") or (pl.business_id if pl else None),
+            "conversation_id": d.get("conversation_id", ""),
             "temporary_email_address": d.get("temporary_email_address"),
             "temporary_email_address_expiry": d.get("temporary_email_address_expiry"),
-            "time_created": d.get("time_created"),
+            "time_created": d.get("time_created") or timezone.now(),
             "last_event_time": last_time,
             "user_display_name": first_name,
             "phone_number": phone_number,
@@ -2062,6 +2063,7 @@ class WebhookView(APIView):
         now = timezone.now()
         tz_name = business.time_zone if business else None
         within_hours = True
+        days_setting = None
         
         logger.info(f"[AUTO-RESPONSE] Business hours calculation:")
         logger.info(f"[AUTO-RESPONSE] - Current UTC time: {now}")

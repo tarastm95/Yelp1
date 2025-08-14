@@ -509,6 +509,44 @@ class BusinessTokenErrorTests(TestCase):
         self.assertEqual(resp.status_code, 201)
         self.assertEqual(LeadEvent.objects.count(), 0)
 
+
+class AutoResponse404DetailTests(TestCase):
+    def setUp(self):
+        self.view = WebhookView()
+        self.lead_id = "l404"
+        self.biz = YelpBusiness.objects.create(business_id="b404", name="biz")
+        ProcessedLead.objects.create(business_id=self.biz.business_id, lead_id=self.lead_id)
+        AutoResponseSettings.objects.create(
+            business=self.biz,
+            phone_opt_in=False,
+            phone_available=False,
+            enabled=True,
+        )
+
+    @patch("webhooks.twilio_utils.send_sms", return_value="sid")
+    @patch("webhooks.webhook_views.send_follow_up.apply_async")
+    @patch("webhooks.webhook_views.requests.get")
+    @patch("webhooks.webhook_views.get_valid_business_token", return_value="tok")
+    def test_detail_404_still_schedules_auto_response(
+        self,
+        mock_token,
+        mock_get,
+        mock_follow_up,
+        mock_sms,
+    ):
+        events_resp = {"events": []}
+        mock_get.side_effect = [
+            type("R", (), {"status_code": 404, "text": "not found"})(),
+            type("R", (), {"status_code": 200, "json": lambda self: events_resp})(),
+        ]
+
+        self.view._process_auto_response(
+            self.lead_id, phone_opt_in=False, phone_available=False
+        )
+
+        mock_follow_up.assert_called_once()
+        self.assertEqual(mock_get.call_count, 2)
+
     @patch("webhooks.webhook_views.requests.get")
     @patch.object(WebhookView, "_cancel_no_phone_tasks")
     @patch.object(WebhookView, "handle_phone_available")
