@@ -88,29 +88,76 @@ const Analytics: FC = () => {
     { value: '1year', label: 'Last Year' }
   ];
 
-  const generateTimeSeriesData = (range: TimeRange): TimeSeriesData[] => {
+  const loadTimeSeriesData = async (range: TimeRange): Promise<TimeSeriesData[]> => {
     const days = range === '7days' ? 7 : range === '30days' ? 30 : range === '90days' ? 90 : 365;
-    const now = new Date();
-    const result: TimeSeriesData[] = [];
     
-    for (let i = days - 1; i >= 0; i--) {
-      const date = new Date(now);
-      date.setDate(date.getDate() - i);
+    try {
+      // Parallel API calls for time-series data
+      const [
+        smsTimeSeriesRes,
+        taskTimeSeriesRes,
+        leadTimeSeriesRes
+      ] = await Promise.allSettled([
+        axios.get(`/sms-logs/timeseries/?days=${days}`),
+        axios.get(`/tasks/timeseries/?days=${days}`),
+        axios.get(`/leads/timeseries/?days=${days}`)
+      ]);
+
+      // Process SMS data
+      const smsData = smsTimeSeriesRes.status === 'fulfilled' ? smsTimeSeriesRes.value.data : [];
+      const taskData = taskTimeSeriesRes.status === 'fulfilled' ? taskTimeSeriesRes.value.data : [];
+      const leadData = leadTimeSeriesRes.status === 'fulfilled' ? leadTimeSeriesRes.value.data : [];
+
+      // Create lookup maps by date
+      const smsLookup = new Map(smsData.map((item: any) => [item.date, item]));
+      const taskLookup = new Map(taskData.map((item: any) => [item.date, item]));
+      const leadLookup = new Map(leadData.map((item: any) => [item.date, item]));
+
+      // Generate date range
+      const result: TimeSeriesData[] = [];
+      const endDate = new Date();
       
-      // Генеруємо реалістичні дані з трендами
-      const dayFactor = Math.sin((i / days) * Math.PI * 2) * 0.3 + 0.7;
-      const randomFactor = Math.random() * 0.4 + 0.8;
+      for (let i = days - 1; i >= 0; i--) {
+        const date = new Date(endDate);
+        date.setDate(date.getDate() - i);
+        const dateStr = date.toISOString().split('T')[0];
+        
+        const smsItem = smsLookup.get(dateStr);
+        const taskItem = taskLookup.get(dateStr);
+        const leadItem = leadLookup.get(dateStr);
+        
+        result.push({
+          date: dateStr,
+          sms_count: smsItem?.sms_count || 0,
+          task_count: taskItem?.task_count || 0,
+          lead_count: leadItem?.lead_count || 0,
+          cost: smsItem?.cost || 0
+        });
+      }
       
-      result.push({
-        date: date.toISOString().split('T')[0],
-        sms_count: Math.floor((Math.random() * 50 + 10) * dayFactor * randomFactor),
-        task_count: Math.floor((Math.random() * 30 + 5) * dayFactor * randomFactor),
-        lead_count: Math.floor((Math.random() * 20 + 2) * dayFactor * randomFactor),
-        cost: parseFloat(((Math.random() * 5 + 0.5) * dayFactor * randomFactor).toFixed(2))
-      });
+      return result;
+    } catch (error) {
+      console.error('Failed to load time series data:', error);
+      // Return empty data on error
+      const result: TimeSeriesData[] = [];
+      const endDate = new Date();
+      
+      for (let i = days - 1; i >= 0; i--) {
+        const date = new Date(endDate);
+        date.setDate(date.getDate() - i);
+        const dateStr = date.toISOString().split('T')[0];
+        
+        result.push({
+          date: dateStr,
+          sms_count: 0,
+          task_count: 0,
+          lead_count: 0,
+          cost: 0
+        });
+      }
+      
+      return result;
     }
-    
-    return result;
   };
 
   const loadAnalyticsData = async () => {
@@ -135,8 +182,8 @@ const Analytics: FC = () => {
         axios.get('/tokens/')
       ]);
 
-      // Generate time series data based on real data patterns
-      const timeSeries = generateTimeSeriesData(timeRange);
+      // Load real time series data from API
+      const timeSeries = await loadTimeSeriesData(timeRange);
 
       const newData: DashboardData = {
         smsStats: smsStatsRes.status === 'fulfilled' ? smsStatsRes.value.data : {

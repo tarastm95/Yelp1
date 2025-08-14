@@ -1,5 +1,8 @@
 import logging
-from django.db.models import Q
+from django.db.models import Q, Count
+from django.db.models.functions import TruncDate
+from datetime import datetime, timedelta
+from django.utils import timezone
 from rest_framework import generics, mixins, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -839,3 +842,118 @@ class JobMappingDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = JobMappingSerializer
     queryset = JobMapping.objects.all()
     lookup_field = 'id'
+
+
+class LeadTimeSeriesView(APIView):
+    """Return Lead time-series data grouped by date."""
+
+    def get(self, request):
+        """Return Lead counts and events grouped by date."""
+        logger.info(f"[LEAD-TIMESERIES] 📊 Lead Time Series API request")
+        logger.info(f"[LEAD-TIMESERIES] Query params: {dict(request.query_params)}")
+        
+        # Parse date range
+        days = int(request.query_params.get("days", 30))
+        business_id = request.query_params.get("business_id")
+        
+        # Calculate date range
+        end_date = timezone.now().date()
+        start_date = end_date - timedelta(days=days-1)
+        
+        logger.info(f"[LEAD-TIMESERIES] Date range: {start_date} to {end_date} ({days} days)")
+        
+        # Query ProcessedLeads (leads processed by date)
+        processed_leads_qs = ProcessedLead.objects.filter(
+            processed_at__date__gte=start_date,
+            processed_at__date__lte=end_date
+        )
+        
+        if business_id:
+            logger.info(f"[LEAD-TIMESERIES] Filtering by business_id: {business_id}")
+            processed_leads_qs = processed_leads_qs.filter(business_id=business_id)
+        
+        # Group processed leads by date
+        processed_leads_stats = processed_leads_qs.annotate(
+            date=TruncDate('processed_at')
+        ).values('date').annotate(
+            lead_count=Count('id')
+        ).order_by('date')
+        
+        # Query LeadEvents (customer interactions by date)
+        events_qs = LeadEvent.objects.filter(
+            time_created__date__gte=start_date,
+            time_created__date__lte=end_date
+        )
+        
+        if business_id:
+            # Filter events by business through LeadDetail
+            lead_ids = (
+                LeadDetail.objects
+                .filter(business_id=business_id)
+                .values_list("lead_id", flat=True)
+            )
+            events_qs = events_qs.filter(lead_id__in=lead_ids)
+        
+        # Group events by date and count different types
+        events_stats = events_qs.annotate(
+            date=TruncDate('time_created')
+        ).values('date').annotate(
+            event_count=Count('id'),
+            customer_events=Count('id', filter=Q(user_type='USER')),
+            business_events=Count('id', filter=Q(user_type='BUSINESS'))
+        ).order_by('date')
+        
+        # Combine results
+        result_dict = {}
+        
+        # Add processed leads stats
+        for stat in processed_leads_stats:
+            date_str = stat['date'].isoformat()
+            result_dict[date_str] = {
+                'date': date_str,
+                'lead_count': stat['lead_count'],
+                'event_count': 0,
+                'customer_events': 0,
+                'business_events': 0
+            }
+        
+        # Add events stats
+        for stat in events_stats:
+            date_str = stat['date'].isoformat()
+            if date_str in result_dict:
+                result_dict[date_str]['event_count'] = stat['event_count']
+                result_dict[date_str]['customer_events'] = stat['customer_events']
+                result_dict[date_str]['business_events'] = stat['business_events']
+            else:
+                result_dict[date_str] = {
+                    'date': date_str,
+                    'lead_count': 0,
+                    'event_count': stat['event_count'],
+                    'customer_events': stat['customer_events'],
+                    'business_events': stat['business_events']
+                }
+        
+        # Fill in missing dates with zero values
+        all_dates = []
+        current_date = start_date
+        while current_date <= end_date:
+            all_dates.append(current_date)
+            current_date += timedelta(days=1)
+        
+        # Build final result with all dates
+        final_result = []
+        for date in all_dates:
+            date_str = date.isoformat()
+            if date_str in result_dict:
+                final_result.append(result_dict[date_str])
+            else:
+                final_result.append({
+                    'date': date_str,
+                    'lead_count': 0,
+                    'event_count': 0,
+                    'customer_events': 0,
+                    'business_events': 0
+                })
+        
+        logger.info(f"[LEAD-TIMESERIES] Returning {len(final_result)} daily records")
+        return Response(final_result)

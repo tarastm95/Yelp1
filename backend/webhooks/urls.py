@@ -13,9 +13,9 @@ from .views import (
     NotificationSettingListCreateView,
     NotificationSettingDetailView,
 )
-from .lead_views import BusinessSMSSettingsView, AIPreviewView, AIGlobalSettingsView, AITestPreviewView, TimeBasedGreetingView, JobMappingListCreateView, JobMappingDetailView
-from .task_views import TaskLogListView, TaskStatsView, TaskRevokeView, MessageTaskListView
-from .sms_views import SendSMSAPIView, SMSLogListView, SMSStatsView
+from .lead_views import BusinessSMSSettingsView, AIPreviewView, AIGlobalSettingsView, AITestPreviewView, TimeBasedGreetingView, JobMappingListCreateView, JobMappingDetailView, LeadTimeSeriesView
+from .task_views import TaskLogListView, TaskStatsView, TaskRevokeView, MessageTaskListView, TaskTimeSeriesView
+from .sms_views import SendSMSAPIView, SMSLogListView, SMSStatsView, SMSTimeSeriesView
 
 urlpatterns = [
     path('webhook/', WebhookView.as_view(), name='webhook'),
@@ -106,4 +106,8 @@ urlpatterns = [
     path('time-greetings/', TimeBasedGreetingView.as_view(), name='time-greetings'),
     path('job-mappings/', JobMappingListCreateView.as_view(), name='job-mapping-list'),
     path('job-mappings/<int:id>/', JobMappingDetailView.as_view(), name='job-mapping-detail'),
+    # Time-series endpoints for analytics
+    path('sms-logs/timeseries/', SMSTimeSeriesView.as_view(), name='sms-timeseries'),
+    path('tasks/timeseries/', TaskTimeSeriesView.as_view(), name='task-timeseries'),
+    path('leads/timeseries/', LeadTimeSeriesView.as_view(), name='lead-timeseries'),
 ]

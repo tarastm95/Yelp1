@@ -3,6 +3,10 @@ from rest_framework.response import Response
 from rest_framework import status, generics
 from rest_framework.pagination import PageNumberPagination
 from django_filters.rest_framework import DjangoFilterBackend, FilterSet, filters
+from django.db.models import Count, Sum, Q
+from django.db.models.functions import TruncDate
+from datetime import datetime, timedelta
+from django.utils import timezone
 import logging
 
 from .serializers import SendSMSSerializer, SMSLogSerializer
@@ -216,4 +220,95 @@ class SMSLogListView(generics.ListAPIView):
         logger.info(f"[SMS-LOGS] Returning {count} SMS logs")
         
         return qs
+
+
+class SMSTimeSeriesView(APIView):
+    """Return SMS time-series data grouped by date."""
+
+    def get(self, request):
+        """Return SMS counts and costs grouped by date."""
+        logger.info(f"[SMS-TIMESERIES] 📊 SMS Time Series API request")
+        logger.info(f"[SMS-TIMESERIES] Query params: {dict(request.query_params)}")
+        
+        # Parse date range
+        days = int(request.query_params.get("days", 30))
+        business_id = request.query_params.get("business_id")
+        
+        # Calculate date range
+        end_date = timezone.now().date()
+        start_date = end_date - timedelta(days=days-1)
+        
+        logger.info(f"[SMS-TIMESERIES] Date range: {start_date} to {end_date} ({days} days)")
+        
+        # Base queryset
+        qs = SMSLog.objects.filter(
+            sent_at__date__gte=start_date,
+            sent_at__date__lte=end_date
+        )
+        
+        # Apply business filtering if provided
+        if business_id:
+            logger.info(f"[SMS-TIMESERIES] Filtering by business_id: {business_id}")
+            qs = qs.filter(business_id=business_id)
+        
+        # Group by date and calculate statistics
+        daily_stats = qs.annotate(
+            date=TruncDate('sent_at')
+        ).values('date').annotate(
+            total_count=Count('id'),
+            successful_count=Count('id', filter=Q(status__in=['queued', 'accepted', 'sending', 'sent', 'delivered'])),
+            failed_count=Count('id', filter=Q(status__in=['failed', 'undelivered'])),
+            pending_count=Count('id', filter=Q(status__in=['queued', 'accepted', 'sending']))
+        ).order_by('date')
+        
+        # Calculate costs separately (more complex due to string field)
+        result = []
+        for stat in daily_stats:
+            # Calculate cost for this date
+            date_cost = 0.0
+            date_sms = qs.filter(sent_at__date=stat['date']).exclude(price__isnull=True).exclude(price='')
+            for sms in date_sms:
+                try:
+                    price = float(sms.price)
+                    date_cost += price
+                except (ValueError, TypeError):
+                    pass
+            
+            result.append({
+                'date': stat['date'].isoformat(),
+                'sms_count': stat['total_count'],
+                'successful_count': stat['successful_count'],
+                'failed_count': stat['failed_count'],
+                'pending_count': stat['pending_count'],
+                'cost': round(date_cost, 3)
+            })
+        
+        # Fill in missing dates with zero values
+        all_dates = []
+        current_date = start_date
+        while current_date <= end_date:
+            all_dates.append(current_date)
+            current_date += timedelta(days=1)
+        
+        # Create a lookup for existing data
+        data_lookup = {item['date']: item for item in result}
+        
+        # Build final result with all dates
+        final_result = []
+        for date in all_dates:
+            date_str = date.isoformat()
+            if date_str in data_lookup:
+                final_result.append(data_lookup[date_str])
+            else:
+                final_result.append({
+                    'date': date_str,
+                    'sms_count': 0,
+                    'successful_count': 0,
+                    'failed_count': 0,
+                    'pending_count': 0,
+                    'cost': 0.0
+                })
+        
+        logger.info(f"[SMS-TIMESERIES] Returning {len(final_result)} daily records")
+        return Response(final_result)
 

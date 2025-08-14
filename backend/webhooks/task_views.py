@@ -4,6 +4,10 @@ from rest_framework import generics, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
+from django.db.models import Count, Q
+from django.db.models.functions import TruncDate
+from datetime import datetime, timedelta
+from django.utils import timezone
 
 import django_rq
 
@@ -133,4 +137,107 @@ class TaskRevokeView(APIView):
         )
         LeadPendingTask.objects.filter(task_id=task_id).update(active=False)
         return Response({"status": "revoked"})
+
+
+class TaskTimeSeriesView(APIView):
+    """Return Task time-series data grouped by date."""
+
+    def get(self, request):
+        """Return Task counts grouped by date."""
+        logger.info(f"[TASK-TIMESERIES] 📊 Task Time Series API request")
+        logger.info(f"[TASK-TIMESERIES] Query params: {dict(request.query_params)}")
+        
+        # Parse date range
+        days = int(request.query_params.get("days", 30))
+        business_id = request.query_params.get("business_id")
+        
+        # Calculate date range
+        end_date = timezone.now().date()
+        start_date = end_date - timedelta(days=days-1)
+        
+        logger.info(f"[TASK-TIMESERIES] Date range: {start_date} to {end_date} ({days} days)")
+        
+        # Base queryset - use finished_at date for completed tasks, eta for scheduled
+        qs = CeleryTaskLog.objects.filter(
+            Q(finished_at__date__gte=start_date, finished_at__date__lte=end_date) |
+            Q(eta__date__gte=start_date, eta__date__lte=end_date, finished_at__isnull=True)
+        )
+        
+        # Apply business filtering if provided
+        if business_id:
+            logger.info(f"[TASK-TIMESERIES] Filtering by business_id: {business_id}")
+            qs = qs.filter(business_id=business_id)
+        
+        # Group by date and calculate statistics for finished tasks
+        finished_stats = qs.filter(finished_at__isnull=False).annotate(
+            date=TruncDate('finished_at')
+        ).values('date').annotate(
+            successful_count=Count('id', filter=Q(status='SUCCESS')),
+            failed_count=Count('id', filter=Q(status='FAILURE')),
+            canceled_count=Count('id', filter=Q(status='REVOKED'))
+        ).order_by('date')
+        
+        # Group by date for scheduled tasks (using eta)
+        scheduled_stats = qs.filter(finished_at__isnull=True, status='SCHEDULED').annotate(
+            date=TruncDate('eta')
+        ).values('date').annotate(
+            scheduled_count=Count('id')
+        ).order_by('date')
+        
+        # Combine results
+        result_dict = {}
+        
+        # Add finished task stats
+        for stat in finished_stats:
+            date_str = stat['date'].isoformat()
+            result_dict[date_str] = {
+                'date': date_str,
+                'task_count': stat['successful_count'] + stat['failed_count'] + stat['canceled_count'],
+                'successful_count': stat['successful_count'],
+                'failed_count': stat['failed_count'],
+                'scheduled_count': 0,
+                'canceled_count': stat['canceled_count']
+            }
+        
+        # Add scheduled task stats
+        for stat in scheduled_stats:
+            date_str = stat['date'].isoformat()
+            if date_str in result_dict:
+                result_dict[date_str]['scheduled_count'] = stat['scheduled_count']
+                result_dict[date_str]['task_count'] += stat['scheduled_count']
+            else:
+                result_dict[date_str] = {
+                    'date': date_str,
+                    'task_count': stat['scheduled_count'],
+                    'successful_count': 0,
+                    'failed_count': 0,
+                    'scheduled_count': stat['scheduled_count'],
+                    'canceled_count': 0
+                }
+        
+        # Fill in missing dates with zero values
+        all_dates = []
+        current_date = start_date
+        while current_date <= end_date:
+            all_dates.append(current_date)
+            current_date += timedelta(days=1)
+        
+        # Build final result with all dates
+        final_result = []
+        for date in all_dates:
+            date_str = date.isoformat()
+            if date_str in result_dict:
+                final_result.append(result_dict[date_str])
+            else:
+                final_result.append({
+                    'date': date_str,
+                    'task_count': 0,
+                    'successful_count': 0,
+                    'failed_count': 0,
+                    'scheduled_count': 0,
+                    'canceled_count': 0
+                })
+        
+        logger.info(f"[TASK-TIMESERIES] Returning {len(final_result)} daily records")
+        return Response(final_result)
 
