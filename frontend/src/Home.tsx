@@ -290,7 +290,7 @@ const Home: FC = () => {
   return (
     <Box sx={{ 
       minHeight: '100vh',
-      background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+      background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 50%, #e2e8f0 100%)',
       pb: 6
     }}>
       <Container maxWidth="xl" sx={{ pt: 4 }}>
@@ -302,10 +302,11 @@ const Home: FC = () => {
             position: 'relative',
             overflow: 'hidden',
             borderRadius: 4,
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            color: 'white',
+            background: 'linear-gradient(135deg, #fafbfc 0%, #ffffff 100%)',
+            color: 'text.primary',
             p: { xs: 3, md: 6 },
-            boxShadow: '0 20px 40px rgba(102, 126, 234, 0.3)'
+            boxShadow: '0 8px 32px rgba(100, 116, 139, 0.12)',
+            border: '1px solid rgba(226, 232, 240, 0.8)'
           }}>
             {/* Animated Background Pattern */}
             <Box
@@ -315,8 +316,8 @@ const Home: FC = () => {
                 left: 0,
                 right: 0,
                 bottom: 0,
-                background: 'url("data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%23ffffff" fill-opacity="0.1"%3E%3Ccircle cx="30" cy="30" r="2"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")',
-                opacity: 0.3,
+                background: 'url("data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%23e2e8f0" fill-opacity="0.4"%3E%3Ccircle cx="30" cy="30" r="1"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")',
+                opacity: 0.5,
                 animation: 'float 6s ease-in-out infinite'
               }}
             />
@@ -329,10 +330,10 @@ const Home: FC = () => {
                 width: { xs: 80, md: 120 },
                 height: { xs: 80, md: 120 },
                 borderRadius: '50%',
-                background: 'rgba(255, 255, 255, 0.2)',
+                background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
                 mb: 3,
-                backdropFilter: 'blur(10px)',
-                border: '2px solid rgba(255, 255, 255, 0.3)'
+                boxShadow: '0 10px 25px rgba(59, 130, 246, 0.3)',
+                border: '3px solid rgba(59, 130, 246, 0.1)'
               }}>
                 <AutoAwesomeIcon sx={{ fontSize: { xs: 40, md: 60 }, color: 'white' }} />
               </Box>
@@ -343,7 +344,10 @@ const Home: FC = () => {
                   fontWeight: 800,
                   mb: 2,
                   fontSize: { xs: '2rem', md: '3.5rem' },
-                  textShadow: '0 4px 8px rgba(0,0,0,0.2)'
+                  background: 'linear-gradient(135deg, #1e293b 0%, #3b82f6 50%, #8b5cf6 100%)',
+                  backgroundClip: 'text',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent'
                 }}
               >
                 Welcome to Digitize It Hub
@@ -369,18 +373,27 @@ const Home: FC = () => {
                   icon={getHealthIcon()}
                   label={`System ${stats.systemHealth === 'healthy' ? 'Operational' : stats.systemHealth === 'warning' ? 'Warning' : 'Error'}`}
                   sx={{
-                    background: `rgba(${getHealthColor().slice(1).match(/.{2}/g)?.map(hex => parseInt(hex, 16)).join(', ')}, 0.2)`,
-                    color: 'white',
-                    border: `1px solid ${getHealthColor()}`,
+                    background: 'rgba(255, 255, 255, 0.9)',
+                    color: getHealthColor(),
+                    border: `2px solid ${getHealthColor()}`,
                     fontWeight: 600,
-                    backdropFilter: 'blur(10px)'
+                    backdropFilter: 'blur(10px)',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
                   }}
                 />
                 <Tooltip title="Refresh Status">
                   <IconButton 
                     onClick={handleRefresh}
                     disabled={refreshing}
-                    sx={{ ml: 2, color: 'white' }}
+                    sx={{ 
+                      ml: 2, 
+                      color: '#3b82f6',
+                      background: 'rgba(59, 130, 246, 0.1)',
+                      border: '1px solid rgba(59, 130, 246, 0.2)',
+                      '&:hover': {
+                        background: 'rgba(59, 130, 246, 0.2)'
+                      }
+                    }}
                   >
                     <RefreshIcon sx={{ 
                       animation: refreshing ? 'spin 1s linear infinite' : 'none'
@@ -403,16 +416,17 @@ const Home: FC = () => {
             ].map((stat, index) => (
               <Grid item xs={6} md={3} key={stat.label}>
                 <Card sx={{
-                  background: 'rgba(255, 255, 255, 0.9)',
-                  backdropFilter: 'blur(20px)',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
-                  borderRadius: 3,
+                  background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+                  border: '2px solid rgba(59, 130, 246, 0.1)',
+                  borderRadius: 4,
                   overflow: 'hidden',
                   position: 'relative',
                   transition: 'all 0.3s ease-in-out',
+                  boxShadow: '0 4px 20px rgba(100, 116, 139, 0.08)',
                   '&:hover': {
-                    transform: 'translateY(-5px)',
-                    boxShadow: `0 15px 35px ${alpha(stat.color, 0.3)}`
+                    transform: 'translateY(-8px)',
+                    boxShadow: '0 20px 40px rgba(59, 130, 246, 0.15)',
+                    borderColor: stat.color
                   }
                 }}>
                   <CardContent sx={{ p: 3, textAlign: 'center' }}>
@@ -420,12 +434,14 @@ const Home: FC = () => {
                       display: 'inline-flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      width: 60,
-                      height: 60,
+                      width: 70,
+                      height: 70,
                       borderRadius: '50%',
-                      background: `linear-gradient(135deg, ${stat.color}20, ${stat.color}40)`,
+                      background: `linear-gradient(135deg, ${stat.color}15, ${stat.color}25)`,
                       mb: 2,
-                      color: stat.color
+                      color: stat.color,
+                      border: `2px solid ${stat.color}30`,
+                      boxShadow: `0 4px 15px ${stat.color}20`
                     }}>
                       {stat.icon}
                     </Box>
@@ -449,7 +465,7 @@ const Home: FC = () => {
               fontWeight: 700,
               mb: 3,
               textAlign: 'center',
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              background: 'linear-gradient(135deg, #1e293b 0%, #3b82f6 50%, #8b5cf6 100%)',
               backgroundClip: 'text',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent'
@@ -464,17 +480,18 @@ const Home: FC = () => {
                     component={RouterLink}
                     to={action.href}
                     sx={{
-                      background: 'rgba(255, 255, 255, 0.9)',
-                      backdropFilter: 'blur(20px)',
-                      border: '1px solid rgba(255, 255, 255, 0.2)',
-                      borderRadius: 3,
+                      background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+                      border: '2px solid rgba(226, 232, 240, 0.6)',
+                      borderRadius: 4,
                       textDecoration: 'none',
                       transition: 'all 0.3s ease-in-out',
                       cursor: 'pointer',
+                      boxShadow: '0 4px 15px rgba(100, 116, 139, 0.08)',
                       '&:hover': {
-                        transform: 'translateY(-3px) scale(1.02)',
-                        boxShadow: `0 10px 25px ${alpha(action.color, 0.3)}`,
-                        borderColor: action.color
+                        transform: 'translateY(-5px) scale(1.03)',
+                        boxShadow: '0 15px 35px rgba(59, 130, 246, 0.2)',
+                        borderColor: action.color,
+                        background: 'linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%)'
                       }
                     }}
                   >
@@ -483,12 +500,14 @@ const Home: FC = () => {
                         display: 'inline-flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        width: 50,
-                        height: 50,
+                        width: 56,
+                        height: 56,
                         borderRadius: '50%',
-                        background: `${action.color}20`,
+                        background: `linear-gradient(135deg, ${action.color}15, ${action.color}25)`,
                         color: action.color,
-                        mb: 1
+                        mb: 1,
+                        border: `2px solid ${action.color}30`,
+                        boxShadow: `0 4px 12px ${action.color}20`
                       }}>
                         {action.icon}
                       </Box>
@@ -512,18 +531,21 @@ const Home: FC = () => {
             <Box sx={{ mb: 6 }}>
               {/* Category Header */}
               <Box sx={{
-                background: `linear-gradient(135deg, ${category.color}20, ${category.color}40)`,
-                borderRadius: 3,
-                p: 3,
-                mb: 3,
-                border: `1px solid ${category.color}30`
+                background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+                borderRadius: 4,
+                p: 4,
+                mb: 4,
+                border: '2px solid rgba(226, 232, 240, 0.8)',
+                boxShadow: '0 4px 20px rgba(100, 116, 139, 0.08)'
               }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                   <Avatar sx={{
-                    background: category.color,
-                    mr: 2,
-                    width: 50,
-                    height: 50
+                    background: `linear-gradient(135deg, ${category.color}, ${category.color}cc)`,
+                    mr: 3,
+                    width: 60,
+                    height: 60,
+                    boxShadow: `0 8px 20px ${category.color}40`,
+                    border: '3px solid rgba(255, 255, 255, 0.9)'
                   }}>
                     {category.icon}
                   </Avatar>
@@ -544,75 +566,57 @@ const Home: FC = () => {
                   <Grid item xs={12} md={6} lg={3} key={service.title}>
                     <Card sx={{
                       height: '100%',
-                      background: 'rgba(255, 255, 255, 0.9)',
-                      backdropFilter: 'blur(20px)',
-                      border: '1px solid rgba(255, 255, 255, 0.2)',
-                      borderRadius: 3,
+                      background: 'linear-gradient(135deg, #ffffff 0%, #fafbfc 100%)',
+                      border: '2px solid rgba(226, 232, 240, 0.6)',
+                      borderRadius: 4,
                       overflow: 'hidden',
                       position: 'relative',
-                      transition: 'all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1)',
+                      transition: 'all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)',
                       cursor: 'pointer',
+                      boxShadow: '0 4px 20px rgba(100, 116, 139, 0.08)',
                       
                       '&:hover': {
-                        transform: 'translateY(-8px) scale(1.02)',
-                        boxShadow: `0 20px 60px ${alpha(service.color, 0.4)}`,
+                        transform: 'translateY(-10px)',
+                        boxShadow: '0 25px 50px rgba(59, 130, 246, 0.2)',
                         borderColor: service.color,
+                        background: 'linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%)',
                         
-                        '& .service-gradient': {
-                          opacity: 1,
-                        },
-                        '& .service-content': {
-                          color: 'white',
-                        },
                         '& .service-icon': {
-                          transform: 'scale(1.1) rotate(5deg)',
-                          boxShadow: '0 8px 25px rgba(255,255,255,0.3)',
+                          transform: 'scale(1.1)',
+                          boxShadow: `0 10px 25px ${service.color}40`,
                         },
                         '& .service-arrow': {
                           transform: 'translateX(8px)',
+                          color: service.color
+                        },
+                        '& .service-stats': {
+                          background: `${service.color}15`,
+                          borderColor: service.color
                         }
                       }
                     }}
                     component={RouterLink}
                     to={service.href}
                   >
-                    {/* Gradient Overlay */}
-                    <Box
-                      className="service-gradient"
-                      sx={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        background: service.gradient,
-                        opacity: 0,
-                        transition: 'opacity 0.4s ease-in-out',
-                        zIndex: 1
-                      }}
-                    />
-                    
                     <CardContent 
-                      className="service-content"
                       sx={{ 
-                        p: 3, 
+                        p: 4, 
                         height: '100%',
                         display: 'flex',
                         flexDirection: 'column',
-                        position: 'relative',
-                        zIndex: 2,
-                        transition: 'color 0.4s ease-in-out'
+                        position: 'relative'
                       }}
                     >
                       <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
                         <Avatar
                           className="service-icon"
                           sx={{
-                            background: service.gradient,
-                            width: 56,
-                            height: 56,
+                            background: `linear-gradient(135deg, ${service.color}, ${service.color}cc)`,
+                            width: 64,
+                            height: 64,
                             mr: 2,
-                            boxShadow: 3,
+                            boxShadow: `0 8px 20px ${service.color}30`,
+                            border: '3px solid rgba(255, 255, 255, 0.9)',
                             transition: 'all 0.3s ease-in-out'
                           }}
                         >
@@ -634,11 +638,12 @@ const Home: FC = () => {
                             className="service-arrow"
                             sx={{ 
                               position: 'absolute',
-                              top: 16,
-                              right: 16,
+                              top: 20,
+                              right: 20,
                               transition: 'all 0.3s ease-in-out',
-                              opacity: 0.6,
-                              fontSize: '1.25rem'
+                              opacity: 0.4,
+                              fontSize: '1.5rem',
+                              color: 'text.secondary'
                             }} 
                           />
                         </Box>
@@ -667,13 +672,15 @@ const Home: FC = () => {
                           {service.stats.label}
                         </Typography>
                         <Chip
+                          className="service-stats"
                           label={loading ? '...' : service.stats.value}
                           size="small"
                           sx={{
-                            background: `${service.color}20`,
-                            color: service.color,
+                            background: 'rgba(226, 232, 240, 0.5)',
+                            color: 'text.secondary',
                             fontWeight: 600,
-                            border: `1px solid ${service.color}40`
+                            border: '2px solid rgba(226, 232, 240, 0.8)',
+                            transition: 'all 0.3s ease-in-out'
                           }}
                         />
                       </Box>
@@ -690,11 +697,11 @@ const Home: FC = () => {
         <Fade in timeout={2000}>
           <Box sx={{
             textAlign: 'center',
-            p: 3,
-            background: 'rgba(255, 255, 255, 0.7)',
-            backdropFilter: 'blur(20px)',
-            borderRadius: 3,
-            border: '1px solid rgba(255, 255, 255, 0.2)'
+            p: 4,
+            background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+            borderRadius: 4,
+            border: '2px solid rgba(226, 232, 240, 0.8)',
+            boxShadow: '0 4px 20px rgba(100, 116, 139, 0.08)'
           }}>
             <Typography variant="body2" color="text.secondary">
               Last updated: {new Date(stats.lastUpdated).toLocaleString()} • 
