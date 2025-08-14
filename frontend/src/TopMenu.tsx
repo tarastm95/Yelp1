@@ -33,6 +33,7 @@ import {
   Psychology as AIIcon,
   AccessTime as AccessTimeIcon,
   Work as WorkIcon,
+  TrendingUp as TrendingUpIcon,
 } from '@mui/icons-material';
 
 // Grouping menu items logically
@@ -43,6 +44,7 @@ const menuGroups = {
     color: '#667eea',
     items: [
       { text: 'Home', icon: <HomeIcon />, href: '/', color: '#667eea' },
+      { text: 'Analytics', icon: <TrendingUpIcon />, href: '/analytics', color: '#764ba2' },
     ]
   },
   leads: {
