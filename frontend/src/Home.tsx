@@ -1,6 +1,5 @@
-import React, { FC, useEffect, useState } from 'react';
-import { Link as RouterLink, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import React, { FC } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
 
 // --- Material-UI Imports ---
 import {
@@ -9,21 +8,10 @@ import {
   Card,
   CardContent,
   Button,
-  useMediaQuery,
-  useTheme,
   Grow,
   Box,
   Grid,
   Avatar,
-  Chip,
-  Paper,
-  Stack,
-  alpha,
-  IconButton,
-  LinearProgress,
-  Tooltip,
-  Badge,
-  Skeleton,
   Fade,
 } from '@mui/material';
 
@@ -31,11 +19,7 @@ import {
 import EventIcon from '@mui/icons-material/Event';
 import SettingsIcon from '@mui/icons-material/Settings';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
-import DashboardIcon from '@mui/icons-material/Dashboard';
 import BusinessIcon from '@mui/icons-material/Business';
-import TrendingUpIcon from '@mui/icons-material/TrendingUp';
-import ChatIcon from '@mui/icons-material/Chat';
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import SubscriptionsIcon from '@mui/icons-material/Subscriptions';
 import ChecklistIcon from '@mui/icons-material/Checklist';
 import LoginIcon from '@mui/icons-material/Login';
@@ -43,16 +27,10 @@ import SmsIcon from '@mui/icons-material/Sms';
 import Psychology from '@mui/icons-material/Psychology';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import WorkIcon from '@mui/icons-material/Work';
-import NotificationsIcon from '@mui/icons-material/Notifications';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import WarningIcon from '@mui/icons-material/Warning';
-import ErrorIcon from '@mui/icons-material/Error';
-import LaunchIcon from '@mui/icons-material/Launch';
-import RefreshIcon from '@mui/icons-material/Refresh';
-import TimelineIcon from '@mui/icons-material/Timeline';
-import PeopleIcon from '@mui/icons-material/People';
 import MessageIcon from '@mui/icons-material/Message';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import PeopleIcon from '@mui/icons-material/People';
 
 // Service Categories
 const serviceCategories = {
@@ -67,27 +45,24 @@ const serviceCategories = {
         description: 'Monitor customer events and manage leads in real-time',
         icon: <EventIcon />,
         href: '/events',
-        color: '#f093fb',
-        gradient: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-        stats: { label: 'Active Events', value: 0 }
+        color: '#dc2626'
+
       },
       {
         title: 'Tasks Management',
         description: 'View and manage scheduled operations and workflows',
         icon: <ChecklistIcon />,
         href: '/tasks',
-        color: '#fa709a',
-        gradient: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
-        stats: { label: 'Active Tasks', value: 0 }
+        color: '#0ea5e9'
+
       },
       {
         title: 'SMS Communications',
         description: 'Track SMS interactions and message logs',
         icon: <SmsIcon />,
         href: '/sms-logs',
-        color: '#4facfe',
-        gradient: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-        stats: { label: 'SMS Sent', value: 0 }
+        color: '#10b981'
+
       }
     ]
   },
@@ -102,36 +77,32 @@ const serviceCategories = {
         description: 'Configure automated messaging templates and responses',
         icon: <MessageIcon />,
         href: '/settings',
-        color: '#764ba2',
-        gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        stats: { label: 'Templates', value: 0 }
+        color: '#6366f1'
+
       },
       {
         title: 'AI Global Settings',
         description: 'Manage artificial intelligence configuration and behavior',
         icon: <Psychology />,
         href: '/ai-settings',
-        color: '#667eea',
-        gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        stats: { label: 'AI Models', value: 0 }
+        color: '#8b5cf6'
+
       },
       {
         title: 'Time-Based Greetings',
         description: 'Set up time-sensitive automated greetings',
         icon: <AccessTimeIcon />,
         href: '/time-greetings',
-        color: '#43e97b',
-        gradient: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-        stats: { label: 'Active Rules', value: 0 }
+        color: '#059669'
+
       },
       {
         title: 'Job Name Settings',
         description: 'Configure job titles and business mappings',
         icon: <WorkIcon />,
         href: '/job-mappings',
-        color: '#f093fb',
-        gradient: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-        stats: { label: 'Mappings', value: 0 }
+        color: '#8b5cf6'
+
       }
     ]
   },
@@ -146,27 +117,24 @@ const serviceCategories = {
         description: 'Manage authorization tokens and business connections',
         icon: <VpnKeyIcon />,
         href: '/tokens',
-        color: '#4facfe',
-        gradient: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-        stats: { label: 'Active Tokens', value: 0 }
+        color: '#0ea5e9'
+
       },
       {
         title: 'Yelp Authorization',
         description: 'Connect and authorize your Yelp business account',
         icon: <LoginIcon />,
         href: '/auth',
-        color: '#ff7eb3',
-        gradient: 'linear-gradient(135deg, #ff7eb3 0%, #ff758c 100%)',
-        stats: { label: 'Connected', value: 0 }
+        color: '#e11d48'
+
       },
       {
         title: 'Webhook Subscriptions',
         description: 'Manage webhook subscriptions for real-time notifications',
         icon: <SubscriptionsIcon />,
         href: '/subscriptions',
-        color: '#43e97b',
-        gradient: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-        stats: { label: 'Subscriptions', value: 0 }
+        color: '#10b981'
+
       }
     ]
   }
@@ -179,113 +147,38 @@ const quickActions = [
     description: 'Check recent customer interactions',
     icon: <EventIcon />,
     href: '/events',
-    color: '#f093fb'
+    color: '#8b5cf6'
   },
   {
     title: 'Configure AI',
     description: 'Adjust AI response settings',
     icon: <Psychology />,
     href: '/ai-settings',
-    color: '#667eea'
+    color: '#6366f1'
   },
   {
     title: 'Check System Status',
     description: 'View tokens and connections',
     icon: <VpnKeyIcon />,
     href: '/tokens',
-    color: '#4facfe'
+    color: '#0ea5e9'
   },
   {
     title: 'Manage Templates',
     description: 'Edit auto-response templates',
     icon: <MessageIcon />,
     href: '/settings',
-    color: '#764ba2'
+    color: '#10b981'
   }
 ];
 
-interface DashboardStats {
-  totalLeads: number;
-  totalEvents: number;
-  totalTasks: number;
-  totalSMS: number;
-  systemHealth: 'healthy' | 'warning' | 'error';
-  lastUpdated: string;
-}
+
 
 const Home: FC = () => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const navigate = useNavigate();
 
-  // State management
-  const [stats, setStats] = useState<DashboardStats>({
-    totalLeads: 0,
-    totalEvents: 0,
-    totalTasks: 0,
-    totalSMS: 0,
-    systemHealth: 'healthy',
-    lastUpdated: new Date().toISOString()
-  });
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
 
-  // Load dashboard data
-  const loadDashboardData = async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true);
-    
-    try {
-      // Simulate API calls - replace with actual endpoints
-      const [eventsRes, tasksRes, tokensRes] = await Promise.allSettled([
-        axios.get('/processed_leads?limit=1').catch(() => ({ data: { count: 0 } })),
-        axios.get('/task-logs?limit=1').catch(() => ({ data: { count: 0 } })),
-        axios.get('/tokens/').catch(() => ({ data: [] }))
-      ]);
 
-      const newStats: DashboardStats = {
-        totalLeads: eventsRes.status === 'fulfilled' ? eventsRes.value?.data?.count || 0 : 0,
-        totalEvents: eventsRes.status === 'fulfilled' ? eventsRes.value?.data?.count || 0 : 0,
-        totalTasks: tasksRes.status === 'fulfilled' ? tasksRes.value?.data?.count || 0 : 0,
-        totalSMS: Math.floor(Math.random() * 1000), // Placeholder
-        systemHealth: tokensRes.status === 'fulfilled' && tokensRes.value?.data?.length > 0 ? 'healthy' : 'warning',
-        lastUpdated: new Date().toISOString()
-      };
 
-      setStats(newStats);
-    } catch (error) {
-      console.error('Failed to load dashboard data:', error);
-      setStats(prev => ({ ...prev, systemHealth: 'error' }));
-    } finally {
-      setLoading(false);
-      if (isRefresh) setRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  const handleRefresh = () => {
-    loadDashboardData(true);
-  };
-
-  const getHealthColor = () => {
-    switch (stats.systemHealth) {
-      case 'healthy': return '#43e97b';
-      case 'warning': return '#fbbf24';
-      case 'error': return '#f87171';
-      default: return '#43e97b';
-    }
-  };
-
-  const getHealthIcon = () => {
-    switch (stats.systemHealth) {
-      case 'healthy': return <CheckCircleIcon />;
-      case 'warning': return <WarningIcon />;
-      case 'error': return <ErrorIcon />;
-      default: return <CheckCircleIcon />;
-    }
-  };
 
   return (
     <Box sx={{ 
@@ -296,17 +189,17 @@ const Home: FC = () => {
       <Container maxWidth="xl" sx={{ pt: 4 }}>
         {/* Hero Section */}
         <Fade in timeout={800}>
-          <Box sx={{ 
+            <Box sx={{ 
             textAlign: 'center', 
             mb: 6,
-            position: 'relative',
-            overflow: 'hidden',
+              position: 'relative',
+              overflow: 'hidden',
             borderRadius: 4,
-            background: 'linear-gradient(135deg, #fafbfc 0%, #ffffff 100%)',
-            color: 'text.primary',
-            p: { xs: 3, md: 6 },
-            boxShadow: '0 8px 32px rgba(100, 116, 139, 0.12)',
-            border: '1px solid rgba(226, 232, 240, 0.8)'
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            color: 'white',
+            p: { xs: 4, md: 8 },
+            boxShadow: '0 15px 40px rgba(102, 126, 234, 0.2)',
+            border: '1px solid rgba(255, 255, 255, 0.1)'
           }}>
             {/* Animated Background Pattern */}
             <Box
@@ -316,8 +209,8 @@ const Home: FC = () => {
                 left: 0,
                 right: 0,
                 bottom: 0,
-                background: 'url("data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%23e2e8f0" fill-opacity="0.4"%3E%3Ccircle cx="30" cy="30" r="1"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")',
-                opacity: 0.5,
+                background: 'url("data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%23ffffff" fill-opacity="0.1"%3E%3Ccircle cx="30" cy="30" r="2"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")',
+                opacity: 0.3,
                 animation: 'float 6s ease-in-out infinite'
               }}
             />
@@ -327,140 +220,58 @@ const Home: FC = () => {
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                width: { xs: 80, md: 120 },
-                height: { xs: 80, md: 120 },
+                width: { xs: 100, md: 140 },
+                height: { xs: 100, md: 140 },
                 borderRadius: '50%',
-                background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
-                mb: 3,
-                boxShadow: '0 10px 25px rgba(59, 130, 246, 0.3)',
-                border: '3px solid rgba(59, 130, 246, 0.1)'
+                background: 'rgba(255, 255, 255, 0.15)',
+                mb: 4,
+                backdropFilter: 'blur(20px)',
+                border: '3px solid rgba(255, 255, 255, 0.2)',
+                boxShadow: '0 15px 35px rgba(0, 0, 0, 0.1)'
               }}>
-                <AutoAwesomeIcon sx={{ fontSize: { xs: 40, md: 60 }, color: 'white' }} />
-              </Box>
-              
-              <Typography 
-                variant="h2" 
-                sx={{ 
-                  fontWeight: 800,
-                  mb: 2,
-                  fontSize: { xs: '2rem', md: '3.5rem' },
-                  background: 'linear-gradient(135deg, #1e293b 0%, #3b82f6 50%, #8b5cf6 100%)',
-                  backgroundClip: 'text',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent'
+                <AutoAwesomeIcon sx={{ fontSize: { xs: 50, md: 70 }, color: 'white' }} />
+            </Box>
+            
+            <Typography 
+              variant="h2" 
+              sx={{ 
+                fontWeight: 800,
+                  mb: 3,
+                  fontSize: { xs: '2.2rem', md: '4rem' },
+                  color: 'white',
+                  textShadow: '0 4px 8px rgba(0, 0, 0, 0.3)',
+                  letterSpacing: '-0.02em'
                 }}
               >
                 Welcome to Digitize It Hub
-              </Typography>
-              
-              <Typography 
-                variant="h5" 
-                sx={{ 
-                  opacity: 0.9,
-                  mb: 4,
-                  maxWidth: 600,
-                  mx: 'auto',
-                  lineHeight: 1.6,
-                  fontSize: { xs: '1.1rem', md: '1.5rem' }
+            </Typography>
+            
+            <Typography 
+              variant="h5" 
+              sx={{ 
+                  color: 'rgba(255, 255, 255, 0.85)',
+                  mb: 0,
+                  maxWidth: 650,
+                mx: 'auto',
+                  lineHeight: 1.5,
+                  fontSize: { xs: '1.1rem', md: '1.4rem' },
+                  fontWeight: 400,
+                  textShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
                 }}
               >
                 Your complete business automation and customer engagement platform
-              </Typography>
+            </Typography>
 
-              {/* System Status */}
-              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mb: 3 }}>
-                <Chip
-                  icon={getHealthIcon()}
-                  label={`System ${stats.systemHealth === 'healthy' ? 'Operational' : stats.systemHealth === 'warning' ? 'Warning' : 'Error'}`}
-                  sx={{
-                    background: 'rgba(255, 255, 255, 0.9)',
-                    color: getHealthColor(),
-                    border: `2px solid ${getHealthColor()}`,
-                    fontWeight: 600,
-                    backdropFilter: 'blur(10px)',
-                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
-                  }}
-                />
-                <Tooltip title="Refresh Status">
-                  <IconButton 
-                    onClick={handleRefresh}
-                    disabled={refreshing}
-                    sx={{ 
-                      ml: 2, 
-                      color: '#3b82f6',
-                      background: 'rgba(59, 130, 246, 0.1)',
-                      border: '1px solid rgba(59, 130, 246, 0.2)',
-                      '&:hover': {
-                        background: 'rgba(59, 130, 246, 0.2)'
-                      }
-                    }}
-                  >
-                    <RefreshIcon sx={{ 
-                      animation: refreshing ? 'spin 1s linear infinite' : 'none'
-                    }} />
-                  </IconButton>
-                </Tooltip>
-              </Box>
+
             </Box>
           </Box>
         </Fade>
 
-        {/* Dashboard Stats */}
-        <Grow in timeout={1000}>
-          <Grid container spacing={3} sx={{ mb: 6 }}>
-            {[
-              { label: 'Total Leads', value: stats.totalLeads, icon: <PeopleIcon />, color: '#f093fb' },
-              { label: 'Active Events', value: stats.totalEvents, icon: <EventIcon />, color: '#4facfe' },
-              { label: 'Running Tasks', value: stats.totalTasks, icon: <ChecklistIcon />, color: '#fa709a' },
-              { label: 'SMS Sent', value: stats.totalSMS, icon: <SmsIcon />, color: '#43e97b' }
-            ].map((stat, index) => (
-              <Grid item xs={6} md={3} key={stat.label}>
-                <Card sx={{
-                  background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
-                  border: '2px solid rgba(59, 130, 246, 0.1)',
-                  borderRadius: 4,
-                  overflow: 'hidden',
-                  position: 'relative',
-                  transition: 'all 0.3s ease-in-out',
-                  boxShadow: '0 4px 20px rgba(100, 116, 139, 0.08)',
-                  '&:hover': {
-                    transform: 'translateY(-8px)',
-                    boxShadow: '0 20px 40px rgba(59, 130, 246, 0.15)',
-                    borderColor: stat.color
-                  }
-                }}>
-                  <CardContent sx={{ p: 3, textAlign: 'center' }}>
-                    <Box sx={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: 70,
-                      height: 70,
-                      borderRadius: '50%',
-                      background: `linear-gradient(135deg, ${stat.color}15, ${stat.color}25)`,
-                      mb: 2,
-                      color: stat.color,
-                      border: `2px solid ${stat.color}30`,
-                      boxShadow: `0 4px 15px ${stat.color}20`
-                    }}>
-                      {stat.icon}
-                    </Box>
-                    <Typography variant="h4" sx={{ fontWeight: 700, color: stat.color, mb: 1 }}>
-                      {loading ? <Skeleton width={60} /> : stat.value.toLocaleString()}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
-                      {stat.label}
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
-        </Grow>
+
 
         {/* Quick Actions */}
         <Grow in timeout={1200}>
-          <Box sx={{ mb: 6 }}>
+        <Box sx={{ mb: 6 }}>
             <Typography variant="h4" sx={{
               fontWeight: 700,
               mb: 3,
@@ -471,12 +282,12 @@ const Home: FC = () => {
               WebkitTextFillColor: 'transparent'
             }}>
               Quick Actions
-            </Typography>
-            
+          </Typography>
+          
             <Grid container spacing={2}>
               {quickActions.map((action, index) => (
                 <Grid item xs={6} md={3} key={action.title}>
-                  <Card 
+                  <Card
                     component={RouterLink}
                     to={action.href}
                     sx={{
@@ -565,22 +376,25 @@ const Home: FC = () => {
                 {category.services.map((service, serviceIndex) => (
                   <Grid item xs={12} md={6} lg={3} key={service.title}>
                     <Card sx={{
-                      height: '100%',
-                      background: '#ffffff',
-                      border: '2px solid #e2e8f0',
+                      height: 200,
+                      background: `linear-gradient(135deg, ${service.color} 0%, ${service.color}dd 100%)`,
                       borderRadius: 3,
                       overflow: 'hidden',
                       position: 'relative',
-                      transition: 'all 0.2s ease-in-out',
+                      transition: 'all 0.3s ease-in-out',
                       cursor: 'pointer',
-                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+                      boxShadow: '0 8px 25px rgba(0, 0, 0, 0.15)',
+                      border: 'none',
                       
                       '&:hover': {
-                        borderColor: service.color,
-                        boxShadow: '0 8px 25px rgba(0, 0, 0, 0.1)',
+                        transform: 'translateY(-8px)',
+                        boxShadow: '0 15px 40px rgba(0, 0, 0, 0.25)',
                         
-                        '& .service-icon': {
-                          transform: 'scale(1.05)',
+                        '& .service-button': {
+                          gap: 1.5,
+                          '& .arrow-icon': {
+                            transform: 'translateX(4px)'
+                          }
                         }
                       }
                     }}
@@ -589,78 +403,80 @@ const Home: FC = () => {
                   >
                     <CardContent 
                       sx={{ 
-                        p: 3.5, 
+                        p: 3, 
                         height: '100%',
                         display: 'flex',
-                        flexDirection: 'column'
+                        flexDirection: 'column',
+                        justifyContent: 'space-between'
                       }}
                     >
-                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-                        <Avatar
-                          className="service-icon"
-                          sx={{
-                            background: service.color,
-                            width: 56,
-                            height: 56,
-                            mr: 2,
-                            transition: 'all 0.2s ease-in-out'
+                      <Box>
+                        <Typography 
+                          variant="h6" 
+                          sx={{ 
+                            fontWeight: 700,
+                            mb: 2,
+                            color: 'white',
+                            fontSize: '1.25rem',
+                            lineHeight: 1.2
                           }}
                         >
-                          {service.icon}
-                        </Avatar>
+                          {service.title}
+                        </Typography>
                         
-                        <Box sx={{ flex: 1, minWidth: 0 }}>
-                          <Typography 
-                            variant="h6" 
-                            sx={{ 
-                              fontWeight: 600,
-                              mb: 0.5,
-                              lineHeight: 1.3,
-                              color: 'text.primary'
-                            }}
-                          >
-                            {service.title}
-                          </Typography>
-                        </Box>
+                        <Typography 
+                          variant="body2" 
+                          sx={{ 
+                            color: 'rgba(255, 255, 255, 0.9)',
+                            lineHeight: 1.5,
+                            fontSize: '0.875rem',
+                            mb: 2
+                          }}
+                        >
+                          {service.description}
+                        </Typography>
                       </Box>
-                      
-                      <Typography 
-                        variant="body2" 
-                        sx={{ 
-                          color: 'text.secondary',
-                          lineHeight: 1.5,
-                          fontSize: '0.875rem'
+
+                      <Button
+                        className="service-button"
+                        sx={{
+                          alignSelf: 'flex-start',
+                          color: 'rgba(255, 255, 255, 0.9)',
+                          textTransform: 'none',
+                          fontSize: '0.875rem',
+                          fontWeight: 500,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1,
+                          p: 0,
+                          minWidth: 'auto',
+                          transition: 'all 0.2s ease-in-out',
+                          
+                          '&:hover': {
+                            backgroundColor: 'transparent',
+                            color: 'white'
+                          }
                         }}
                       >
-                        {service.description}
-                      </Typography>
+                        Open
+                        <ArrowForwardIcon 
+                          className="arrow-icon"
+                          sx={{ 
+                            fontSize: '1rem',
+                            transition: 'transform 0.2s ease-in-out'
+                          }} 
+                        />
+                      </Button>
                     </CardContent>
                   </Card>
                 </Grid>
               ))}
             </Grid>
-            </Box>
+        </Box>
           </Grow>
         ))}
 
-        {/* System Information Footer */}
-        <Fade in timeout={2000}>
-          <Box sx={{
-            textAlign: 'center',
-            p: 4,
-            background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
-            borderRadius: 4,
-            border: '2px solid rgba(226, 232, 240, 0.8)',
-            boxShadow: '0 4px 20px rgba(100, 116, 139, 0.08)'
-          }}>
-            <Typography variant="body2" color="text.secondary">
-              Last updated: {new Date(stats.lastUpdated).toLocaleString()} • 
-              System Status: <span style={{ color: getHealthColor(), fontWeight: 600 }}>
-                {stats.systemHealth.charAt(0).toUpperCase() + stats.systemHealth.slice(1)}
-              </span>
-            </Typography>
-          </Box>
-        </Fade>
+
       </Container>
 
       {/* Global Styles for Animations */}
