@@ -288,157 +288,166 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
 
             # Step 8: Send API request
             logger.info(f"[FOLLOW-UP] 📤 STEP 8: Sending follow-up message to Yelp API")
-            try:
-                api_start_time = time.time()
-                logger.info(f"[FOLLOW-UP] 🔄 Making POST request to Yelp API at {timezone.now().isoformat()}")
-                resp = requests.post(url, headers=headers, json=payload, timeout=30)
-                api_end_time = time.time()
-                api_duration = api_end_time - api_start_time if 'api_start_time' in locals() else 0
-                
-                logger.info(f"[FOLLOW-UP] ✅ API response received after {api_duration:.2f} seconds")
-                logger.info(f"[FOLLOW-UP] ========== DETAILED API RESPONSE ==========")
-                logger.info(f"[FOLLOW-UP] - Status code: {resp.status_code}")
-                logger.info(f"[FOLLOW-UP] - Response time: {api_duration:.2f} seconds")
-                logger.info(f"[FOLLOW-UP] - Response headers: {dict(resp.headers)}")
-                logger.info(f"[FOLLOW-UP] - Response text: {resp.text[:500]}..." + ("" if len(resp.text) <= 500 else " (truncated)"))
-                logger.info(f"[FOLLOW-UP] - Response encoding: {resp.encoding}")
-                logger.info(f"[FOLLOW-UP] - Response URL: {resp.url}")
-                logger.info(f"[FOLLOW-UP] =======================================")
-                
-                # Check if the response indicates success
-                if resp.status_code == 200:
-                    logger.info(f"[FOLLOW-UP] ✅ HTTP 200 - Message sent successfully!")
-                elif resp.status_code == 201:
-                    logger.info(f"[FOLLOW-UP] ✅ HTTP 201 - Message created successfully!")
-                else:
-                    logger.warning(f"[FOLLOW-UP] ⚠️ Unexpected status code: {resp.status_code}")
-                
-                # Raise for HTTP errors (4xx, 5xx)
-                resp.raise_for_status()
-                logger.info(f"[FOLLOW-UP] ✅ No HTTP errors detected!")
-                
-                # Створюємо LeadEvent з from_backend=True щоб система знала що це наше повідомлення
+            for attempt in range(3):
                 try:
-                    from django.utils import timezone as django_timezone
-                    
-                    logger.info(f"[FOLLOW-UP] 📝 Creating LeadEvent with from_backend=True")
-                    
-                    # Створюємо унікальний event_id для нашого повідомлення
-                    import uuid
-                    our_event_id = f"backend_sent_{uuid.uuid4().hex[:16]}"
-                    
-                    lead_event = LeadEvent.objects.create(
-                        event_id=our_event_id,
-                        lead_id=lead_id,
-                        event_type="TEXT",
-                        user_type="BUSINESS",  # Ми відправляємо від імені бізнесу
-                        user_id="",
-                        user_display_name="",
-                        text=text,
-                        cursor="",
-                        time_created=django_timezone.now().isoformat(),
-                        raw={"backend_sent": True, "task_id": job_id, "yelp_response": resp.text[:1000]},
-                        from_backend=True  # 🔑 КЛЮЧОВИЙ FLAG!
+                    api_start_time = time.time()
+                    logger.info(
+                        f"[FOLLOW-UP] 🔄 Attempt {attempt + 1}/3: Making POST request to Yelp API at {timezone.now().isoformat()}"
                     )
-                    
-                    logger.info(f"[FOLLOW-UP] ✅ Created LeadEvent id={lead_event.pk} with from_backend=True")
-                    logger.info(f"[FOLLOW-UP] This will help system recognize this message as ours when webhook arrives")
-                    
-                except Exception as event_error:
-                    # Не падаємо якщо не вдалося створити LeadEvent - повідомлення вже надіслано
-                    logger.error(f"[FOLLOW-UP] ⚠️ Failed to create LeadEvent with from_backend=True: {event_error}")
-                    logger.exception(f"[FOLLOW-UP] LeadEvent creation exception (non-critical)")
-                
-                logger.info(f"[FOLLOW-UP] 🎉 FOLLOW-UP COMPLETED SUCCESSFULLY for lead={lead_id}")
-                logger.info(f"[FOLLOW-UP] ========== TASK COMPLETION ==========")
-                logger.info(f"[FOLLOW-UP] - Lead ID: {lead_id}")
-                logger.info(f"[FOLLOW-UP] - Business ID: {business_id}")
-                logger.info(f"[FOLLOW-UP] - Task ID: {job_id}")
-                logger.info(f"[FOLLOW-UP] - Message successfully sent to Yelp API")
-                logger.info(f"[FOLLOW-UP] - HTTP Status: {resp.status_code}")
-                logger.info(f"[FOLLOW-UP] - LeadEvent created with from_backend=True")
-                logger.info(f"[FOLLOW-UP] ===========================================")
-                
-                task_duration = time.time() - task_start_time if 'task_start_time' in locals() else 0
-                logger.info(f"[FOLLOW-UP] 🎉 TASK COMPLETED SUCCESSFULLY in {task_duration:.2f} seconds")
-                return f"SUCCESS: Message sent to Yelp API (HTTP {resp.status_code}) in {task_duration:.2f}s"
-                
-            except requests.exceptions.Timeout as e:
-                api_end_time = time.time()
-                api_duration = api_end_time - api_start_time if 'api_start_time' in locals() else 0
-                task_duration = api_end_time - task_start_time
-                logger.error(f"[FOLLOW-UP] ❌ TIMEOUT ERROR during API request: {e}")
-                logger.error(f"[FOLLOW-UP] ========== TIMEOUT ERROR DETAILS ==========")
-                logger.error(f"[FOLLOW-UP] - Request duration: {api_duration:.2f} seconds")
-                logger.error(f"[FOLLOW-UP] - Total task duration: {task_duration:.2f} seconds")
-                logger.error(f"[FOLLOW-UP] - URL: {url}")
-                logger.error(f"[FOLLOW-UP] - Lead ID: {lead_id}")
-                logger.error(f"[FOLLOW-UP] - Business ID: {business_id}")
-                logger.error(f"[FOLLOW-UP] - Worker process: {os.getpid()}")
-                logger.error(f"[FOLLOW-UP] Request took longer than 30 seconds")
-                logger.error(f"[FOLLOW-UP] This usually means Yelp API is slow or unreachable")
-                logger.error(f"[FOLLOW-UP] =======================================")
-                return f"ERROR: Request timeout after {api_duration:.2f}s - {str(e)}"
-                
-            except requests.exceptions.HTTPError as e:
-                api_end_time = time.time()
-                api_duration = api_end_time - api_start_time if 'api_start_time' in locals() else 0
-                task_duration = api_end_time - task_start_time
-                logger.error(f"[FOLLOW-UP] ❌ HTTP ERROR during API request: {e}")
-                logger.error(f"[FOLLOW-UP] ========== HTTP ERROR DETAILS ==========")
-                logger.error(f"[FOLLOW-UP] - Response status: {resp.status_code}")
-                logger.error(f"[FOLLOW-UP] - Response headers: {dict(resp.headers)}")
-                try:
-                    logger.error(f"[FOLLOW-UP] - Response JSON: {resp.json()}")
-                except ValueError:
-                    logger.error(f"[FOLLOW-UP] - Response text: {resp.text}")
-                logger.error(f"[FOLLOW-UP] - Request duration: {api_duration:.2f} seconds")
-                logger.error(f"[FOLLOW-UP] - Total task duration: {task_duration:.2f} seconds")
-                logger.error(f"[FOLLOW-UP] - URL: {url}")
-                logger.error(f"[FOLLOW-UP] - Lead ID: {lead_id}")
-                logger.error(f"[FOLLOW-UP] - Business ID: {business_id}")
-                logger.error(f"[FOLLOW-UP] - Worker process: {os.getpid()}")
-                
-                # Extract readable error from Yelp response
-                error_details = _extract_yelp_error(resp)
-                logger.error(f"[FOLLOW-UP] - Yelp error details: {error_details}")
-                logger.error(f"[FOLLOW-UP] ===================================")
-                
-                return f"ERROR: HTTP {resp.status_code} after {api_duration:.2f}s - {error_details}"
-                
-            except requests.exceptions.RequestException as e:
-                api_end_time = time.time()
-                api_duration = api_end_time - api_start_time if 'api_start_time' in locals() else 0
-                task_duration = api_end_time - task_start_time
-                logger.error(f"[FOLLOW-UP] ❌ REQUEST ERROR during API request: {e}")
-                logger.error(f"[FOLLOW-UP] ========== REQUEST ERROR DETAILS ==========")
-                logger.error(f"[FOLLOW-UP] - Request duration: {api_duration:.2f} seconds")
-                logger.error(f"[FOLLOW-UP] - Total task duration: {task_duration:.2f} seconds")
-                logger.error(f"[FOLLOW-UP] - URL: {url}")
-                logger.error(f"[FOLLOW-UP] - Lead ID: {lead_id}")
-                logger.error(f"[FOLLOW-UP] - Business ID: {business_id}")
-                logger.error(f"[FOLLOW-UP] - Worker process: {os.getpid()}")
-                logger.error(f"[FOLLOW-UP] - Error type: {type(e).__name__}")
-                logger.error(f"[FOLLOW-UP] =========================================")
-                logger.exception(f"[FOLLOW-UP] Request exception details")
-                return f"ERROR: Request failed after {api_duration:.2f}s - {str(e)}"
-                
-            except Exception as e:
-                api_end_time = time.time()
-                api_duration = api_end_time - api_start_time if 'api_start_time' in locals() else 0
-                task_duration = api_end_time - task_start_time
-                logger.error(f"[FOLLOW-UP] ❌ UNEXPECTED ERROR during API request: {e}")
-                logger.error(f"[FOLLOW-UP] ========== UNEXPECTED ERROR DETAILS ==========")
-                logger.error(f"[FOLLOW-UP] - Request duration: {api_duration:.2f} seconds")
-                logger.error(f"[FOLLOW-UP] - Total task duration: {task_duration:.2f} seconds")
-                logger.error(f"[FOLLOW-UP] - URL: {url}")
-                logger.error(f"[FOLLOW-UP] - Lead ID: {lead_id}")
-                logger.error(f"[FOLLOW-UP] - Business ID: {business_id}")
-                logger.error(f"[FOLLOW-UP] - Worker process: {os.getpid()}")
-                logger.error(f"[FOLLOW-UP] - Error type: {type(e).__name__}")
-                logger.error(f"[FOLLOW-UP] ============================================")
-                logger.exception(f"[FOLLOW-UP] Unexpected exception details")
-                return f"ERROR: Unexpected error after {api_duration:.2f}s - {str(e)}"
+                    resp = requests.post(url, headers=headers, json=payload, timeout=30)
+                    api_end_time = time.time()
+                    api_duration = api_end_time - api_start_time
+
+                    logger.info(f"[FOLLOW-UP] ✅ API response received after {api_duration:.2f} seconds")
+                    logger.info(f"[FOLLOW-UP] ========== DETAILED API RESPONSE ==========")
+                    logger.info(f"[FOLLOW-UP] - Status code: {resp.status_code}")
+                    logger.info(f"[FOLLOW-UP] - Response time: {api_duration:.2f} seconds")
+                    logger.info(f"[FOLLOW-UP] - Response headers: {dict(resp.headers)}")
+                    logger.info(f"[FOLLOW-UP] - Response text: {resp.text[:500]}..." + ("" if len(resp.text) <= 500 else " (truncated)"))
+                    logger.info(f"[FOLLOW-UP] - Response encoding: {resp.encoding}")
+                    logger.info(f"[FOLLOW-UP] - Response URL: {resp.url}")
+                    logger.info(f"[FOLLOW-UP] =======================================")
+
+                    if resp.status_code == 200:
+                        logger.info(f"[FOLLOW-UP] ✅ HTTP 200 - Message sent successfully!")
+                    elif resp.status_code == 201:
+                        logger.info(f"[FOLLOW-UP] ✅ HTTP 201 - Message created successfully!")
+                    else:
+                        logger.warning(f"[FOLLOW-UP] ⚠️ Unexpected status code: {resp.status_code}")
+
+                    resp.raise_for_status()
+                    logger.info(f"[FOLLOW-UP] ✅ No HTTP errors detected!")
+                    break
+                except requests.exceptions.Timeout as e:
+                    api_end_time = time.time()
+                    api_duration = api_end_time - api_start_time
+                    task_duration = api_end_time - task_start_time
+                    logger.error(
+                        f"[FOLLOW-UP] ❌ TIMEOUT ERROR during API request (attempt {attempt + 1}): {e}"
+                    )
+                    logger.error(f"[FOLLOW-UP] ========== TIMEOUT ERROR DETAILS ==========")
+                    logger.error(f"[FOLLOW-UP] - Request duration: {api_duration:.2f} seconds")
+                    logger.error(f"[FOLLOW-UP] - Total task duration: {task_duration:.2f} seconds")
+                    logger.error(f"[FOLLOW-UP] - URL: {url}")
+                    logger.error(f"[FOLLOW-UP] - Lead ID: {lead_id}")
+                    logger.error(f"[FOLLOW-UP] - Business ID: {business_id}")
+                    logger.error(f"[FOLLOW-UP] - Worker process: {os.getpid()}")
+                    logger.error(f"[FOLLOW-UP] Request took longer than 30 seconds")
+                    logger.error(f"[FOLLOW-UP] This usually means Yelp API is slow or unreachable")
+                    logger.error(f"[FOLLOW-UP] =======================================")
+                    return f"ERROR: Request timeout after {api_duration:.2f}s - {str(e)}"
+                except requests.exceptions.HTTPError as e:
+                    api_end_time = time.time()
+                    api_duration = api_end_time - api_start_time
+                    task_duration = api_end_time - task_start_time
+                    logger.error(
+                        f"[FOLLOW-UP] ❌ HTTP ERROR during API request (attempt {attempt + 1}): {e}"
+                    )
+                    logger.error(f"[FOLLOW-UP] ========== HTTP ERROR DETAILS ==========")
+                    logger.error(f"[FOLLOW-UP] - Response status: {resp.status_code}")
+                    logger.error(f"[FOLLOW-UP] - Response headers: {dict(resp.headers)}")
+                    try:
+                        logger.error(f"[FOLLOW-UP] - Response JSON: {resp.json()}")
+                    except ValueError:
+                        logger.error(f"[FOLLOW-UP] - Response text: {resp.text}")
+                    logger.error(f"[FOLLOW-UP] - Request duration: {api_duration:.2f} seconds")
+                    logger.error(f"[FOLLOW-UP] - Total task duration: {task_duration:.2f} seconds")
+                    logger.error(f"[FOLLOW-UP] - URL: {url}")
+                    logger.error(f"[FOLLOW-UP] - Lead ID: {lead_id}")
+                    logger.error(f"[FOLLOW-UP] - Business ID: {business_id}")
+                    logger.error(f"[FOLLOW-UP] - Worker process: {os.getpid()}")
+                    error_details = _extract_yelp_error(resp)
+                    logger.error(f"[FOLLOW-UP] - Yelp error details: {error_details}")
+                    logger.error(f"[FOLLOW-UP] ===================================")
+                    if e.response is not None and e.response.status_code >= 500 and attempt < 2:
+                        logger.warning(
+                            f"[FOLLOW-UP] ⚠️ HTTP {e.response.status_code} on attempt {attempt + 1}. Retrying in 5 seconds."
+                        )
+                        time.sleep(5)
+                        continue
+                    return f"ERROR: HTTP {resp.status_code} after {api_duration:.2f}s - {error_details}"
+                except requests.exceptions.RequestException as e:
+                    api_end_time = time.time()
+                    api_duration = api_end_time - api_start_time
+                    task_duration = api_end_time - task_start_time
+                    logger.error(
+                        f"[FOLLOW-UP] ❌ REQUEST ERROR during API request (attempt {attempt + 1}): {e}"
+                    )
+                    logger.error(f"[FOLLOW-UP] ========== REQUEST ERROR DETAILS ==========")
+                    logger.error(f"[FOLLOW-UP] - Request duration: {api_duration:.2f} seconds")
+                    logger.error(f"[FOLLOW-UP] - Total task duration: {task_duration:.2f} seconds")
+                    logger.error(f"[FOLLOW-UP] - URL: {url}")
+                    logger.error(f"[FOLLOW-UP] - Lead ID: {lead_id}")
+                    logger.error(f"[FOLLOW-UP] - Business ID: {business_id}")
+                    logger.error(f"[FOLLOW-UP] - Worker process: {os.getpid()}")
+                    logger.error(f"[FOLLOW-UP] - Error type: {type(e).__name__}")
+                    logger.error(f"[FOLLOW-UP] =========================================")
+                    logger.exception(f"[FOLLOW-UP] Request exception details")
+                    return f"ERROR: Request failed after {api_duration:.2f}s - {str(e)}"
+                except Exception as e:
+                    api_end_time = time.time()
+                    api_duration = api_end_time - api_start_time
+                    task_duration = api_end_time - task_start_time
+                    logger.error(
+                        f"[FOLLOW-UP] ❌ UNEXPECTED ERROR during API request (attempt {attempt + 1}): {e}"
+                    )
+                    logger.error(f"[FOLLOW-UP] ========== UNEXPECTED ERROR DETAILS ==========")
+                    logger.error(f"[FOLLOW-UP] - Request duration: {api_duration:.2f} seconds")
+                    logger.error(f"[FOLLOW-UP] - Total task duration: {task_duration:.2f} seconds")
+                    logger.error(f"[FOLLOW-UP] - URL: {url}")
+                    logger.error(f"[FOLLOW-UP] - Lead ID: {lead_id}")
+                    logger.error(f"[FOLLOW-UP] - Business ID: {business_id}")
+                    logger.error(f"[FOLLOW-UP] - Worker process: {os.getpid()}")
+                    logger.error(f"[FOLLOW-UP] - Error type: {type(e).__name__}")
+                    logger.error(f"[FOLLOW-UP] ============================================")
+                    logger.exception(f"[FOLLOW-UP] Unexpected exception details")
+                    return f"ERROR: Unexpected error after {api_duration:.2f}s - {str(e)}"
+
+            # Створюємо LeadEvent з from_backend=True щоб система знала що це наше повідомлення
+            try:
+                from django.utils import timezone as django_timezone
+
+                logger.info(f"[FOLLOW-UP] 📝 Creating LeadEvent with from_backend=True")
+
+                # Створюємо унікальний event_id для нашого повідомлення
+                import uuid
+                our_event_id = f"backend_sent_{uuid.uuid4().hex[:16]}"
+
+                lead_event = LeadEvent.objects.create(
+                    event_id=our_event_id,
+                    lead_id=lead_id,
+                    event_type="TEXT",
+                    user_type="BUSINESS",  # Ми відправляємо від імені бізнесу
+                    user_id="",
+                    user_display_name="",
+                    text=text,
+                    cursor="",
+                    time_created=django_timezone.now().isoformat(),
+                    raw={"backend_sent": True, "task_id": job_id, "yelp_response": resp.text[:1000]},
+                    from_backend=True  # 🔑 КЛЮЧОВИЙ FLAG!
+                )
+
+                logger.info(f"[FOLLOW-UP] ✅ Created LeadEvent id={lead_event.pk} with from_backend=True")
+                logger.info(f"[FOLLOW-UP] This will help system recognize this message as ours when webhook arrives")
+
+            except Exception as event_error:
+                # Не падаємо якщо не вдалося створити LeadEvent - повідомлення вже надіслано
+                logger.error(f"[FOLLOW-UP] ⚠️ Failed to create LeadEvent with from_backend=True: {event_error}")
+                logger.exception(f"[FOLLOW-UP] LeadEvent creation exception (non-critical)")
+
+            logger.info(f"[FOLLOW-UP] 🎉 FOLLOW-UP COMPLETED SUCCESSFULLY for lead={lead_id}")
+            logger.info(f"[FOLLOW-UP] ========== TASK COMPLETION ==========")
+            logger.info(f"[FOLLOW-UP] - Lead ID: {lead_id}")
+            logger.info(f"[FOLLOW-UP] - Business ID: {business_id}")
+            logger.info(f"[FOLLOW-UP] - Task ID: {job_id}")
+            logger.info(f"[FOLLOW-UP] - Message successfully sent to Yelp API")
+            logger.info(f"[FOLLOW-UP] - HTTP Status: {resp.status_code}")
+            logger.info(f"[FOLLOW-UP] - LeadEvent created with from_backend=True")
+            logger.info(f"[FOLLOW-UP] ===========================================")
+
+            task_duration = time.time() - task_start_time if 'task_start_time' in locals() else 0
+            logger.info(f"[FOLLOW-UP] 🎉 TASK COMPLETED SUCCESSFULLY in {task_duration:.2f} seconds")
+            return f"SUCCESS: Message sent to Yelp API (HTTP {resp.status_code}) in {task_duration:.2f}s"
                 
     except Exception as lock_exc:
         logger.error(f"[FOLLOW-UP] ❌ LOCK ERROR: {lock_exc}")
