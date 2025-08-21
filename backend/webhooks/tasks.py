@@ -388,7 +388,10 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
                 logger.error(f"[FOLLOW-UP] ========== HTTP ERROR DETAILS ==========")
                 logger.error(f"[FOLLOW-UP] - Response status: {resp.status_code}")
                 logger.error(f"[FOLLOW-UP] - Response headers: {dict(resp.headers)}")
-                logger.error(f"[FOLLOW-UP] - Response body: {resp.text}")
+                try:
+                    logger.error(f"[FOLLOW-UP] - Response JSON: {resp.json()}")
+                except ValueError:
+                    logger.error(f"[FOLLOW-UP] - Response text: {resp.text}")
                 logger.error(f"[FOLLOW-UP] - Request duration: {api_duration:.2f} seconds")
                 logger.error(f"[FOLLOW-UP] - Total task duration: {task_duration:.2f} seconds")
                 logger.error(f"[FOLLOW-UP] - URL: {url}")
