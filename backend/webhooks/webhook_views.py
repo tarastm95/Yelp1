@@ -657,7 +657,7 @@ class WebhookView(APIView):
                     logger.info(f"[WEBHOOK] Has phone in text: {has_phone}")
                     if has_phone:
                         logger.info(f"[WEBHOOK] Extracted phone: {phone}")
-                    
+
                     pending = LeadPendingTask.objects.filter(
                         lead_id=lid,
                         phone_opt_in=False,
@@ -665,7 +665,7 @@ class WebhookView(APIView):
                         active=True,
                     ).exists()
                     logger.info(f"[WEBHOOK] Pending no-phone tasks exist: {pending}")
-                    
+
                     if has_phone:
                         logger.info(f"[WEBHOOK] 📞 CLIENT PROVIDED PHONE NUMBER")
                         logger.info(f"[WEBHOOK] ========== PHONE DETECTED IN TEXT ==========")
@@ -715,41 +715,52 @@ class WebhookView(APIView):
                             logger.info(f"[WEBHOOK] ✅ handle_phone_available completed")
                         
                         logger.info(f"[WEBHOOK] ==============================================")
-                    elif pending:
-                        logger.info(f"[WEBHOOK] 🚫 CLIENT RESPONDED WITHOUT PHONE NUMBER")
-                        logger.info(f"[WEBHOOK] ========== CUSTOMER REPLY SCENARIO (NO PHONE) ==========")
-                        logger.info(f"[WEBHOOK] Lead ID: {lid}")
-                        logger.info(f"[WEBHOOK] Event ID: {eid}")
-                        logger.info(f"[WEBHOOK] Event text: '{text[:100]}...'" + ("" if len(text) <= 100 else " (truncated)"))
-                        logger.info(f"[WEBHOOK] Has pending no-phone tasks: {pending}")
-                        logger.info(f"[WEBHOOK] Phone number found in text: {has_phone}")
-                        logger.info(f"[WEBHOOK] ❗ Customer Reply scenario - cancelling tasks + sending Customer Reply SMS")
-                        logger.info(f"[WEBHOOK] 🎯 SMS DECISION ANALYSIS:")
-                        logger.info(f"[WEBHOOK] - Scenario: Customer Reply (phone_opt_in=False, phone_available=False)")
-                        logger.info(f"[WEBHOOK] - Current behavior: Cancel pending tasks + Customer Reply SMS")
-                        
-                        reason = "Client responded, but no number was found"
-                        self._cancel_no_phone_tasks(lid, reason=reason)
-                        
-                        # Send SMS notification for Customer Reply (without follow-up)
-                        logger.info(f"[WEBHOOK] 📱 SENDING Customer Reply SMS (no follow-up)")
-                        self._send_customer_reply_sms_only(lid)
                     else:
-                        logger.info(f"[WEBHOOK] ℹ️ CLIENT RESPONDED but no pending tasks to handle")
-                        logger.info(f"[WEBHOOK] ========== CUSTOMER REPLY SCENARIO (NO PENDING TASKS) ==========")
-                        logger.info(f"[WEBHOOK] Lead ID: {lid}")
-                        logger.info(f"[WEBHOOK] Event ID: {eid}")
-                        logger.info(f"[WEBHOOK] Event text: '{text[:100]}...'" + ("" if len(text) <= 100 else " (truncated)"))
-                        logger.info(f"[WEBHOOK] Has pending no-phone tasks: {pending}")
-                        logger.info(f"[WEBHOOK] Phone number found in text: {has_phone}")
-                        logger.info(f"[WEBHOOK] ❗ Customer Reply scenario detected - no pending tasks to cancel")
-                        logger.info(f"[WEBHOOK] 🎯 SMS DECISION ANALYSIS:")
-                        logger.info(f"[WEBHOOK] - Scenario: Customer Reply (phone_opt_in=False, phone_available=False)")
-                        logger.info(f"[WEBHOOK] - Current behavior: Customer Reply SMS (no follow-up)")
-                        
-                        # Send SMS notification for Customer Reply (without follow-up)
-                        logger.info(f"[WEBHOOK] 📱 SENDING Customer Reply SMS (no follow-up)")
-                        self._send_customer_reply_sms_only(lid)
+                        ld_flags = LeadDetail.objects.filter(lead_id=lid).values("phone_opt_in", "phone_number").first()
+                        if (
+                            ld_flags
+                            and ld_flags.get("phone_opt_in")
+                            and not ld_flags.get("phone_number")
+                        ):
+                            logger.info("Opt-in flow canceled after consumer reply without phone")
+                            self._cancel_all_tasks(
+                                lid, reason="Consumer replied without phone"
+                            )
+                        elif pending:
+                            logger.info(f"[WEBHOOK] 🚫 CLIENT RESPONDED WITHOUT PHONE NUMBER")
+                            logger.info(f"[WEBHOOK] ========== CUSTOMER REPLY SCENARIO (NO PHONE) ==========")
+                            logger.info(f"[WEBHOOK] Lead ID: {lid}")
+                            logger.info(f"[WEBHOOK] Event ID: {eid}")
+                            logger.info(f"[WEBHOOK] Event text: '{text[:100]}...'" + ("" if len(text) <= 100 else " (truncated)"))
+                            logger.info(f"[WEBHOOK] Has pending no-phone tasks: {pending}")
+                            logger.info(f"[WEBHOOK] Phone number found in text: {has_phone}")
+                            logger.info(f"[WEBHOOK] ❗ Customer Reply scenario - cancelling tasks + sending Customer Reply SMS")
+                            logger.info(f"[WEBHOOK] 🎯 SMS DECISION ANALYSIS:")
+                            logger.info(f"[WEBHOOK] - Scenario: Customer Reply (phone_opt_in=False, phone_available=False)")
+                            logger.info(f"[WEBHOOK] - Current behavior: Cancel pending tasks + Customer Reply SMS")
+
+                            reason = "Client responded, but no number was found"
+                            self._cancel_no_phone_tasks(lid, reason=reason)
+
+                            # Send SMS notification for Customer Reply (without follow-up)
+                            logger.info(f"[WEBHOOK] 📱 SENDING Customer Reply SMS (no follow-up)")
+                            self._send_customer_reply_sms_only(lid)
+                        else:
+                            logger.info(f"[WEBHOOK] ℹ️ CLIENT RESPONDED but no pending tasks to handle")
+                            logger.info(f"[WEBHOOK] ========== CUSTOMER REPLY SCENARIO (NO PENDING TASKS) ==========")
+                            logger.info(f"[WEBHOOK] Lead ID: {lid}")
+                            logger.info(f"[WEBHOOK] Event ID: {eid}")
+                            logger.info(f"[WEBHOOK] Event text: '{text[:100]}...'" + ("" if len(text) <= 100 else " (truncated)"))
+                            logger.info(f"[WEBHOOK] Has pending no-phone tasks: {pending}")
+                            logger.info(f"[WEBHOOK] Phone number found in text: {has_phone}")
+                            logger.info(f"[WEBHOOK] ❗ Customer Reply scenario detected - no pending tasks to cancel")
+                            logger.info(f"[WEBHOOK] 🎯 SMS DECISION ANALYSIS:")
+                            logger.info(f"[WEBHOOK] - Scenario: Customer Reply (phone_opt_in=False, phone_available=False)")
+                            logger.info(f"[WEBHOOK] - Current behavior: Customer Reply SMS (no follow-up)")
+
+                            # Send SMS notification for Customer Reply (without follow-up)
+                            logger.info(f"[WEBHOOK] 📱 SENDING Customer Reply SMS (no follow-up)")
+                            self._send_customer_reply_sms_only(lid)
                 elif created and e.get("user_type") == "CONSUMER":
                     logger.info(f"[WEBHOOK] 📊 CONSUMER EVENT RECORDED but NOT PROCESSED as new")
                     logger.info(f"[WEBHOOK] Reason: Event happened BEFORE lead processing")
