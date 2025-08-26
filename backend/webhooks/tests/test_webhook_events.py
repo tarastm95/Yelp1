@@ -2,6 +2,7 @@ from django.test import TestCase
 from rest_framework.test import APIRequestFactory
 from unittest.mock import patch
 from datetime import timedelta
+from django.utils import timezone
 
 from webhooks.webhook_views import WebhookView
 from webhooks.models import (
@@ -569,4 +570,75 @@ class AutoResponse404DetailTests(TestCase):
         mock_get.assert_not_called()
         self.assertEqual(resp.status_code, 201)
         self.assertEqual(LeadEvent.objects.count(), 0)
+
+    @patch("webhooks.webhook_views.django_rq.get_queue")
+    @patch("webhooks.webhook_views.django_rq.get_scheduler")
+    @patch("webhooks.webhook_views.requests.get")
+    @patch.object(WebhookView, "handle_new_lead")
+    @patch.object(WebhookView, "handle_phone_available")
+    def test_reply_without_phone_after_opt_in_cancels_all_tasks(
+        self,
+        mock_phone_available,
+        mock_new_lead,
+        mock_get,
+        mock_scheduler,
+        mock_queue,
+    ):
+        event_time = (self.proc.processed_at + timedelta(minutes=1)).isoformat()
+        mock_get.return_value = type(
+            "R",
+            (),
+            {
+                "status_code": 200,
+                "json": lambda self: {
+                    "events": [
+                        {
+                            "id": "e_optin",
+                            "event_type": "NEW_EVENT",
+                            "user_type": "CONSUMER",
+                            "user_id": "u",
+                            "user_display_name": "d",
+                            "event_content": {"text": "thanks"},
+                            "cursor": "c_optin",
+                            "time_created": event_time,
+                        }
+                    ]
+                },
+            },
+        )()
+
+        LeadPendingTask.objects.filter(lead_id=self.lead_id).delete()
+        LeadPendingTask.objects.create(
+            lead_id=self.lead_id,
+            task_id="t-optin",
+            text="follow up",
+            phone_opt_in=True,
+            phone_available=False,
+        )
+        LeadDetail.objects.create(
+            lead_id=self.lead_id,
+            business_id=self.biz_id,
+            time_created=timezone.now(),
+            project={},
+            phone_opt_in=True,
+        )
+
+        class DummyQueue:
+            def fetch_job(self, job_id):
+                return None
+
+        class DummyScheduler:
+            def cancel(self, job_id):
+                pass
+
+        mock_queue.return_value = DummyQueue()
+        mock_scheduler.return_value = DummyScheduler()
+
+        self._post()
+
+        self.assertFalse(
+            LeadPendingTask.objects.filter(
+                lead_id=self.lead_id, active=True
+            ).exists()
+        )
 
