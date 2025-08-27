@@ -362,7 +362,6 @@ class WebhookView(APIView):
                     has_phone = bool(phone)
                     pending = LeadPendingTask.objects.filter(
                         lead_id=lid,
-                        phone_opt_in=False,
                         phone_available=False,
                         active=True,
                     ).exists()
@@ -389,7 +388,7 @@ class WebhookView(APIView):
                             self.handle_phone_available(lid, reason=reason)
                     elif pending:
                         reason = "Client responded, but no number was found"
-                        self._cancel_no_phone_tasks(lid, reason=reason)
+                        self._cancel_pre_phone_tasks(lid, reason=reason)
                 else:
                     reasons = []
                     if upd.get("event_type") != "NEW_EVENT":
@@ -660,7 +659,6 @@ class WebhookView(APIView):
 
                     pending = LeadPendingTask.objects.filter(
                         lead_id=lid,
-                        phone_opt_in=False,
                         phone_available=False,
                         active=True,
                     ).exists()
@@ -740,7 +738,7 @@ class WebhookView(APIView):
                             logger.info(f"[WEBHOOK] - Current behavior: Cancel pending tasks + Customer Reply SMS")
 
                             reason = "Client responded, but no number was found"
-                            self._cancel_no_phone_tasks(lid, reason=reason)
+                            self._cancel_pre_phone_tasks(lid, reason=reason)
 
                             # Send SMS notification for Customer Reply (without follow-up)
                             logger.info(f"[WEBHOOK] 📱 SENDING Customer Reply SMS (no follow-up)")
@@ -984,7 +982,7 @@ class WebhookView(APIView):
         logger.info(f"[AUTO-RESPONSE] Step 1: Cancelling no-phone tasks")
         
         try:
-            self._cancel_no_phone_tasks(lead_id, reason)
+            self._cancel_pre_phone_tasks(lead_id, reason)
             logger.info(f"[AUTO-RESPONSE] Step 2: Starting auto-response for phone opt-in scenario")
             self._process_auto_response(lead_id, phone_opt_in=True, phone_available=False)
             logger.info(f"[AUTO-RESPONSE] ✅ handle_phone_opt_in completed successfully for {lead_id}")
@@ -1020,7 +1018,7 @@ class WebhookView(APIView):
         logger.info(f"[AUTO-RESPONSE] Step 1: Cancelling no-phone tasks")
         
         try:
-            self._cancel_no_phone_tasks(lead_id, reason)
+            self._cancel_pre_phone_tasks(lead_id, reason)
             logger.info(f"[AUTO-RESPONSE] Step 2: Starting auto-response for phone available scenario")
             self._process_auto_response(lead_id, phone_opt_in=False, phone_available=True)
             logger.info(f"[AUTO-RESPONSE] ✅ handle_phone_available completed successfully for {lead_id}")
@@ -1310,14 +1308,16 @@ class WebhookView(APIView):
         logger.info(f"[NEW-LEAD-FOLLOW-UP] - Follow-ups scheduled: {scheduled_count}")
         logger.info(f"[NEW-LEAD-FOLLOW-UP] - SMS sent: 0 (disabled for new leads)")
 
-    def _cancel_no_phone_tasks(self, lead_id: str, reason: str | None = None):
-        logger.info(f"[AUTO-RESPONSE] 🚫 STARTING _cancel_no_phone_tasks")
+    def _cancel_pre_phone_tasks(self, lead_id: str, reason: str | None = None):
+        logger.info(f"[AUTO-RESPONSE] 🚫 STARTING _cancel_pre_phone_tasks")
         logger.info(f"[AUTO-RESPONSE] Lead ID: {lead_id}")
         logger.info(f"[AUTO-RESPONSE] Cancellation reason: {reason or 'Not specified'}")
-        logger.info(f"[AUTO-RESPONSE] Looking for pending tasks with: phone_opt_in=False, phone_available=False, active=True")
-        
+        logger.info(
+            f"[AUTO-RESPONSE] Looking for pending tasks with: phone_available=False, active=True"
+        )
+
         pending = LeadPendingTask.objects.filter(
-            lead_id=lead_id, phone_opt_in=False, phone_available=False, active=True
+            lead_id=lead_id, phone_available=False, active=True
         )
         pending_count = pending.count()
         logger.info(f"[AUTO-RESPONSE] Found {pending_count} pending no-phone tasks to cancel")
@@ -1365,11 +1365,11 @@ class WebhookView(APIView):
             )
             logger.info(f"[AUTO-RESPONSE] ✅ Updated {updated_logs} CeleryTaskLog entries for {p.task_id}")
             
-        logger.info(f"[AUTO-RESPONSE] 📊 _cancel_no_phone_tasks summary for {lead_id}:")
+        logger.info(f"[AUTO-RESPONSE] 📊 _cancel_pre_phone_tasks summary for {lead_id}:")
         logger.info(f"[AUTO-RESPONSE] - Tasks found: {pending_count}")
         logger.info(f"[AUTO-RESPONSE] - Tasks cancelled successfully: {cancelled_count}")
         logger.info(f"[AUTO-RESPONSE] - Tasks with errors: {error_count}")
-        logger.info(f"[AUTO-RESPONSE] ✅ _cancel_no_phone_tasks completed")
+        logger.info(f"[AUTO-RESPONSE] ✅ _cancel_pre_phone_tasks completed")
 
     def _cancel_all_tasks(self, lead_id: str, reason: str | None = None):
         logger.info(f"[AUTO-RESPONSE] 🛑 STARTING _cancel_all_tasks")

@@ -38,7 +38,7 @@ class WebhookEventProcessingTests(TestCase):
         return response
 
     @patch("webhooks.webhook_views.requests.get")
-    @patch.object(WebhookView, "_cancel_no_phone_tasks")
+    @patch.object(WebhookView, "_cancel_pre_phone_tasks")
     @patch.object(WebhookView, "handle_phone_available")
     @patch.object(WebhookView, "handle_new_lead")
     @patch("webhooks.webhook_views.get_valid_business_token", return_value="tok")
@@ -69,7 +69,7 @@ class WebhookEventProcessingTests(TestCase):
         mock_cancel.assert_called_once()
 
     @patch("webhooks.webhook_views.requests.get")
-    @patch.object(WebhookView, "_cancel_no_phone_tasks")
+    @patch.object(WebhookView, "_cancel_pre_phone_tasks")
     @patch.object(WebhookView, "handle_phone_available")
     @patch.object(WebhookView, "handle_new_lead")
     @patch("webhooks.webhook_views.get_valid_business_token", return_value="tok")
@@ -100,7 +100,48 @@ class WebhookEventProcessingTests(TestCase):
         mock_cancel.assert_called_once()
 
     @patch("webhooks.webhook_views.requests.get")
-    @patch.object(WebhookView, "_cancel_no_phone_tasks")
+    @patch.object(WebhookView, "_cancel_pre_phone_tasks")
+    @patch.object(WebhookView, "handle_phone_available")
+    @patch.object(WebhookView, "handle_new_lead")
+    @patch("webhooks.webhook_views.get_valid_business_token", return_value="tok")
+    @patch("webhooks.webhook_views.get_token_for_lead", return_value="tok")
+    def test_late_event_without_phone_cancels_tasks_opted_in(
+        self,
+        mock_lead_token,
+        mock_business_token,
+        mock_new_lead,
+        mock_phone_available,
+        mock_cancel,
+        mock_get,
+    ):
+        LeadPendingTask.objects.filter(lead_id=self.lead_id).update(phone_opt_in=True)
+        event_time = (self.proc.processed_at + timedelta(minutes=1)).isoformat()
+        mock_get.return_value = type(
+            "R",
+            (),
+            {
+                "status_code": 200,
+                "json": lambda self: {
+                    "events": [
+                        {
+                            "id": "e2",
+                            "event_type": "NEW_EVENT",
+                            "user_type": "CONSUMER",
+                            "user_id": "u",
+                            "user_display_name": "d",
+                            "event_content": {"text": "hello"},
+                            "cursor": "c2",
+                            "time_created": event_time,
+                        }
+                    ]
+                },
+            },
+        )()
+        self._post()
+        mock_cancel.assert_called_once()
+
+    @patch("webhooks.webhook_views.requests.get")
+    @patch.object(WebhookView, "_cancel_pre_phone_tasks")
     @patch.object(WebhookView, "handle_phone_available")
     @patch.object(WebhookView, "handle_new_lead")
     @patch("webhooks.webhook_views.get_valid_business_token", return_value="tok")
@@ -141,7 +182,7 @@ class WebhookEventProcessingTests(TestCase):
         mock_cancel.assert_not_called()
 
     @patch("webhooks.webhook_views.requests.get")
-    @patch.object(WebhookView, "_cancel_no_phone_tasks")
+    @patch.object(WebhookView, "_cancel_pre_phone_tasks")
     @patch.object(WebhookView, "handle_phone_available")
     @patch.object(WebhookView, "handle_new_lead")
     @patch("webhooks.webhook_views.get_valid_business_token", return_value="tok")
@@ -183,7 +224,7 @@ class WebhookEventProcessingTests(TestCase):
 
     @patch("webhooks.webhook_views.requests.get")
     @patch.object(WebhookView, "_cancel_all_tasks")
-    @patch.object(WebhookView, "_cancel_no_phone_tasks")
+    @patch.object(WebhookView, "_cancel_pre_phone_tasks")
     @patch.object(WebhookView, "handle_phone_available")
     @patch.object(WebhookView, "handle_new_lead")
     @patch("webhooks.webhook_views.get_valid_business_token", return_value="tok")
@@ -389,7 +430,7 @@ class LeadIdVerificationTests(TestCase):
         self.assertFalse(ProcessedLead.objects.filter(lead_id=self.lead_id).exists())
 
     @patch("webhooks.webhook_views.requests.get")
-    @patch.object(WebhookView, "_cancel_no_phone_tasks")
+    @patch.object(WebhookView, "_cancel_pre_phone_tasks")
     @patch.object(WebhookView, "handle_phone_available")
     @patch.object(WebhookView, "handle_new_lead")
     @patch("webhooks.webhook_views.get_valid_business_token", return_value="tok")
@@ -488,7 +529,7 @@ class BusinessTokenErrorTests(TestCase):
         return self.view(request)
 
     @patch("webhooks.webhook_views.requests.get")
-    @patch.object(WebhookView, "_cancel_no_phone_tasks")
+    @patch.object(WebhookView, "_cancel_pre_phone_tasks")
     @patch.object(WebhookView, "handle_phone_available")
     @patch.object(WebhookView, "handle_new_lead")
     @patch(
@@ -549,7 +590,7 @@ class AutoResponse404DetailTests(TestCase):
         self.assertEqual(mock_get.call_count, 2)
 
     @patch("webhooks.webhook_views.requests.get")
-    @patch.object(WebhookView, "_cancel_no_phone_tasks")
+    @patch.object(WebhookView, "_cancel_pre_phone_tasks")
     @patch.object(WebhookView, "handle_phone_available")
     @patch.object(WebhookView, "handle_new_lead")
     @patch(
