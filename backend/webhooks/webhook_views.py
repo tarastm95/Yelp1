@@ -8,6 +8,7 @@ import requests
 import django_rq
 from django.utils import timezone
 from django.db import transaction, OperationalError, IntegrityError
+from django.db.models import Q
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -657,12 +658,14 @@ class WebhookView(APIView):
                     if has_phone:
                         logger.info(f"[WEBHOOK] Extracted phone: {phone}")
 
+                    # Check for any non-phone tasks (phone_available=False) OR phone opt-in tasks
                     pending = LeadPendingTask.objects.filter(
                         lead_id=lid,
-                        phone_available=False,
                         active=True,
+                    ).filter(
+                        Q(phone_available=False) | Q(phone_opt_in=True)
                     ).exists()
-                    logger.info(f"[WEBHOOK] Pending no-phone tasks exist: {pending}")
+                    logger.info(f"[WEBHOOK] Pending tasks (no-phone OR phone opt-in) exist: {pending}")
 
                     if has_phone:
                         logger.info(f"[WEBHOOK] 📞 CLIENT PROVIDED PHONE NUMBER")
@@ -718,11 +721,15 @@ class WebhookView(APIView):
                         if (
                             ld_flags
                             and ld_flags.get("phone_opt_in")
-                            and not ld_flags.get("phone_number")
                         ):
-                            logger.info("Opt-in flow canceled after consumer reply without phone")
-                            self._cancel_all_tasks(
-                                lid, reason="Consumer replied without phone"
+                            logger.info("Phone opt-in flow canceled after consumer reply")
+                            logger.info(f"[WEBHOOK] ========== PHONE OPT-IN REPLY SCENARIO ==========")
+                            logger.info(f"[WEBHOOK] Lead ID: {lid}")
+                            logger.info(f"[WEBHOOK] phone_opt_in: {ld_flags.get('phone_opt_in')}")
+                            logger.info(f"[WEBHOOK] phone_number: {ld_flags.get('phone_number')}")
+                            logger.info(f"[WEBHOOK] Cancelling ALL phone opt-in tasks regardless of phone_number status")
+                            self._cancel_phone_opt_in_tasks(
+                                lid, reason="Consumer replied to phone opt-in flow"
                             )
                         elif pending:
                             logger.info(f"[WEBHOOK] 🚫 CLIENT RESPONDED WITHOUT PHONE NUMBER")
@@ -1308,19 +1315,89 @@ class WebhookView(APIView):
         logger.info(f"[NEW-LEAD-FOLLOW-UP] - Follow-ups scheduled: {scheduled_count}")
         logger.info(f"[NEW-LEAD-FOLLOW-UP] - SMS sent: 0 (disabled for new leads)")
 
+    def _cancel_phone_opt_in_tasks(self, lead_id: str, reason: str | None = None):
+        """Cancel all phone opt-in related tasks when consumer replies to opt-in flow."""
+        logger.info(f"[AUTO-RESPONSE] 🚫 STARTING _cancel_phone_opt_in_tasks")
+        logger.info(f"[AUTO-RESPONSE] Lead ID: {lead_id}")
+        logger.info(f"[AUTO-RESPONSE] Cancellation reason: {reason or 'Not specified'}")
+        logger.info(f"[AUTO-RESPONSE] Looking for pending tasks with: phone_opt_in=True, active=True")
+        
+        pending = LeadPendingTask.objects.filter(
+            lead_id=lead_id, 
+            phone_opt_in=True, 
+            active=True
+        )
+        pending_count = pending.count()
+        logger.info(f"[AUTO-RESPONSE] Found {pending_count} pending phone opt-in tasks to cancel")
+        
+        if pending_count == 0:
+            logger.info(f"[AUTO-RESPONSE] No phone opt-in tasks to cancel for {lead_id}")
+            return
+            
+        queue = django_rq.get_queue("default")
+        scheduler = django_rq.get_scheduler("default")
+        
+        cancelled_count = 0
+        error_count = 0
+        
+        for p in pending:
+            logger.info(f"[AUTO-RESPONSE] Cancelling phone opt-in task: {p.task_id} for lead {lead_id}")
+            logger.info(f"[AUTO-RESPONSE] Task text preview: {p.text[:50]}...")
+            logger.info(f"[AUTO-RESPONSE] Task created at: {p.created_at}")
+            logger.info(f"[AUTO-RESPONSE] Task phone_opt_in: {p.phone_opt_in}")
+            logger.info(f"[AUTO-RESPONSE] Task phone_available: {p.phone_available}")
+            
+            try:
+                job = queue.fetch_job(p.task_id)
+                if job:
+                    job.cancel()
+                    logger.info(f"[AUTO-RESPONSE] ✅ Queue job {p.task_id} cancelled successfully")
+                else:
+                    logger.info(f"[AUTO-RESPONSE] ⚠️ Queue job {p.task_id} not found (might be already processed)")
+                    
+                scheduler.cancel(p.task_id)
+                logger.info(f"[AUTO-RESPONSE] ✅ Scheduler job {p.task_id} cancelled successfully")
+                cancelled_count += 1
+                
+            except Exception as exc:
+                logger.error(f"[AUTO-RESPONSE] ❌ Error cancelling task {p.task_id}: {exc}")
+                logger.exception(f"[AUTO-RESPONSE] Exception details for task cancellation")
+                error_count += 1
+                
+            # Update task status
+            p.active = False
+            p.save(update_fields=["active"])
+            logger.info(f"[AUTO-RESPONSE] ✅ LeadPendingTask {p.task_id} marked as inactive")
+            
+            # Update Celery log
+            updated_logs = CeleryTaskLog.objects.filter(task_id=p.task_id).update(
+                status="REVOKED", result=reason
+            )
+            logger.info(f"[AUTO-RESPONSE] ✅ Updated {updated_logs} CeleryTaskLog entries for {p.task_id}")
+            
+        logger.info(f"[AUTO-RESPONSE] 📊 _cancel_phone_opt_in_tasks summary for {lead_id}:")
+        logger.info(f"[AUTO-RESPONSE] - Tasks found: {pending_count}")
+        logger.info(f"[AUTO-RESPONSE] - Tasks cancelled successfully: {cancelled_count}")
+        logger.info(f"[AUTO-RESPONSE] - Tasks with errors: {error_count}")
+        logger.info(f"[AUTO-RESPONSE] ✅ _cancel_phone_opt_in_tasks completed")
+
     def _cancel_pre_phone_tasks(self, lead_id: str, reason: str | None = None):
         logger.info(f"[AUTO-RESPONSE] 🚫 STARTING _cancel_pre_phone_tasks")
         logger.info(f"[AUTO-RESPONSE] Lead ID: {lead_id}")
         logger.info(f"[AUTO-RESPONSE] Cancellation reason: {reason or 'Not specified'}")
         logger.info(
-            f"[AUTO-RESPONSE] Looking for pending tasks with: phone_available=False, active=True"
+            f"[AUTO-RESPONSE] Looking for pending tasks with: phone_available=False OR phone_opt_in=True, active=True"
         )
 
+        # Cancel both phone_available=False tasks AND phone_opt_in=True tasks
         pending = LeadPendingTask.objects.filter(
-            lead_id=lead_id, phone_available=False, active=True
+            lead_id=lead_id, 
+            active=True
+        ).filter(
+            Q(phone_available=False) | Q(phone_opt_in=True)
         )
         pending_count = pending.count()
-        logger.info(f"[AUTO-RESPONSE] Found {pending_count} pending no-phone tasks to cancel")
+        logger.info(f"[AUTO-RESPONSE] Found {pending_count} pending tasks to cancel (no-phone OR phone opt-in)")
         
         if pending_count == 0:
             logger.info(f"[AUTO-RESPONSE] No no-phone tasks to cancel for {lead_id}")
@@ -1336,6 +1413,8 @@ class WebhookView(APIView):
             logger.info(f"[AUTO-RESPONSE] Cancelling task: {p.task_id} for lead {lead_id}")
             logger.info(f"[AUTO-RESPONSE] Task text preview: {p.text[:50]}...")
             logger.info(f"[AUTO-RESPONSE] Task created at: {p.created_at}")
+            logger.info(f"[AUTO-RESPONSE] Task phone_opt_in: {p.phone_opt_in}")
+            logger.info(f"[AUTO-RESPONSE] Task phone_available: {p.phone_available}")
             
             try:
                 job = queue.fetch_job(p.task_id)
