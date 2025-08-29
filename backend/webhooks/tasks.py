@@ -176,20 +176,10 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
             logger.info(f"[FOLLOW-UP] Task {i+1}: ID={task.pk}, task_id='{task.task_id}', active={task.active}, phone_opt_in={task.phone_opt_in}, phone_available={task.phone_available}")
     
     logger.info(f"[FOLLOW-UP] =====================================")
-    
-    if _already_sent(lead_id, text, exclude_task_id=job_id):
-        logger.warning(f"[FOLLOW-UP] ⚠️ DUPLICATE DETECTED - message already sent for lead={lead_id}")
-        logger.warning(f"[FOLLOW-UP] DUPLICATE DETAILS:")
-        logger.warning(f"[FOLLOW-UP] - Duplicate message: '{text}'")
-        logger.warning(f"[FOLLOW-UP] - Events found: {existing_events.count()}")
-        logger.warning(f"[FOLLOW-UP] - Active tasks found: {existing_tasks.count()}")
-        logger.info(f"[FOLLOW-UP] 🛑 EARLY RETURN - skipping duplicate message")
-        return "SKIPPED: Duplicate message detected"
 
-    logger.info(f"[FOLLOW-UP] ✅ No duplicate found - proceeding with send")
-
-    # 🔥 NEW STEP: Check if consumer responded after task was created
-    logger.info(f"[FOLLOW-UP] 🔍 STEP 2.5: Checking for consumer responses")
+    # 🔥 CRITICAL FIX: Check consumer response BEFORE duplicate check
+    # This ensures we catch consumer responses even if duplicate detection would skip the task
+    logger.info(f"[FOLLOW-UP] 🔍 STEP 1.5: Checking for consumer responses (PRIORITY CHECK)")
     logger.info(f"[FOLLOW-UP] ========== CONSUMER RESPONSE CHECK ===========")
     
     try:
@@ -234,6 +224,19 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
         logger.info(f"[FOLLOW-UP] Proceeding with follow-up despite error")
     
     logger.info(f"[FOLLOW-UP] ==========================================")
+
+    # Step 2: Check for duplicates (after consumer response check)
+    logger.info(f"[FOLLOW-UP] 🔍 STEP 2: Checking for duplicate messages")
+    if _already_sent(lead_id, text, exclude_task_id=job_id):
+        logger.warning(f"[FOLLOW-UP] ⚠️ DUPLICATE DETECTED - message already sent for lead={lead_id}")
+        logger.warning(f"[FOLLOW-UP] DUPLICATE DETAILS:")
+        logger.warning(f"[FOLLOW-UP] - Duplicate message: '{text}'")
+        logger.warning(f"[FOLLOW-UP] - Events found: {existing_events.count()}")
+        logger.warning(f"[FOLLOW-UP] - Active tasks found: {existing_tasks.count()}")
+        logger.info(f"[FOLLOW-UP] 🛑 EARLY RETURN - skipping duplicate message")
+        return "SKIPPED: Duplicate message detected"
+
+    logger.info(f"[FOLLOW-UP] ✅ No duplicate found - proceeding with send")
 
     # Step 3: Validate message text
     logger.info(f"[FOLLOW-UP] 📝 STEP 2: Validating message text")
