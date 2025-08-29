@@ -201,7 +201,6 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
                 logger.info(f"[FOLLOW-UP] Task created at: {task_created_at}")
                 
                 # Check for consumer events after task creation
-                from .models import LeadEvent
                 consumer_responses = LeadEvent.objects.filter(
                     lead_id=lead_id,
                     user_type="CONSUMER",
