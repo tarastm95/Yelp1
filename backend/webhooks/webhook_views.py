@@ -722,15 +722,56 @@ class WebhookView(APIView):
                             ld_flags
                             and ld_flags.get("phone_opt_in")
                         ):
-                            logger.info("Phone opt-in flow canceled after consumer reply")
+                            logger.info("Phone opt-in consumer response detected")
                             logger.info(f"[WEBHOOK] ========== PHONE OPT-IN REPLY SCENARIO ==========")
                             logger.info(f"[WEBHOOK] Lead ID: {lid}")
                             logger.info(f"[WEBHOOK] phone_opt_in: {ld_flags.get('phone_opt_in')}")
                             logger.info(f"[WEBHOOK] phone_number: {ld_flags.get('phone_number')}")
-                            logger.info(f"[WEBHOOK] Cancelling ALL phone opt-in tasks regardless of phone_number status")
-                            self._cancel_phone_opt_in_tasks(
-                                lid, reason="Consumer replied to phone opt-in flow"
-                            )
+                            logger.info(f"[WEBHOOK] Has phone in text: {has_phone}")
+                            if has_phone:
+                                logger.info(f"[WEBHOOK] Extracted phone: {phone}")
+                            
+                            if has_phone:
+                                logger.info(f"[WEBHOOK] 📞 PHONE FOUND IN OPT-IN RESPONSE")
+                                logger.info(f"[WEBHOOK] Switching from Phone Opt-In to Phone Available scenario")
+                                
+                                # Оновлюємо LeadDetail з номером телефону (як у No Phone логіці)
+                                ld = LeadDetail.objects.get(lead_id=lid)
+                                ld.phone_in_text = True
+                                ld.phone_number = phone
+                                ld.phone_sms_sent = False
+                                logger.info(f"[WEBHOOK] 🔄 Reset phone_sms_sent=False to allow SMS notification with real phone number")
+                                ld.save(update_fields=['phone_in_text', 'phone_number', 'phone_sms_sent'])
+                                
+                                logger.info(f"[WEBHOOK] ✅ LeadDetail updated with phone information (triggers SMS signal)")
+                                
+                                try:
+                                    from .utils import update_phone_in_sheet
+                                    update_phone_in_sheet(lid, phone)
+                                    logger.info(f"[WEBHOOK] ✅ Phone updated in Google Sheets")
+                                except Exception:
+                                    logger.exception("[WEBHOOK] Failed to update phone in sheet")
+                                
+                                # Переключаємося на Phone Available сценарій
+                                logger.info(f"[WEBHOOK] 🚀 TRIGGERING handle_phone_available (phone found in opt-in)")
+                                self.handle_phone_available(lid, reason="Phone provided in opt-in response")
+                                logger.info(f"[WEBHOOK] ✅ handle_phone_available completed")
+                                
+                            else:
+                                logger.info(f"[WEBHOOK] 🚫 NO PHONE IN OPT-IN RESPONSE")
+                                logger.info(f"[WEBHOOK] Consumer replied to opt-in without providing phone number")
+                                logger.info(f"[WEBHOOK] Cancelling phone opt-in tasks")
+                                
+                                # Скасовуємо тільки opt-in tasks (зберігаємо специфічність)
+                                self._cancel_phone_opt_in_tasks(
+                                    lid, reason="Consumer replied to phone opt-in flow without phone"
+                                )
+                                
+                                # Відправляємо SMS сповіщення (як у No Phone логіці)
+                                logger.info(f"[WEBHOOK] 📱 SENDING Customer Reply SMS (opt-in without phone)")
+                                self._send_customer_reply_sms_only(lid)
+                            
+                            logger.info(f"[WEBHOOK] ==============================================")
                         elif pending:
                             logger.info(f"[WEBHOOK] 🚫 CLIENT RESPONDED WITHOUT PHONE NUMBER")
                             logger.info(f"[WEBHOOK] ========== CUSTOMER REPLY SCENARIO (NO PHONE) ==========")
