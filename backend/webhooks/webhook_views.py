@@ -611,15 +611,25 @@ class WebhookView(APIView):
                     event_time > processed_at
                 )
                 
+                # 🔥 CRITICAL FIX: Phone opt-in scenarios should be processed even with timing issues
+                # Check if this is a phone opt-in lead that needs special handling
+                ld_flags_for_timing = LeadDetail.objects.filter(lead_id=lid).values("phone_opt_in").first()
+                is_phone_optin_lead = ld_flags_for_timing and ld_flags_for_timing.get("phone_opt_in", False)
+                
+                # Allow phone opt-in events even if timing is problematic
+                is_new_with_optin_exception = is_really_new_event or (created and is_phone_optin_lead)
+                
                 logger.info(f"[WEBHOOK] 🔍 EVENT ANALYSIS for lead={lid}, event_id={eid}")
                 logger.info(f"[WEBHOOK] - Record created in DB: {created}")
                 logger.info(f"[WEBHOOK] - Event time: {event_time_str}")
                 logger.info(f"[WEBHOOK] - Lead processed at: {processed_at}")
                 logger.info(f"[WEBHOOK] - Event after processing: {event_time > processed_at if event_time and processed_at else 'Cannot determine'}")
                 logger.info(f"[WEBHOOK] - Is really new client event: {is_really_new_event}")
+                logger.info(f"[WEBHOOK] - Is phone opt-in lead: {is_phone_optin_lead}")
+                logger.info(f"[WEBHOOK] - Final is_new (with opt-in exception): {is_new_with_optin_exception}")
                 
-                # Замінюємо is_new на is_really_new_event
-                is_new = is_really_new_event
+                # Замінюємо is_new на is_new_with_optin_exception
+                is_new = is_new_with_optin_exception
 
                 if e.get("event_type") == "CONSUMER_PHONE_NUMBER_OPT_IN_EVENT":
                     logger.info(f"[WEBHOOK] 📱 CONSUMER_PHONE_NUMBER_OPT_IN_EVENT detected (second handler)")

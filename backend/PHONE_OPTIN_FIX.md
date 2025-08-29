@@ -16,9 +16,9 @@ The system was **NOT cancelling follow-up messages** when consumers replied to P
 
 3. **Incomplete Task Filtering**: The `_cancel_pre_phone_tasks()` function only looked for `phone_available=False` tasks, missing `phone_opt_in=True` tasks.
 
-## ✅ Solution Implemented
+## ✅ Solutions Implemented
 
-### 1. Fixed Phone Opt-In Detection Logic
+### 1. Fixed Phone Opt-In Detection Logic (Primary Fix)
 
 **Before (Broken):**
 ```python
@@ -28,26 +28,59 @@ if (ld_flags and ld_flags.get("phone_opt_in") and not ld_flags.get("phone_number
 
 **After (Fixed):**
 ```python
+# 🔥 CRITICAL FIX: Check phone opt-in FIRST, before pending tasks check
+ld_flags = LeadDetail.objects.filter(lead_id=lid).values("phone_opt_in", "phone_number").first()
 if (ld_flags and ld_flags.get("phone_opt_in")):
-    logger.info("Phone opt-in flow canceled after consumer reply")
-    self._cancel_phone_opt_in_tasks(lid, reason="Consumer replied to phone opt-in flow")
+    logger.info("Phone opt-in consumer response detected")
+    # ... phone opt-in logic including:
+    self._cancel_pre_phone_tasks(lid, reason="Consumer replied to phone opt-in flow without phone")
 ```
 
-### 2. Added New Dedicated Function
+### 2. Updated Existing Function
 
-Created `_cancel_phone_opt_in_tasks()` to specifically handle Phone Opt-In cancellations:
+Updated `_cancel_pre_phone_tasks()` to handle Phone Opt-In cancellations:
 ```python
-def _cancel_phone_opt_in_tasks(self, lead_id: str, reason: str | None = None):
-    """Cancel all phone opt-in related tasks when consumer replies to opt-in flow."""
+def _cancel_pre_phone_tasks(self, lead_id: str, reason: str | None = None):
+    """Cancel all pre-phone tasks including phone opt-in tasks."""
+    # Cancel both phone_available=False tasks AND phone_opt_in=True tasks
     pending = LeadPendingTask.objects.filter(
         lead_id=lead_id, 
-        phone_opt_in=True, 
         active=True
+    ).filter(
+        Q(phone_available=False) | Q(phone_opt_in=True)
     )
     # ... cancellation logic
 ```
 
-### 3. Enhanced Pending Task Detection
+### 3. Fixed Timing Filter Issue (Critical Fix)
+
+**Problem:** Phone opt-in events were filtered out by timing logic when `event_time <= processed_at`.
+
+**Solution:** Added exception for phone opt-in leads in timing filter:
+```python
+# Allow phone opt-in events even if timing is problematic
+is_new_with_optin_exception = is_really_new_event or (created and is_phone_optin_lead)
+is_new = is_new_with_optin_exception
+```
+
+### 4. Added Consumer Response Check in send_follow_up
+
+**Problem:** Follow-up messages were sent even if consumer responded after task creation.
+
+**Solution:** Added check for consumer responses in `send_follow_up` function:
+```python
+# Check for consumer events after task creation
+consumer_responses = LeadEvent.objects.filter(
+    lead_id=lead_id,
+    user_type="CONSUMER",
+    time_created__gt=task_created_at,
+    from_backend=False
+)
+if consumer_responses.exists():
+    return "SKIPPED: Consumer responded after task creation"
+```
+
+### 5. Enhanced Pending Task Detection
 
 **Before (Incomplete):**
 ```python

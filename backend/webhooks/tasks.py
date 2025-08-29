@@ -188,6 +188,54 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
 
     logger.info(f"[FOLLOW-UP] ✅ No duplicate found - proceeding with send")
 
+    # 🔥 NEW STEP: Check if consumer responded after task was created
+    logger.info(f"[FOLLOW-UP] 🔍 STEP 2.5: Checking for consumer responses")
+    logger.info(f"[FOLLOW-UP] ========== CONSUMER RESPONSE CHECK ===========")
+    
+    try:
+        # Get the pending task to check when it was created
+        if job_id:
+            pending_task = LeadPendingTask.objects.filter(task_id=job_id).first()
+            if pending_task:
+                task_created_at = pending_task.created_at
+                logger.info(f"[FOLLOW-UP] Task created at: {task_created_at}")
+                
+                # Check for consumer events after task creation
+                from .models import LeadEvent
+                consumer_responses = LeadEvent.objects.filter(
+                    lead_id=lead_id,
+                    user_type="CONSUMER",
+                    time_created__gt=task_created_at,
+                    from_backend=False
+                ).order_by('time_created')
+                
+                response_count = consumer_responses.count()
+                logger.info(f"[FOLLOW-UP] Consumer responses after task creation: {response_count}")
+                
+                if response_count > 0:
+                    logger.info(f"[FOLLOW-UP] ❗ CONSUMER RESPONDED - cancelling follow-up")
+                    logger.info(f"[FOLLOW-UP] Recent consumer responses:")
+                    for i, response in enumerate(consumer_responses[:3]):
+                        logger.info(f"[FOLLOW-UP] Response {i+1}: '{response.text[:50]}...' at {response.time_created}")
+                    
+                    # Mark task as cancelled due to consumer response
+                    pending_task.active = False
+                    pending_task.save(update_fields=['active'])
+                    
+                    logger.info(f"[FOLLOW-UP] 🛑 EARLY RETURN - consumer responded after task creation")
+                    return "SKIPPED: Consumer responded after task creation"
+                else:
+                    logger.info(f"[FOLLOW-UP] ✅ No consumer responses - proceeding with follow-up")
+            else:
+                logger.info(f"[FOLLOW-UP] ⚠️ Could not find pending task with ID: {job_id}")
+        else:
+            logger.info(f"[FOLLOW-UP] ⚠️ No job_id provided - skipping consumer response check")
+    except Exception as e:
+        logger.error(f"[FOLLOW-UP] ❌ Error checking consumer responses: {e}")
+        logger.info(f"[FOLLOW-UP] Proceeding with follow-up despite error")
+    
+    logger.info(f"[FOLLOW-UP] ==========================================")
+
     # Step 3: Validate message text
     logger.info(f"[FOLLOW-UP] 📝 STEP 2: Validating message text")
     if not text.strip():

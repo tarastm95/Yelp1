@@ -253,7 +253,7 @@ class PhoneOptInIntegrationTests(TestCase):
         
         # Simulate the webhook logic for phone opt-in consumer reply (updated logic)
         ld_flags = LeadDetail.objects.filter(
-            self.lead_id
+            lead_id=self.lead_id
         ).values("phone_opt_in", "phone_number").first()
         
         # Simulate the new unified logic: check if it's opt-in and no phone provided
