@@ -717,6 +717,8 @@ class WebhookView(APIView):
                         
                         logger.info(f"[WEBHOOK] ==============================================")
                     else:
+                        # 🔥 CRITICAL FIX: Check phone opt-in FIRST, before pending tasks check
+                        # This ensures phone opt-in responses are handled correctly even when pending=True
                         ld_flags = LeadDetail.objects.filter(lead_id=lid).values("phone_opt_in", "phone_number").first()
                         if (
                             ld_flags
