@@ -2,7 +2,8 @@
 Tests for Phone Opt-In follow-up cancellation logic.
 
 This test ensures that when a consumer replies to a phone opt-in flow,
-all related follow-up messages are properly cancelled.
+all pre-phone tasks (including opt-in tasks) are properly cancelled
+using the unified _cancel_pre_phone_tasks function.
 """
 import pytest
 from unittest.mock import patch, MagicMock
@@ -61,8 +62,8 @@ class PhoneOptInCancellationTests(TestCase):
 
     @patch('django_rq.get_queue')
     @patch('django_rq.get_scheduler')
-    def test_phone_opt_in_cancellation_specific_function(self, mock_scheduler, mock_queue):
-        """Test the new _cancel_phone_opt_in_tasks function."""
+    def test_phone_opt_in_cancellation_unified_function(self, mock_scheduler, mock_queue):
+        """Test that _cancel_pre_phone_tasks now handles phone opt-in tasks."""
         # Mock queue and scheduler
         mock_queue_instance = MagicMock()
         mock_scheduler_instance = MagicMock()
@@ -73,10 +74,10 @@ class PhoneOptInCancellationTests(TestCase):
         mock_job = MagicMock()
         mock_queue_instance.fetch_job.return_value = mock_job
         
-        # Call the function
-        self.webhook_view._cancel_phone_opt_in_tasks(
+        # Call the unified function (now used for both scenarios)
+        self.webhook_view._cancel_pre_phone_tasks(
             self.lead_id, 
-            reason="Consumer replied to phone opt-in flow"
+            reason="Consumer replied to phone opt-in flow without phone"
         )
         
         # Verify phone opt-in tasks were cancelled
@@ -84,14 +85,14 @@ class PhoneOptInCancellationTests(TestCase):
         self.optin_followup_task.refresh_from_db()
         self.regular_task.refresh_from_db()
         
-        # Phone opt-in tasks should be inactive
+        # Phone opt-in tasks should be inactive (cancelled by unified function)
         self.assertFalse(self.optin_greeting_task.active)
         self.assertFalse(self.optin_followup_task.active)
         
-        # Regular task should remain active
+        # Regular phone_available=True task should remain active
         self.assertTrue(self.regular_task.active)
         
-        # Verify queue/scheduler calls
+        # Verify queue/scheduler calls (2 opt-in tasks cancelled)
         self.assertEqual(mock_queue_instance.fetch_job.call_count, 2)  # 2 opt-in tasks
         self.assertEqual(mock_job.cancel.call_count, 2)
         self.assertEqual(mock_scheduler_instance.cancel.call_count, 2)
@@ -250,22 +251,26 @@ class PhoneOptInIntegrationTests(TestCase):
             active=True
         )
         
-        # Simulate the webhook logic for phone opt-in consumer reply
+        # Simulate the webhook logic for phone opt-in consumer reply (updated logic)
         ld_flags = LeadDetail.objects.filter(
-            lead_id=self.lead_id
+            self.lead_id
         ).values("phone_opt_in", "phone_number").first()
         
-        if ld_flags and ld_flags.get("phone_opt_in"):
-            self.webhook_view._cancel_phone_opt_in_tasks(
-                self.lead_id, 
-                reason="Consumer replied to phone opt-in flow"
-            )
+        # Simulate the new unified logic: check if it's opt-in and no phone provided
+        has_phone = False  # Simulate consumer replied without phone
         
-        # Verify all phone opt-in tasks are cancelled
-        remaining_active_tasks = LeadPendingTask.objects.filter(
+        if ld_flags and ld_flags.get("phone_opt_in"):
+            if not has_phone:  # Consumer replied without phone
+                self.webhook_view._cancel_pre_phone_tasks(
+                    self.lead_id, 
+                    reason="Consumer replied to phone opt-in flow without phone"
+                )
+        
+        # Verify all phone opt-in tasks are cancelled by the unified function
+        remaining_active_optin_tasks = LeadPendingTask.objects.filter(
             lead_id=self.lead_id,
             phone_opt_in=True,
             active=True
         ).count()
         
-        self.assertEqual(remaining_active_tasks, 0, "All phone opt-in tasks should be cancelled")
+        self.assertEqual(remaining_active_optin_tasks, 0, "All phone opt-in tasks should be cancelled by unified function")

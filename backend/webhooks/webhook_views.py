@@ -725,15 +725,34 @@ class WebhookView(APIView):
                             logger.info("Phone opt-in consumer response detected")
                             logger.info(f"[WEBHOOK] ========== PHONE OPT-IN REPLY SCENARIO ==========")
                             logger.info(f"[WEBHOOK] Lead ID: {lid}")
-                            logger.info(f"[WEBHOOK] phone_opt_in: {ld_flags.get('phone_opt_in')}")
-                            logger.info(f"[WEBHOOK] phone_number: {ld_flags.get('phone_number')}")
-                            logger.info(f"[WEBHOOK] Has phone in text: {has_phone}")
+                            logger.info(f"[WEBHOOK] Event ID: {eid}")
+                            logger.info(f"[WEBHOOK] Event text: '{text[:100]}...'{(' (truncated)' if len(text) > 100 else '')}")
+                            logger.info(f"[WEBHOOK] LEAD STATE ANALYSIS:")
+                            logger.info(f"[WEBHOOK] - phone_opt_in: {ld_flags.get('phone_opt_in')}")
+                            logger.info(f"[WEBHOOK] - phone_number: {ld_flags.get('phone_number')}")
+                            logger.info(f"[WEBHOOK] RESPONSE ANALYSIS:")
+                            logger.info(f"[WEBHOOK] - Has phone in text: {has_phone}")
                             if has_phone:
-                                logger.info(f"[WEBHOOK] Extracted phone: {phone}")
+                                logger.info(f"[WEBHOOK] - Extracted phone: {phone}")
+                            logger.info(f"[WEBHOOK] DECISION LOGIC:")
+                            logger.info(f"[WEBHOOK] - This lead was in Phone Opt-In flow (phone_opt_in=True)")
+                            logger.info(f"[WEBHOOK] - Consumer responded to opt-in request")
+                            logger.info(f"[WEBHOOK] - Now checking if phone number was provided...")
                             
                             if has_phone:
                                 logger.info(f"[WEBHOOK] 📞 PHONE FOUND IN OPT-IN RESPONSE")
+                                logger.info(f"[WEBHOOK] ========== PHONE DETECTED IN OPT-IN TEXT ===========")
+                                logger.info(f"[WEBHOOK] Lead ID: {lid}")
+                                logger.info(f"[WEBHOOK] Event ID: {eid}")
+                                logger.info(f"[WEBHOOK] Extracted phone: {phone}")
+                                logger.info(f"[WEBHOOK] Text that contained phone: '{text[:100]}...'{(' (truncated)' if len(text) > 100 else '')}")
+                                logger.info(f"[WEBHOOK] Previous phone_opt_in status: {ld_flags.get('phone_opt_in')}")
+                                logger.info(f"[WEBHOOK] Previous phone_number: {ld_flags.get('phone_number')}")
                                 logger.info(f"[WEBHOOK] Switching from Phone Opt-In to Phone Available scenario")
+                                logger.info(f"[WEBHOOK] 🎯 SMS DECISION ANALYSIS:")
+                                logger.info(f"[WEBHOOK] - Previous scenario: Phone Opt-In (phone_opt_in=True, phone_available=False)")
+                                logger.info(f"[WEBHOOK] - New scenario: Phone Available (phone_opt_in=False, phone_available=True)")
+                                logger.info(f"[WEBHOOK] - Action: Switch scenarios + update LeadDetail + trigger Phone Available flow")
                                 
                                 # Оновлюємо LeadDetail з номером телефону (як у No Phone логіці)
                                 ld = LeadDetail.objects.get(lead_id=lid)
@@ -744,6 +763,9 @@ class WebhookView(APIView):
                                 ld.save(update_fields=['phone_in_text', 'phone_number', 'phone_sms_sent'])
                                 
                                 logger.info(f"[WEBHOOK] ✅ LeadDetail updated with phone information (triggers SMS signal)")
+                                logger.info(f"[WEBHOOK] - phone_in_text: {ld.phone_in_text}")
+                                logger.info(f"[WEBHOOK] - phone_number: {ld.phone_number}")
+                                logger.info(f"[WEBHOOK] - phone_sms_sent: {ld.phone_sms_sent}")
                                 
                                 try:
                                     from .utils import update_phone_in_sheet
@@ -759,8 +781,20 @@ class WebhookView(APIView):
                                 
                             else:
                                 logger.info(f"[WEBHOOK] 🚫 NO PHONE IN OPT-IN RESPONSE")
+                                logger.info(f"[WEBHOOK] ========== OPT-IN REPLY WITHOUT PHONE ===========")
+                                logger.info(f"[WEBHOOK] Lead ID: {lid}")
+                                logger.info(f"[WEBHOOK] Event ID: {eid}")
+                                logger.info(f"[WEBHOOK] Event text: '{text[:100]}...'{(' (truncated)' if len(text) > 100 else '')}")
+                                logger.info(f"[WEBHOOK] Phone number found in text: {has_phone}")
+                                logger.info(f"[WEBHOOK] Previous phone_opt_in status: {ld_flags.get('phone_opt_in')}")
+                                logger.info(f"[WEBHOOK] Previous phone_number: {ld_flags.get('phone_number')}")
                                 logger.info(f"[WEBHOOK] Consumer replied to opt-in without providing phone number")
-                                logger.info(f"[WEBHOOK] Cancelling phone opt-in tasks")
+                                logger.info(f"[WEBHOOK] ❗ Phone Opt-In scenario completed without phone - cancelling tasks + sending SMS")
+                                logger.info(f"[WEBHOOK] 🎯 SMS DECISION ANALYSIS:")
+                                logger.info(f"[WEBHOOK] - Scenario: Phone Opt-In Reply Without Phone (phone_opt_in=True, phone_available=False)")
+                                logger.info(f"[WEBHOOK] - Current behavior: Cancel all pre-phone tasks + Customer Reply SMS")
+                                logger.info(f"[WEBHOOK] - Tasks to cancel: phone_available=False OR phone_opt_in=True")
+                                logger.info(f"[WEBHOOK] Cancelling all pre-phone tasks (identical to No Phone logic)")
                                 
                                 # Скасовуємо всі pre-phone tasks (як у No Phone логіці)
                                 self._cancel_pre_phone_tasks(
@@ -769,8 +803,14 @@ class WebhookView(APIView):
                                 
                                 # Відправляємо SMS сповіщення (як у No Phone логіці)
                                 logger.info(f"[WEBHOOK] 📱 SENDING Customer Reply SMS (opt-in without phone)")
+                                logger.info(f"[WEBHOOK] SMS purpose: Notify business that customer replied to opt-in without phone")
+                                logger.info(f"[WEBHOOK] SMS type: Customer Reply (no follow-up scheduled)")
                                 self._send_customer_reply_sms_only(lid)
+                                logger.info(f"[WEBHOOK] ✅ Customer Reply SMS sent successfully")
                             
+                            logger.info(f"[WEBHOOK] ==============================================")
+                            logger.info(f"[WEBHOOK] ✅ PHONE OPT-IN SCENARIO PROCESSING COMPLETED")
+                            logger.info(f"[WEBHOOK] Result: {'Phone Available flow triggered' if has_phone else 'Pre-phone tasks cancelled + SMS sent'}")
                             logger.info(f"[WEBHOOK] ==============================================")
                         elif pending:
                             logger.info(f"[WEBHOOK] 🚫 CLIENT RESPONDED WITHOUT PHONE NUMBER")
@@ -1356,74 +1396,6 @@ class WebhookView(APIView):
         logger.info(f"[NEW-LEAD-FOLLOW-UP] - Follow-ups scheduled: {scheduled_count}")
         logger.info(f"[NEW-LEAD-FOLLOW-UP] - SMS sent: 0 (disabled for new leads)")
 
-    def _cancel_phone_opt_in_tasks(self, lead_id: str, reason: str | None = None):
-        """Cancel all phone opt-in related tasks when consumer replies to opt-in flow."""
-        if reason is None:
-            reason = "Consumer replied to phone opt-in flow"
-        
-        logger.info(f"[AUTO-RESPONSE] 🚫 STARTING _cancel_phone_opt_in_tasks")
-        logger.info(f"[AUTO-RESPONSE] Lead ID: {lead_id}")
-        logger.info(f"[AUTO-RESPONSE] Cancellation reason: {reason}")
-        logger.info(f"[AUTO-RESPONSE] Looking for pending tasks with: phone_opt_in=True, active=True")
-        
-        pending = LeadPendingTask.objects.filter(
-            lead_id=lead_id, 
-            phone_opt_in=True, 
-            active=True
-        )
-        pending_count = pending.count()
-        logger.info(f"[AUTO-RESPONSE] Found {pending_count} pending phone opt-in tasks to cancel")
-        
-        if pending_count == 0:
-            logger.info(f"[AUTO-RESPONSE] No phone opt-in tasks to cancel for {lead_id}")
-            return
-            
-        queue = django_rq.get_queue("default")
-        scheduler = django_rq.get_scheduler("default")
-        
-        cancelled_count = 0
-        error_count = 0
-        
-        for p in pending:
-            logger.info(f"[AUTO-RESPONSE] Cancelling phone opt-in task: {p.task_id} for lead {lead_id}")
-            logger.info(f"[AUTO-RESPONSE] Task text preview: {p.text[:50]}...")
-            logger.info(f"[AUTO-RESPONSE] Task created at: {p.created_at}")
-            logger.info(f"[AUTO-RESPONSE] Task phone_opt_in: {p.phone_opt_in}")
-            logger.info(f"[AUTO-RESPONSE] Task phone_available: {p.phone_available}")
-            
-            try:
-                job = queue.fetch_job(p.task_id)
-                if job:
-                    job.cancel()
-                    logger.info(f"[AUTO-RESPONSE] ✅ Queue job {p.task_id} cancelled successfully")
-                else:
-                    logger.info(f"[AUTO-RESPONSE] ⚠️ Queue job {p.task_id} not found (might be already processed)")
-                    
-                scheduler.cancel(p.task_id)
-                logger.info(f"[AUTO-RESPONSE] ✅ Scheduler job {p.task_id} cancelled successfully")
-                cancelled_count += 1
-                
-            except Exception as exc:
-                logger.error(f"[AUTO-RESPONSE] ❌ Error cancelling task {p.task_id}: {exc}")
-                logger.exception(f"[AUTO-RESPONSE] Exception details for task cancellation")
-                error_count += 1
-                
-            # Update task status
-            p.active = False
-            p.save(update_fields=["active"])
-            logger.info(f"[AUTO-RESPONSE] ✅ LeadPendingTask {p.task_id} marked as inactive")
-            
-            # Update Celery log
-            updated_logs = CeleryTaskLog.objects.filter(task_id=p.task_id).update(
-                status="REVOKED", result=reason
-            )
-            logger.info(f"[AUTO-RESPONSE] ✅ Updated {updated_logs} CeleryTaskLog entries for {p.task_id}")
-            
-        logger.info(f"[AUTO-RESPONSE] 📊 _cancel_phone_opt_in_tasks summary for {lead_id}:")
-        logger.info(f"[AUTO-RESPONSE] - Tasks found: {pending_count}")
-        logger.info(f"[AUTO-RESPONSE] - Tasks cancelled successfully: {cancelled_count}")
-        logger.info(f"[AUTO-RESPONSE] - Tasks with errors: {error_count}")
-        logger.info(f"[AUTO-RESPONSE] ✅ _cancel_phone_opt_in_tasks completed")
 
     def _cancel_pre_phone_tasks(self, lead_id: str, reason: str | None = None):
         if reason is None:
