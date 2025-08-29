@@ -231,8 +231,7 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
         logger.warning(f"[FOLLOW-UP] ⚠️ DUPLICATE DETECTED - message already sent for lead={lead_id}")
         logger.warning(f"[FOLLOW-UP] DUPLICATE DETAILS:")
         logger.warning(f"[FOLLOW-UP] - Duplicate message: '{text}'")
-        logger.warning(f"[FOLLOW-UP] - Events found: {existing_events.count()}")
-        logger.warning(f"[FOLLOW-UP] - Active tasks found: {existing_tasks.count()}")
+        logger.warning(f"[FOLLOW-UP] - Job ID: {job_id}")
         logger.info(f"[FOLLOW-UP] 🛑 EARLY RETURN - skipping duplicate message")
         return "SKIPPED: Duplicate message detected"
 
