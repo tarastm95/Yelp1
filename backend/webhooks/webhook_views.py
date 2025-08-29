@@ -762,8 +762,8 @@ class WebhookView(APIView):
                                 logger.info(f"[WEBHOOK] Consumer replied to opt-in without providing phone number")
                                 logger.info(f"[WEBHOOK] Cancelling phone opt-in tasks")
                                 
-                                # Скасовуємо тільки opt-in tasks (зберігаємо специфічність)
-                                self._cancel_phone_opt_in_tasks(
+                                # Скасовуємо всі pre-phone tasks (як у No Phone логіці)
+                                self._cancel_pre_phone_tasks(
                                     lid, reason="Consumer replied to phone opt-in flow without phone"
                                 )
                                 
