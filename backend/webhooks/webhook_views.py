@@ -335,7 +335,7 @@ class WebhookView(APIView):
                         logger.info(f"[WEBHOOK] ✅ Phone opt-in updated successfully")
                         logger.info(f"[WEBHOOK] 🚀 TRIGGERING handle_phone_opt_in")
                         logger.info(f"[WEBHOOK] This will call _process_auto_response with phone_opt_in=True, phone_available=False")
-                        self.handle_phone_opt_in(lid)
+                        self.handle_phone_opt_in(lid, reason="CONSUMER_PHONE_NUMBER_OPT_IN_EVENT received")
                         logger.info(f"[WEBHOOK] ✅ handle_phone_opt_in completed")
                     else:
                         logger.warning(f"[WEBHOOK] ⚠️ No LeadDetail records updated")
@@ -641,7 +641,7 @@ class WebhookView(APIView):
                         logger.info(f"[WEBHOOK] ✅ Phone opt-in updated successfully")
                         logger.info(f"[WEBHOOK] 🚀 TRIGGERING handle_phone_opt_in (from events loop)")
                         logger.info(f"[WEBHOOK] This will call _process_auto_response with phone_opt_in=True, phone_available=False")
-                        self.handle_phone_opt_in(lid)
+                        self.handle_phone_opt_in(lid, reason="CONSUMER_PHONE_NUMBER_OPT_IN_EVENT received")
                         logger.info(f"[WEBHOOK] ✅ handle_phone_opt_in completed")
                     else:
                         logger.warning(f"[WEBHOOK] ⚠️ No LeadDetail records updated")
@@ -712,7 +712,7 @@ class WebhookView(APIView):
                             logger.info(f"[WEBHOOK] 🔄 NO PENDING TASKS - triggering phone available flow")
                             logger.info(f"[WEBHOOK] 🚀 TRIGGERING handle_phone_available (no pending tasks)")
                             logger.info(f"[WEBHOOK] This will call _process_auto_response with phone_opt_in=False, phone_available=True")
-                            self.handle_phone_available(lid)
+                            self.handle_phone_available(lid, reason="Phone number found in consumer message")
                             logger.info(f"[WEBHOOK] ✅ handle_phone_available completed")
                         
                         logger.info(f"[WEBHOOK] ==============================================")
@@ -1317,9 +1317,12 @@ class WebhookView(APIView):
 
     def _cancel_phone_opt_in_tasks(self, lead_id: str, reason: str | None = None):
         """Cancel all phone opt-in related tasks when consumer replies to opt-in flow."""
+        if reason is None:
+            reason = "Consumer replied to phone opt-in flow"
+        
         logger.info(f"[AUTO-RESPONSE] 🚫 STARTING _cancel_phone_opt_in_tasks")
         logger.info(f"[AUTO-RESPONSE] Lead ID: {lead_id}")
-        logger.info(f"[AUTO-RESPONSE] Cancellation reason: {reason or 'Not specified'}")
+        logger.info(f"[AUTO-RESPONSE] Cancellation reason: {reason}")
         logger.info(f"[AUTO-RESPONSE] Looking for pending tasks with: phone_opt_in=True, active=True")
         
         pending = LeadPendingTask.objects.filter(
@@ -1382,9 +1385,12 @@ class WebhookView(APIView):
         logger.info(f"[AUTO-RESPONSE] ✅ _cancel_phone_opt_in_tasks completed")
 
     def _cancel_pre_phone_tasks(self, lead_id: str, reason: str | None = None):
+        if reason is None:
+            reason = "Phone number became available - switching scenarios"
+            
         logger.info(f"[AUTO-RESPONSE] 🚫 STARTING _cancel_pre_phone_tasks")
         logger.info(f"[AUTO-RESPONSE] Lead ID: {lead_id}")
-        logger.info(f"[AUTO-RESPONSE] Cancellation reason: {reason or 'Not specified'}")
+        logger.info(f"[AUTO-RESPONSE] Cancellation reason: {reason}")
         logger.info(
             f"[AUTO-RESPONSE] Looking for pending tasks with: phone_available=False OR phone_opt_in=True, active=True"
         )
@@ -1451,9 +1457,12 @@ class WebhookView(APIView):
         logger.info(f"[AUTO-RESPONSE] ✅ _cancel_pre_phone_tasks completed")
 
     def _cancel_all_tasks(self, lead_id: str, reason: str | None = None):
+        if reason is None:
+            reason = "All tasks cancelled due to business intervention"
+            
         logger.info(f"[AUTO-RESPONSE] 🛑 STARTING _cancel_all_tasks")
         logger.info(f"[AUTO-RESPONSE] Lead ID: {lead_id}")
-        logger.info(f"[AUTO-RESPONSE] Cancellation reason: {reason or 'Not specified'}")
+        logger.info(f"[AUTO-RESPONSE] Cancellation reason: {reason}")
         logger.info(f"[AUTO-RESPONSE] Looking for ALL pending tasks with: active=True")
         
         pending = LeadPendingTask.objects.filter(lead_id=lead_id, active=True)
