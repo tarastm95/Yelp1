@@ -335,6 +335,48 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
             logger.info(f"[FOLLOW-UP] - Timeout: 30 seconds")
             logger.info(f"[FOLLOW-UP] ==============================================")
 
+            # 🔥 CRITICAL FINAL CHECK: Check consumer response RIGHT BEFORE sending
+            logger.info(f"[FOLLOW-UP] 🔍 FINAL CONSUMER CHECK: Last chance before sending")
+            logger.info(f"[FOLLOW-UP] ========== FINAL CONSUMER RESPONSE CHECK ===========")
+            
+            try:
+                # Check for ANY consumer responses since task was created (if we know task creation time)
+                if job_id:
+                    pending_task = LeadPendingTask.objects.filter(task_id=job_id).first()
+                    if pending_task:
+                        task_created_at = pending_task.created_at
+                        
+                        # Check for consumer events after task creation
+                        final_consumer_responses = LeadEvent.objects.filter(
+                            lead_id=lead_id,
+                            user_type="CONSUMER",
+                            time_created__gt=task_created_at,
+                            from_backend=False
+                        ).order_by('time_created')
+                        
+                        final_response_count = final_consumer_responses.count()
+                        logger.info(f"[FOLLOW-UP] FINAL CHECK: {final_response_count} consumer responses since task creation")
+                        
+                        if final_response_count > 0:
+                            logger.info(f"[FOLLOW-UP] 🛑 FINAL ABORT: Consumer responded - cancelling at the last moment")
+                            logger.info(f"[FOLLOW-UP] Recent consumer responses found:")
+                            for i, response in enumerate(final_consumer_responses[:3]):
+                                logger.info(f"[FOLLOW-UP] Response {i+1}: '{response.text[:50]}...' at {response.time_created}")
+                            
+                            logger.info(f"[FOLLOW-UP] 🚫 FINAL CANCELLATION - not sending follow-up")
+                            return "FINAL_SKIP: Consumer responded just before send"
+                        else:
+                            logger.info(f"[FOLLOW-UP] ✅ FINAL CHECK PASSED - no recent consumer responses")
+                    else:
+                        logger.info(f"[FOLLOW-UP] ⚠️ Could not find pending task for final check")
+                else:
+                    logger.info(f"[FOLLOW-UP] ⚠️ No job_id for final check")
+            except Exception as e:
+                logger.error(f"[FOLLOW-UP] ❌ Error in final consumer check: {e}")
+                logger.info(f"[FOLLOW-UP] Proceeding with send despite final check error")
+                
+            logger.info(f"[FOLLOW-UP] ================================================")
+
             # Step 8: Send API request
             logger.info(f"[FOLLOW-UP] 📤 STEP 8: Sending follow-up message to Yelp API")
             for attempt in range(3):
