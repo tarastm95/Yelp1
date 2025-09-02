@@ -990,9 +990,26 @@ class WebhookView(APIView):
         logger.info(f"[AUTO-RESPONSE] About to determine scenario for new lead")
         
         try:
-            # Check if this lead has phone opt-in before creating tasks
+            import time
+            from django.utils import timezone
+            
+            # 30-second delay to allow phone opt-in events to be processed
+            delay_seconds = 30
+            
+            logger.info(f"[AUTO-RESPONSE] ⏰ IMPLEMENTING 30-SECOND DELAY for phone opt-in detection")
+            logger.info(f"[AUTO-RESPONSE] This prevents no-phone tasks from being created for phone opt-in leads")
+            logger.info(f"[AUTO-RESPONSE] Delay started at: {timezone.now()}")
+            logger.info(f"[AUTO-RESPONSE] Waiting {delay_seconds} seconds for CONSUMER_PHONE_NUMBER_OPT_IN_EVENT...")
+            
+            time.sleep(delay_seconds)
+            
+            logger.info(f"[AUTO-RESPONSE] ⏰ 30-SECOND DELAY COMPLETED")
+            logger.info(f"[AUTO-RESPONSE] Delay ended at: {timezone.now()}")
+            logger.info(f"[AUTO-RESPONSE] Now checking final phone_opt_in status after delay")
+            
+            # Check final status after delay
             ld = LeadDetail.objects.filter(lead_id=lead_id).first()
-            logger.info(f"[AUTO-RESPONSE] 🔍 SCENARIO DETERMINATION:")
+            logger.info(f"[AUTO-RESPONSE] 🔍 FINAL SCENARIO DETERMINATION AFTER 30s DELAY:")
             logger.info(f"[AUTO-RESPONSE] - LeadDetail exists: {ld is not None}")
             
             if ld:
@@ -1001,21 +1018,21 @@ class WebhookView(APIView):
                 logger.info(f"[AUTO-RESPONSE] - phone_in_text: {getattr(ld, 'phone_in_text', 'Not set')}")
             
             if ld and ld.phone_opt_in:
-                logger.info(f"[AUTO-RESPONSE] 📱 SCENARIO SELECTED: PHONE OPT-IN")
-                logger.info(f"[AUTO-RESPONSE] ========== NEW LEAD → PHONE OPT-IN SCENARIO ==========")
-                logger.info(f"[AUTO-RESPONSE] Lead has phone_opt_in=True - creating phone opt-in tasks")
-                logger.info(f"[AUTO-RESPONSE] Phone opt-in handler will create additional tasks if needed")
-                # Create phone opt-in tasks for new lead
-                self._process_auto_response(lead_id, phone_opt_in=True, phone_available=False)
-                logger.info(f"[AUTO-RESPONSE] ✅ Phone opt-in scenario tasks created")
+                logger.info(f"[AUTO-RESPONSE] 📱 FINAL DECISION: PHONE OPT-IN DETECTED AFTER DELAY")
+                logger.info(f"[AUTO-RESPONSE] ========== PHONE OPT-IN LEAD → SKIP NO-PHONE TASKS ==========")
+                logger.info(f"[AUTO-RESPONSE] Phone opt-in was set during the 30-second delay period")
+                logger.info(f"[AUTO-RESPONSE] Phone opt-in handler will create appropriate phone opt-in tasks")
+                logger.info(f"[AUTO-RESPONSE] ✅ Successfully prevented no-phone task creation for phone opt-in lead")
+                logger.info(f"[AUTO-RESPONSE] 🚫 NO TASKS CREATED - avoiding duplicate scenarios")
             else:
-                logger.info(f"[AUTO-RESPONSE] 💬 SCENARIO SELECTED: NO PHONE")
-                logger.info(f"[AUTO-RESPONSE] ========== NEW LEAD → NO PHONE SCENARIO ==========")
-                logger.info(f"[AUTO-RESPONSE] Lead has phone_opt_in=False - creating no-phone tasks")
-                logger.info(f"[AUTO-RESPONSE] This will create standard follow-up sequence")
+                logger.info(f"[AUTO-RESPONSE] 💬 FINAL DECISION: REGULAR LEAD (NO PHONE OPT-IN)")
+                logger.info(f"[AUTO-RESPONSE] ========== REGULAR LEAD → CREATE NO-PHONE TASKS ==========")
+                logger.info(f"[AUTO-RESPONSE] No phone opt-in detected after 30-second delay")
+                logger.info(f"[AUTO-RESPONSE] Creating standard no-phone follow-up sequence")
                 # Call _process_auto_response to create LeadDetail but disable SMS for new leads
                 self._process_auto_response(lead_id, phone_opt_in=False, phone_available=False)
                 logger.info(f"[AUTO-RESPONSE] ✅ No-phone scenario tasks created")
+            
             logger.info(f"[AUTO-RESPONSE] ✅ handle_new_lead completed successfully for {lead_id}")
         except Exception as e:
             logger.error(f"[AUTO-RESPONSE] ❌ handle_new_lead failed for {lead_id}: {e}")
