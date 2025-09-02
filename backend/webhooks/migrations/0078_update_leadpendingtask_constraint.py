@@ -5,7 +5,7 @@ from django.db.models import Q
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('webhooks', '0063_create_default_greetings'),
+        ('webhooks', '0077_job_mapping'),
     ]
 
     operations = [
