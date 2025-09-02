@@ -657,7 +657,7 @@ class WebhookView(APIView):
                     logger.info(f"[WEBHOOK] Has phone in text: {has_phone}")
                     if has_phone:
                         logger.info(f"[WEBHOOK] Extracted phone: {phone}")
-
+                    
                     pending = LeadPendingTask.objects.filter(
                         lead_id=lid,
                         phone_opt_in=False,
@@ -665,7 +665,7 @@ class WebhookView(APIView):
                         active=True,
                     ).exists()
                     logger.info(f"[WEBHOOK] Pending no-phone tasks exist: {pending}")
-
+                    
                     if has_phone:
                         logger.info(f"[WEBHOOK] 📞 CLIENT PROVIDED PHONE NUMBER")
                         logger.info(f"[WEBHOOK] ========== PHONE DETECTED IN TEXT ==========")
@@ -714,42 +714,42 @@ class WebhookView(APIView):
                             self.handle_phone_available(lid)
                             logger.info(f"[WEBHOOK] ✅ handle_phone_available completed")
                         
-                            logger.info(f"[WEBHOOK] ==============================================")
-                        elif pending:
-                            logger.info(f"[WEBHOOK] 🚫 CLIENT RESPONDED WITHOUT PHONE NUMBER")
-                            logger.info(f"[WEBHOOK] ========== CUSTOMER REPLY SCENARIO (NO PHONE) ==========")
-                            logger.info(f"[WEBHOOK] Lead ID: {lid}")
-                            logger.info(f"[WEBHOOK] Event ID: {eid}")
-                            logger.info(f"[WEBHOOK] Event text: '{text[:100]}...'" + ("" if len(text) <= 100 else " (truncated)"))
-                            logger.info(f"[WEBHOOK] Has pending no-phone tasks: {pending}")
-                            logger.info(f"[WEBHOOK] Phone number found in text: {has_phone}")
-                            logger.info(f"[WEBHOOK] ❗ Customer Reply scenario - cancelling tasks + sending Customer Reply SMS")
-                            logger.info(f"[WEBHOOK] 🎯 SMS DECISION ANALYSIS:")
-                            logger.info(f"[WEBHOOK] - Scenario: Customer Reply (phone_opt_in=False, phone_available=False)")
-                            logger.info(f"[WEBHOOK] - Current behavior: Cancel pending tasks + Customer Reply SMS")
-
-                            reason = "Client responded, but no number was found"
+                        logger.info(f"[WEBHOOK] ==============================================")
+                    elif pending:
+                        logger.info(f"[WEBHOOK] 🚫 CLIENT RESPONDED WITHOUT PHONE NUMBER")
+                        logger.info(f"[WEBHOOK] ========== CUSTOMER REPLY SCENARIO (NO PHONE) ==========")
+                        logger.info(f"[WEBHOOK] Lead ID: {lid}")
+                        logger.info(f"[WEBHOOK] Event ID: {eid}")
+                        logger.info(f"[WEBHOOK] Event text: '{text[:100]}...'" + ("" if len(text) <= 100 else " (truncated)"))
+                        logger.info(f"[WEBHOOK] Has pending no-phone tasks: {pending}")
+                        logger.info(f"[WEBHOOK] Phone number found in text: {has_phone}")
+                        logger.info(f"[WEBHOOK] ❗ Customer Reply scenario - cancelling tasks + sending Customer Reply SMS")
+                        logger.info(f"[WEBHOOK] 🎯 SMS DECISION ANALYSIS:")
+                        logger.info(f"[WEBHOOK] - Scenario: Customer Reply (phone_opt_in=False, phone_available=False)")
+                        logger.info(f"[WEBHOOK] - Current behavior: Cancel pending tasks + Customer Reply SMS")
+                        
+                        reason = "Client responded, but no number was found"
                         self._cancel_no_phone_tasks(lid, reason=reason)
-
-                            # Send SMS notification for Customer Reply (without follow-up)
-                            logger.info(f"[WEBHOOK] 📱 SENDING Customer Reply SMS (no follow-up)")
-                            self._send_customer_reply_sms_only(lid)
-                        else:
-                            logger.info(f"[WEBHOOK] ℹ️ CLIENT RESPONDED but no pending tasks to handle")
-                            logger.info(f"[WEBHOOK] ========== CUSTOMER REPLY SCENARIO (NO PENDING TASKS) ==========")
-                            logger.info(f"[WEBHOOK] Lead ID: {lid}")
-                            logger.info(f"[WEBHOOK] Event ID: {eid}")
-                            logger.info(f"[WEBHOOK] Event text: '{text[:100]}...'" + ("" if len(text) <= 100 else " (truncated)"))
-                            logger.info(f"[WEBHOOK] Has pending no-phone tasks: {pending}")
-                            logger.info(f"[WEBHOOK] Phone number found in text: {has_phone}")
-                            logger.info(f"[WEBHOOK] ❗ Customer Reply scenario detected - no pending tasks to cancel")
-                            logger.info(f"[WEBHOOK] 🎯 SMS DECISION ANALYSIS:")
-                            logger.info(f"[WEBHOOK] - Scenario: Customer Reply (phone_opt_in=False, phone_available=False)")
-                            logger.info(f"[WEBHOOK] - Current behavior: Customer Reply SMS (no follow-up)")
-
-                            # Send SMS notification for Customer Reply (without follow-up)
-                            logger.info(f"[WEBHOOK] 📱 SENDING Customer Reply SMS (no follow-up)")
-                            self._send_customer_reply_sms_only(lid)
+                        
+                        # Send SMS notification for Customer Reply (without follow-up)
+                        logger.info(f"[WEBHOOK] 📱 SENDING Customer Reply SMS (no follow-up)")
+                        self._send_customer_reply_sms_only(lid)
+                    else:
+                        logger.info(f"[WEBHOOK] ℹ️ CLIENT RESPONDED but no pending tasks to handle")
+                        logger.info(f"[WEBHOOK] ========== CUSTOMER REPLY SCENARIO (NO PENDING TASKS) ==========")
+                        logger.info(f"[WEBHOOK] Lead ID: {lid}")
+                        logger.info(f"[WEBHOOK] Event ID: {eid}")
+                        logger.info(f"[WEBHOOK] Event text: '{text[:100]}...'" + ("" if len(text) <= 100 else " (truncated)"))
+                        logger.info(f"[WEBHOOK] Has pending no-phone tasks: {pending}")
+                        logger.info(f"[WEBHOOK] Phone number found in text: {has_phone}")
+                        logger.info(f"[WEBHOOK] ❗ Customer Reply scenario detected - no pending tasks to cancel")
+                        logger.info(f"[WEBHOOK] 🎯 SMS DECISION ANALYSIS:")
+                        logger.info(f"[WEBHOOK] - Scenario: Customer Reply (phone_opt_in=False, phone_available=False)")
+                        logger.info(f"[WEBHOOK] - Current behavior: Customer Reply SMS (no follow-up)")
+                        
+                        # Send SMS notification for Customer Reply (without follow-up)
+                        logger.info(f"[WEBHOOK] 📱 SENDING Customer Reply SMS (no follow-up)")
+                        self._send_customer_reply_sms_only(lid)
                 elif created and e.get("user_type") == "CONSUMER":
                     logger.info(f"[WEBHOOK] 📊 CONSUMER EVENT RECORDED but NOT PROCESSED as new")
                     logger.info(f"[WEBHOOK] Reason: Event happened BEFORE lead processing")
@@ -1220,39 +1220,33 @@ class WebhookView(APIView):
             
             with transaction.atomic():
                 try:
-                    # ✅ БЕЗПЕЧНО: Використовуємо безпечний створювач з utils.py
-                    from .utils import create_lead_pending_task_safe
-                    import uuid
-                    
-                    # Генеруємо task_id заздалегідь
-                    task_id = str(uuid.uuid4())
-                    
-                    # Спочатку безпечно створюємо DB record
-                    created_successfully = create_lead_pending_task_safe(
+                    from .models import LeadPendingTask
+                    LeadPendingTask.objects.create(
                         lead_id=lead_id,
                         text=text,
-                        task_id=task_id,
+                        task_id="",  # Will be set when task is enqueued
                         phone_opt_in=phone_opt_in,
-                        phone_available=phone_available
+                        phone_available=phone_available,
+                        active=True,
                     )
                     
-                    if created_successfully:
-                        # Тільки тоді створюємо RQ job з pre-generated ID
-                            queue = django_rq.get_queue("default")
-                            job = queue.enqueue_in(
-                                timedelta(seconds=countdown),
-                                "webhooks.tasks.send_follow_up",
-                                lead_id,
-                                text,
-                                business_id=pl.business_id,
-                            job_id=task_id,  # ✅ Використовуємо предвизначений ID
-                            )
-                            
-                            scheduled_count += 1
-                        logger.info(f"[NEW-LEAD-FOLLOW-UP] ✅ Safely scheduled follow-up '{tmpl.name}' with job ID: {task_id}")
-                    else:
-                        logger.info(f"[NEW-LEAD-FOLLOW-UP] ⚠️ Task creation failed for '{tmpl.name}' - duplicate or error")
-                        
+                    queue = django_rq.get_queue("default")
+                    job = queue.enqueue_in(
+                        timedelta(seconds=countdown),
+                        "webhooks.tasks.send_follow_up",
+                        lead_id,
+                        text,
+                        business_id=pl.business_id,
+                    )
+                    
+                    # Update task with job ID
+                    LeadPendingTask.objects.filter(
+                        lead_id=lead_id, text=text, task_id=""
+                    ).update(task_id=job.id)
+                    
+                    scheduled_count += 1
+                    logger.info(f"[NEW-LEAD-FOLLOW-UP] ✅ Scheduled follow-up '{tmpl.name}' with job ID: {job.id}")
+                    
                 except Exception as e:
                     logger.error(f"[NEW-LEAD-FOLLOW-UP] ❌ Failed to schedule follow-up '{tmpl.name}': {e}")
         
@@ -1559,7 +1553,7 @@ class WebhookView(APIView):
                 should_send_sms = getattr(auto_settings, 'sms_on_customer_reply', False)
                 sms_reason_field = "sms_on_customer_reply"
             
-                final_sms_decision = should_send_sms and auto_settings.enabled
+            final_sms_decision = should_send_sms and auto_settings.enabled
             logger.info(f"[AUTO-RESPONSE] 📲 SMS PROCESSING FOR SCENARIO '{reason}':")
             logger.info(f"[AUTO-RESPONSE] - Field checked: {sms_reason_field}")
             logger.info(f"[AUTO-RESPONSE] - SMS flag: {should_send_sms}")
@@ -1674,7 +1668,7 @@ class WebhookView(APIView):
                 f"token_source={source}, token={token[:20]}..., status={resp.status_code}, body={resp.text}"
             )
             return
-            d = resp.json()
+        d = resp.json()
 
         last_time = None
         ev_resp = requests.get(
@@ -2311,11 +2305,11 @@ class WebhookView(APIView):
                         f"[AUTO-RESPONSE] Custom follow-up '{tmpl.name}' already sent or duplicate → skipping"
                     )
                 else:
-                        res = send_follow_up.apply_async(
-                            args=[lead_id, text],
-                            headers={"business_id": biz_id},
-                            countdown=countdown,
-                        )
+                    res = send_follow_up.apply_async(
+                        args=[lead_id, text],
+                        headers={"business_id": biz_id},
+                        countdown=countdown,
+                    )
                     try:
                         LeadPendingTask.objects.create(
                             lead_id=lead_id,
