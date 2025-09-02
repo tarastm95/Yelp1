@@ -378,13 +378,11 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
                                 task_created_at = rq_job.created_at
                                 logger.info(f"[FOLLOW-UP] FINAL CHECK: Using RQ job created_at: {task_created_at}")
                             else:
-                                from django.utils import timezone
                                 from datetime import timedelta
                                 task_created_at = timezone.now() - timedelta(minutes=5)
                                 logger.warning(f"[FOLLOW-UP] FINAL CHECK: Using fallback time (5 min ago): {task_created_at}")
                         except Exception as e:
                             logger.error(f"[FOLLOW-UP] FINAL CHECK: Error getting timing: {e}")
-                            from django.utils import timezone
                             from datetime import timedelta
                             task_created_at = timezone.now() - timedelta(minutes=5)
                     
