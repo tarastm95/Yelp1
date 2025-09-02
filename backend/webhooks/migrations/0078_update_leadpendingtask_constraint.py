@@ -9,10 +9,10 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # Видаляємо старий constraint
-        migrations.RemoveConstraint(
-            model_name='leadpendingtask',
-            name='uniq_lead_text',
+        # Спочатку спробуємо видалити старий constraint (може не існувати)
+        migrations.RunSQL(
+            sql="ALTER TABLE webhooks_leadpendingtask DROP CONSTRAINT IF EXISTS uniq_lead_text;",
+            reverse_sql="-- Cannot reverse this operation automatically",
         ),
         
         # Додаємо новий constraint що діє тільки для активних записів
