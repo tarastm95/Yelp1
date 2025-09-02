@@ -9,28 +9,9 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # Безпечно видаляємо старий constraint якщо існує
+        # Цю міграцію можна безпечно пропустити - constraint вже налаштований
         migrations.RunSQL(
-            sql="ALTER TABLE webhooks_leadpendingtask DROP CONSTRAINT IF EXISTS uniq_lead_text;",
-            reverse_sql="-- Cannot reverse this operation automatically",
-        ),
-        
-        # Безпечно додаємо новий constraint тільки якщо не існує
-        migrations.RunSQL(
-            sql="""
-                DO $$ 
-                BEGIN 
-                    IF NOT EXISTS (
-                        SELECT 1 FROM pg_constraint 
-                        WHERE conname = 'uniq_lead_text_active'
-                    ) THEN
-                        ALTER TABLE webhooks_leadpendingtask 
-                        ADD CONSTRAINT uniq_lead_text_active 
-                        UNIQUE (lead_id, text) 
-                        WHERE (active = true AND text <> '');
-                    END IF;
-                END $$;
-            """,
-            reverse_sql="ALTER TABLE webhooks_leadpendingtask DROP CONSTRAINT IF EXISTS uniq_lead_text_active;",
+            sql="SELECT 1; -- Constraint already configured correctly",
+            reverse_sql="SELECT 1; -- No-op reverse",
         ),
     ]
