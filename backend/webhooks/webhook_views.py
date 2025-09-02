@@ -1823,6 +1823,11 @@ class WebhookView(APIView):
         display_name = d.get("user", {}).get("display_name", "")
         first_name = display_name.split()[0] if display_name else ""
 
+        existing_ld = LeadDetail.objects.filter(lead_id=lead_id).first()
+        phone_opt_in_value = phone_opt_in or d.get("phone_opt_in", False)
+        if existing_ld and existing_ld.phone_opt_in:
+            phone_opt_in_value = True
+
         detail_data = {
             "lead_id": lead_id,
             "business_id": d.get("business_id"),
@@ -1833,7 +1838,7 @@ class WebhookView(APIView):
             "last_event_time": last_time,
             "user_display_name": first_name,
             "phone_number": phone_number,
-            "phone_opt_in": d.get("phone_opt_in", False),
+            "phone_opt_in": phone_opt_in_value,
             "project": {
                 "survey_answers": survey_list,
                 "location": raw_proj.get("location", {}),
