@@ -8,7 +8,6 @@ import requests
 import django_rq
 from django.utils import timezone
 from django.db import transaction, OperationalError, IntegrityError
-from django.db.models import Q
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -335,7 +334,7 @@ class WebhookView(APIView):
                         logger.info(f"[WEBHOOK] ✅ Phone opt-in updated successfully")
                         logger.info(f"[WEBHOOK] 🚀 TRIGGERING handle_phone_opt_in")
                         logger.info(f"[WEBHOOK] This will call _process_auto_response with phone_opt_in=True, phone_available=False")
-                        self.handle_phone_opt_in(lid, reason="CONSUMER_PHONE_NUMBER_OPT_IN_EVENT received")
+                        self.handle_phone_opt_in(lid)
                         logger.info(f"[WEBHOOK] ✅ handle_phone_opt_in completed")
                     else:
                         logger.warning(f"[WEBHOOK] ⚠️ No LeadDetail records updated")
@@ -363,6 +362,7 @@ class WebhookView(APIView):
                     has_phone = bool(phone)
                     pending = LeadPendingTask.objects.filter(
                         lead_id=lid,
+                        phone_opt_in=False,
                         phone_available=False,
                         active=True,
                     ).exists()
@@ -389,7 +389,7 @@ class WebhookView(APIView):
                             self.handle_phone_available(lid, reason=reason)
                     elif pending:
                         reason = "Client responded, but no number was found"
-                        self._cancel_pre_phone_tasks(lid, reason=reason)
+                        self._cancel_no_phone_tasks(lid, reason=reason)
                 else:
                     reasons = []
                     if upd.get("event_type") != "NEW_EVENT":
@@ -611,25 +611,15 @@ class WebhookView(APIView):
                     event_time > processed_at
                 )
                 
-                # 🔥 CRITICAL FIX: Phone opt-in scenarios should be processed even with timing issues
-                # Check if this is a phone opt-in lead that needs special handling
-                ld_flags_for_timing = LeadDetail.objects.filter(lead_id=lid).values("phone_opt_in").first()
-                is_phone_optin_lead = ld_flags_for_timing and ld_flags_for_timing.get("phone_opt_in", False)
-                
-                # Allow phone opt-in events even if timing is problematic
-                is_new_with_optin_exception = is_really_new_event or (created and is_phone_optin_lead)
-                
                 logger.info(f"[WEBHOOK] 🔍 EVENT ANALYSIS for lead={lid}, event_id={eid}")
                 logger.info(f"[WEBHOOK] - Record created in DB: {created}")
                 logger.info(f"[WEBHOOK] - Event time: {event_time_str}")
                 logger.info(f"[WEBHOOK] - Lead processed at: {processed_at}")
                 logger.info(f"[WEBHOOK] - Event after processing: {event_time > processed_at if event_time and processed_at else 'Cannot determine'}")
                 logger.info(f"[WEBHOOK] - Is really new client event: {is_really_new_event}")
-                logger.info(f"[WEBHOOK] - Is phone opt-in lead: {is_phone_optin_lead}")
-                logger.info(f"[WEBHOOK] - Final is_new (with opt-in exception): {is_new_with_optin_exception}")
                 
-                # Замінюємо is_new на is_new_with_optin_exception
-                is_new = is_new_with_optin_exception
+                # Замінюємо is_new на is_really_new_event
+                is_new = is_really_new_event
 
                 if e.get("event_type") == "CONSUMER_PHONE_NUMBER_OPT_IN_EVENT":
                     logger.info(f"[WEBHOOK] 📱 CONSUMER_PHONE_NUMBER_OPT_IN_EVENT detected (second handler)")
@@ -651,7 +641,7 @@ class WebhookView(APIView):
                         logger.info(f"[WEBHOOK] ✅ Phone opt-in updated successfully")
                         logger.info(f"[WEBHOOK] 🚀 TRIGGERING handle_phone_opt_in (from events loop)")
                         logger.info(f"[WEBHOOK] This will call _process_auto_response with phone_opt_in=True, phone_available=False")
-                        self.handle_phone_opt_in(lid, reason="CONSUMER_PHONE_NUMBER_OPT_IN_EVENT received")
+                        self.handle_phone_opt_in(lid)
                         logger.info(f"[WEBHOOK] ✅ handle_phone_opt_in completed")
                     else:
                         logger.warning(f"[WEBHOOK] ⚠️ No LeadDetail records updated")
@@ -668,14 +658,13 @@ class WebhookView(APIView):
                     if has_phone:
                         logger.info(f"[WEBHOOK] Extracted phone: {phone}")
 
-                    # Check for any non-phone tasks (phone_available=False) OR phone opt-in tasks
                     pending = LeadPendingTask.objects.filter(
                         lead_id=lid,
+                        phone_opt_in=False,
+                        phone_available=False,
                         active=True,
-                    ).filter(
-                        Q(phone_available=False) | Q(phone_opt_in=True)
                     ).exists()
-                    logger.info(f"[WEBHOOK] Pending tasks (no-phone OR phone opt-in) exist: {pending}")
+                    logger.info(f"[WEBHOOK] Pending no-phone tasks exist: {pending}")
 
                     if has_phone:
                         logger.info(f"[WEBHOOK] 📞 CLIENT PROVIDED PHONE NUMBER")
@@ -722,107 +711,9 @@ class WebhookView(APIView):
                             logger.info(f"[WEBHOOK] 🔄 NO PENDING TASKS - triggering phone available flow")
                             logger.info(f"[WEBHOOK] 🚀 TRIGGERING handle_phone_available (no pending tasks)")
                             logger.info(f"[WEBHOOK] This will call _process_auto_response with phone_opt_in=False, phone_available=True")
-                            self.handle_phone_available(lid, reason="Phone number found in consumer message")
+                            self.handle_phone_available(lid)
                             logger.info(f"[WEBHOOK] ✅ handle_phone_available completed")
                         
-                        logger.info(f"[WEBHOOK] ==============================================")
-                    else:
-                        # 🔥 CRITICAL FIX: Check phone opt-in FIRST, before pending tasks check
-                        # This ensures phone opt-in responses are handled correctly even when pending=True
-                        ld_flags = LeadDetail.objects.filter(lead_id=lid).values("phone_opt_in", "phone_number").first()
-                        if (
-                            ld_flags
-                            and ld_flags.get("phone_opt_in")
-                        ):
-                            logger.info("Phone opt-in consumer response detected")
-                            logger.info(f"[WEBHOOK] ========== PHONE OPT-IN REPLY SCENARIO ==========")
-                            logger.info(f"[WEBHOOK] Lead ID: {lid}")
-                            logger.info(f"[WEBHOOK] Event ID: {eid}")
-                            logger.info(f"[WEBHOOK] Event text: '{text[:100]}...'{(' (truncated)' if len(text) > 100 else '')}")
-                            logger.info(f"[WEBHOOK] LEAD STATE ANALYSIS:")
-                            logger.info(f"[WEBHOOK] - phone_opt_in: {ld_flags.get('phone_opt_in')}")
-                            logger.info(f"[WEBHOOK] - phone_number: {ld_flags.get('phone_number')}")
-                            logger.info(f"[WEBHOOK] RESPONSE ANALYSIS:")
-                            logger.info(f"[WEBHOOK] - Has phone in text: {has_phone}")
-                            if has_phone:
-                                logger.info(f"[WEBHOOK] - Extracted phone: {phone}")
-                            logger.info(f"[WEBHOOK] DECISION LOGIC:")
-                            logger.info(f"[WEBHOOK] - This lead was in Phone Opt-In flow (phone_opt_in=True)")
-                            logger.info(f"[WEBHOOK] - Consumer responded to opt-in request")
-                            logger.info(f"[WEBHOOK] - Now checking if phone number was provided...")
-                            
-                            if has_phone:
-                                logger.info(f"[WEBHOOK] 📞 PHONE FOUND IN OPT-IN RESPONSE")
-                                logger.info(f"[WEBHOOK] ========== PHONE DETECTED IN OPT-IN TEXT ===========")
-                                logger.info(f"[WEBHOOK] Lead ID: {lid}")
-                                logger.info(f"[WEBHOOK] Event ID: {eid}")
-                                logger.info(f"[WEBHOOK] Extracted phone: {phone}")
-                                logger.info(f"[WEBHOOK] Text that contained phone: '{text[:100]}...'{(' (truncated)' if len(text) > 100 else '')}")
-                                logger.info(f"[WEBHOOK] Previous phone_opt_in status: {ld_flags.get('phone_opt_in')}")
-                                logger.info(f"[WEBHOOK] Previous phone_number: {ld_flags.get('phone_number')}")
-                                logger.info(f"[WEBHOOK] Switching from Phone Opt-In to Phone Available scenario")
-                                logger.info(f"[WEBHOOK] 🎯 SMS DECISION ANALYSIS:")
-                                logger.info(f"[WEBHOOK] - Previous scenario: Phone Opt-In (phone_opt_in=True, phone_available=False)")
-                                logger.info(f"[WEBHOOK] - New scenario: Phone Available (phone_opt_in=False, phone_available=True)")
-                                logger.info(f"[WEBHOOK] - Action: Switch scenarios + update LeadDetail + trigger Phone Available flow")
-                                
-                                # Оновлюємо LeadDetail з номером телефону (як у No Phone логіці)
-                                ld = LeadDetail.objects.get(lead_id=lid)
-                                ld.phone_in_text = True
-                                ld.phone_number = phone
-                                ld.phone_sms_sent = False
-                                logger.info(f"[WEBHOOK] 🔄 Reset phone_sms_sent=False to allow SMS notification with real phone number")
-                                ld.save(update_fields=['phone_in_text', 'phone_number', 'phone_sms_sent'])
-                                
-                                logger.info(f"[WEBHOOK] ✅ LeadDetail updated with phone information (triggers SMS signal)")
-                                logger.info(f"[WEBHOOK] - phone_in_text: {ld.phone_in_text}")
-                                logger.info(f"[WEBHOOK] - phone_number: {ld.phone_number}")
-                                logger.info(f"[WEBHOOK] - phone_sms_sent: {ld.phone_sms_sent}")
-                                
-                                try:
-                                    from .utils import update_phone_in_sheet
-                                    update_phone_in_sheet(lid, phone)
-                                    logger.info(f"[WEBHOOK] ✅ Phone updated in Google Sheets")
-                                except Exception:
-                                    logger.exception("[WEBHOOK] Failed to update phone in sheet")
-                                
-                                # Переключаємося на Phone Available сценарій
-                                logger.info(f"[WEBHOOK] 🚀 TRIGGERING handle_phone_available (phone found in opt-in)")
-                                self.handle_phone_available(lid, reason="Phone provided in opt-in response")
-                                logger.info(f"[WEBHOOK] ✅ handle_phone_available completed")
-                                
-                            else:
-                                logger.info(f"[WEBHOOK] 🚫 NO PHONE IN OPT-IN RESPONSE")
-                                logger.info(f"[WEBHOOK] ========== OPT-IN REPLY WITHOUT PHONE ===========")
-                                logger.info(f"[WEBHOOK] Lead ID: {lid}")
-                                logger.info(f"[WEBHOOK] Event ID: {eid}")
-                                logger.info(f"[WEBHOOK] Event text: '{text[:100]}...'{(' (truncated)' if len(text) > 100 else '')}")
-                                logger.info(f"[WEBHOOK] Phone number found in text: {has_phone}")
-                                logger.info(f"[WEBHOOK] Previous phone_opt_in status: {ld_flags.get('phone_opt_in')}")
-                                logger.info(f"[WEBHOOK] Previous phone_number: {ld_flags.get('phone_number')}")
-                                logger.info(f"[WEBHOOK] Consumer replied to opt-in without providing phone number")
-                                logger.info(f"[WEBHOOK] ❗ Phone Opt-In scenario completed without phone - cancelling tasks + sending SMS")
-                                logger.info(f"[WEBHOOK] 🎯 SMS DECISION ANALYSIS:")
-                                logger.info(f"[WEBHOOK] - Scenario: Phone Opt-In Reply Without Phone (phone_opt_in=True, phone_available=False)")
-                                logger.info(f"[WEBHOOK] - Current behavior: Cancel all pre-phone tasks + Customer Reply SMS")
-                                logger.info(f"[WEBHOOK] - Tasks to cancel: phone_available=False OR phone_opt_in=True")
-                                logger.info(f"[WEBHOOK] Cancelling all pre-phone tasks (identical to No Phone logic)")
-                                
-                                # Скасовуємо всі pre-phone tasks (як у No Phone логіці)
-                                self._cancel_pre_phone_tasks(
-                                    lid, reason="Consumer replied to phone opt-in flow without phone"
-                                )
-                                
-                                # Відправляємо SMS сповіщення (як у No Phone логіці)
-                                logger.info(f"[WEBHOOK] 📱 SENDING Customer Reply SMS (opt-in without phone)")
-                                logger.info(f"[WEBHOOK] SMS purpose: Notify business that customer replied to opt-in without phone")
-                                logger.info(f"[WEBHOOK] SMS type: Customer Reply (no follow-up scheduled)")
-                                self._send_customer_reply_sms_only(lid)
-                                logger.info(f"[WEBHOOK] ✅ Customer Reply SMS sent successfully")
-                            
-                            logger.info(f"[WEBHOOK] ==============================================")
-                            logger.info(f"[WEBHOOK] ✅ PHONE OPT-IN SCENARIO PROCESSING COMPLETED")
-                            logger.info(f"[WEBHOOK] Result: {'Phone Available flow triggered' if has_phone else 'Pre-phone tasks cancelled + SMS sent'}")
                             logger.info(f"[WEBHOOK] ==============================================")
                         elif pending:
                             logger.info(f"[WEBHOOK] 🚫 CLIENT RESPONDED WITHOUT PHONE NUMBER")
@@ -838,7 +729,7 @@ class WebhookView(APIView):
                             logger.info(f"[WEBHOOK] - Current behavior: Cancel pending tasks + Customer Reply SMS")
 
                             reason = "Client responded, but no number was found"
-                            self._cancel_pre_phone_tasks(lid, reason=reason)
+                        self._cancel_no_phone_tasks(lid, reason=reason)
 
                             # Send SMS notification for Customer Reply (without follow-up)
                             logger.info(f"[WEBHOOK] 📱 SENDING Customer Reply SMS (no follow-up)")
@@ -1035,20 +926,7 @@ class WebhookView(APIView):
         
         try:
             # Call _process_auto_response to create LeadDetail but disable SMS for new leads
-            logger.info(f"[AUTO-RESPONSE] 🚀 ABOUT TO CALL _process_auto_response")
-            logger.info(f"[AUTO-RESPONSE] Parameters: phone_opt_in=False, phone_available=False, is_new_lead=True")
-            
-            self._process_auto_response(lead_id, phone_opt_in=False, phone_available=False, is_new_lead=True)
-            
-            logger.info(f"[AUTO-RESPONSE] ✅ _process_auto_response RETURNED SUCCESSFULLY")
-            
-            # NEW: Add guaranteed follow-up scheduling for new leads
-            logger.info(f"[AUTO-RESPONSE] 🚀 ABOUT TO CALL _process_new_lead_follow_up_only")
-            logger.info(f"[AUTO-RESPONSE] This will schedule follow-up messages even if auto_settings.enabled=False")
-            
-            self._process_new_lead_follow_up_only(lead_id)
-            
-            logger.info(f"[AUTO-RESPONSE] ✅ _process_new_lead_follow_up_only RETURNED SUCCESSFULLY")
+            self._process_auto_response(lead_id, phone_opt_in=False, phone_available=False)
             logger.info(f"[AUTO-RESPONSE] ✅ handle_new_lead completed successfully for {lead_id}")
         except Exception as e:
             logger.error(f"[AUTO-RESPONSE] ❌ handle_new_lead failed for {lead_id}: {e}")
@@ -1082,7 +960,7 @@ class WebhookView(APIView):
         logger.info(f"[AUTO-RESPONSE] Step 1: Cancelling no-phone tasks")
         
         try:
-            self._cancel_pre_phone_tasks(lead_id, reason)
+            self._cancel_no_phone_tasks(lead_id, reason)
             logger.info(f"[AUTO-RESPONSE] Step 2: Starting auto-response for phone opt-in scenario")
             self._process_auto_response(lead_id, phone_opt_in=True, phone_available=False)
             logger.info(f"[AUTO-RESPONSE] ✅ handle_phone_opt_in completed successfully for {lead_id}")
@@ -1118,7 +996,7 @@ class WebhookView(APIView):
         logger.info(f"[AUTO-RESPONSE] Step 1: Cancelling no-phone tasks")
         
         try:
-            self._cancel_pre_phone_tasks(lead_id, reason)
+            self._cancel_no_phone_tasks(lead_id, reason)
             logger.info(f"[AUTO-RESPONSE] Step 2: Starting auto-response for phone available scenario")
             self._process_auto_response(lead_id, phone_opt_in=False, phone_available=True)
             logger.info(f"[AUTO-RESPONSE] ✅ handle_phone_available completed successfully for {lead_id}")
@@ -1165,28 +1043,15 @@ class WebhookView(APIView):
         )
         logger.info(f"[CUSTOMER-REPLY-SMS] Found {business_settings.count()} notification settings for business {pl.business_id}")
         
-        # Check if SMS notifications are enabled for this business
-        business = YelpBusiness.objects.filter(business_id=pl.business_id).first()
-        if business and not business.sms_notifications_enabled:
-            logger.info(f"[CUSTOMER-REPLY-SMS] ⚠️ SMS NOTIFICATIONS DISABLED for business: {business.business_id}")
-            logger.info(f"[CUSTOMER-REPLY-SMS] Business admin has turned off SMS notifications")
-            logger.info(f"[CUSTOMER-REPLY-SMS] 🛑 SKIPPING SMS - notifications disabled for this business")
-            return
-
-        if business and business.sms_notifications_enabled:
-            logger.info(f"[CUSTOMER-REPLY-SMS] ✅ SMS NOTIFICATIONS ENABLED for business: {business.business_id}")
-        elif business is None:
-            logger.info(f"[CUSTOMER-REPLY-SMS] ⚠️ Business not found for ID: {pl.business_id}")
-        
         if not business_settings.exists():
             logger.warning(f"[CUSTOMER-REPLY-SMS] ⚠️ No NotificationSettings found for business {pl.business_id}")
             return
         
-        # SEND TO ALL CONFIGURED PHONE NUMBERS
+        # LIMIT TO FIRST SETTING ONLY to prevent duplicate SMS
         business_settings_list = list(business_settings)
         if len(business_settings_list) > 1:
-            logger.info(f"[CUSTOMER-REPLY-SMS] 📱 Multiple NotificationSettings found ({len(business_settings_list)}), sending to ALL numbers")
-            logger.info(f"[CUSTOMER-REPLY-SMS] This ensures all configured recipients get Customer Reply notifications")
+            logger.info(f"[CUSTOMER-REPLY-SMS] ⚠️ Multiple NotificationSettings found ({len(business_settings_list)}), using only the first one")
+            business_settings_list = business_settings_list[:1]
         
         for setting in business_settings_list:
             try:
@@ -1264,7 +1129,7 @@ class WebhookView(APIView):
         logger.info(f"[NEW-LEAD-FOLLOW-UP] 🎯 PROCEEDING WITH follow-up scheduling only")
         
         # Process follow-up messages (copy from _process_auto_response but without SMS)
-        from .models import FollowUpTemplate
+        from .models import FollowUpTemplate, YelpBusiness
         from .utils import adjust_due_time
         from django.db import transaction
         from django.utils import timezone
@@ -1353,34 +1218,26 @@ class WebhookView(APIView):
             
             logger.info(f"[NEW-LEAD-FOLLOW-UP] Scheduling follow-up in {countdown} seconds")
             
-            # Check for duplicates before creating task
-            from .utils import _already_sent
-            from django.db import IntegrityError
-            
             with transaction.atomic():
                 try:
-                    from .models import LeadPendingTask
+                    # ✅ БЕЗПЕЧНО: Використовуємо безпечний створювач з utils.py
+                    from .utils import create_lead_pending_task_safe
+                    import uuid
                     
-                    # Check if this message is already sent or scheduled
-                    duplicate_exists = (_already_sent(lead_id, text) or 
-                        LeadPendingTask.objects.select_for_update()
-                        .filter(lead_id=lead_id, text=text, active=True)
-                        .exists())
-                        
-                    if duplicate_exists:
-                        logger.info(f"[NEW-LEAD-FOLLOW-UP] ⚠️ Follow-up '{tmpl.name}' already sent or scheduled → skipping")
-                    else:
-                        # Create task and enqueue job
-                        try:
-                            LeadPendingTask.objects.create(
-                                lead_id=lead_id,
-                                text=text,
-                                task_id="",  # Will be set when task is enqueued
-                                phone_opt_in=phone_opt_in,
-                                phone_available=phone_available,
-                                active=True,
-                            )
-                            
+                    # Генеруємо task_id заздалегідь
+                    task_id = str(uuid.uuid4())
+                    
+                    # Спочатку безпечно створюємо DB record
+                    created_successfully = create_lead_pending_task_safe(
+                        lead_id=lead_id,
+                        text=text,
+                        task_id=task_id,
+                        phone_opt_in=phone_opt_in,
+                        phone_available=phone_available
+                    )
+                    
+                    if created_successfully:
+                        # Тільки тоді створюємо RQ job з pre-generated ID
                             queue = django_rq.get_queue("default")
                             job = queue.enqueue_in(
                                 timedelta(seconds=countdown),
@@ -1388,17 +1245,13 @@ class WebhookView(APIView):
                                 lead_id,
                                 text,
                                 business_id=pl.business_id,
+                            job_id=task_id,  # ✅ Використовуємо предвизначений ID
                             )
                             
-                            # Update task with job ID
-                            LeadPendingTask.objects.filter(
-                                lead_id=lead_id, text=text, task_id=""
-                            ).update(task_id=job.id)
-                            
                             scheduled_count += 1
-                            logger.info(f"[NEW-LEAD-FOLLOW-UP] ✅ Scheduled follow-up '{tmpl.name}' with job ID: {job.id}")
-                        except IntegrityError:
-                            logger.info(f"[NEW-LEAD-FOLLOW-UP] ⚠️ Duplicate task already exists for '{tmpl.name}' → skipping")
+                        logger.info(f"[NEW-LEAD-FOLLOW-UP] ✅ Safely scheduled follow-up '{tmpl.name}' with job ID: {task_id}")
+                    else:
+                        logger.info(f"[NEW-LEAD-FOLLOW-UP] ⚠️ Task creation failed for '{tmpl.name}' - duplicate or error")
                         
                 except Exception as e:
                     logger.error(f"[NEW-LEAD-FOLLOW-UP] ❌ Failed to schedule follow-up '{tmpl.name}': {e}")
@@ -1408,27 +1261,17 @@ class WebhookView(APIView):
         logger.info(f"[NEW-LEAD-FOLLOW-UP] - Follow-ups scheduled: {scheduled_count}")
         logger.info(f"[NEW-LEAD-FOLLOW-UP] - SMS sent: 0 (disabled for new leads)")
 
-
-    def _cancel_pre_phone_tasks(self, lead_id: str, reason: str | None = None):
-        if reason is None:
-            reason = "Phone number became available - switching scenarios"
-            
-        logger.info(f"[AUTO-RESPONSE] 🚫 STARTING _cancel_pre_phone_tasks")
+    def _cancel_no_phone_tasks(self, lead_id: str, reason: str | None = None):
+        logger.info(f"[AUTO-RESPONSE] 🚫 STARTING _cancel_no_phone_tasks")
         logger.info(f"[AUTO-RESPONSE] Lead ID: {lead_id}")
-        logger.info(f"[AUTO-RESPONSE] Cancellation reason: {reason}")
-        logger.info(
-            f"[AUTO-RESPONSE] Looking for pending tasks with: phone_available=False OR phone_opt_in=True, active=True"
-        )
-
-        # Cancel both phone_available=False tasks AND phone_opt_in=True tasks
+        logger.info(f"[AUTO-RESPONSE] Cancellation reason: {reason or 'Not specified'}")
+        logger.info(f"[AUTO-RESPONSE] Looking for pending tasks with: phone_opt_in=False, phone_available=False, active=True")
+        
         pending = LeadPendingTask.objects.filter(
-            lead_id=lead_id, 
-            active=True
-        ).filter(
-            Q(phone_available=False) | Q(phone_opt_in=True)
+            lead_id=lead_id, phone_opt_in=False, phone_available=False, active=True
         )
         pending_count = pending.count()
-        logger.info(f"[AUTO-RESPONSE] Found {pending_count} pending tasks to cancel (no-phone OR phone opt-in)")
+        logger.info(f"[AUTO-RESPONSE] Found {pending_count} pending no-phone tasks to cancel")
         
         if pending_count == 0:
             logger.info(f"[AUTO-RESPONSE] No no-phone tasks to cancel for {lead_id}")
@@ -1444,8 +1287,6 @@ class WebhookView(APIView):
             logger.info(f"[AUTO-RESPONSE] Cancelling task: {p.task_id} for lead {lead_id}")
             logger.info(f"[AUTO-RESPONSE] Task text preview: {p.text[:50]}...")
             logger.info(f"[AUTO-RESPONSE] Task created at: {p.created_at}")
-            logger.info(f"[AUTO-RESPONSE] Task phone_opt_in: {p.phone_opt_in}")
-            logger.info(f"[AUTO-RESPONSE] Task phone_available: {p.phone_available}")
             
             try:
                 job = queue.fetch_job(p.task_id)
@@ -1475,19 +1316,16 @@ class WebhookView(APIView):
             )
             logger.info(f"[AUTO-RESPONSE] ✅ Updated {updated_logs} CeleryTaskLog entries for {p.task_id}")
             
-        logger.info(f"[AUTO-RESPONSE] 📊 _cancel_pre_phone_tasks summary for {lead_id}:")
+        logger.info(f"[AUTO-RESPONSE] 📊 _cancel_no_phone_tasks summary for {lead_id}:")
         logger.info(f"[AUTO-RESPONSE] - Tasks found: {pending_count}")
         logger.info(f"[AUTO-RESPONSE] - Tasks cancelled successfully: {cancelled_count}")
         logger.info(f"[AUTO-RESPONSE] - Tasks with errors: {error_count}")
-        logger.info(f"[AUTO-RESPONSE] ✅ _cancel_pre_phone_tasks completed")
+        logger.info(f"[AUTO-RESPONSE] ✅ _cancel_no_phone_tasks completed")
 
     def _cancel_all_tasks(self, lead_id: str, reason: str | None = None):
-        if reason is None:
-            reason = "All tasks cancelled due to business intervention"
-            
         logger.info(f"[AUTO-RESPONSE] 🛑 STARTING _cancel_all_tasks")
         logger.info(f"[AUTO-RESPONSE] Lead ID: {lead_id}")
-        logger.info(f"[AUTO-RESPONSE] Cancellation reason: {reason}")
+        logger.info(f"[AUTO-RESPONSE] Cancellation reason: {reason or 'Not specified'}")
         logger.info(f"[AUTO-RESPONSE] Looking for ALL pending tasks with: active=True")
         
         pending = LeadPendingTask.objects.filter(lead_id=lead_id, active=True)
@@ -1550,25 +1388,19 @@ class WebhookView(APIView):
         logger.info(f"[AUTO-RESPONSE] ✅ _cancel_all_tasks completed")
 
     def _process_auto_response(
-        self, lead_id: str, phone_opt_in: bool, phone_available: bool, is_new_lead: bool = False
+        self, lead_id: str, phone_opt_in: bool, phone_available: bool
     ):
         logger.info(f"[AUTO-RESPONSE] 🔧 STARTING _process_auto_response")
-        logger.info(f"[AUTO-RESPONSE] ========== FUNCTION ENTRY ==========")
-        logger.info(f"[AUTO-RESPONSE] Function entered successfully")
         logger.info(f"[AUTO-RESPONSE] Parameters:")
         logger.info(f"[AUTO-RESPONSE] - Lead ID: {lead_id}")
         logger.info(f"[AUTO-RESPONSE] - phone_opt_in: {phone_opt_in}")
         logger.info(f"[AUTO-RESPONSE] - phone_available: {phone_available}")
-        logger.info(f"[AUTO-RESPONSE] - is_new_lead: {is_new_lead}")
-        logger.info(f"[AUTO-RESPONSE] =======================================")
         
         # Determine reason for SMS based on scenario
         if phone_opt_in:
             reason = "Phone Opt-in"
         elif phone_available:
             reason = "Phone Number Found"
-        elif is_new_lead:
-            reason = "New Lead"
         else:
             reason = "Customer Reply"
         
@@ -1727,14 +1559,7 @@ class WebhookView(APIView):
                 should_send_sms = getattr(auto_settings, 'sms_on_customer_reply', False)
                 sms_reason_field = "sms_on_customer_reply"
             
-            # Disable SMS for new leads regardless of AutoResponseSettings
-            if is_new_lead:
-                logger.info(f"[AUTO-RESPONSE] 🚫 SMS DISABLED for New Lead scenario")
-                logger.info(f"[AUTO-RESPONSE] - New leads should not trigger SMS notifications")
-                final_sms_decision = False
-            else:
                 final_sms_decision = should_send_sms and auto_settings.enabled
-            
             logger.info(f"[AUTO-RESPONSE] 📲 SMS PROCESSING FOR SCENARIO '{reason}':")
             logger.info(f"[AUTO-RESPONSE] - Field checked: {sms_reason_field}")
             logger.info(f"[AUTO-RESPONSE] - SMS flag: {should_send_sms}")
@@ -1757,29 +1582,17 @@ class WebhookView(APIView):
                     )
                     logger.info(f"[AUTO-RESPONSE] Found {business_settings.count()} notification settings for business {pl.business_id}")
                     
-                    # Check if SMS notifications are enabled for this business
-                    business = YelpBusiness.objects.filter(business_id=pl.business_id).first()
-                    sms_enabled_for_business = True
-                    if business and not business.sms_notifications_enabled:
-                        logger.info(f"[AUTO-RESPONSE] ⚠️ SMS NOTIFICATIONS DISABLED for business: {business.business_id}")
-                        logger.info(f"[AUTO-RESPONSE] Business admin has turned off SMS notifications")
-                        logger.info(f"[AUTO-RESPONSE] 🛑 SKIPPING SMS - notifications disabled for this business")
-                        sms_enabled_for_business = False
-                    elif business and business.sms_notifications_enabled:
-                        logger.info(f"[AUTO-RESPONSE] ✅ SMS NOTIFICATIONS ENABLED for business: {business.business_id}")
-                    elif business is None:
-                        logger.info(f"[AUTO-RESPONSE] ⚠️ Business not found for ID: {pl.business_id}")
-
-                    if sms_enabled_for_business and business_settings.exists():
-                        # SEND TO ALL CONFIGURED PHONE NUMBERS
+                    if business_settings.exists():
+                        # LIMIT TO FIRST SETTING ONLY to prevent duplicate SMS
                         business_settings_list = list(business_settings)
                         if len(business_settings_list) > 1:
-                            logger.info(f"[AUTO-RESPONSE] 📱 Multiple NotificationSettings found ({len(business_settings_list)}), sending to ALL numbers")
-                            logger.info(f"[AUTO-RESPONSE] This ensures all configured recipients get AutoResponse SMS notifications")
+                            logger.info(f"[AUTO-RESPONSE] ⚠️ Multiple NotificationSettings found ({len(business_settings_list)}), using only the first one")
+                            logger.info(f"[AUTO-RESPONSE] This prevents duplicate AutoResponse SMS notifications")
                             logger.info(f"[AUTO-RESPONSE] Available settings:")
                             for i, s in enumerate(business_settings_list, 1):
                                 logger.info(f"[AUTO-RESPONSE] - Setting #{i}: ID={s.id}, phone={s.phone_number}")
-                            logger.info(f"[AUTO-RESPONSE] All {len(business_settings_list)} settings will be used for SMS sending")
+                            business_settings_list = business_settings_list[:1]  # Take only the first setting
+                            logger.info(f"[AUTO-RESPONSE] Selected setting: ID={business_settings_list[0].id}, phone={business_settings_list[0].phone_number}")
                         
                         for setting in business_settings_list:
                             ld = LeadDetail.objects.filter(lead_id=lead_id).first()
@@ -1794,27 +1607,7 @@ class WebhookView(APIView):
                                 yelp_link = f"https://biz.yelp.com/leads_center/{pl.business_id}/leads/{lead_id}"
                                 
                                 # Get customer phone number if available
-                                # First try to get from ProcessedLead, then from extracted phone_number
-                                customer_phone = ""
-                                if pl and hasattr(pl, 'phone_number') and pl.phone_number:
-                                    customer_phone = pl.phone_number
-                                else:
-                                    # Try to extract from detail_data if phone wasn't saved yet
-                                    if hasattr(ld, 'phone_number') and ld.phone_number:
-                                        customer_phone = ld.phone_number
-                                    else:
-                                        # Extract from additional_info like we do later in the function
-                                        try:
-                                            additional_info = detail_data.get("project", {}).get("additional_info", "")
-                                            if additional_info:
-                                                extracted_phone = self._extract_phone(additional_info)
-                                                if extracted_phone:
-                                                    customer_phone = extracted_phone
-                                                    logger.info(f"[AUTO-RESPONSE] 📞 Extracted phone for SMS: '{customer_phone}'")
-                                        except Exception as e:
-                                            logger.warning(f"[AUTO-RESPONSE] Failed to extract phone for SMS: {e}")
-                                
-                                logger.info(f"[AUTO-RESPONSE] Final customer_phone for SMS: '{customer_phone}'")
+                                customer_phone = pl.phone_number if pl and hasattr(pl, 'phone_number') and pl.phone_number else ""
                                 
                                 message = setting.message_template.format(
                                     business_id=pl.business_id,
@@ -1853,7 +1646,7 @@ class WebhookView(APIView):
                             except Exception as sms_error:
                                 logger.error(f"[AUTO-RESPONSE] ❌ AutoResponseSettings SMS failed: {sms_error}")
                                 logger.exception(f"[AUTO-RESPONSE] SMS sending exception")
-                    elif sms_enabled_for_business:
+                    else:
                         logger.warning(f"[AUTO-RESPONSE] ⚠️ No NotificationSettings found for business {pl.business_id}")
                         logger.warning(f"[AUTO-RESPONSE] SMS decision was True but no phone numbers to send to")
                 else:
@@ -1880,8 +1673,7 @@ class WebhookView(APIView):
                 f"[AUTO-RESPONSE] DETAIL ERROR lead={lead_id}, business_id={pl.business_id if pl else 'N/A'}, "
                 f"token_source={source}, token={token[:20]}..., status={resp.status_code}, body={resp.text}"
             )
-            d = {}
-        else:
+            return
             d = resp.json()
 
         last_time = None
@@ -1928,24 +1720,17 @@ class WebhookView(APIView):
         display_name = d.get("user", {}).get("display_name", "")
         first_name = display_name.split()[0] if display_name else ""
 
-        existing_opt = (
-            LeadDetail.objects.filter(lead_id=lead_id)
-            .values_list("phone_opt_in", flat=True)
-            .first()
-            or False
-        )
-
         detail_data = {
             "lead_id": lead_id,
-            "business_id": d.get("business_id") or (pl.business_id if pl else None),
-            "conversation_id": d.get("conversation_id", ""),
+            "business_id": d.get("business_id"),
+            "conversation_id": d.get("conversation_id"),
             "temporary_email_address": d.get("temporary_email_address"),
             "temporary_email_address_expiry": d.get("temporary_email_address_expiry"),
-            "time_created": d.get("time_created") or timezone.now(),
+            "time_created": d.get("time_created"),
             "last_event_time": last_time,
             "user_display_name": first_name,
             "phone_number": phone_number,
-            "phone_opt_in": phone_opt_in or d.get("phone_opt_in", existing_opt),
+            "phone_opt_in": d.get("phone_opt_in", False),
             "project": {
                 "survey_answers": survey_list,
                 "location": raw_proj.get("location", {}),
@@ -2187,7 +1972,6 @@ class WebhookView(APIView):
         now = timezone.now()
         tz_name = business.time_zone if business else None
         within_hours = True
-        days_setting = None
         
         logger.info(f"[AUTO-RESPONSE] Business hours calculation:")
         logger.info(f"[AUTO-RESPONSE] - Current UTC time: {now}")
@@ -2427,21 +2211,11 @@ class WebhookView(APIView):
                 logger.info(f"[AUTO-RESPONSE] Sending greeting via Celery with countdown=0")
                 logger.info(f"[AUTO-RESPONSE] 🚀 DISPATCHING GREETING TASK")
                 
-                logger.info(f"[TASK-DEBUG] ========= IMMEDIATE CELERY DISPATCH =========")
-                logger.info(f"[TASK-DEBUG] About to call send_follow_up.apply_async()")
-                logger.info(f"[TASK-DEBUG] args: [{lead_id}, '{greet_text[:50]}...']")
-                logger.info(f"[TASK-DEBUG] business_id: {biz_id}")
-                
-                task_result = send_follow_up.apply_async(
+                send_follow_up.apply_async(
                     args=[lead_id, greet_text],
                     headers={"business_id": biz_id},
                     countdown=0,
                 )
-                
-                logger.info(f"[TASK-DEBUG] ✅ Task dispatched successfully!")
-                logger.info(f"[TASK-DEBUG] Task ID: {task_result.id}")
-                logger.info(f"[TASK-DEBUG] ===========================================")
-                
                 logger.info(
                     "[AUTO-RESPONSE] ✅ Greeting dispatched immediately via Celery"
                 )
@@ -2453,22 +2227,11 @@ class WebhookView(APIView):
                 logger.info(f"[AUTO-RESPONSE] Countdown: {countdown_greeting} seconds")
                 logger.info(f"[AUTO-RESPONSE] 🚀 SCHEDULING GREETING TASK")
                 
-                logger.info(f"[TASK-DEBUG] ========= SCHEDULED CELERY DISPATCH =========")
-                logger.info(f"[TASK-DEBUG] About to call send_follow_up.apply_async()")
-                logger.info(f"[TASK-DEBUG] args: [{lead_id}, '{greet_text[:50]}...']")
-                logger.info(f"[TASK-DEBUG] business_id: {biz_id}")
-                logger.info(f"[TASK-DEBUG] countdown: {countdown_greeting}")
-                
                 res = send_follow_up.apply_async(
                     args=[lead_id, greet_text],
                     headers={"business_id": biz_id},
                     countdown=countdown_greeting,
                 )
-                
-                logger.info(f"[TASK-DEBUG] ✅ Task scheduled successfully!")
-                logger.info(f"[TASK-DEBUG] Task ID: {res.id}")
-                logger.info(f"[TASK-DEBUG] ===========================================")
-                
                 logger.info(f"[AUTO-RESPONSE] ✅ Celery task created with ID: {res.id}")
                 logger.info(f"[AUTO-RESPONSE] Creating LeadPendingTask record...")
                 
@@ -2491,10 +2254,8 @@ class WebhookView(APIView):
                     )
                     scheduled_texts.add(greet_text)
 
-        # Removed early return for phone_available - now follow-ups work for all scenarios
-        logger.info(f"[AUTO-RESPONSE] 🔄 PROCEEDING WITH FOLLOW-UP SCHEDULING")
-        logger.info(f"[AUTO-RESPONSE] - Scenario: phone_opt_in={phone_opt_in}, phone_available={phone_available}")
-        logger.info(f"[AUTO-RESPONSE] - Follow-ups will be scheduled based on matching FollowUpTemplate records")
+        if phone_available:
+            return
 
         # Use the same 'now' timestamp for consistent timing calculations
         # instead of calling timezone.now() again
@@ -2550,11 +2311,11 @@ class WebhookView(APIView):
                         f"[AUTO-RESPONSE] Custom follow-up '{tmpl.name}' already sent or duplicate → skipping"
                     )
                 else:
-                    res = send_follow_up.apply_async(
-                        args=[lead_id, text],
-                        headers={"business_id": biz_id},
-                        countdown=countdown,
-                    )
+                        res = send_follow_up.apply_async(
+                            args=[lead_id, text],
+                            headers={"business_id": biz_id},
+                            countdown=countdown,
+                        )
                     try:
                         LeadPendingTask.objects.create(
                             lead_id=lead_id,

@@ -189,34 +189,59 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
             if pending_task:
                 task_created_at = pending_task.created_at
                 logger.info(f"[FOLLOW-UP] Task created at: {task_created_at}")
+            else:
+                # HOTFIX: Якщо задачі немає в БД, використовуємо час запуску RQ job
+                logger.warning(f"[FOLLOW-UP] ⚠️ Task {job_id} not found in DB - using fallback timing")
+                logger.warning(f"[FOLLOW-UP] This indicates RQ-DB synchronization issue!")
                 
-                # Check for consumer events after task creation
-                consumer_responses = LeadEvent.objects.filter(
-                    lead_id=lead_id,
-                    user_type="CONSUMER",
-                    time_created__gt=task_created_at,
-                    from_backend=False
-                ).order_by('time_created')
+                # Отримуємо час створення RQ job
+                try:
+                    rq_job = job if job else None
+                    if rq_job and hasattr(rq_job, 'created_at') and rq_job.created_at:
+                        task_created_at = rq_job.created_at
+                        logger.info(f"[FOLLOW-UP] Using RQ job created_at: {task_created_at}")
+                    else:
+                        # Останній fallback - використовуємо час 5 хвилин тому
+                        from django.utils import timezone
+                        from datetime import timedelta
+                        task_created_at = timezone.now() - timedelta(minutes=5)
+                        logger.warning(f"[FOLLOW-UP] Using fallback time (5 min ago): {task_created_at}")
+                except Exception as e:
+                    logger.error(f"[FOLLOW-UP] Error getting RQ job timing: {e}")
+                    from django.utils import timezone
+                    from datetime import timedelta
+                    task_created_at = timezone.now() - timedelta(minutes=5)
+                    logger.warning(f"[FOLLOW-UP] Using emergency fallback time: {task_created_at}")
+            
+            # Check for consumer events after task creation (працює для обох випадків)
+            consumer_responses = LeadEvent.objects.filter(
+                lead_id=lead_id,
+                user_type="CONSUMER",
+                time_created__gt=task_created_at,
+                from_backend=False
+            ).order_by('time_created')
+            
+            response_count = consumer_responses.count()
+            logger.info(f"[FOLLOW-UP] Consumer responses after task creation: {response_count}")
+            
+            if response_count > 0:
+                logger.info(f"[FOLLOW-UP] ❗ CONSUMER RESPONDED - cancelling follow-up")
+                logger.info(f"[FOLLOW-UP] Recent consumer responses:")
+                for i, response in enumerate(consumer_responses[:3]):
+                    logger.info(f"[FOLLOW-UP] Response {i+1}: '{response.text[:50]}...' at {response.time_created}")
                 
-                response_count = consumer_responses.count()
-                logger.info(f"[FOLLOW-UP] Consumer responses after task creation: {response_count}")
-                
-                if response_count > 0:
-                    logger.info(f"[FOLLOW-UP] ❗ CONSUMER RESPONDED - cancelling follow-up")
-                    logger.info(f"[FOLLOW-UP] Recent consumer responses:")
-                    for i, response in enumerate(consumer_responses[:3]):
-                        logger.info(f"[FOLLOW-UP] Response {i+1}: '{response.text[:50]}...' at {response.time_created}")
-                    
-                    # Mark task as cancelled due to consumer response
+                # Mark task as cancelled due to consumer response (тільки якщо є запис в БД)
+                if pending_task:
                     pending_task.active = False
                     pending_task.save(update_fields=['active'])
-                    
-                    logger.info(f"[FOLLOW-UP] 🛑 EARLY RETURN - consumer responded after task creation")
-                    return "SKIPPED: Consumer responded after task creation"
+                    logger.info(f"[FOLLOW-UP] ✅ Marked DB task as inactive")
                 else:
-                    logger.info(f"[FOLLOW-UP] ✅ No consumer responses - proceeding with follow-up")
+                    logger.warning(f"[FOLLOW-UP] ⚠️ Cannot mark DB task as inactive - no DB record")
+                
+                logger.info(f"[FOLLOW-UP] 🛑 EARLY RETURN - consumer responded after task creation")
+                return "SKIPPED: Consumer responded after task creation"
             else:
-                logger.info(f"[FOLLOW-UP] ⚠️ Could not find pending task with ID: {job_id}")
+                logger.info(f"[FOLLOW-UP] ✅ No consumer responses - proceeding with follow-up")
         else:
             logger.info(f"[FOLLOW-UP] ⚠️ No job_id provided - skipping consumer response check")
     except Exception as e:
@@ -345,30 +370,47 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
                     pending_task = LeadPendingTask.objects.filter(task_id=job_id).first()
                     if pending_task:
                         task_created_at = pending_task.created_at
-                        
-                        # Check for consumer events after task creation
-                        final_consumer_responses = LeadEvent.objects.filter(
-                            lead_id=lead_id,
-                            user_type="CONSUMER",
-                            time_created__gt=task_created_at,
-                            from_backend=False
-                        ).order_by('time_created')
-                        
-                        final_response_count = final_consumer_responses.count()
-                        logger.info(f"[FOLLOW-UP] FINAL CHECK: {final_response_count} consumer responses since task creation")
-                        
-                        if final_response_count > 0:
-                            logger.info(f"[FOLLOW-UP] 🛑 FINAL ABORT: Consumer responded - cancelling at the last moment")
-                            logger.info(f"[FOLLOW-UP] Recent consumer responses found:")
-                            for i, response in enumerate(final_consumer_responses[:3]):
-                                logger.info(f"[FOLLOW-UP] Response {i+1}: '{response.text[:50]}...' at {response.time_created}")
-                            
-                            logger.info(f"[FOLLOW-UP] 🚫 FINAL CANCELLATION - not sending follow-up")
-                            return "FINAL_SKIP: Consumer responded just before send"
-                        else:
-                            logger.info(f"[FOLLOW-UP] ✅ FINAL CHECK PASSED - no recent consumer responses")
+                        logger.info(f"[FOLLOW-UP] FINAL CHECK: Using DB task created_at: {task_created_at}")
                     else:
-                        logger.info(f"[FOLLOW-UP] ⚠️ Could not find pending task for final check")
+                        # HOTFIX: Використовуємо той самий fallback що й раніше
+                        logger.warning(f"[FOLLOW-UP] ⚠️ FINAL CHECK: Task {job_id} not found in DB - using fallback timing")
+                        try:
+                            rq_job = job if job else None
+                            if rq_job and hasattr(rq_job, 'created_at') and rq_job.created_at:
+                                task_created_at = rq_job.created_at
+                                logger.info(f"[FOLLOW-UP] FINAL CHECK: Using RQ job created_at: {task_created_at}")
+                            else:
+                                from django.utils import timezone
+                                from datetime import timedelta
+                                task_created_at = timezone.now() - timedelta(minutes=5)
+                                logger.warning(f"[FOLLOW-UP] FINAL CHECK: Using fallback time (5 min ago): {task_created_at}")
+                        except Exception as e:
+                            logger.error(f"[FOLLOW-UP] FINAL CHECK: Error getting timing: {e}")
+                            from django.utils import timezone
+                            from datetime import timedelta
+                            task_created_at = timezone.now() - timedelta(minutes=5)
+                    
+                    # Check for consumer events after task creation (працює для обох випадків)
+                    final_consumer_responses = LeadEvent.objects.filter(
+                        lead_id=lead_id,
+                        user_type="CONSUMER",
+                        time_created__gt=task_created_at,
+                        from_backend=False
+                    ).order_by('time_created')
+                    
+                    final_response_count = final_consumer_responses.count()
+                    logger.info(f"[FOLLOW-UP] FINAL CHECK: {final_response_count} consumer responses since task creation")
+                    
+                    if final_response_count > 0:
+                        logger.info(f"[FOLLOW-UP] 🛑 FINAL ABORT: Consumer responded - cancelling at the last moment")
+                        logger.info(f"[FOLLOW-UP] Recent consumer responses found:")
+                        for i, response in enumerate(final_consumer_responses[:3]):
+                            logger.info(f"[FOLLOW-UP] Response {i+1}: '{response.text[:50]}...' at {response.time_created}")
+                        
+                        logger.info(f"[FOLLOW-UP] 🚫 FINAL CANCELLATION - not sending follow-up")
+                        return "FINAL_SKIP: Consumer responded just before send"
+                    else:
+                        logger.info(f"[FOLLOW-UP] ✅ FINAL CHECK PASSED - no recent consumer responses")
                 else:
                     logger.info(f"[FOLLOW-UP] ⚠️ No job_id for final check")
             except Exception as e:

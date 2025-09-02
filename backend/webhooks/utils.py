@@ -406,33 +406,39 @@ def _already_sent(lead_id: str, text: str, exclude_task_id: str | None = None) -
 
     ``exclude_task_id`` allows ignoring the pending task entry for the current
     job when checking duplicates.
-    """
-    # Exact match check
-    event_exists = LeadEvent.objects.filter(lead_id=lead_id, text=text).exists()
-
-    task_qs = LeadPendingTask.objects.filter(
-        lead_id=lead_id,
-        text=text,
-        active=True,
-    )
-    if exclude_task_id:
-        task_qs = task_qs.exclude(task_id=exclude_task_id)
-
-    task_exists = task_qs.exists()
     
-    # Enhanced logging for duplicate detection
-    if event_exists or task_exists:
-        logger.debug(
-            "[DUP CHECK] Follow-up for lead=%s already sent or queued: events=%s tasks=%s",
-            lead_id,
-            event_exists,
-            list(task_qs.values_list("task_id", "active"))[:5],
+    This function uses database-level locking to prevent race conditions.
+    """
+    from django.db import transaction
+    
+    with transaction.atomic():
+        # Exact match check with select_for_update to prevent race conditions
+        event_exists = LeadEvent.objects.filter(lead_id=lead_id, text=text).exists()
+
+        # Use select_for_update to lock rows during duplicate check
+        task_qs = LeadPendingTask.objects.select_for_update().filter(
+            lead_id=lead_id,
+            text=text,
+            active=True,
         )
-        logger.info(f"[DUP CHECK] ✅ EXACT DUPLICATE found for lead={lead_id}")
-        logger.info(f"[DUP CHECK] Message: '{text[:100]}...'")
-        return True
-    else:
-        logger.debug("[DUP CHECK] No prior follow-up found for lead=%s", lead_id)
+        if exclude_task_id:
+            task_qs = task_qs.exclude(task_id=exclude_task_id)
+
+        task_exists = task_qs.exists()
+        
+        # Enhanced logging for duplicate detection
+        if event_exists or task_exists:
+            logger.debug(
+                "[DUP CHECK] Follow-up for lead=%s already sent or queued: events=%s tasks=%s",
+                lead_id,
+                event_exists,
+                list(task_qs.values_list("task_id", "active"))[:5],
+            )
+            logger.info(f"[DUP CHECK] ✅ EXACT DUPLICATE found for lead={lead_id}")
+            logger.info(f"[DUP CHECK] Message: '{text[:100]}...'")
+            return True
+        else:
+            logger.debug("[DUP CHECK] No prior follow-up found for lead=%s", lead_id)
         
         # 🔍 Enhanced duplicate detection for similar content
         # Check for messages with similar patterns but different job specifications
@@ -462,6 +468,49 @@ def _already_sent(lead_id: str, text: str, exclude_task_id: str | None = None) -
                         # Note: Return False for now, but log for analysis
                         break
         
+        return False
+
+
+def create_lead_pending_task_safe(lead_id: str, text: str, task_id: str, phone_opt_in: bool, phone_available: bool) -> bool:
+    """
+    Safely create a LeadPendingTask with proper IntegrityError handling.
+    
+    Returns:
+        bool: True if task was created successfully, False if duplicate exists
+    """
+    from django.db import IntegrityError, transaction
+    from .models import LeadPendingTask
+    
+    try:
+        with transaction.atomic():
+            # Double-check for duplicates with locking
+            existing = LeadPendingTask.objects.select_for_update().filter(
+                lead_id=lead_id, 
+                text=text, 
+                active=True
+            ).exists()
+            
+            if existing:
+                logger.info(f"[SAFE CREATE] Task already exists for lead={lead_id}, text='{text[:50]}...'")
+                return False
+                
+            LeadPendingTask.objects.create(
+                lead_id=lead_id,
+                text=text,
+                task_id=task_id,
+                phone_opt_in=phone_opt_in,
+                phone_available=phone_available,
+                active=True,
+            )
+            logger.info(f"[SAFE CREATE] ✅ Created LeadPendingTask for lead={lead_id}, task_id={task_id}")
+            return True
+            
+    except IntegrityError as e:
+        logger.info(f"[SAFE CREATE] ⚠️ IntegrityError handled for lead={lead_id}: {e}")
+        return False
+    except Exception as e:
+        logger.error(f"[SAFE CREATE] ❌ Unexpected error creating task for lead={lead_id}: {e}")
+        logger.exception("Full exception details")
         return False
 
 

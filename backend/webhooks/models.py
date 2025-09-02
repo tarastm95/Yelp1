@@ -493,8 +493,8 @@ class LeadPendingTask(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=["lead_id", "text"],
-                name="uniq_lead_text",
-                condition=~Q(text=""),
+                name="uniq_lead_text_active",
+                condition=Q(active=True) & ~Q(text=""),
             )
         ]
 
