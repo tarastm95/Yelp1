@@ -498,6 +498,54 @@ class AutoResponseDisabledTests(TestCase):
         mock_follow_up.assert_not_called()
 
 
+class PhoneOptInPersistenceTests(TestCase):
+    def setUp(self):
+        self.view = WebhookView()
+        self.lead_id = "p1"
+        self.biz = YelpBusiness.objects.create(business_id="bp1", name="biz")
+        ProcessedLead.objects.create(business_id=self.biz.business_id, lead_id=self.lead_id)
+        AutoResponseSettings.objects.create(
+            business=None,
+            phone_opt_in=True,
+            phone_available=False,
+            enabled=False,
+        )
+        AutoResponseSettings.objects.create(
+            business=None,
+            phone_opt_in=False,
+            phone_available=False,
+            enabled=False,
+        )
+
+    @patch("webhooks.webhook_views.send_follow_up.apply_async")
+    @patch("webhooks.webhook_views.requests.get")
+    @patch("webhooks.webhook_views.get_valid_business_token", return_value="tok")
+    def test_phone_opt_in_not_overwritten(self, mock_token, mock_get, mock_follow_up):
+        detail_resp = {
+            "business_id": self.biz.business_id,
+            "conversation_id": "c",
+            "temporary_email_address": "t@example.com",
+            "temporary_email_address_expiry": "2023-01-01T00:00:00Z",
+            "time_created": "2023-01-01T00:00:00Z",
+            "user": {"display_name": "John"},
+            "project": {},
+            "phone_opt_in": False,
+        }
+        events_resp = {"events": []}
+        mock_get.side_effect = [
+            type("R", (), {"status_code": 200, "json": lambda self: detail_resp})(),
+            type("R", (), {"status_code": 200, "json": lambda self: events_resp})(),
+            type("R", (), {"status_code": 200, "json": lambda self: detail_resp})(),
+            type("R", (), {"status_code": 200, "json": lambda self: events_resp})(),
+        ]
+
+        self.view._process_auto_response(self.lead_id, phone_opt_in=True, phone_available=False)
+        self.view._process_auto_response(self.lead_id, phone_opt_in=False, phone_available=False)
+
+        ld = LeadDetail.objects.get(lead_id=self.lead_id)
+        self.assertTrue(ld.phone_opt_in)
+
+
 class SendFollowUpTests(TestCase):
     def test_empty_message_skipped(self):
         with self.assertLogs('webhooks.tasks', level='WARNING') as cm:
