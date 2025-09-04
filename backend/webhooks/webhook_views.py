@@ -870,78 +870,38 @@ class WebhookView(APIView):
                         # Send SMS notification for Customer Reply (without follow-up)
                         logger.info(f"[WEBHOOK] 📱 SENDING Customer Reply SMS (no follow-up)")
                         self._send_customer_reply_sms_only(lid)
-                elif created and e.get("user_type") == "CONSUMER":
-                    logger.info(f"[WEBHOOK] 📊 CONSUMER EVENT RECORDED but NOT PROCESSED as new")
-                    logger.info(f"[WEBHOOK] Reason: Event happened BEFORE lead processing")
-                    logger.info(f"[WEBHOOK] Event time: {event_time_str}")
-                    logger.info(f"[WEBHOOK] Processed at: {processed_at}")
-                    logger.info(f"[WEBHOOK] This prevents false triggering of task cancellations")
                 else:
-                    # ✅ ДОДАНЕ ЛОГУВАННЯ: Перевірка чому BIZ логіка може не спрацювати
-                    user_type = defaults.get("user_type")
-                    logger.info(f"[WEBHOOK] 🧐 CHECKING BIZ LOGIC CONDITIONS:")
-                    logger.info(f"[WEBHOOK] - is_new: {is_new}")
-                    logger.info(f"[WEBHOOK] - user_type: '{user_type}'")
-                    logger.info(f"[WEBHOOK] - user_type in BIZ/BUSINESS: {user_type in ('BIZ', 'BUSINESS')}")
-                    logger.info(f"[WEBHOOK] - Combined condition (is_new AND user_type=BIZ): {is_new and user_type in ('BIZ', 'BUSINESS')}")
+                    # Simplified event processing with detailed logging
+                    user_type = e.get("user_type")
+                    logger.info(f"[WEBHOOK] 🔍 OTHER EVENT PROCESSING:")
+                    logger.info(f"[WEBHOOK] - Event type: {e.get('event_type')}")
+                    logger.info(f"[WEBHOOK] - User type: '{user_type}'")
+                    logger.info(f"[WEBHOOK] - Is new: {is_new}")
                     logger.info(f"[WEBHOOK] - Text: '{text[:50]}...'")
+                    logger.info(f"[WEBHOOK] - Created in DB: {created}")
                     
-                    if is_new and user_type in ("BIZ", "BUSINESS"):
-                        logger.info(f"[WEBHOOK] 🏢 BUSINESS USER EVENT DETECTED - ENTERING BIZ LOGIC")
-                        logger.info(f"[WEBHOOK] Event text: '{text[:100]}...'" + ("" if len(text) <= 100 else " (truncated)"))
-                        logger.info(f"[WEBHOOK] from_backend flag: {defaults.get('from_backend')}")
+                    # Check for BIZ events that might be manual business messages
+                    if user_type == "BIZ" and is_new and text:
+                        logger.info(f"[WEBHOOK] 🏢 BIZ EVENT DETECTED - Checking for manual commands")
                         
-                        # Перевіряємо чи це наше власне повідомлення
-                        is_our_message = False
-                        detection_reasons = []
-                        
-                        # Спосіб 1: Перевірка по from_backend (стара логіка)
-                        if defaults.get("from_backend"):
-                            is_our_message = True
-                            detection_reasons.append("from_backend=True")
-                            logger.info(f"[WEBHOOK] ✅ IDENTIFIED as our message (from_backend=True)")
-                        
-                        # Спосіб 2-6: Інші способи детекції... (продовжується далі в коді)
-                        # Поки що просто логуємо що маємо BIZ подію
-                        
-                        # Спосіб X: Фінальне рішення
-                        if not is_our_message:
-                            logger.info(f"[WEBHOOK] 👨‍💼 CONFIRMED: Real business user manual message")
-                            logger.info(f"[WEBHOOK] Will cancel all active tasks as business took over manually")
-                            reason = "Business user responded manually in Yelp dashboard" 
-                            self._cancel_all_tasks(lid, reason=reason)
+                        # Simple detection: short commands like "Stop", "Cancel", etc.
+                        short_commands = ["stop", "cancel", "enough", "thanks", "thank you", "done"]
+                        if len(text.strip()) <= 20 and any(cmd in text.lower() for cmd in short_commands):
+                            logger.info(f"[WEBHOOK] 🛑 MANUAL STOP COMMAND DETECTED: '{text}'")
+                            logger.info(f"[WEBHOOK] Cancelling all active follow-up tasks")
+                            self._cancel_all_tasks(lid, reason=f"Business sent manual stop command: '{text}'")
                         else:
-                            logger.info(f"[WEBHOOK] 🤖 CONFIRMED: This is OUR automated message")
-                            logger.info(f"[WEBHOOK] No action needed - this is expected system behavior")
+                            logger.info(f"[WEBHOOK] 💬 Regular BIZ message, not a stop command")
                     
-                    else:
-                        # BIZ логіка НЕ спрацювала - логуємо причину
-                        if not is_new:
-                            logger.warning(f"[WEBHOOK] ❌ BIZ logic SKIPPED: is_new=False")
-                            logger.warning(f"[WEBHOOK] This means the event is not considered 'new' by timing logic")
-                            logger.warning(f"[WEBHOOK] But manual business messages should trigger task cancellation!")
-                        elif user_type not in ("BIZ", "BUSINESS"):
-                            logger.warning(f"[WEBHOOK] ❌ BIZ logic SKIPPED: user_type='{user_type}' (expected BIZ/BUSINESS)")
-                        else:
-                            logger.warning(f"[WEBHOOK] ❌ BIZ logic SKIPPED: Unknown reason")
-                            
-                        logger.warning(f"[WEBHOOK] This manual business message will NOT cancel follow-up tasks!")
-                        logger.warning(f"[WEBHOOK] POTENTIAL SPAM: Customers will continue receiving automated messages")
-                    
-                    if e.get("user_type") == "CONSUMER":
+                    elif user_type == "CONSUMER":
                         logger.info(f"[WEBHOOK] 📝 CONSUMER EVENT DETECTED")
-                        logger.info(f"[WEBHOOK] - is_new: {is_new}")
-                        logger.info(f"[WEBHOOK] - Text: '{text[:50]}...'")
-                        if not is_new:
-                            logger.info(f"[WEBHOOK] CONSUMER event recorded but not processed as new (timing check)")
+                        if created:
+                            logger.info(f"[WEBHOOK] Consumer event recorded but timing check determines: is_new={is_new}")
                         else:
-                            logger.info(f"[WEBHOOK] CONSUMER event is new and will be processed")
+                            logger.info(f"[WEBHOOK] Consumer event already existed in DB")
+                    
                     else:
-                        logger.info(f"[WEBHOOK] 📄 OTHER EVENT TYPE DETECTED")
-                        logger.info(f"[WEBHOOK] - Event type: {e.get('event_type')}")
-                        logger.info(f"[WEBHOOK] - User type: {e.get('user_type')}")
-                        logger.info(f"[WEBHOOK] - is_new: {is_new}")
-                        logger.info(f"[WEBHOOK] No specific action for this event type")
+                        logger.info(f"[WEBHOOK] 📄 OTHER EVENT TYPE - no specific action")
 
         return Response({"status": "received"}, status=status.HTTP_201_CREATED)
 
