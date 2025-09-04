@@ -92,14 +92,13 @@ class TaskLogListView(generics.ListAPIView):
 
         elif status in ["revoked", "canceled"]:
             # Revoked/canceled tasks - from CeleryTaskLog (status REVOKED)
-            logger.info(
-                f"[TASK-LIST] Using CeleryTaskLog for revoked/canceled tasks"
-            )
+            logger.info(f"[TASK-LIST] Using CeleryTaskLog for revoked/canceled tasks")
 
             # Clean up old pending records where active=False
             LeadPendingTask.objects.filter(active=False).delete()
 
-            qs = CeleryTaskLog.objects.filter(status="REVOKED").order_by("-eta")
+            # Sort by finished_at (cancellation time), then by eta (original schedule time)  
+            qs = CeleryTaskLog.objects.filter(status="REVOKED").order_by("-finished_at", "-eta")
 
             if business_id:
                 qs = qs.filter(business_id=business_id)
@@ -114,10 +113,12 @@ class TaskLogListView(generics.ListAPIView):
         else:
             # Completed and failed tasks - from CeleryTaskLog (as before)
             logger.info(f"[TASK-LIST] Using CeleryTaskLog for completed/failed tasks")
-            qs = CeleryTaskLog.objects.all().order_by("-eta")
+            # Sort by finished_at (execution time) - newest first, then by eta
+            qs = CeleryTaskLog.objects.all().order_by("-finished_at", "-eta")
             start = self.request.query_params.get("started_after")
             if start:
                 qs = qs.filter(finished_at__gte=start)
+            logger.info(f"[TASK-LIST] Returning {qs.count()} completed/failed tasks")
             return qs
 
 
