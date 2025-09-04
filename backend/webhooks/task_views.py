@@ -11,8 +11,8 @@ from django.utils import timezone
 
 import django_rq
 
-from .models import CeleryTaskLog, LeadPendingTask
-from .serializers import CeleryTaskLogSerializer, MessageTaskSerializer
+from .models import CeleryTaskLog, LeadPendingTask, ProcessedLead
+from .serializers import CeleryTaskLogSerializer, MessageTaskSerializer, LeadPendingTaskSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -48,17 +48,60 @@ class TaskLogFilterSet(FilterSet):
 class TaskLogListView(generics.ListAPIView):
     """Return task logs with optional filtering and pagination."""
 
-    serializer_class = CeleryTaskLogSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_class = TaskLogFilterSet
     pagination_class = TaskLogPagination
 
+    def get_serializer_class(self):
+        """Return appropriate serializer based on data source."""
+        status = self.request.query_params.get("status", "")
+        if status in ["scheduled", "revoked", "canceled"]:
+            return LeadPendingTaskSerializer
+        return CeleryTaskLogSerializer
+
     def get_queryset(self):
-        qs = CeleryTaskLog.objects.all().order_by("-eta")
-        start = self.request.query_params.get("started_after")
-        if start:
-            qs = qs.filter(finished_at__gte=start)
-        return qs
+        """Return data from appropriate source based on status filter."""
+        status = self.request.query_params.get("status", "")
+        business_id = self.request.query_params.get("business_id")
+        
+        logger.info(f"[TASK-LIST] Request: status={status}, business_id={business_id}")
+        
+        if status == "scheduled":
+            # Scheduled tasks - from LeadPendingTask (active=True)
+            logger.info(f"[TASK-LIST] Using LeadPendingTask for scheduled tasks")
+            qs = LeadPendingTask.objects.filter(active=True).order_by("-created_at")
+            
+            if business_id:
+                # Filter by business through ProcessedLead relationship
+                business_lead_ids = ProcessedLead.objects.filter(
+                    business_id=business_id
+                ).values_list('lead_id', flat=True)
+                qs = qs.filter(lead_id__in=business_lead_ids)
+                
+            return qs
+            
+        elif status in ["revoked", "canceled"]:
+            # Canceled tasks - from LeadPendingTask (active=False)
+            logger.info(f"[TASK-LIST] Using LeadPendingTask for canceled tasks")
+            qs = LeadPendingTask.objects.filter(active=False).order_by("-created_at")
+            
+            if business_id:
+                # Filter by business through ProcessedLead relationship  
+                business_lead_ids = ProcessedLead.objects.filter(
+                    business_id=business_id
+                ).values_list('lead_id', flat=True)
+                qs = qs.filter(lead_id__in=business_lead_ids)
+                
+            return qs
+            
+        else:
+            # Completed and failed tasks - from CeleryTaskLog (as before)
+            logger.info(f"[TASK-LIST] Using CeleryTaskLog for completed/failed tasks")
+            qs = CeleryTaskLog.objects.all().order_by("-eta")
+            start = self.request.query_params.get("started_after")
+            if start:
+                qs = qs.filter(finished_at__gte=start)
+            return qs
 
 
 class MessageTaskListView(generics.ListAPIView):
@@ -107,23 +150,44 @@ class TaskStatsView(APIView):
         stats = {
             'successful': qs.filter(status='SUCCESS').count(),
             'failed': qs.filter(status='FAILURE').count(),
-            'canceled': qs.filter(status='REVOKED').count(),
         }
+        
+        # Get business lead IDs for filtering (used for both scheduled and canceled)
+        business_lead_ids = None
+        if business_id:
+            business_lead_ids = ProcessedLead.objects.filter(
+                business_id=business_id
+            ).values_list('lead_id', flat=True)
         
         # For scheduled tasks, use LeadPendingTask instead of CeleryTaskLog
         # because scheduled tasks don't appear in CeleryTaskLog until executed
         scheduled_qs = LeadPendingTask.objects.filter(active=True)
-        if business_id:
-            # Filter by business through ProcessedLead relationship
-            from .models import ProcessedLead
-            business_lead_ids = ProcessedLead.objects.filter(
-                business_id=business_id
-            ).values_list('lead_id', flat=True)
+        if business_lead_ids is not None:
             scheduled_qs = scheduled_qs.filter(lead_id__in=business_lead_ids)
         
+        # For canceled tasks, combine CeleryTaskLog.REVOKED + LeadPendingTask.active=False
+        celery_canceled = qs.filter(status='REVOKED').count()
+        
+        pending_canceled_qs = LeadPendingTask.objects.filter(active=False)
+        if business_lead_ids is not None:
+            pending_canceled_qs = pending_canceled_qs.filter(lead_id__in=business_lead_ids)
+        
+        pending_canceled = pending_canceled_qs.count()
+        
         stats['scheduled'] = scheduled_qs.count()
+        stats['canceled'] = celery_canceled + pending_canceled
         stats['total'] = stats['successful'] + stats['failed'] + stats['scheduled'] + stats['canceled']
         
+        # Enhanced logging for debugging
+        logger.info(f"[TASK-STATS] Statistics breakdown:")
+        logger.info(f"[TASK-STATS] - Successful (CeleryTaskLog.SUCCESS): {stats['successful']}")
+        logger.info(f"[TASK-STATS] - Failed (CeleryTaskLog.FAILURE): {stats['failed']}")
+        logger.info(f"[TASK-STATS] - Scheduled (LeadPendingTask.active=True): {stats['scheduled']}")
+        logger.info(f"[TASK-STATS] - Canceled breakdown:")
+        logger.info(f"[TASK-STATS]   - CeleryTaskLog.REVOKED: {celery_canceled}")
+        logger.info(f"[TASK-STATS]   - LeadPendingTask.active=False: {pending_canceled}")
+        logger.info(f"[TASK-STATS]   - Total canceled: {stats['canceled']}")
+        logger.info(f"[TASK-STATS] - Total: {stats['total']}")
         logger.info(f"[TASK-STATS] Returning stats: {stats}")
         return Response(stats)
 

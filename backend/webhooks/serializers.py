@@ -311,6 +311,93 @@ class CeleryTaskLogSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class LeadPendingTaskSerializer(serializers.ModelSerializer):
+    """
+    Серіалізер для LeadPendingTask, сумісний з CeleryTaskLogSerializer
+    для відображення scheduled та canceled завдань у dashboard
+    """
+    name = serializers.SerializerMethodField()
+    args = serializers.SerializerMethodField()
+    kwargs = serializers.SerializerMethodField()
+    eta = serializers.SerializerMethodField()
+    started_at = serializers.SerializerMethodField()
+    finished_at = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
+    result = serializers.SerializerMethodField()
+    traceback = serializers.SerializerMethodField()
+    business_id = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = LeadPendingTask
+        fields = [
+            "task_id",
+            "name", 
+            "args",
+            "kwargs",
+            "eta",
+            "started_at",
+            "finished_at",
+            "status",
+            "result", 
+            "traceback",
+            "business_id",
+        ]
+        read_only_fields = fields
+
+    def get_name(self, obj):
+        return "send_follow_up"
+    
+    def get_args(self, obj):
+        # Отримуємо business_id через ProcessedLead
+        try:
+            from .models import ProcessedLead
+            pl = ProcessedLead.objects.filter(lead_id=obj.lead_id).first()
+            business_id = pl.business_id if pl else None
+            return [obj.lead_id, obj.text, business_id]
+        except:
+            return [obj.lead_id, obj.text, None]
+    
+    def get_kwargs(self, obj):
+        return {}
+    
+    def get_eta(self, obj):
+        # Для scheduled завдань - спробувати отримати ETA з RQ, або використати created_at
+        if obj.active and obj.task_id:
+            try:
+                import django_rq
+                queue = django_rq.get_queue("default")
+                job = queue.fetch_job(obj.task_id)
+                if job and hasattr(job, 'scheduled_for'):
+                    return job.scheduled_for
+            except:
+                pass
+        # Fallback - використовуємо created_at як ETA
+        return obj.created_at
+    
+    def get_started_at(self, obj):
+        return None if obj.active else obj.created_at
+    
+    def get_finished_at(self, obj):
+        return None
+    
+    def get_status(self, obj):
+        return "SCHEDULED" if obj.active else "CANCELED"
+    
+    def get_result(self, obj):
+        return None
+    
+    def get_traceback(self, obj):
+        return None
+    
+    def get_business_id(self, obj):
+        try:
+            from .models import ProcessedLead
+            pl = ProcessedLead.objects.filter(lead_id=obj.lead_id).first()
+            return pl.business_id if pl else None
+        except:
+            return None
+
+
 class MessageTaskSerializer(serializers.ModelSerializer):
     executed_at = serializers.DateTimeField(source="finished_at")
     text = serializers.SerializerMethodField()
