@@ -349,30 +349,15 @@ class LeadPendingTaskSerializer(serializers.ModelSerializer):
         return "send_follow_up"
     
     def get_args(self, obj):
-        # Отримуємо business_id через ProcessedLead
-        try:
-            from .models import ProcessedLead
-            pl = ProcessedLead.objects.filter(lead_id=obj.lead_id).first()
-            business_id = pl.business_id if pl else None
-            return [obj.lead_id, obj.text, business_id]
-        except:
-            return [obj.lead_id, obj.text, None]
+        # Спрощена версія без складних запитів
+        return [obj.lead_id, obj.text, None]
     
     def get_kwargs(self, obj):
         return {}
     
     def get_eta(self, obj):
-        # Для scheduled завдань - спробувати отримати ETA з RQ, або використати created_at
-        if obj.active and obj.task_id:
-            try:
-                import django_rq
-                queue = django_rq.get_queue("default")
-                job = queue.fetch_job(obj.task_id)
-                if job and hasattr(job, 'scheduled_for'):
-                    return job.scheduled_for
-            except:
-                pass
-        # Fallback - використовуємо created_at як ETA
+        # Для scheduled завдань використовуємо created_at як ETA
+        # TODO: Можна додати логіку отримання справжнього ETA з RQ пізніше
         return obj.created_at
     
     def get_started_at(self, obj):
@@ -391,12 +376,8 @@ class LeadPendingTaskSerializer(serializers.ModelSerializer):
         return None
     
     def get_business_id(self, obj):
-        try:
-            from .models import ProcessedLead
-            pl = ProcessedLead.objects.filter(lead_id=obj.lead_id).first()
-            return pl.business_id if pl else None
-        except:
-            return None
+        # Спрощена версія - повертаємо None, business_id буде додано пізніше
+        return None
 
 
 class MessageTaskSerializer(serializers.ModelSerializer):
