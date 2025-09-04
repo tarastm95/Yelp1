@@ -11,6 +11,7 @@ from .models import (
     YelpToken,
     YelpBusiness,
     CeleryTaskLog,
+    LeadPendingTask,
     NotificationSetting,
     SMSLog,
     AISettings,
