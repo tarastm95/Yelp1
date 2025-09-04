@@ -53,18 +53,17 @@ class TaskLogListView(generics.ListAPIView):
     def get_serializer_class(self):
         """Return appropriate serializer based on data source."""
         status = self.request.query_params.get("status", "")
-        if status in ["scheduled", "revoked", "canceled"]:
+        if status == "scheduled":
             return LeadPendingTaskSerializer
         return CeleryTaskLogSerializer
     
     def filter_queryset(self, queryset):
         """Apply filtering only for CeleryTaskLog queries."""
         status = self.request.query_params.get("status", "")
-        
-        # For LeadPendingTask queries, skip DjangoFilterBackend filtering
-        if status in ["scheduled", "revoked", "canceled"]:
+        # For scheduled (LeadPendingTask) queries, skip DjangoFilterBackend filtering
+        if status == "scheduled":
             return queryset
-            
+
         # For CeleryTaskLog queries, apply normal filtering
         for backend in [DjangoFilterBackend]:
             queryset = backend().filter_queryset(self.request, queryset, self)
@@ -81,30 +80,37 @@ class TaskLogListView(generics.ListAPIView):
             # Scheduled tasks - from LeadPendingTask (active=True)
             logger.info(f"[TASK-LIST] Using LeadPendingTask for scheduled tasks")
             qs = LeadPendingTask.objects.filter(active=True).order_by("-created_at")
-            
+
             if business_id:
                 business_lead_ids = ProcessedLead.objects.filter(
                     business_id=business_id
                 ).values_list('lead_id', flat=True)
                 qs = qs.filter(lead_id__in=business_lead_ids)
-                
+
             logger.info(f"[TASK-LIST] Returning {qs.count()} scheduled tasks")
             return qs
-            
+
         elif status in ["revoked", "canceled"]:
-            # Canceled tasks - from LeadPendingTask (active=False)
-            logger.info(f"[TASK-LIST] Using LeadPendingTask for canceled tasks")
-            qs = LeadPendingTask.objects.filter(active=False).order_by("-created_at")
-            
+            # Revoked/canceled tasks - from CeleryTaskLog (status REVOKED)
+            logger.info(
+                f"[TASK-LIST] Using CeleryTaskLog for revoked/canceled tasks"
+            )
+
+            # Clean up old pending records where active=False
+            LeadPendingTask.objects.filter(active=False).delete()
+
+            qs = CeleryTaskLog.objects.filter(status="REVOKED").order_by("-eta")
+
             if business_id:
-                business_lead_ids = ProcessedLead.objects.filter(
-                    business_id=business_id
-                ).values_list('lead_id', flat=True)
-                qs = qs.filter(lead_id__in=business_lead_ids)
-                
-            logger.info(f"[TASK-LIST] Returning {qs.count()} canceled tasks") 
+                qs = qs.filter(business_id=business_id)
+
+            start = self.request.query_params.get("started_after")
+            if start:
+                qs = qs.filter(finished_at__gte=start)
+
+            logger.info(f"[TASK-LIST] Returning {qs.count()} revoked/canceled tasks")
             return qs
-            
+
         else:
             # Completed and failed tasks - from CeleryTaskLog (as before)
             logger.info(f"[TASK-LIST] Using CeleryTaskLog for completed/failed tasks")
