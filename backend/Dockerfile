@@ -17,7 +17,7 @@ RUN pip install --upgrade pip \
 # Переконайтесь, що в requirements.txt є uvicorn[standard]:
 # uvicorn[standard]>=0.23.0
 
-COPY . .ння
+COPY . .
 
 
 # зберемо статику (якщо потрібно)
