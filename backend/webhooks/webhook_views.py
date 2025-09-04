@@ -463,6 +463,30 @@ class WebhookView(APIView):
                     logger.error(f"[WEBHOOK] Exception details: {type(e).__name__}: {str(e)}")
                     
                 logger.info(f"[WEBHOOK] ================================================")
+            elif upd.get("event_type") == "CONSUMER_PHONE_NUMBER_OPT_IN_EVENT":
+                # Handle phone opt-in event to set badge for frontend
+                logger.info(f"[WEBHOOK] 📱 CONSUMER_PHONE_NUMBER_OPT_IN_EVENT detected (main handler)")
+                logger.info(f"[WEBHOOK] ========== PHONE OPT-IN → NO PHONE SCENARIO (MAIN LOOP) ========")
+                logger.info(f"[WEBHOOK] Lead ID: {lid}")
+                logger.info(f"[WEBHOOK] Event type: CONSUMER_PHONE_NUMBER_OPT_IN_EVENT")
+                logger.info(f"[WEBHOOK] 🔄 UNIFIED LOGIC: Phone opt-in → No Phone scenario")
+                logger.info(f"[WEBHOOK] About to update LeadDetail.phone_opt_in to True (for frontend display)")
+                
+                updated = LeadDetail.objects.filter(
+                    lead_id=lid, phone_opt_in=False
+                ).update(phone_opt_in=True)
+                
+                logger.info(f"[WEBHOOK] LeadDetail update result:")
+                logger.info(f"[WEBHOOK] - Records updated: {updated}")
+                logger.info(f"[WEBHOOK] - phone_opt_in set to True for tracking purposes")
+                
+                if updated:
+                    logger.info(f"[WEBHOOK] ✅ Phone opt-in badge set successfully for frontend")
+                else:
+                    logger.warning(f"[WEBHOOK] ⚠️ No LeadDetail records updated")
+                    logger.warning(f"[WEBHOOK] This means the lead already had phone_opt_in=True")
+                
+                logger.info(f"[WEBHOOK] =======================================")
             else:
                 logger.debug(f"[WEBHOOK] Skipping non-NEW_LEAD event: {upd.get('event_type')} for {upd.get('lead_id')}")
 
