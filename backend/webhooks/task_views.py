@@ -11,8 +11,8 @@ from django.utils import timezone
 
 import django_rq
 
-from .models import CeleryTaskLog, LeadPendingTask, ProcessedLead
-from .serializers import CeleryTaskLogSerializer, MessageTaskSerializer, LeadPendingTaskSerializer
+from .models import CeleryTaskLog, LeadPendingTask
+from .serializers import CeleryTaskLogSerializer, MessageTaskSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -48,78 +48,35 @@ class TaskLogFilterSet(FilterSet):
 class TaskLogListView(generics.ListAPIView):
     """Return task logs with optional filtering and pagination."""
 
+    serializer_class = CeleryTaskLogSerializer
+    filter_backends = [DjangoFilterBackend] 
+    filterset_class = TaskLogFilterSet
     pagination_class = TaskLogPagination
 
-    def get_serializer_class(self):
-        """Return appropriate serializer based on data source."""
-        status = self.request.query_params.get("status", "")
-        if status == "scheduled":
-            return LeadPendingTaskSerializer
-        return CeleryTaskLogSerializer
-    
-    def filter_queryset(self, queryset):
-        """Apply filtering only for CeleryTaskLog queries."""
-        status = self.request.query_params.get("status", "")
-        # For scheduled (LeadPendingTask) queries, skip DjangoFilterBackend filtering
-        if status == "scheduled":
-            return queryset
-
-        # For CeleryTaskLog queries, apply normal filtering
-        for backend in [DjangoFilterBackend]:
-            queryset = backend().filter_queryset(self.request, queryset, self)
-        return queryset
-
     def get_queryset(self):
-        """Return data from appropriate source based on status filter."""
-        status = self.request.query_params.get("status", "")
-        business_id = self.request.query_params.get("business_id")
+        """Return CeleryTaskLog data sorted by execution time."""
+        logger.info(f"[TASK-LIST] Using CeleryTaskLog for all task data")
         
-        logger.info(f"[TASK-LIST] Request: status={status}, business_id={business_id}")
+        # Clean up old pending records (they're duplicated in CeleryTaskLog)
+        LeadPendingTask.objects.filter(active=False).delete()
         
-        if status == "scheduled":
-            # Scheduled tasks - from LeadPendingTask (active=True)
-            logger.info(f"[TASK-LIST] Using LeadPendingTask for scheduled tasks")
-            qs = LeadPendingTask.objects.filter(active=True).order_by("-created_at")
-
-            if business_id:
-                business_lead_ids = ProcessedLead.objects.filter(
-                    business_id=business_id
-                ).values_list('lead_id', flat=True)
-                qs = qs.filter(lead_id__in=business_lead_ids)
-
-            logger.info(f"[TASK-LIST] Returning {qs.count()} scheduled tasks")
-            return qs
-
-        elif status in ["revoked", "canceled"]:
-            # Revoked/canceled tasks - from CeleryTaskLog (status REVOKED)
-            logger.info(f"[TASK-LIST] Using CeleryTaskLog for revoked/canceled tasks")
-
-            # Clean up old pending records where active=False
-            LeadPendingTask.objects.filter(active=False).delete()
-
-            # Sort by finished_at (cancellation time), then by eta (original schedule time)  
-            qs = CeleryTaskLog.objects.filter(status="REVOKED").order_by("-finished_at", "-eta")
-
-            if business_id:
-                qs = qs.filter(business_id=business_id)
-
-            start = self.request.query_params.get("started_after")
-            if start:
-                qs = qs.filter(finished_at__gte=start)
-
-            logger.info(f"[TASK-LIST] Returning {qs.count()} revoked/canceled tasks")
-            return qs
-
-        else:
-            # Completed and failed tasks - from CeleryTaskLog (as before)
-            logger.info(f"[TASK-LIST] Using CeleryTaskLog for completed/failed tasks")
-            # Sort by finished_at (execution time) - newest first, then by eta
-            qs = CeleryTaskLog.objects.all().order_by("-finished_at", "-eta")
-            start = self.request.query_params.get("started_after")
-            if start:
-                qs = qs.filter(finished_at__gte=start)
-            logger.info(f"[TASK-LIST] Returning {qs.count()} completed/failed tasks")
-            return qs
+        # Sort by execution time - newest executed first
+        # For finished tasks: use finished_at (actual execution time)
+        # For scheduled/pending tasks: use eta (planned execution time)
+        qs = CeleryTaskLog.objects.all().order_by(
+            "-finished_at",  # Executed tasks first (newest)
+            "-eta"           # Then by planned time
+        )
+        
+        # Apply date filtering if provided
+        start = self.request.query_params.get("started_after") 
+        if start:
+            qs = qs.filter(finished_at__gte=start)
+            
+        total_count = qs.count()
+        logger.info(f"[TASK-LIST] Total tasks available: {total_count}")
+        
+        return qs
 
 
 class MessageTaskListView(generics.ListAPIView):
@@ -170,29 +127,18 @@ class TaskStatsView(APIView):
             'failed': qs.filter(status='FAILURE').count(),
         }
         
-        # Get business lead IDs for filtering (used for both scheduled and canceled)
-        business_lead_ids = None
-        if business_id:
-            business_lead_ids = ProcessedLead.objects.filter(
-                business_id=business_id
-            ).values_list('lead_id', flat=True)
         
-        # For scheduled tasks, use LeadPendingTask (without complex RQ validation for now)
-        scheduled_qs = LeadPendingTask.objects.filter(active=True)
-        if business_lead_ids is not None:
-            scheduled_qs = scheduled_qs.filter(lead_id__in=business_lead_ids)
-        
-        # For canceled tasks, use CeleryTaskLog.REVOKED only
-        stats['scheduled'] = scheduled_qs.count()
+        # All statistics from CeleryTaskLog only
+        stats['scheduled'] = qs.filter(status='SCHEDULED').count()
         stats['canceled'] = qs.filter(status='REVOKED').count()
         stats['total'] = stats['successful'] + stats['failed'] + stats['scheduled'] + stats['canceled']
-
+ 
         # Enhanced logging for debugging
-        logger.info(f"[TASK-STATS] Statistics breakdown:")
-        logger.info(f"[TASK-STATS] - Successful (CeleryTaskLog.SUCCESS): {stats['successful']}")
-        logger.info(f"[TASK-STATS] - Failed (CeleryTaskLog.FAILURE): {stats['failed']}")
-        logger.info(f"[TASK-STATS] - Scheduled (LeadPendingTask.active=True): {stats['scheduled']}")
-        logger.info(f"[TASK-STATS] - Canceled (CeleryTaskLog.REVOKED): {stats['canceled']}")
+        logger.info(f"[TASK-STATS] Statistics breakdown (all from CeleryTaskLog):")
+        logger.info(f"[TASK-STATS] - Successful: {stats['successful']}")
+        logger.info(f"[TASK-STATS] - Failed: {stats['failed']}")
+        logger.info(f"[TASK-STATS] - Scheduled: {stats['scheduled']}")
+        logger.info(f"[TASK-STATS] - Canceled: {stats['canceled']}")
         logger.info(f"[TASK-STATS] - Total: {stats['total']}")
         logger.info(f"[TASK-STATS] Returning stats: {stats}")
         return Response(stats)

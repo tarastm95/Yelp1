@@ -11,7 +11,6 @@ from .models import (
     YelpToken,
     YelpBusiness,
     CeleryTaskLog,
-    LeadPendingTask,
     NotificationSetting,
     SMSLog,
     AISettings,
@@ -310,74 +309,6 @@ class CeleryTaskLogSerializer(serializers.ModelSerializer):
             "business_id",
         ]
         read_only_fields = fields
-
-
-class LeadPendingTaskSerializer(serializers.ModelSerializer):
-    """
-    Серіалізер для LeadPendingTask, сумісний з CeleryTaskLogSerializer
-    для відображення scheduled та canceled завдань у dashboard
-    """
-    name = serializers.SerializerMethodField()
-    args = serializers.SerializerMethodField()
-    kwargs = serializers.SerializerMethodField()
-    eta = serializers.SerializerMethodField()
-    started_at = serializers.SerializerMethodField()
-    finished_at = serializers.SerializerMethodField()
-    status = serializers.SerializerMethodField()
-    result = serializers.SerializerMethodField()
-    traceback = serializers.SerializerMethodField()
-    business_id = serializers.SerializerMethodField()
-    
-    class Meta:
-        model = LeadPendingTask
-        fields = [
-            "task_id",
-            "name", 
-            "args",
-            "kwargs",
-            "eta",
-            "started_at",
-            "finished_at",
-            "status",
-            "result", 
-            "traceback",
-            "business_id",
-        ]
-        read_only_fields = fields
-
-    def get_name(self, obj):
-        return "send_follow_up"
-    
-    def get_args(self, obj):
-        # Спрощена версія без складних запитів
-        return [obj.lead_id, obj.text, None]
-    
-    def get_kwargs(self, obj):
-        return {}
-    
-    def get_eta(self, obj):
-        # Для scheduled завдань використовуємо created_at як ETA
-        # TODO: Можна додати логіку отримання справжнього ETA з RQ пізніше
-        return obj.created_at
-    
-    def get_started_at(self, obj):
-        return None if obj.active else obj.created_at
-    
-    def get_finished_at(self, obj):
-        return None
-    
-    def get_status(self, obj):
-        return "SCHEDULED" if obj.active else "CANCELED"
-    
-    def get_result(self, obj):
-        return None
-    
-    def get_traceback(self, obj):
-        return None
-    
-    def get_business_id(self, obj):
-        # Спрощена версія - повертаємо None, business_id буде додано пізніше
-        return None
 
 
 class MessageTaskSerializer(serializers.ModelSerializer):
