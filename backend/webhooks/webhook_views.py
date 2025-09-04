@@ -935,118 +935,12 @@ class WebhookView(APIView):
                         logger.info(f"[WEBHOOK] CONSUMER event recorded but not processed as new (timing check)")
                     else:
                         logger.info(f"[WEBHOOK] CONSUMER event is new and will be processed")
-                    
-                    # Спосіб 3: Перевірка чи текст був відправлений раніше нашою системою
-                    if not is_our_message and text:
-                        sent_by_us = LeadEvent.objects.filter(
-                            lead_id=lid,
-                            text=text,
-                            from_backend=True
-                        ).exists()
-                        if sent_by_us:
-                            is_our_message = True
-                            detection_reasons.append("previously sent by backend")
-                            logger.info(f"[WEBHOOK] ✅ IDENTIFIED as our message (previously sent by backend)")
-                        else:
-                            logger.info(f"[WEBHOOK] ❌ Text was NOT previously sent by our backend")
-                    
-                    # Спосіб 4: Content-based detection (автоматичні патерни)
-                    if not is_our_message and text:
-                        # Патерни що вказують на автоматичні повідомлення
-                        auto_patterns = [
-                            "Hi there! Could you help me with my project?",  # Greeting template
-                            "Thank you for reaching out",
-                            "We received your inquiry",
-                            "Hello! I'm excited to help",
-                            "Thanks for your interest",
-                            "Hi! I'd love to help",
-                            "Thank you for contacting",
-                            "Hello there!",
-                            "Hi! Thanks for reaching out",
-                            "Great to hear from you"
-                        ]
-                        
-                        for pattern in auto_patterns:
-                            if pattern.lower() in text.lower():
-                                is_our_message = True
-                                detection_reasons.append(f"content pattern: '{pattern}'")
-                                logger.info(f"[WEBHOOK] ✅ IDENTIFIED as our message (content pattern: '{pattern}')")
-                                break
-                        
-                        if not is_our_message:
-                            logger.info(f"[WEBHOOK] ❌ Text does NOT match any known automated patterns")
-                    
-                    # Спосіб 5: АГРЕСИВНИЙ timing-based detection
-                    if not is_our_message and event_time and processed_at:
-                        time_diff_seconds = (event_time - processed_at).total_seconds()
-                        logger.info(f"[WEBHOOK] 🕐 Event happened {time_diff_seconds:.1f}s after processing")
-                        
-                        # Якщо повідомлення прийшло менше ніж через 10 хвилин після обробки
-                        if 0 < time_diff_seconds < 600:  # 10 хвилин
-                            # Додаткові індикатори автоматичного повідомлення
-                            likely_automated = False
-                            
-                            # Перевіряємо чи є активні задачі взагалі
-                            has_active_tasks = LeadPendingTask.objects.filter(
-                                lead_id=lid, active=True
-                            ).exists()
-                            
-                            # Якщо є активні задачі і повідомлення в межах 10 хвилин - ймовірно наше
-                            if has_active_tasks and time_diff_seconds < 600:
-                                likely_automated = True
-                                logger.info(f"[WEBHOOK] 🎯 LIKELY automated (has active tasks + timing)")
-                            
-                            # Якщо повідомлення дуже скоро після обробки (менше 5 хвилин) - майже точно наше
-                            if time_diff_seconds < 300:  # 5 хвилин
-                                likely_automated = True
-                                logger.info(f"[WEBHOOK] 🎯 VERY LIKELY automated (timing < 5 min)")
-                            
-                            # Greeting зазвичай надсилається через 1-2 хвилини після обробки
-                            if 60 < time_diff_seconds < 180:  # 1-3 хвилини
-                                likely_automated = True
-                                logger.info(f"[WEBHOOK] 🎯 LIKELY greeting message (timing in greeting window)")
-                            
-                            if likely_automated:
-                                is_our_message = True
-                                detection_reasons.append(f"aggressive timing detection ({time_diff_seconds:.1f}s)")
-                                logger.info(f"[WEBHOOK] ✅ IDENTIFIED as our message (aggressive timing detection)")
-                        else:
-                            logger.info(f"[WEBHOOK] ⏰ Event too late to be automated ({time_diff_seconds:.1f}s)")
-                    
-                    # Спосіб 6: Перевірка user_display_name чи це не система
-                    if not is_our_message:
-                        user_display_name = e.get('user_display_name', '').strip()
-                        business_name_patterns = [
-                            'system', 'automated', 'bot', 'auto', 'yelp',
-                            # Можна додати назву бізнесу якщо відома
-                        ]
-                        
-                        if user_display_name and any(pattern.lower() in user_display_name.lower() for pattern in business_name_patterns):
-                            is_our_message = True
-                            detection_reasons.append(f"user_display_name: '{user_display_name}'")
-                            logger.info(f"[WEBHOOK] ✅ IDENTIFIED as our message (user_display_name: '{user_display_name}')")
-                        else:
-                            logger.info(f"[WEBHOOK] ❌ user_display_name does not suggest automation: '{user_display_name}'")
-                        
-                    # Фінальне рішення
-                    if is_our_message:
-                        logger.info(f"[WEBHOOK] 🤖 CONFIRMED: This is OUR automated message")
-                        logger.info(f"[WEBHOOK] Detection reasons: {', '.join(detection_reasons)}")
-                        logger.info(f"[WEBHOOK] No action needed - this is expected system behavior")
-                    else:
-                        logger.info(f"[WEBHOOK] 👨‍💼 CONFIRMED: Real business user response in Yelp dashboard")
-                        logger.info(f"[WEBHOOK] Will cancel all active tasks as business took over")
-                        reason = "Business user responded in Yelp dashboard"
-                        self._cancel_all_tasks(lid, reason=reason)
-                elif e.get("user_type") == "CONSUMER":
-                    logger.info(f"[WEBHOOK] 📝 CONSUMER EVENT SKIPPED")
-                    logger.info(f"[WEBHOOK] Record already existed in DB - not a new client response")
                 else:
-                    logger.debug(f"[WEBHOOK] 📄 OTHER EVENT TYPE")
-                    logger.debug(f"[WEBHOOK] Event ID: {eid}")
-                    logger.debug(f"[WEBHOOK] User type: {e.get('user_type')}")
-                    logger.debug(f"[WEBHOOK] Event type: {e.get('event_type')}")
-                    logger.debug(f"[WEBHOOK] No action required for this event type")
+                    logger.info(f"[WEBHOOK] 📄 OTHER EVENT TYPE DETECTED")
+                    logger.info(f"[WEBHOOK] - Event type: {e.get('event_type')}")
+                    logger.info(f"[WEBHOOK] - User type: {e.get('user_type')}")
+                    logger.info(f"[WEBHOOK] - is_new: {is_new}")
+                    logger.info(f"[WEBHOOK] No specific action for this event type")
 
         return Response({"status": "received"}, status=status.HTTP_201_CREATED)
 
