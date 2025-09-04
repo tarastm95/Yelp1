@@ -1373,7 +1373,7 @@ const AutoResponseSettings: FC = () => {
                 <Tab
                   icon={<PhoneIcon sx={{ fontSize: 18 }} />}
                   iconPosition="start"
-                  label="Phone Available"
+                  label="Phone Number in Message"
                   value="text"
                 />
               </Tabs>
