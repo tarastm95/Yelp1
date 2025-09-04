@@ -48,8 +48,6 @@ class TaskLogFilterSet(FilterSet):
 class TaskLogListView(generics.ListAPIView):
     """Return task logs with optional filtering and pagination."""
 
-    filter_backends = [DjangoFilterBackend]
-    filterset_class = TaskLogFilterSet
     pagination_class = TaskLogPagination
 
     def get_serializer_class(self):
@@ -58,6 +56,19 @@ class TaskLogListView(generics.ListAPIView):
         if status in ["scheduled", "revoked", "canceled"]:
             return LeadPendingTaskSerializer
         return CeleryTaskLogSerializer
+    
+    def filter_queryset(self, queryset):
+        """Apply filtering only for CeleryTaskLog queries."""
+        status = self.request.query_params.get("status", "")
+        
+        # For LeadPendingTask queries, skip DjangoFilterBackend filtering
+        if status in ["scheduled", "revoked", "canceled"]:
+            return queryset
+            
+        # For CeleryTaskLog queries, apply normal filtering
+        for backend in [DjangoFilterBackend]:
+            queryset = backend().filter_queryset(self.request, queryset, self)
+        return queryset
 
     def get_queryset(self):
         """Return data from appropriate source based on status filter."""
