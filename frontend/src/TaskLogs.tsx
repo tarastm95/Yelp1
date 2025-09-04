@@ -139,7 +139,7 @@ const TaskLogs: React.FC = () => {
       const [completedRes, scheduledRes, canceledRes, businessesRes] = await Promise.all([
         axios.get<PaginatedResponse<TaskLog>>(`/tasks/?page=1&status=success,failure${businessParam}`).catch(() => ({ data: { count: 0, next: null, previous: null, results: [] } })),
         axios.get<PaginatedResponse<TaskLog>>(`/tasks/?page=1&status=scheduled${businessParam}`).catch(() => ({ data: { count: 0, next: null, previous: null, results: [] } })),
-        axios.get<PaginatedResponse<TaskLog>>(`/tasks/?page=1&status=revoked${businessParam}`).catch(() => ({ data: { count: 0, next: null, previous: null, results: [] } })),
+        axios.get<PaginatedResponse<TaskLog>>(`/tasks/?page=1&status=canceled${businessParam}`).catch(() => ({ data: { count: 0, next: null, previous: null, results: [] } })),
         axios.get<Business[]>('/businesses/').catch(() => ({ data: [] }))
       ]);
 
@@ -208,7 +208,7 @@ const TaskLogs: React.FC = () => {
         if (!hasMoreCanceled) return;
         nextPage = canceledPage + 1;
         hasMore = hasMoreCanceled;
-        status = 'revoked';
+        status = 'canceled';
         break;
       default:
         return;
@@ -345,6 +345,7 @@ const TaskLogs: React.FC = () => {
       case 'scheduled':
         return { color: 'info', icon: ScheduleIcon, label: 'Scheduled' };
       case 'revoked':
+      case 'canceled':
         return { color: 'warning', icon: CancelIcon, label: 'Canceled' };
       default:
         return { color: 'default', icon: InfoIcon, label: status };
