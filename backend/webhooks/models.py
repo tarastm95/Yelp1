@@ -68,10 +68,6 @@ class AutoResponseSettings(models.Model):
         on_delete=models.CASCADE,
         help_text="Який бізнес використовує ці налаштування. Null → налаштування за замовчуванням",
     )
-    phone_opt_in = models.BooleanField(
-        default=False,
-        help_text="Use these settings when consumer phone number is available",
-    )
     phone_available = models.BooleanField(
         default=False,
         help_text="Use these settings when phone number was provided in text",
@@ -289,10 +285,6 @@ class FollowUpTemplate(models.Model):
         blank=True,
         on_delete=models.CASCADE,
         help_text="Який бізнес використовує цей шаблон. Null → шаблон за замовчуванням",
-    )
-    phone_opt_in = models.BooleanField(
-        default=False,
-        help_text="Use this template when consumer phone number is available",
     )
     phone_available = models.BooleanField(
         default=False,
