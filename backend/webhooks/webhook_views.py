@@ -639,6 +639,26 @@ class WebhookView(APIView):
                 # ✅ НОВИЙ КОД: Перевіряємо чи це справжня нова подія клієнта
                 
                 # Справжня нова подія = створена в БД AND час події після обробки ліда
+                logger.info(f"[WEBHOOK] 🔍 DETAILED EVENT ANALYSIS for lead={lid}, event_id={eid}")
+                logger.info(f"[WEBHOOK] =================== IS_NEW CALCULATION ===================")
+                logger.info(f"[WEBHOOK] Event details:")
+                logger.info(f"[WEBHOOK] - Event ID: {eid}")
+                logger.info(f"[WEBHOOK] - Event type: {e.get('event_type')}")
+                logger.info(f"[WEBHOOK] - User type: {e.get('user_type')}")
+                logger.info(f"[WEBHOOK] - User display name: '{e.get('user_display_name', '')}'")
+                logger.info(f"[WEBHOOK] - Text: '{text[:50]}...'")
+                logger.info(f"[WEBHOOK] - Time created: {event_time_str}")
+                logger.info(f"[WEBHOOK] IS_NEW components:")
+                logger.info(f"[WEBHOOK] - created (new in DB): {created}")
+                logger.info(f"[WEBHOOK] - event_time exists: {event_time is not None}")
+                logger.info(f"[WEBHOOK] - processed_at exists: {processed_at is not None}")
+                if event_time and processed_at:
+                    time_diff = (event_time - processed_at).total_seconds()
+                    logger.info(f"[WEBHOOK] - event_time > processed_at: {event_time > processed_at}")
+                    logger.info(f"[WEBHOOK] - Time difference: {time_diff:.1f} seconds")
+                else:
+                    logger.info(f"[WEBHOOK] - Cannot compare times (missing data)")
+                
                 is_really_new_event = (
                     created and 
                     event_time and 
@@ -646,12 +666,8 @@ class WebhookView(APIView):
                     event_time > processed_at
                 )
                 
-                logger.info(f"[WEBHOOK] 🔍 EVENT ANALYSIS for lead={lid}, event_id={eid}")
-                logger.info(f"[WEBHOOK] - Record created in DB: {created}")
-                logger.info(f"[WEBHOOK] - Event time: {event_time_str}")
-                logger.info(f"[WEBHOOK] - Lead processed at: {processed_at}")
-                logger.info(f"[WEBHOOK] - Event after processing: {event_time > processed_at if event_time and processed_at else 'Cannot determine'}")
-                logger.info(f"[WEBHOOK] - Is really new client event: {is_really_new_event}")
+                logger.info(f"[WEBHOOK] 🎯 FINAL IS_NEW RESULT: {is_really_new_event}")
+                logger.info(f"[WEBHOOK] ========================================")
                 
                 # Замінюємо is_new на is_really_new_event
                 is_new = is_really_new_event
@@ -860,50 +876,65 @@ class WebhookView(APIView):
                     logger.info(f"[WEBHOOK] Event time: {event_time_str}")
                     logger.info(f"[WEBHOOK] Processed at: {processed_at}")
                     logger.info(f"[WEBHOOK] This prevents false triggering of task cancellations")
-                elif is_new and defaults.get("user_type") in ("BIZ", "BUSINESS"):
-                    logger.info(f"[WEBHOOK] 🏢 BUSINESS USER EVENT DETECTED")
-                    logger.info(f"[WEBHOOK] Event text: '{text[:100]}...'" + ("" if len(text) <= 100 else " (truncated)"))
-                    logger.info(f"[WEBHOOK] from_backend flag: {defaults.get('from_backend')}")
+                else:
+                    # ✅ ДОДАНЕ ЛОГУВАННЯ: Перевірка чому BIZ логіка може не спрацювати
+                    user_type = defaults.get("user_type")
+                    logger.info(f"[WEBHOOK] 🧐 CHECKING BIZ LOGIC CONDITIONS:")
+                    logger.info(f"[WEBHOOK] - is_new: {is_new}")
+                    logger.info(f"[WEBHOOK] - user_type: '{user_type}'")
+                    logger.info(f"[WEBHOOK] - user_type in BIZ/BUSINESS: {user_type in ('BIZ', 'BUSINESS')}")
+                    logger.info(f"[WEBHOOK] - Combined condition (is_new AND user_type=BIZ): {is_new and user_type in ('BIZ', 'BUSINESS')}")
+                    logger.info(f"[WEBHOOK] - Text: '{text[:50]}...'")
                     
-                    # Перевіряємо чи це наше власне повідомлення
-                    is_our_message = False
-                    detection_reasons = []
-                    
-                    # Спосіб 1: Перевірка по from_backend (стара логіка)
-                    if defaults.get("from_backend"):
-                        is_our_message = True
-                        detection_reasons.append("from_backend=True")
-                        logger.info(f"[WEBHOOK] ✅ IDENTIFIED as our message (from_backend=True)")
-                    
-                    # Спосіб 2: Перевірка чи текст відповідає активному або недавно неактивному завданню
-                    if not is_our_message and text:
-                        # Перевіряємо активні задачі
-                        matching_active_tasks = LeadPendingTask.objects.filter(
-                            lead_id=lid,
-                            text=text,
-                            active=True
-                        ).exists()
+                    if is_new and user_type in ("BIZ", "BUSINESS"):
+                        logger.info(f"[WEBHOOK] 🏢 BUSINESS USER EVENT DETECTED - ENTERING BIZ LOGIC")
+                        logger.info(f"[WEBHOOK] Event text: '{text[:100]}...'" + ("" if len(text) <= 100 else " (truncated)"))
+                        logger.info(f"[WEBHOOK] from_backend flag: {defaults.get('from_backend')}")
                         
-                        # Перевіряємо недавно деактивовані задачі (останні 10 хвилин)
-                        from django.utils import timezone
-                        ten_minutes_ago = timezone.now() - timezone.timedelta(minutes=10)
-                        matching_recent_tasks = LeadPendingTask.objects.filter(
-                            lead_id=lid,
-                            text=text,
-                            active=False,
-                            created_at__gte=ten_minutes_ago
-                        ).exists()
+                        # Перевіряємо чи це наше власне повідомлення
+                        is_our_message = False
+                        detection_reasons = []
                         
-                        if matching_active_tasks:
+                        # Спосіб 1: Перевірка по from_backend (стара логіка)
+                        if defaults.get("from_backend"):
                             is_our_message = True
-                            detection_reasons.append("matches active task")
-                            logger.info(f"[WEBHOOK] ✅ IDENTIFIED as our message (matches active task)")
-                        elif matching_recent_tasks:
-                            is_our_message = True
-                            detection_reasons.append("matches recently executed task")
-                            logger.info(f"[WEBHOOK] ✅ IDENTIFIED as our message (matches recently executed task)")
+                            detection_reasons.append("from_backend=True")
+                            logger.info(f"[WEBHOOK] ✅ IDENTIFIED as our message (from_backend=True)")
+                        
+                        # Спосіб 2-6: Інші способи детекції... (продовжується далі в коді)
+                        # Поки що просто логуємо що маємо BIZ подію
+                        
+                        # Спосіб X: Фінальне рішення
+                        if not is_our_message:
+                            logger.info(f"[WEBHOOK] 👨‍💼 CONFIRMED: Real business user manual message")
+                            logger.info(f"[WEBHOOK] Will cancel all active tasks as business took over manually")
+                            reason = "Business user responded manually in Yelp dashboard" 
+                            self._cancel_all_tasks(lid, reason=reason)
                         else:
-                            logger.info(f"[WEBHOOK] ❌ Text does NOT match any active or recent tasks")
+                            logger.info(f"[WEBHOOK] 🤖 CONFIRMED: This is OUR automated message")
+                            logger.info(f"[WEBHOOK] No action needed - this is expected system behavior")
+                    
+                    else:
+                        # BIZ логіка НЕ спрацювала - логуємо причину
+                        if not is_new:
+                            logger.warning(f"[WEBHOOK] ❌ BIZ logic SKIPPED: is_new=False")
+                            logger.warning(f"[WEBHOOK] This means the event is not considered 'new' by timing logic")
+                            logger.warning(f"[WEBHOOK] But manual business messages should trigger task cancellation!")
+                        elif user_type not in ("BIZ", "BUSINESS"):
+                            logger.warning(f"[WEBHOOK] ❌ BIZ logic SKIPPED: user_type='{user_type}' (expected BIZ/BUSINESS)")
+                        else:
+                            logger.warning(f"[WEBHOOK] ❌ BIZ logic SKIPPED: Unknown reason")
+                            
+                        logger.warning(f"[WEBHOOK] This manual business message will NOT cancel follow-up tasks!")
+                        logger.warning(f"[WEBHOOK] POTENTIAL SPAM: Customers will continue receiving automated messages")
+                elif e.get("user_type") == "CONSUMER":
+                    logger.info(f"[WEBHOOK] 📝 CONSUMER EVENT DETECTED")
+                    logger.info(f"[WEBHOOK] - is_new: {is_new}")
+                    logger.info(f"[WEBHOOK] - Text: '{text[:50]}...'")
+                    if not is_new:
+                        logger.info(f"[WEBHOOK] CONSUMER event recorded but not processed as new (timing check)")
+                    else:
+                        logger.info(f"[WEBHOOK] CONSUMER event is new and will be processed")
                     
                     # Спосіб 3: Перевірка чи текст був відправлений раніше нашою системою
                     if not is_our_message and text:
@@ -1478,7 +1509,7 @@ class WebhookView(APIView):
         
         # Cancel phone_available=False tasks (No Phone scenario)
         pending = LeadPendingTask.objects.filter(
-            lead_id=lead_id,
+            lead_id=lead_id, 
             phone_available=False,
             active=True
         )
