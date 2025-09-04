@@ -768,7 +768,7 @@ const AutoResponseSettings: FC = () => {
       };
 
       const params = new URLSearchParams();
-      params.append('phone_opt_in', 'false'  // Phone opt-in merged with No Phone);
+      params.append('phone_opt_in', 'false'); // Phone opt-in merged with No Phone
       params.append('phone_available', phoneAvailable ? 'true' : 'false');
       if (selectedBusiness) params.append('business_id', selectedBusiness);
       const bizParam = `?${params.toString()}`;
