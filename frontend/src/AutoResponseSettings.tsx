@@ -1366,7 +1366,7 @@ const AutoResponseSettings: FC = () => {
                 <Tab
                   icon={<PhoneDisabledIcon sx={{ fontSize: 18 }} />}
                   iconPosition="start"
-                  label="No Phone / Customer Reply"
+                  label="No Phone and Phone Opt-In"
                   value="no"
                 />
 
