@@ -67,18 +67,50 @@ class TaskLogListView(generics.ListAPIView):
         logger.info(f"[TASK-LIST] Request: status={status}, business_id={business_id}")
         
         if status == "scheduled":
-            # Scheduled tasks - from LeadPendingTask (active=True)
+            # Scheduled tasks - from LeadPendingTask (active=True) with RQ job validation
             logger.info(f"[TASK-LIST] Using LeadPendingTask for scheduled tasks")
-            qs = LeadPendingTask.objects.filter(active=True).order_by("-created_at")
             
+            # Get candidates
+            qs = LeadPendingTask.objects.filter(active=True).order_by("-created_at")
             if business_id:
-                # Filter by business through ProcessedLead relationship
                 business_lead_ids = ProcessedLead.objects.filter(
                     business_id=business_id
                 ).values_list('lead_id', flat=True)
                 qs = qs.filter(lead_id__in=business_lead_ids)
+            
+            # Validate that RQ jobs actually exist for scheduled tasks
+            valid_task_ids = []
+            invalid_task_ids = []
+            
+            try:
+                import django_rq
+                queue = django_rq.get_queue("default")
                 
-            return qs
+                for task in qs:
+                    if task.task_id:
+                        try:
+                            rq_job = queue.fetch_job(task.task_id)
+                            if rq_job and rq_job.get_status() in ['queued', 'scheduled', 'deferred']:
+                                valid_task_ids.append(task.id)
+                            else:
+                                invalid_task_ids.append(task.id)
+                        except:
+                            invalid_task_ids.append(task.id)
+                    else:
+                        invalid_task_ids.append(task.id)
+                
+                # Clean up zombie records
+                if invalid_task_ids:
+                    logger.warning(f"[TASK-LIST] Cleaning up {len(invalid_task_ids)} zombie scheduled records")
+                    LeadPendingTask.objects.filter(id__in=invalid_task_ids).update(active=False)
+                
+                # Return only valid scheduled tasks
+                return qs.filter(id__in=valid_task_ids)
+                
+            except Exception as e:
+                logger.error(f"[TASK-LIST] Error validating scheduled tasks: {e}")
+                # Fallback to all candidates if validation fails
+                return qs
             
         elif status in ["revoked", "canceled"]:
             # Canceled tasks - from LeadPendingTask (active=False)
@@ -159,11 +191,44 @@ class TaskStatsView(APIView):
                 business_id=business_id
             ).values_list('lead_id', flat=True)
         
-        # For scheduled tasks, use LeadPendingTask instead of CeleryTaskLog
-        # because scheduled tasks don't appear in CeleryTaskLog until executed
-        scheduled_qs = LeadPendingTask.objects.filter(active=True)
+        # For scheduled tasks, validate that RQ jobs actually exist
+        # to avoid counting "zombie" LeadPendingTask records
+        scheduled_candidates = LeadPendingTask.objects.filter(active=True)
         if business_lead_ids is not None:
-            scheduled_qs = scheduled_qs.filter(lead_id__in=business_lead_ids)
+            scheduled_candidates = scheduled_candidates.filter(lead_id__in=business_lead_ids)
+        
+        # Validate that RQ jobs actually exist for scheduled tasks
+        valid_scheduled_count = 0
+        invalid_scheduled_ids = []
+        
+        try:
+            queue = django_rq.get_queue("default")
+            for task in scheduled_candidates:
+                if task.task_id:
+                    try:
+                        rq_job = queue.fetch_job(task.task_id)
+                        if rq_job and rq_job.get_status() in ['queued', 'scheduled', 'deferred']:
+                            valid_scheduled_count += 1
+                        else:
+                            # RQ job doesn't exist or isn't scheduled - mark as zombie
+                            invalid_scheduled_ids.append(task.id)
+                    except:
+                        invalid_scheduled_ids.append(task.id)
+                else:
+                    # No task_id - definitely invalid
+                    invalid_scheduled_ids.append(task.id)
+            
+            # Clean up zombie records in background (don't affect API response time)
+            if invalid_scheduled_ids:
+                logger.warning(f"[TASK-STATS] Found {len(invalid_scheduled_ids)} zombie LeadPendingTask records")
+                # Mark zombie records as inactive
+                LeadPendingTask.objects.filter(id__in=invalid_scheduled_ids).update(active=False)
+                logger.info(f"[TASK-STATS] Cleaned up {len(invalid_scheduled_ids)} zombie records")
+                
+        except Exception as e:
+            logger.error(f"[TASK-STATS] Error validating scheduled tasks: {e}")
+            # Fallback to simple count if RQ validation fails
+            valid_scheduled_count = scheduled_candidates.count()
         
         # For canceled tasks, combine CeleryTaskLog.REVOKED + LeadPendingTask.active=False
         celery_canceled = qs.filter(status='REVOKED').count()
@@ -174,7 +239,7 @@ class TaskStatsView(APIView):
         
         pending_canceled = pending_canceled_qs.count()
         
-        stats['scheduled'] = scheduled_qs.count()
+        stats['scheduled'] = valid_scheduled_count
         stats['canceled'] = celery_canceled + pending_canceled
         stats['total'] = stats['successful'] + stats['failed'] + stats['scheduled'] + stats['canceled']
         
