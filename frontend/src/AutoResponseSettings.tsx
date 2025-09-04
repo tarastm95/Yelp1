@@ -173,7 +173,7 @@ const AutoResponseSettings: FC = () => {
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [businessesLoading, setBusinessesLoading] = useState(true);
   const [selectedBusiness, setSelectedBusiness] = useState('');
-  const [phoneOptIn, setPhoneOptIn] = useState(false);
+  // phoneOptIn removed - merged with No Phone scenario
   const [phoneAvailable, setPhoneAvailable] = useState(false);
 
   // auto-response state
@@ -367,7 +367,7 @@ const AutoResponseSettings: FC = () => {
     setLoading(true);
     setError('');
     const params = new URLSearchParams();
-    params.append('phone_opt_in', phoneOptIn ? 'true' : 'false');
+    params.append('phone_opt_in', 'false');  // Always false - merged with No Phone
     params.append('phone_available', phoneAvailable ? 'true' : 'false');
     if (biz) params.append('business_id', biz);
     const url = `/settings/auto-response/?${params.toString()}`;
@@ -470,7 +470,7 @@ const AutoResponseSettings: FC = () => {
     setTplLoading(true);
     setError('');
     const params = new URLSearchParams();
-    params.append('phone_opt_in', phoneOptIn ? 'true' : 'false');
+    params.append('phone_opt_in', 'false');  // Always false - merged with No Phone
     params.append('phone_available', phoneAvailable ? 'true' : 'false');
     if (biz) params.append('business_id', biz);
     const url = `/follow-up-templates/?${params.toString()}`;
@@ -642,7 +642,7 @@ const AutoResponseSettings: FC = () => {
       setLoading(false);
       setTplLoading(false);
     }
-  }, [selectedBusiness, phoneOptIn, phoneAvailable]);
+  }, [selectedBusiness, phoneAvailable]);  // phoneOptIn removed
 
 
   // reload templates when other tabs modify them
@@ -689,7 +689,7 @@ const AutoResponseSettings: FC = () => {
   const handleSaveSettings = async () => {
     setLoading(true);
     const params = new URLSearchParams();
-    params.append('phone_opt_in', phoneOptIn ? 'true' : 'false');
+    params.append('phone_opt_in', 'false');  // Always false - merged with No Phone
     params.append('phone_available', phoneAvailable ? 'true' : 'false');
     if (selectedBusiness) params.append('business_id', selectedBusiness);
     const url = `/settings/auto-response/?${params.toString()}`;
@@ -768,7 +768,7 @@ const AutoResponseSettings: FC = () => {
       };
 
       const params = new URLSearchParams();
-      params.append('phone_opt_in', phoneOptIn ? 'true' : 'false');
+      params.append('phone_opt_in', 'false'  // Phone opt-in merged with No Phone);
       params.append('phone_available', phoneAvailable ? 'true' : 'false');
       if (selectedBusiness) params.append('business_id', selectedBusiness);
       const bizParam = `?${params.toString()}`;
@@ -823,7 +823,7 @@ const AutoResponseSettings: FC = () => {
     if (!selectedBusiness) return; // Only save if a business is selected
     
     const params = new URLSearchParams();
-    params.append('phone_opt_in', phoneOptIn ? 'true' : 'false');
+    params.append('phone_opt_in', 'false');  // Always false - merged with No Phone
     params.append('phone_available', phoneAvailable ? 'true' : 'false');
     params.append('business_id', selectedBusiness);
     const url = `/settings/auto-response/?${params.toString()}`;
@@ -883,7 +883,7 @@ const AutoResponseSettings: FC = () => {
   const handleAddTemplate = () => {
     setTplLoading(true);
     const params = new URLSearchParams();
-    params.append('phone_opt_in', phoneOptIn ? 'true' : 'false');
+    params.append('phone_opt_in', 'false');  // Always false - merged with No Phone
     params.append('phone_available', phoneAvailable ? 'true' : 'false');
     if (selectedBusiness) params.append('business_id', selectedBusiness);
     const url = `/follow-up-templates/?${params.toString()}`;
@@ -934,7 +934,7 @@ const AutoResponseSettings: FC = () => {
     if (!editingTpl) return;
     setTplLoading(true);
     const params = new URLSearchParams();
-    params.append('phone_opt_in', phoneOptIn ? 'true' : 'false');
+    params.append('phone_opt_in', 'false');  // Always false - merged with No Phone
     params.append('phone_available', phoneAvailable ? 'true' : 'false');
     if (selectedBusiness) params.append('business_id', selectedBusiness);
     const url = `/follow-up-templates/${editingTpl.id}/?${params.toString()}`;
@@ -964,7 +964,7 @@ const AutoResponseSettings: FC = () => {
   // delete a template
   const handleDeleteTemplate = (tplId: number) => {
     const params = new URLSearchParams();
-    params.append('phone_opt_in', phoneOptIn ? 'true' : 'false');
+    params.append('phone_opt_in', 'false');  // Always false - merged with No Phone
     params.append('phone_available', phoneAvailable ? 'true' : 'false');
     if (selectedBusiness) params.append('business_id', selectedBusiness);
     const url = `/follow-up-templates/${tplId}/?${params.toString()}`;
@@ -1331,16 +1331,11 @@ const AutoResponseSettings: FC = () => {
               }}
             >
               <Tabs
-                value={phoneOptIn ? 'opt' : phoneAvailable ? 'text' : 'no'}
+                value={phoneAvailable ? 'text' : 'no'}
                 onChange={(_, v) => {
-                  if (v === 'opt') {
-                    setPhoneOptIn(true);
-                    setPhoneAvailable(false);
-                  } else if (v === 'text') {
-                    setPhoneOptIn(false);
+                  if (v === 'text') {
                     setPhoneAvailable(true);
                   } else {
-                    setPhoneOptIn(false);
                     setPhoneAvailable(false);
                   }
                 }}
@@ -1371,19 +1366,14 @@ const AutoResponseSettings: FC = () => {
                 <Tab
                   icon={<PhoneDisabledIcon sx={{ fontSize: 18 }} />}
                   iconPosition="start"
-                  label="No Phone"
+                  label="No Phone / Customer Reply"
                   value="no"
                 />
-                <Tab
-                  icon={<ContactPhoneIcon sx={{ fontSize: 18 }} />}
-                  iconPosition="start"
-                  label="Opt-In Phone"
-                  value="opt"
-                />
+
                 <Tab
                   icon={<PhoneIcon sx={{ fontSize: 18 }} />}
                   iconPosition="start"
-                  label="Real Phone"
+                  label="Phone Available"
                   value="text"
                 />
               </Tabs>
