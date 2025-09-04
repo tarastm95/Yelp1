@@ -34,12 +34,31 @@ class TaskLogFilterSet(FilterSet):
         fields = ["status", "business_id"]
 
     def filter_status(self, queryset, name, value):
-        """Support comma separated or repeated status params."""
+        """Support comma separated or repeated status params with status mapping."""
         raw_values = self.data.getlist(name)
         statuses: list[str] = []
+        
+        # Status mapping for frontend compatibility
+        status_mapping = {
+            'CANCELED': 'REVOKED',  # Frontend sends 'canceled', database has 'REVOKED'
+            'CANCELLED': 'REVOKED', # Alternative spelling
+            'SUCCESS': 'SUCCESS',
+            'FAILURE': 'FAILURE', 
+            'SCHEDULED': 'SCHEDULED',
+            'REVOKED': 'REVOKED',
+        }
+        
         for v in raw_values:
             if v:
-                statuses.extend(s.strip().upper() for s in v.split(",") if s.strip())
+                for s in v.split(","):
+                    if s.strip():
+                        normalized = s.strip().upper()
+                        # Map frontend status to database status
+                        db_status = status_mapping.get(normalized, normalized)
+                        statuses.append(db_status)
+        
+        logger.info(f"[FILTER] Status filter: frontend='{raw_values}' → database={statuses}")
+        
         if statuses:
             return queryset.filter(status__in=statuses)
         return queryset
