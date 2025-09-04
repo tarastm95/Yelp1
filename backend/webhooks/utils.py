@@ -471,7 +471,7 @@ def _already_sent(lead_id: str, text: str, exclude_task_id: str | None = None) -
         return False
 
 
-def create_lead_pending_task_safe(lead_id: str, text: str, task_id: str, phone_opt_in: bool, phone_available: bool) -> bool:
+def create_lead_pending_task_safe(lead_id: str, text: str, task_id: str, phone_available: bool) -> bool:
     """
     Safely create a LeadPendingTask with proper IntegrityError handling.
     
@@ -498,7 +498,6 @@ def create_lead_pending_task_safe(lead_id: str, text: str, task_id: str, phone_o
                 lead_id=lead_id,
                 text=text,
                 task_id=task_id,
-                phone_opt_in=phone_opt_in,
                 phone_available=phone_available,
                 active=True,
             )

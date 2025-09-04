@@ -476,7 +476,6 @@ class LeadPendingTask(models.Model):
     lead_id = models.CharField(max_length=64, db_index=True)
     text = models.TextField()
     task_id = models.CharField(max_length=128, unique=True)
-    phone_opt_in = models.BooleanField()
     phone_available = models.BooleanField(default=False)
     active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
