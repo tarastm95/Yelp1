@@ -72,22 +72,20 @@ class EventRetrieveView(generics.RetrieveAPIView):
 
 
 class AutoResponseSettingsView(APIView):
-    def _get_default_settings(self, phone_opt_in: bool, phone_available: bool):
+    def _get_default_settings(self, phone_available: bool):
         obj = AutoResponseSettings.objects.filter(
             business=None,
-            phone_opt_in=phone_opt_in,
             phone_available=phone_available,
         ).first()
         if obj:
             return obj
         return AutoResponseSettings.objects.create(
             business=None,
-            phone_opt_in=phone_opt_in,
             phone_available=phone_available,
         )
 
-    def _get_settings_for_business(self, business_id: str | None, phone_opt_in: bool, phone_available: bool):
-        qs = AutoResponseSettings.objects.filter(phone_opt_in=phone_opt_in, phone_available=phone_available)
+    def _get_settings_for_business(self, business_id: str | None, phone_available: bool):
+        qs = AutoResponseSettings.objects.filter(phone_available=phone_available)
         if business_id:
             obj = qs.filter(business__business_id=business_id).first()
             if obj:
@@ -95,7 +93,6 @@ class AutoResponseSettingsView(APIView):
             biz = YelpBusiness.objects.filter(business_id=business_id).first()
             return AutoResponseSettings(
                 business=biz,
-                phone_opt_in=phone_opt_in,
                 phone_available=phone_available,
                 enabled=False,
                 greeting_template='',
@@ -126,27 +123,25 @@ class AutoResponseSettingsView(APIView):
                 sms_on_customer_reply=True,
                 sms_on_phone_opt_in=True,
             )
-        return self._get_default_settings(phone_opt_in, phone_available)
+        return self._get_default_settings(phone_available)
 
     def get(self, request, *args, **kwargs):
         bid = request.query_params.get('business_id')
-        phone_opt_in = request.query_params.get('phone_opt_in') == 'true'
         phone_available = request.query_params.get('phone_available') == 'true'
-        obj = self._get_settings_for_business(bid, phone_opt_in, phone_available)
+        obj = self._get_settings_for_business(bid, phone_available)
         serializer = AutoResponseSettingsSerializer(obj)
         return Response(serializer.data)
 
     def put(self, request, *args, **kwargs):
         bid = request.query_params.get('business_id')
-        phone_opt_in = request.query_params.get('phone_opt_in') == 'true'
         phone_available = request.query_params.get('phone_available') == 'true'
         if bid:
             business = YelpBusiness.objects.filter(business_id=bid).first()
             obj, _ = AutoResponseSettings.objects.get_or_create(
-                business=business, phone_opt_in=phone_opt_in, phone_available=phone_available
+                business=business, phone_available=phone_available
             )
         else:
-            obj = self._get_default_settings(phone_opt_in, phone_available)
+            obj = self._get_default_settings(phone_available)
         serializer = AutoResponseSettingsSerializer(obj, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
@@ -267,9 +262,8 @@ class FollowUpTemplateListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         bid = self.request.query_params.get('business_id')
-        phone_opt_in = self.request.query_params.get('phone_opt_in') == 'true'
         phone_available = self.request.query_params.get('phone_available') == 'true'
-        qs = FollowUpTemplate.objects.filter(phone_opt_in=phone_opt_in, phone_available=phone_available)
+        qs = FollowUpTemplate.objects.filter(phone_available=phone_available)
         if bid:
             return qs.filter(Q(business__business_id=bid) | Q(business__isnull=True))
         return qs.filter(business__isnull=True)
@@ -280,10 +274,9 @@ class FollowUpTemplateListCreateView(generics.ListCreateAPIView):
             logger.error(f"[FollowUpTemplate] validation errors: {serializer.errors}")
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         bid = request.query_params.get('business_id')
-        phone_opt_in = request.query_params.get('phone_opt_in') == 'true'
         phone_available = request.query_params.get('phone_available') == 'true'
         business = YelpBusiness.objects.filter(business_id=bid).first() if bid else None
-        serializer.save(business=business, phone_opt_in=phone_opt_in, phone_available=phone_available)
+        serializer.save(business=business, phone_available=phone_available)
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
@@ -293,19 +286,17 @@ class FollowUpTemplateDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         bid = self.request.query_params.get('business_id')
-        phone_opt_in = self.request.query_params.get('phone_opt_in') == 'true'
         phone_available = self.request.query_params.get('phone_available') == 'true'
-        qs = FollowUpTemplate.objects.filter(phone_opt_in=phone_opt_in, phone_available=phone_available)
+        qs = FollowUpTemplate.objects.filter(phone_available=phone_available)
         if bid:
             return qs.filter(Q(business__business_id=bid) | Q(business__isnull=True))
         return qs.filter(business__isnull=True)
 
     def perform_update(self, serializer):
         bid = self.request.query_params.get('business_id')
-        phone_opt_in = self.request.query_params.get('phone_opt_in') == 'true'
         phone_available = self.request.query_params.get('phone_available') == 'true'
         business = YelpBusiness.objects.filter(business_id=bid).first() if bid else None
-        serializer.save(business=business, phone_opt_in=phone_opt_in, phone_available=phone_available)
+        serializer.save(business=business, phone_available=phone_available)
 
 
 class YelpTokenListView(generics.ListAPIView):

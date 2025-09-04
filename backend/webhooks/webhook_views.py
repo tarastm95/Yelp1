@@ -1030,7 +1030,7 @@ class WebhookView(APIView):
                 logger.info(f"[AUTO-RESPONSE] - Standard follow-up sequence")
             
             logger.info(f"[AUTO-RESPONSE] Creating No Phone scenario tasks for lead")
-            self._process_auto_response(lead_id, phone_opt_in=False, phone_available=False)
+            self._process_auto_response(lead_id, phone_available=False)
             logger.info(f"[AUTO-RESPONSE] ✅ No Phone scenario tasks created")
             
             logger.info(f"[AUTO-RESPONSE] ✅ handle_new_lead completed successfully for {lead_id}")
@@ -1087,7 +1087,7 @@ class WebhookView(APIView):
         try:
             self._cancel_no_phone_tasks(lead_id, reason)
             logger.info(f"[AUTO-RESPONSE] Step 2: Starting auto-response for phone available scenario")
-            self._process_auto_response(lead_id, phone_opt_in=False, phone_available=True)
+            self._process_auto_response(lead_id, phone_available=True)
             logger.info(f"[AUTO-RESPONSE] ✅ handle_phone_available completed successfully for {lead_id}")
         except Exception as e:
             logger.error(f"[AUTO-RESPONSE] ❌ handle_phone_available failed for {lead_id}: {e}")
@@ -1275,23 +1275,20 @@ class WebhookView(APIView):
         logger.info(f"[NEW-LEAD-FOLLOW-UP] Original jobs: {job_names}")
         logger.info(f"[NEW-LEAD-FOLLOW-UP] Mapped jobs: '{jobs}', Separator: '{sep}'")
         
-        # Get follow-up templates for new leads (phone_opt_in=False, phone_available=False)
+        # Get follow-up templates for new leads (phone_available=False)
         now = timezone.now()
-        phone_opt_in = False
         phone_available = False
         
-        logger.info(f"[NEW-LEAD-FOLLOW-UP] Looking for FollowUpTemplate with phone_opt_in=False, phone_available=False")
+        logger.info(f"[NEW-LEAD-FOLLOW-UP] Looking for FollowUpTemplate with phone_available=False")
         
         tpls = FollowUpTemplate.objects.filter(
             active=True,
-            phone_opt_in=phone_opt_in,
             phone_available=phone_available,
             business__business_id=pl.business_id,
         )
         if not tpls.exists():
             tpls = FollowUpTemplate.objects.filter(
                 active=True,
-                phone_opt_in=phone_opt_in,
                 phone_available=phone_available,
                 business__isnull=True,
             )
@@ -1336,7 +1333,6 @@ class WebhookView(APIView):
                         lead_id=lead_id,
                         text=text,
                         task_id="",  # Will be set when task is enqueued
-                        phone_opt_in=phone_opt_in,
                         phone_available=phone_available,
                         active=True,
                     )
@@ -1585,13 +1581,12 @@ class WebhookView(APIView):
         logger.info(f"[AUTO-RESPONSE] ✅ _cancel_all_tasks completed")
 
     def _process_auto_response(
-        self, lead_id: str, phone_opt_in: bool, phone_available: bool
+        self, lead_id: str, phone_available: bool
     ):
         logger.info(f"[AUTO-RESPONSE] 🔧 STARTING _process_auto_response")
         logger.info(f"[AUTO-RESPONSE] =================== SCENARIO PROCESSING ===================")
         logger.info(f"[AUTO-RESPONSE] Parameters:")
         logger.info(f"[AUTO-RESPONSE] - Lead ID: {lead_id}")
-        logger.info(f"[AUTO-RESPONSE] - phone_opt_in: {phone_opt_in}")
         logger.info(f"[AUTO-RESPONSE] - phone_available: {phone_available}")
         
         # Determine scenario name and reason for SMS (2-scenario system)
@@ -1609,10 +1604,9 @@ class WebhookView(APIView):
         logger.info(f"[AUTO-RESPONSE] SMS Reason: {reason}")
         logger.info(f"[AUTO-RESPONSE] =================== SCENARIO DETAILS ===================")
         logger.info(f"[AUTO-RESPONSE] System now uses 2 scenarios instead of 3:")
-        logger.info(f"[AUTO-RESPONSE] 1. 💬 No Phone/Customer Reply (phone_opt_in=False, phone_available=False)")
-        logger.info(f"[AUTO-RESPONSE] 2. 📞 Phone Available (phone_opt_in=False, phone_available=True)")
+        logger.info(f"[AUTO-RESPONSE] 1. 💬 No Phone/Customer Reply (phone_available=False)")
+        logger.info(f"[AUTO-RESPONSE] 2. 📞 Phone Available (phone_available=True)")
         logger.info(f"[AUTO-RESPONSE] Current scenario parameters:")
-        logger.info(f"[AUTO-RESPONSE] - phone_opt_in={phone_opt_in} (always False in new system)")
         logger.info(f"[AUTO-RESPONSE] - phone_available={phone_available}")
         logger.info(f"[AUTO-RESPONSE] Will look for AutoResponseSettings with these parameters")
         
@@ -1621,7 +1615,6 @@ class WebhookView(APIView):
         logger.info(f"[AUTO-RESPONSE] ========== SMS SETTINGS LOOKUP ==========")
         logger.info(f"[AUTO-RESPONSE] Search criteria:")
         logger.info(f"[AUTO-RESPONSE] - business__isnull=True (global settings)")
-        logger.info(f"[AUTO-RESPONSE] - phone_opt_in={phone_opt_in}")
         logger.info(f"[AUTO-RESPONSE] - phone_available={phone_available}")
         
         # Debug: Show all AutoResponseSettings in database
@@ -1629,7 +1622,7 @@ class WebhookView(APIView):
         logger.info(f"[AUTO-RESPONSE] 📊 ALL AutoResponseSettings in database:")
         if all_auto_settings.exists():
             for setting in all_auto_settings:
-                logger.info(f"[AUTO-RESPONSE] - ID={setting.id}, business={setting.business}, phone_opt_in={setting.phone_opt_in}, phone_available={setting.phone_available}, enabled={setting.enabled}")
+                logger.info(f"[AUTO-RESPONSE] - ID={setting.id}, business={setting.business}, phone_available={setting.phone_available}, enabled={setting.enabled}")
                 if hasattr(setting, 'sms_on_customer_reply'):
                     logger.info(f"[AUTO-RESPONSE]   sms_on_customer_reply={setting.sms_on_customer_reply}, sms_on_phone_found={setting.sms_on_phone_found}, sms_on_phone_opt_in={setting.sms_on_phone_opt_in}")
         else:
@@ -1637,7 +1630,6 @@ class WebhookView(APIView):
         
         default_settings = AutoResponseSettings.objects.filter(
             business__isnull=True,
-            phone_opt_in=phone_opt_in,
             phone_available=phone_available,
         ).first()
         logger.info(f"[AUTO-RESPONSE] 🎯 Default settings found: {default_settings is not None}")
@@ -1645,7 +1637,6 @@ class WebhookView(APIView):
             logger.info(f"[AUTO-RESPONSE] ✅ Default settings details:")
             logger.info(f"[AUTO-RESPONSE] - ID: {default_settings.id}")
             logger.info(f"[AUTO-RESPONSE] - enabled: {default_settings.enabled}")
-            logger.info(f"[AUTO-RESPONSE] - phone_opt_in: {default_settings.phone_opt_in}")
             logger.info(f"[AUTO-RESPONSE] - phone_available: {default_settings.phone_available}")
             if hasattr(default_settings, 'sms_on_customer_reply'):
                 logger.info(f"[AUTO-RESPONSE] - sms_on_customer_reply: {default_settings.sms_on_customer_reply}")
