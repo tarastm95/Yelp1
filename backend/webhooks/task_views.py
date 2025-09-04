@@ -181,28 +181,17 @@ class TaskStatsView(APIView):
         if business_lead_ids is not None:
             scheduled_qs = scheduled_qs.filter(lead_id__in=business_lead_ids)
         
-        # For canceled tasks, combine CeleryTaskLog.REVOKED + LeadPendingTask.active=False
-        celery_canceled = qs.filter(status='REVOKED').count()
-        
-        pending_canceled_qs = LeadPendingTask.objects.filter(active=False)
-        if business_lead_ids is not None:
-            pending_canceled_qs = pending_canceled_qs.filter(lead_id__in=business_lead_ids)
-        
-        pending_canceled = pending_canceled_qs.count()
-        
+        # For canceled tasks, use CeleryTaskLog.REVOKED only
         stats['scheduled'] = scheduled_qs.count()
-        stats['canceled'] = celery_canceled + pending_canceled
+        stats['canceled'] = qs.filter(status='REVOKED').count()
         stats['total'] = stats['successful'] + stats['failed'] + stats['scheduled'] + stats['canceled']
-        
+
         # Enhanced logging for debugging
         logger.info(f"[TASK-STATS] Statistics breakdown:")
         logger.info(f"[TASK-STATS] - Successful (CeleryTaskLog.SUCCESS): {stats['successful']}")
         logger.info(f"[TASK-STATS] - Failed (CeleryTaskLog.FAILURE): {stats['failed']}")
         logger.info(f"[TASK-STATS] - Scheduled (LeadPendingTask.active=True): {stats['scheduled']}")
-        logger.info(f"[TASK-STATS] - Canceled breakdown:")
-        logger.info(f"[TASK-STATS]   - CeleryTaskLog.REVOKED: {celery_canceled}")
-        logger.info(f"[TASK-STATS]   - LeadPendingTask.active=False: {pending_canceled}")
-        logger.info(f"[TASK-STATS]   - Total canceled: {stats['canceled']}")
+        logger.info(f"[TASK-STATS] - Canceled (CeleryTaskLog.REVOKED): {stats['canceled']}")
         logger.info(f"[TASK-STATS] - Total: {stats['total']}")
         logger.info(f"[TASK-STATS] Returning stats: {stats}")
         return Response(stats)
