@@ -107,9 +107,21 @@ class TaskStatsView(APIView):
         stats = {
             'successful': qs.filter(status='SUCCESS').count(),
             'failed': qs.filter(status='FAILURE').count(),
-            'scheduled': qs.filter(status='SCHEDULED').count(),
             'canceled': qs.filter(status='REVOKED').count(),
         }
+        
+        # For scheduled tasks, use LeadPendingTask instead of CeleryTaskLog
+        # because scheduled tasks don't appear in CeleryTaskLog until executed
+        scheduled_qs = LeadPendingTask.objects.filter(active=True)
+        if business_id:
+            # Filter by business through ProcessedLead relationship
+            from .models import ProcessedLead
+            business_lead_ids = ProcessedLead.objects.filter(
+                business_id=business_id
+            ).values_list('lead_id', flat=True)
+            scheduled_qs = scheduled_qs.filter(lead_id__in=business_lead_ids)
+        
+        stats['scheduled'] = scheduled_qs.count()
         stats['total'] = stats['successful'] + stats['failed'] + stats['scheduled'] + stats['canceled']
         
         logger.info(f"[TASK-STATS] Returning stats: {stats}")
