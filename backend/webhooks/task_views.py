@@ -55,14 +55,21 @@ class TaskLogListView(generics.ListAPIView):
 
     def get_queryset(self):
         """Return CeleryTaskLog data sorted by execution time."""
-        logger.info(f"[TASK-LIST] Using CeleryTaskLog for all task data")
+        status_param = self.request.query_params.get("status", "")
+        business_param = self.request.query_params.get("business_id", "")
+        
+        logger.info(f"[TASK-LIST] 📊 API REQUEST DETAILS:")
+        logger.info(f"[TASK-LIST] - Status filter: '{status_param}'")
+        logger.info(f"[TASK-LIST] - Business filter: '{business_param}'") 
+        logger.info(f"[TASK-LIST] - Full query params: {dict(self.request.query_params)}")
         
         # Clean up old pending records (they're duplicated in CeleryTaskLog)
-        LeadPendingTask.objects.filter(active=False).delete()
+        cleaned = LeadPendingTask.objects.filter(active=False).count()
+        if cleaned > 0:
+            LeadPendingTask.objects.filter(active=False).delete()
+            logger.info(f"[TASK-LIST] Cleaned up {cleaned} old LeadPendingTask records")
         
         # Sort by execution time - newest executed first
-        # For finished tasks: use finished_at (actual execution time)
-        # For scheduled/pending tasks: use eta (planned execution time)
         qs = CeleryTaskLog.objects.all().order_by(
             "-finished_at",  # Executed tasks first (newest)
             "-eta"           # Then by planned time
@@ -74,9 +81,42 @@ class TaskLogListView(generics.ListAPIView):
             qs = qs.filter(finished_at__gte=start)
             
         total_count = qs.count()
-        logger.info(f"[TASK-LIST] Total tasks available: {total_count}")
+        logger.info(f"[TASK-LIST] 📈 BEFORE FILTERING:")
+        logger.info(f"[TASK-LIST] - Total CeleryTaskLog records: {total_count}")
+        
+        # Show breakdown by status
+        status_breakdown = {}
+        for status_val in ['SUCCESS', 'FAILURE', 'SCHEDULED', 'REVOKED']:
+            count = qs.filter(status=status_val).count()
+            status_breakdown[status_val] = count
+            logger.info(f"[TASK-LIST] - {status_val}: {count}")
         
         return qs
+    
+    def list(self, request, *args, **kwargs):
+        """Override list to add detailed logging of serialized response."""
+        response = super().list(request, *args, **kwargs)
+        
+        status_param = request.query_params.get("status", "")
+        logger.info(f"[TASK-LIST] 📤 API RESPONSE FOR status='{status_param}':")
+        logger.info(f"[TASK-LIST] - Response status code: {response.status_code}")
+        logger.info(f"[TASK-LIST] - Total count: {response.data.get('count', 'N/A')}")
+        logger.info(f"[TASK-LIST] - Results count: {len(response.data.get('results', []))}")
+        
+        # Show first few results for debugging
+        results = response.data.get('results', [])
+        for i, result in enumerate(results[:3]):
+            logger.info(f"[TASK-LIST] - Result #{i+1}:")
+            logger.info(f"[TASK-LIST]   - task_id: {result.get('task_id', 'N/A')}")
+            logger.info(f"[TASK-LIST]   - status: {result.get('status', 'N/A')}")
+            logger.info(f"[TASK-LIST]   - eta: {result.get('eta', 'N/A')}")
+            logger.info(f"[TASK-LIST]   - finished_at: {result.get('finished_at', 'N/A')}")
+            logger.info(f"[TASK-LIST]   - args: {result.get('args', 'N/A')}")
+        
+        if len(results) > 3:
+            logger.info(f"[TASK-LIST] ... and {len(results) - 3} more results")
+            
+        return response
 
 
 class MessageTaskListView(generics.ListAPIView):
