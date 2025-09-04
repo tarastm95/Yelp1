@@ -927,20 +927,21 @@ class WebhookView(APIView):
                             
                         logger.warning(f"[WEBHOOK] This manual business message will NOT cancel follow-up tasks!")
                         logger.warning(f"[WEBHOOK] POTENTIAL SPAM: Customers will continue receiving automated messages")
-                elif e.get("user_type") == "CONSUMER":
-                    logger.info(f"[WEBHOOK] 📝 CONSUMER EVENT DETECTED")
-                    logger.info(f"[WEBHOOK] - is_new: {is_new}")
-                    logger.info(f"[WEBHOOK] - Text: '{text[:50]}...'")
-                    if not is_new:
-                        logger.info(f"[WEBHOOK] CONSUMER event recorded but not processed as new (timing check)")
+                    
+                    if e.get("user_type") == "CONSUMER":
+                        logger.info(f"[WEBHOOK] 📝 CONSUMER EVENT DETECTED")
+                        logger.info(f"[WEBHOOK] - is_new: {is_new}")
+                        logger.info(f"[WEBHOOK] - Text: '{text[:50]}...'")
+                        if not is_new:
+                            logger.info(f"[WEBHOOK] CONSUMER event recorded but not processed as new (timing check)")
+                        else:
+                            logger.info(f"[WEBHOOK] CONSUMER event is new and will be processed")
                     else:
-                        logger.info(f"[WEBHOOK] CONSUMER event is new and will be processed")
-                else:
-                    logger.info(f"[WEBHOOK] 📄 OTHER EVENT TYPE DETECTED")
-                    logger.info(f"[WEBHOOK] - Event type: {e.get('event_type')}")
-                    logger.info(f"[WEBHOOK] - User type: {e.get('user_type')}")
-                    logger.info(f"[WEBHOOK] - is_new: {is_new}")
-                    logger.info(f"[WEBHOOK] No specific action for this event type")
+                        logger.info(f"[WEBHOOK] 📄 OTHER EVENT TYPE DETECTED")
+                        logger.info(f"[WEBHOOK] - Event type: {e.get('event_type')}")
+                        logger.info(f"[WEBHOOK] - User type: {e.get('user_type')}")
+                        logger.info(f"[WEBHOOK] - is_new: {is_new}")
+                        logger.info(f"[WEBHOOK] No specific action for this event type")
 
         return Response({"status": "received"}, status=status.HTTP_201_CREATED)
 
