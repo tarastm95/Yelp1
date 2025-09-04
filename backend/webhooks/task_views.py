@@ -115,14 +115,31 @@ class TaskLogListView(generics.ListAPIView):
         elif status in ["revoked", "canceled"]:
             # Canceled tasks - from LeadPendingTask (active=False)
             logger.info(f"[TASK-LIST] Using LeadPendingTask for canceled tasks")
+            
+            # Get all canceled tasks first
             qs = LeadPendingTask.objects.filter(active=False).order_by("-created_at")
+            total_canceled = qs.count()
+            logger.info(f"[TASK-LIST] Total LeadPendingTask.active=False records: {total_canceled}")
             
             if business_id:
                 # Filter by business through ProcessedLead relationship  
-                business_lead_ids = ProcessedLead.objects.filter(
+                business_lead_ids = list(ProcessedLead.objects.filter(
                     business_id=business_id
-                ).values_list('lead_id', flat=True)
+                ).values_list('lead_id', flat=True))
+                logger.info(f"[TASK-LIST] Found {len(business_lead_ids)} lead IDs for business {business_id}")
+                logger.info(f"[TASK-LIST] Sample lead IDs: {business_lead_ids[:5]}")
+                
                 qs = qs.filter(lead_id__in=business_lead_ids)
+                filtered_canceled = qs.count()
+                logger.info(f"[TASK-LIST] Canceled tasks after business filter: {filtered_canceled}")
+            else:
+                logger.info(f"[TASK-LIST] No business filter applied - returning all {total_canceled} canceled tasks")
+                
+            # Show sample of what we're returning
+            sample_tasks = qs[:3]
+            logger.info(f"[TASK-LIST] Sample canceled tasks to return:")
+            for task in sample_tasks:
+                logger.info(f"[TASK-LIST] - ID: {task.id}, Lead: {task.lead_id}, Task: {task.task_id}, Text: {task.text[:30]}...")
                 
             return qs
             
