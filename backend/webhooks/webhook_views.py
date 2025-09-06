@@ -78,30 +78,17 @@ def _extract_phone(text: str) -> str | None:
 
 
 def convert_to_yelp_format(text: str) -> str:
-    """Convert text to Yelp's preferred Unicode format for consistent comparison.
+    """Convert text to Yelp's preferred Unicode format.
     
-    Yelp automatically converts certain ASCII characters to Unicode equivalents:
-    - ASCII apostrophe (') → Unicode right single quotation mark (')
-    - ASCII quotes (") → Unicode quotation marks (" ")
-    - ASCII dashes (-) → Unicode em/en dashes (– —)
-    
-    By converting our text to Yelp's format before storing, we ensure exact matches.
+    NOTE: This function is kept for backward compatibility with existing tasks,
+    but the new simplified logic doesn't rely on text matching anymore.
+    We use the from_backend flag which is more reliable than text comparison.
     """
     if not text:
         return text
     
     # Convert ASCII apostrophes to Unicode (Yelp's preferred format)
     converted = text.replace("'", "'")  # U+0027 → U+2019
-    
-    # Convert ASCII quotes to Unicode quotation marks
-    # Note: We'll add more conversions as we discover them
-    converted = converted.replace('"', '"')  # U+0022 → U+201C (left)
-    converted = converted.replace('"', '"')  # Handle closing quotes too
-    
-    # Convert ASCII dashes to Unicode (if needed)
-    # converted = converted.replace("--", "—")  # Double dash to em dash
-    # converted = converted.replace("-", "–")   # Single dash to en dash (be careful!)
-    
     return converted
 
 
@@ -581,43 +568,17 @@ class WebhookView(APIView):
                 event_time_str = e.get("time_created")
                 event_time = parse_datetime(event_time_str) if event_time_str else None
                 
-                # Спосіб 1: Перевірка чи вже існує аналогічний LeadEvent з from_backend=True
-                # Convert text to Yelp format for accurate comparison
-                yelp_formatted_text = convert_to_yelp_format(text)
-                logger.info(f"[WEBHOOK] 🔍 CHECKING LeadEvent for exact text match")
-                logger.info(f"[WEBHOOK] - Original text: '{text[:50]}...'")
-                logger.info(f"[WEBHOOK] - Yelp formatted: '{yelp_formatted_text[:50]}...'")
-                logger.info(f"[WEBHOOK] - Text changed: {text != yelp_formatted_text}")
+                # Enhanced logging for from_backend detection
+                logger.info(f"[WEBHOOK] 🔍 FROM_BACKEND ANALYSIS:")
+                logger.info(f"[WEBHOOK] - Event ID: {eid}")
+                logger.info(f"[WEBHOOK] - User type: {e.get('user_type')}")
+                logger.info(f"[WEBHOOK] - Text preview: '{text[:50]}...'")
+                logger.info(f"[WEBHOOK] - from_backend flag: {defaults.get('from_backend', False)}")
+                logger.info(f"[WEBHOOK] - Raw event data: {e.get('raw', {}).get('backend_sent', 'Not present')}")
                 
-                if yelp_formatted_text and LeadEvent.objects.filter(
-                    lead_id=lid, text=yelp_formatted_text, from_backend=True
-                ).exists():
-                    defaults["from_backend"] = True
-                    logger.info(f"[WEBHOOK] 🔍 Setting from_backend=True (previously sent by us)")
-                
-                # Спосіб 2: Перевірка чи текст співпадає з активним або недавнім LeadPendingTask
-                if not defaults["from_backend"] and yelp_formatted_text:
-                    logger.info(f"[WEBHOOK] 🔍 CHECKING LeadPendingTask for text match")
-                    
-                    # Активні завдання (з Yelp форматом)
-                    matching_active = LeadPendingTask.objects.filter(
-                        lead_id=lid, text=yelp_formatted_text, active=True
-                    ).exists()
-                    logger.info(f"[WEBHOOK] - Active tasks match: {matching_active}")
-                    
-                    # Недавно виконані завдання (останні 10 хвилин)
-                    from django.utils import timezone
-                    ten_minutes_ago = timezone.now() - timezone.timedelta(minutes=10)
-                    matching_recent = LeadPendingTask.objects.filter(
-                        lead_id=lid, text=yelp_formatted_text, active=False, created_at__gte=ten_minutes_ago
-                    ).exists()
-                    logger.info(f"[WEBHOOK] - Recent tasks match: {matching_recent}")
-                    
-                    if matching_active or matching_recent:
-                        defaults["from_backend"] = True
-                        logger.info(f"[WEBHOOK] 🔍 Setting from_backend=True (matches LeadPendingTask with Yelp format)")
-                
-                # Timing and content-based detection removed - unreliable and contained false positives
+                # The key insight: We rely on from_backend flag, not text matching
+                # When we create events in tasks.py, we set from_backend=True
+                # So any BIZ event with from_backend=False is definitely manual
                 
                 logger.info(f"[WEBHOOK] Upserting LeadEvent id={eid} for lead={lid}")
                 logger.info(f"[WEBHOOK] from_backend flag set to: {defaults['from_backend']}")
@@ -882,14 +843,14 @@ class WebhookView(APIView):
                     logger.info(f"[WEBHOOK] - Text: '{text[:50]}...'")
                     logger.info(f"[WEBHOOK] - Created in DB: {created}")
                     
-                    # Check for BIZ events that might be manual business messages
-                    if user_type == "BIZ" and text:
-                        logger.info(f"[WEBHOOK] 🏢 BIZ EVENT DETECTED - Checking if manual or automated")
+                    # Simple BIZ detection: if user_type=BIZ and from_backend=False → manual response
+                    if user_type == "BIZ":
+                        logger.info(f"[WEBHOOK] 🏢 BIZ EVENT DETECTED")
+                        logger.info(f"[WEBHOOK] - User type: {user_type}")
+                        logger.info(f"[WEBHOOK] - from_backend: {defaults.get('from_backend', False)}")
+                        logger.info(f"[WEBHOOK] - Text preview: '{text[:50]}...'")
                         
-                        # Check if this is our automated message
-                        is_our_automated_message = defaults.get("from_backend", False)
-                        
-                        if is_our_automated_message:
+                        if defaults.get("from_backend", False):
                             logger.info(f"[WEBHOOK] 🤖 AUTOMATED BIZ MESSAGE - This is our own follow-up")
                             logger.info(f"[WEBHOOK] No action needed - system behavior is expected")
                         else:
