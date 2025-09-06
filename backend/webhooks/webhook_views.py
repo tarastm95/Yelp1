@@ -562,7 +562,7 @@ class WebhookView(APIView):
                 
                 # Спосіб 2: Перевірка чи текст співпадає з активним або недавнім LeadPendingTask
                 if not defaults["from_backend"] and text:
-                    # Активні завдання
+                    # Активні завдання (заплановані фоловапи)
                     matching_active = LeadPendingTask.objects.filter(
                         lead_id=lid, text=text, active=True
                     ).exists()
@@ -576,46 +576,10 @@ class WebhookView(APIView):
                     
                     if matching_active or matching_recent:
                         defaults["from_backend"] = True
-                        logger.info(f"[WEBHOOK] 🔍 Setting from_backend=True (matches LeadPendingTask)")
+                        logger.info(f"[WEBHOOK] 🔍 Setting from_backend=True (matches LeadPendingTask - planned or recently sent)")
+                        logger.info(f"[WEBHOOK] Active tasks found: {matching_active}, Recent tasks found: {matching_recent}")
                 
-                # Спосіб 3: Timing-based detection для BIZ/BUSINESS events
-                if (not defaults["from_backend"] and 
-                    defaults.get("user_type") in ("BIZ", "BUSINESS") and 
-                    event_time):
-                    
-                    processed_at = (
-                        ProcessedLead.objects.filter(lead_id=lid)
-                        .values_list("processed_at", flat=True)
-                        .first()
-                    )
-                    
-                    if processed_at:
-                        time_diff = (event_time - processed_at).total_seconds()
-                        # Якщо BIZ повідомлення прийшло менше ніж через 5 хвилин після обробки
-                        if 0 < time_diff < 300:
-                            defaults["from_backend"] = True
-                            logger.info(f"[WEBHOOK] 🔍 Setting from_backend=True (BIZ timing: {time_diff:.1f}s)")
-                
-                # Спосіб 4: Content-based patterns для автоматичних повідомлень
-                if not defaults["from_backend"] and text:
-                    auto_patterns = [
-                        "Hi there! Could you help me with my project?",
-                        "Thank you for reaching out",
-                        "We received your inquiry",
-                        "Hello! I'm excited to help",
-                        "Thanks for your interest",
-                        "Hi! I'd love to help",
-                        "Thank you for contacting",
-                        "Hello there!",
-                        "Hi! Thanks for reaching out",
-                        "Great to hear from you"
-                    ]
-                    
-                    for pattern in auto_patterns:
-                        if pattern.lower() in text.lower():
-                            defaults["from_backend"] = True
-                            logger.info(f"[WEBHOOK] 🔍 Setting from_backend=True (content pattern)")
-                            break
+                # Other detection methods removed - LeadEvent + LeadPendingTask checks are sufficient
                 
                 logger.info(f"[WEBHOOK] Upserting LeadEvent id={eid} for lead={lid}")
                 logger.info(f"[WEBHOOK] from_backend flag set to: {defaults['from_backend']}")
@@ -881,17 +845,21 @@ class WebhookView(APIView):
                     logger.info(f"[WEBHOOK] - Created in DB: {created}")
                     
                     # Check for BIZ events that might be manual business messages
-                    if user_type == "BIZ" and is_new and text:
-                        logger.info(f"[WEBHOOK] 🏢 BIZ EVENT DETECTED - Checking for manual commands")
+                    if user_type == "BIZ" and text:
+                        logger.info(f"[WEBHOOK] 🏢 BIZ EVENT DETECTED - Checking if manual or automated")
+                        logger.info(f"[WEBHOOK] Business message: '{text[:100]}...'")
                         
-                        # Simple detection: short commands like "Stop", "Cancel", etc.
-                        short_commands = ["stop", "cancel", "enough", "thanks", "thank you", "done"]
-                        if len(text.strip()) <= 20 and any(cmd in text.lower() for cmd in short_commands):
-                            logger.info(f"[WEBHOOK] 🛑 MANUAL STOP COMMAND DETECTED: '{text}'")
-                            logger.info(f"[WEBHOOK] Cancelling all active follow-up tasks")
-                            self._cancel_all_tasks(lid, reason=f"Business sent manual stop command: '{text}'")
+                        # Check if this is our automated message
+                        is_our_automated_message = defaults.get("from_backend", False)
+                        
+                        if is_our_automated_message:
+                            logger.info(f"[WEBHOOK] 🤖 AUTOMATED BIZ MESSAGE - This is our own follow-up")
+                            logger.info(f"[WEBHOOK] No action needed - system behavior is expected")
                         else:
-                            logger.info(f"[WEBHOOK] 💬 Regular BIZ message, not a stop command")
+                            logger.info(f"[WEBHOOK] 👨‍💼 MANUAL BIZ MESSAGE - Business responded manually in dashboard")
+                            logger.info(f"[WEBHOOK] 🛑 CANCELLING ALL FOLLOW-UP TASKS - Business took over conversation")
+                            self._cancel_all_tasks(lid, reason=f"Business responded manually in Yelp dashboard: '{text[:50]}...'")
+                            logger.info(f"[WEBHOOK] ✅ All follow-up tasks cancelled for lead={lid}")
                     
                     elif user_type == "CONSUMER":
                         logger.info(f"[WEBHOOK] 📝 CONSUMER EVENT DETECTED")
