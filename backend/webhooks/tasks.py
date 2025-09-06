@@ -436,6 +436,32 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
                     logger.info(f"[FOLLOW-UP] - Response encoding: {resp.encoding}")
                     logger.info(f"[FOLLOW-UP] - Response URL: {resp.url}")
                     logger.info(f"[FOLLOW-UP] =======================================")
+                    
+                    # CRITICAL: Compare what we sent vs what Yelp might return
+                    logger.info(f"[FOLLOW-UP] 🔍 TEXT COMPARISON ANALYSIS:")
+                    logger.info(f"[FOLLOW-UP] ========== SENT vs EXPECTED RETURN ==========")
+                    logger.info(f"[FOLLOW-UP] SENT TO YELP:")
+                    logger.info(f"[FOLLOW-UP] - Text: '{text}'")
+                    logger.info(f"[FOLLOW-UP] - Length: {len(text)}")
+                    logger.info(f"[FOLLOW-UP] - Hash: {hash(text)}")
+                    logger.info(f"[FOLLOW-UP] - Encoding: {type(text)}")
+                    
+                    # Check for Unicode characters
+                    import unicodedata
+                    unicode_chars = []
+                    for i, char in enumerate(text):
+                        if ord(char) > 127:  # Non-ASCII
+                            unicode_chars.append(f"pos {i}: '{char}' (U+{ord(char):04X})")
+                    
+                    if unicode_chars:
+                        logger.info(f"[FOLLOW-UP] - Unicode chars found: {unicode_chars[:10]}")  # Show first 10
+                    else:
+                        logger.info(f"[FOLLOW-UP] - No Unicode characters (pure ASCII)")
+                    
+                    logger.info(f"[FOLLOW-UP] WHAT YELP WILL LIKELY RETURN:")
+                    logger.info(f"[FOLLOW-UP] - When webhook arrives, expect this text in BIZ event")
+                    logger.info(f"[FOLLOW-UP] - Any differences will be logged in webhook processing")
+                    logger.info(f"[FOLLOW-UP] ==================================================")
 
                     if resp.status_code == 200:
                         logger.info(f"[FOLLOW-UP] ✅ HTTP 200 - Message sent successfully!")
@@ -548,6 +574,10 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
                 import uuid
                 our_event_id = f"backend_sent_{uuid.uuid4().hex[:16]}"
 
+                # Normalize text before storing to ensure consistent comparison
+                from .webhook_views import normalize_text_for_comparison
+                normalized_text = normalize_text_for_comparison(text)
+                
                 lead_event = LeadEvent.objects.create(
                     event_id=our_event_id,
                     lead_id=lead_id,
@@ -555,10 +585,10 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
                     user_type="BUSINESS",  # Ми відправляємо від імені бізнесу
                     user_id="",
                     user_display_name="",
-                    text=text,
+                    text=normalized_text,  # Store normalized text
                     cursor="",
                     time_created=django_timezone.now().isoformat(),
-                    raw={"backend_sent": True, "task_id": job_id, "yelp_response": resp.text[:1000]},
+                    raw={"backend_sent": True, "task_id": job_id, "yelp_response": resp.text[:1000], "original_text": text},
                     from_backend=True  # 🔑 КЛЮЧОВИЙ FLAG!
                 )
 

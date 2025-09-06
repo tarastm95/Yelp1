@@ -1,5 +1,6 @@
 import logging
 import time
+import unicodedata
 from datetime import timedelta
 from zoneinfo import ZoneInfo
 from django.utils.dateparse import parse_datetime
@@ -75,6 +76,35 @@ def _extract_phone(text: str) -> str | None:
     
     logger.info(f"[PHONE-REGEX] ❌ No valid phone numbers found in text")
     return None
+
+
+def normalize_text_for_comparison(text: str) -> str:
+    """Normalize text for accurate comparison by handling Unicode and special characters."""
+    if not text:
+        return text
+    
+    # Normalize Unicode characters (NFKC handles compatibility characters)
+    normalized = unicodedata.normalize('NFKC', text)
+    
+    # Replace various apostrophe types with standard ASCII apostrophe
+    apostrophe_variants = [''', ''', '`', '´']
+    for variant in apostrophe_variants:
+        normalized = normalized.replace(variant, "'")
+    
+    # Replace various quote types with standard ASCII quotes
+    quote_variants = ['"', '"', '„', '‚', '«', '»']
+    for variant in quote_variants:
+        normalized = normalized.replace(variant, '"')
+    
+    # Replace various dash types with standard ASCII dash
+    dash_variants = ['–', '—', '−']
+    for variant in dash_variants:
+        normalized = normalized.replace(variant, '-')
+    
+    # Strip whitespace
+    normalized = normalized.strip()
+    
+    return normalized
 
 
 def safe_update_or_create(model, defaults=None, **kwargs):
@@ -566,12 +596,19 @@ class WebhookView(APIView):
                 if existing_events.exists():
                     logger.info(f"[WEBHOOK] - Comparing with existing texts:")
                     for i, event in enumerate(existing_events[:3]):
-                        text_match = event.text == text
+                        normalized_event_text = normalize_text_for_comparison(event.text)
+                        text_match = normalized_event_text == normalized_text
                         logger.info(f"[WEBHOOK]   Event {i+1}: match={text_match}, length={len(event.text)}, hash={hash(event.text)}")
+                        logger.info(f"[WEBHOOK]   Event {i+1} normalized: hash={hash(normalized_event_text)}")
                         logger.info(f"[WEBHOOK]   Event {i+1} text: '{event.text[:100]}...' " + ("" if len(event.text) <= 100 else f"(+{len(event.text)-100} more chars)"))
                 
-                if text and LeadEvent.objects.filter(
-                    lead_id=lid, text=text, from_backend=True
+                # Normalize text for comparison
+                normalized_text = normalize_text_for_comparison(text)
+                logger.info(f"[WEBHOOK] - Normalized text: '{normalized_text}'")
+                logger.info(f"[WEBHOOK] - Normalized hash: {hash(normalized_text) if normalized_text else 'None'}")
+                
+                if normalized_text and LeadEvent.objects.filter(
+                    lead_id=lid, text=normalized_text, from_backend=True
                 ).exists():
                     defaults["from_backend"] = True
                     logger.info(f"[WEBHOOK] ✅ EXACT MATCH FOUND - Setting from_backend=True (previously sent by us)")
@@ -591,12 +628,14 @@ class WebhookView(APIView):
                     logger.info(f"[WEBHOOK] - Found {active_tasks.count()} active tasks")
                     
                     for i, task in enumerate(active_tasks[:5]):
-                        text_match = task.text == text
+                        normalized_task_text = normalize_text_for_comparison(task.text)
+                        text_match = normalized_task_text == normalized_text
                         logger.info(f"[WEBHOOK]   Active Task {i+1}: match={text_match}, length={len(task.text)}, hash={hash(task.text)}")
+                        logger.info(f"[WEBHOOK]   Active Task {i+1} normalized: hash={hash(normalized_task_text)}")
                         logger.info(f"[WEBHOOK]   Active Task {i+1} text: '{task.text[:100]}...' " + ("" if len(task.text) <= 100 else f"(+{len(task.text)-100} more chars)"))
                     
                     matching_active = LeadPendingTask.objects.filter(
-                        lead_id=lid, text=text, active=True
+                        lead_id=lid, text=normalized_text, active=True
                     ).exists()
                     
                     # Недавно виконані завдання (останні 10 хвилин)
@@ -606,12 +645,14 @@ class WebhookView(APIView):
                     logger.info(f"[WEBHOOK] - Found {recent_tasks.count()} recent tasks (last 10 min)")
                     
                     for i, task in enumerate(recent_tasks[:5]):
-                        text_match = task.text == text
+                        normalized_task_text = normalize_text_for_comparison(task.text)
+                        text_match = normalized_task_text == normalized_text
                         logger.info(f"[WEBHOOK]   Recent Task {i+1}: match={text_match}, length={len(task.text)}, hash={hash(task.text)}")
+                        logger.info(f"[WEBHOOK]   Recent Task {i+1} normalized: hash={hash(normalized_task_text)}")
                         logger.info(f"[WEBHOOK]   Recent Task {i+1} text: '{task.text[:100]}...' " + ("" if len(task.text) <= 100 else f"(+{len(task.text)-100} more chars)"))
                     
                     matching_recent = LeadPendingTask.objects.filter(
-                        lead_id=lid, text=text, active=False, created_at__gte=ten_minutes_ago
+                        lead_id=lid, text=normalized_text, active=False, created_at__gte=ten_minutes_ago
                     ).exists()
                     
                     if matching_active or matching_recent:
@@ -890,6 +931,29 @@ class WebhookView(APIView):
                     if user_type == "BIZ" and text:
                         logger.info(f"[WEBHOOK] 🏢 BIZ EVENT DETECTED - Checking if manual or automated")
                         logger.info(f"[WEBHOOK] Business message: '{text[:100]}...'")
+                        
+                        # CRITICAL: Analyze what Yelp returned vs what we sent
+                        logger.info(f"[WEBHOOK] 🔍 YELP FORMAT ANALYSIS:")
+                        logger.info(f"[WEBHOOK] ========== YELP RETURNED TEXT ==========")
+                        logger.info(f"[WEBHOOK] YELP RETURNED:")
+                        logger.info(f"[WEBHOOK] - Full text: '{text}'")
+                        logger.info(f"[WEBHOOK] - Length: {len(text)}")
+                        logger.info(f"[WEBHOOK] - Hash: {hash(text)}")
+                        logger.info(f"[WEBHOOK] - Type: {type(text)}")
+                        
+                        # Check for Unicode characters in Yelp response
+                        import unicodedata
+                        unicode_chars = []
+                        for i, char in enumerate(text):
+                            if ord(char) > 127:  # Non-ASCII
+                                unicode_chars.append(f"pos {i}: '{char}' (U+{ord(char):04X}) name={unicodedata.name(char, 'UNKNOWN')}")
+                        
+                        if unicode_chars:
+                            logger.info(f"[WEBHOOK] - Unicode chars in Yelp response: {unicode_chars[:10]}")
+                        else:
+                            logger.info(f"[WEBHOOK] - Yelp returned pure ASCII text")
+                        
+                        logger.info(f"[WEBHOOK] ===========================================")
                         
                         # Check if this is our automated message
                         is_our_automated_message = defaults.get("from_backend", False)
@@ -1247,9 +1311,10 @@ class WebhookView(APIView):
             with transaction.atomic():
                 try:
                     from .models import LeadPendingTask
+                    normalized_task_text = normalize_text_for_comparison(text)
                     LeadPendingTask.objects.create(
                         lead_id=lead_id,
-                        text=text,
+                        text=normalized_task_text,  # Store normalized text
                         task_id="",  # Will be set when task is enqueued
                         phone_available=phone_available,
                         active=True,
@@ -2351,10 +2416,11 @@ class WebhookView(APIView):
                 logger.info(f"[AUTO-RESPONSE] Creating LeadPendingTask record...")
                 
                 try:
+                    normalized_greet_text = normalize_text_for_comparison(greet_text)
                     task_record = LeadPendingTask.objects.create(
                         lead_id=lead_id,
                         task_id=res.id,
-                        text=greet_text,
+                        text=normalized_greet_text,  # Store normalized text
                         phone_available=phone_available,
                     )
                     logger.info(f"[AUTO-RESPONSE] ✅ LeadPendingTask created with ID: {task_record.id}")
@@ -2429,10 +2495,11 @@ class WebhookView(APIView):
                         countdown=countdown,
                     )
                     try:
+                        normalized_followup_text = normalize_text_for_comparison(text)
                         LeadPendingTask.objects.create(
                             lead_id=lead_id,
                             task_id=res.id,
-                            text=text,
+                            text=normalized_followup_text,  # Store normalized text
                             phone_available=phone_available,
                         )
                     except IntegrityError:
