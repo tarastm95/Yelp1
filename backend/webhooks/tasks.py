@@ -574,9 +574,13 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
                 import uuid
                 our_event_id = f"backend_sent_{uuid.uuid4().hex[:16]}"
 
-                # Normalize text before storing to ensure consistent comparison
-                from .webhook_views import normalize_text_for_comparison
-                normalized_text = normalize_text_for_comparison(text)
+                # Convert text to Yelp format before storing to ensure exact match
+                from .webhook_views import convert_to_yelp_format
+                yelp_formatted_text = convert_to_yelp_format(text)
+                logger.info(f"[FOLLOW-UP] 🔄 TEXT CONVERSION FOR FUTURE DETECTION:")
+                logger.info(f"[FOLLOW-UP] - Original: '{text}'")
+                logger.info(f"[FOLLOW-UP] - Yelp format: '{yelp_formatted_text}'")
+                logger.info(f"[FOLLOW-UP] - Converted: {text != yelp_formatted_text}")
                 
                 lead_event = LeadEvent.objects.create(
                     event_id=our_event_id,
@@ -585,7 +589,7 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
                     user_type="BUSINESS",  # Ми відправляємо від імені бізнесу
                     user_id="",
                     user_display_name="",
-                    text=normalized_text,  # Store normalized text
+                    text=yelp_formatted_text,  # Store in Yelp format for exact match
                     cursor="",
                     time_created=django_timezone.now().isoformat(),
                     raw={"backend_sent": True, "task_id": job_id, "yelp_response": resp.text[:1000], "original_text": text},

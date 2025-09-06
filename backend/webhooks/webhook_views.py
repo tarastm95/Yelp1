@@ -77,6 +77,34 @@ def _extract_phone(text: str) -> str | None:
     return None
 
 
+def convert_to_yelp_format(text: str) -> str:
+    """Convert text to Yelp's preferred Unicode format for consistent comparison.
+    
+    Yelp automatically converts certain ASCII characters to Unicode equivalents:
+    - ASCII apostrophe (') → Unicode right single quotation mark (')
+    - ASCII quotes (") → Unicode quotation marks (" ")
+    - ASCII dashes (-) → Unicode em/en dashes (– —)
+    
+    By converting our text to Yelp's format before storing, we ensure exact matches.
+    """
+    if not text:
+        return text
+    
+    # Convert ASCII apostrophes to Unicode (Yelp's preferred format)
+    converted = text.replace("'", "'")  # U+0027 → U+2019
+    
+    # Convert ASCII quotes to Unicode quotation marks
+    # Note: We'll add more conversions as we discover them
+    converted = converted.replace('"', '"')  # U+0022 → U+201C (left)
+    converted = converted.replace('"', '"')  # Handle closing quotes too
+    
+    # Convert ASCII dashes to Unicode (if needed)
+    # converted = converted.replace("--", "—")  # Double dash to em dash
+    # converted = converted.replace("-", "–")   # Single dash to en dash (be careful!)
+    
+    return converted
+
+
 def safe_update_or_create(model, defaults=None, **kwargs):
     """Retry update_or_create with simple retry logic."""
     for attempt in range(1, 6):
@@ -554,29 +582,40 @@ class WebhookView(APIView):
                 event_time = parse_datetime(event_time_str) if event_time_str else None
                 
                 # Спосіб 1: Перевірка чи вже існує аналогічний LeadEvent з from_backend=True
-                if text and LeadEvent.objects.filter(
-                    lead_id=lid, text=text, from_backend=True
+                # Convert text to Yelp format for accurate comparison
+                yelp_formatted_text = convert_to_yelp_format(text)
+                logger.info(f"[WEBHOOK] 🔍 CHECKING LeadEvent for exact text match")
+                logger.info(f"[WEBHOOK] - Original text: '{text[:50]}...'")
+                logger.info(f"[WEBHOOK] - Yelp formatted: '{yelp_formatted_text[:50]}...'")
+                logger.info(f"[WEBHOOK] - Text changed: {text != yelp_formatted_text}")
+                
+                if yelp_formatted_text and LeadEvent.objects.filter(
+                    lead_id=lid, text=yelp_formatted_text, from_backend=True
                 ).exists():
                     defaults["from_backend"] = True
                     logger.info(f"[WEBHOOK] 🔍 Setting from_backend=True (previously sent by us)")
                 
                 # Спосіб 2: Перевірка чи текст співпадає з активним або недавнім LeadPendingTask
-                if not defaults["from_backend"] and text:
-                    # Активні завдання
+                if not defaults["from_backend"] and yelp_formatted_text:
+                    logger.info(f"[WEBHOOK] 🔍 CHECKING LeadPendingTask for text match")
+                    
+                    # Активні завдання (з Yelp форматом)
                     matching_active = LeadPendingTask.objects.filter(
-                        lead_id=lid, text=text, active=True
+                        lead_id=lid, text=yelp_formatted_text, active=True
                     ).exists()
+                    logger.info(f"[WEBHOOK] - Active tasks match: {matching_active}")
                     
                     # Недавно виконані завдання (останні 10 хвилин)
                     from django.utils import timezone
                     ten_minutes_ago = timezone.now() - timezone.timedelta(minutes=10)
                     matching_recent = LeadPendingTask.objects.filter(
-                        lead_id=lid, text=text, active=False, created_at__gte=ten_minutes_ago
+                        lead_id=lid, text=yelp_formatted_text, active=False, created_at__gte=ten_minutes_ago
                     ).exists()
+                    logger.info(f"[WEBHOOK] - Recent tasks match: {matching_recent}")
                     
                     if matching_active or matching_recent:
                         defaults["from_backend"] = True
-                        logger.info(f"[WEBHOOK] 🔍 Setting from_backend=True (matches LeadPendingTask)")
+                        logger.info(f"[WEBHOOK] 🔍 Setting from_backend=True (matches LeadPendingTask with Yelp format)")
                 
                 # Timing and content-based detection removed - unreliable and contained false positives
                 
@@ -1202,9 +1241,10 @@ class WebhookView(APIView):
             with transaction.atomic():
                 try:
                     from .models import LeadPendingTask
+                    yelp_task_text = convert_to_yelp_format(text)
                     LeadPendingTask.objects.create(
                         lead_id=lead_id,
-                        text=text,
+                        text=yelp_task_text,  # Store in Yelp format
                         task_id="",  # Will be set when task is enqueued
                         phone_available=phone_available,
                         active=True,
@@ -2306,10 +2346,11 @@ class WebhookView(APIView):
                 logger.info(f"[AUTO-RESPONSE] Creating LeadPendingTask record...")
                 
                 try:
+                    yelp_greet_text = convert_to_yelp_format(greet_text)
                     task_record = LeadPendingTask.objects.create(
                         lead_id=lead_id,
                         task_id=res.id,
-                        text=greet_text,
+                        text=yelp_greet_text,  # Store in Yelp format
                         phone_available=phone_available,
                     )
                     logger.info(f"[AUTO-RESPONSE] ✅ LeadPendingTask created with ID: {task_record.id}")
@@ -2384,10 +2425,11 @@ class WebhookView(APIView):
                         countdown=countdown,
                     )
                     try:
+                        yelp_followup_text = convert_to_yelp_format(text)
                         LeadPendingTask.objects.create(
                             lead_id=lead_id,
                             task_id=res.id,
-                            text=text,
+                            text=yelp_followup_text,  # Store in Yelp format
                             phone_available=phone_available,
                         )
                     except IntegrityError:
