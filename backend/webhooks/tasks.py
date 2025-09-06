@@ -537,6 +537,12 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
                 from django.utils import timezone as django_timezone
 
                 logger.info(f"[FOLLOW-UP] 📝 Creating LeadEvent with from_backend=True")
+                logger.info(f"[FOLLOW-UP] TEXT ANALYSIS FOR FUTURE DETECTION:")
+                logger.info(f"[FOLLOW-UP] - Lead ID: {lead_id}")
+                logger.info(f"[FOLLOW-UP] - Text length: {len(text)}")
+                logger.info(f"[FOLLOW-UP] - Text hash: {hash(text)}")
+                logger.info(f"[FOLLOW-UP] - Full text: '{text}'")
+                logger.info(f"[FOLLOW-UP] - Text preview: '{text[:100]}...' " + ("" if len(text) <= 100 else f"(+{len(text)-100} more chars)"))
 
                 # Створюємо унікальний event_id для нашого повідомлення
                 import uuid
@@ -557,6 +563,7 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
                 )
 
                 logger.info(f"[FOLLOW-UP] ✅ Created LeadEvent id={lead_event.pk} with from_backend=True")
+                logger.info(f"[FOLLOW-UP] STORED TEXT: '{lead_event.text}'")
                 logger.info(f"[FOLLOW-UP] This will help system recognize this message as ours when webhook arrives")
 
             except Exception as event_error:

@@ -554,15 +554,47 @@ class WebhookView(APIView):
                 event_time = parse_datetime(event_time_str) if event_time_str else None
                 
                 # Спосіб 1: Перевірка чи вже існує аналогічний LeadEvent з from_backend=True
+                logger.info(f"[WEBHOOK] 🔍 CHECKING LeadEvent for exact text match")
+                logger.info(f"[WEBHOOK] - Lead ID: {lid}")
+                logger.info(f"[WEBHOOK] - Text length: {len(text) if text else 0}")
+                logger.info(f"[WEBHOOK] - Text hash: {hash(text) if text else 'None'}")
+                logger.info(f"[WEBHOOK] - Text preview: '{text[:100]}...' " + ("" if len(text) <= 100 else f"(+{len(text)-100} more chars)"))
+                
+                existing_events = LeadEvent.objects.filter(lead_id=lid, from_backend=True)
+                logger.info(f"[WEBHOOK] - Found {existing_events.count()} existing from_backend=True events")
+                
+                if existing_events.exists():
+                    logger.info(f"[WEBHOOK] - Comparing with existing texts:")
+                    for i, event in enumerate(existing_events[:3]):
+                        text_match = event.text == text
+                        logger.info(f"[WEBHOOK]   Event {i+1}: match={text_match}, length={len(event.text)}, hash={hash(event.text)}")
+                        logger.info(f"[WEBHOOK]   Event {i+1} text: '{event.text[:100]}...' " + ("" if len(event.text) <= 100 else f"(+{len(event.text)-100} more chars)"))
+                
                 if text and LeadEvent.objects.filter(
                     lead_id=lid, text=text, from_backend=True
                 ).exists():
                     defaults["from_backend"] = True
-                    logger.info(f"[WEBHOOK] 🔍 Setting from_backend=True (previously sent by us)")
+                    logger.info(f"[WEBHOOK] ✅ EXACT MATCH FOUND - Setting from_backend=True (previously sent by us)")
+                else:
+                    logger.info(f"[WEBHOOK] ❌ NO EXACT MATCH - from_backend remains False")
                 
                 # Спосіб 2: Перевірка чи текст співпадає з активним або недавнім LeadPendingTask
                 if not defaults["from_backend"] and text:
+                    logger.info(f"[WEBHOOK] 🔍 CHECKING LeadPendingTask for text match")
+                    
+                    # Показати всі завдання для цього ліда
+                    all_tasks = LeadPendingTask.objects.filter(lead_id=lid)
+                    logger.info(f"[WEBHOOK] - Found {all_tasks.count()} total LeadPendingTask records for lead")
+                    
                     # Активні завдання (заплановані фоловапи)
+                    active_tasks = LeadPendingTask.objects.filter(lead_id=lid, active=True)
+                    logger.info(f"[WEBHOOK] - Found {active_tasks.count()} active tasks")
+                    
+                    for i, task in enumerate(active_tasks[:5]):
+                        text_match = task.text == text
+                        logger.info(f"[WEBHOOK]   Active Task {i+1}: match={text_match}, length={len(task.text)}, hash={hash(task.text)}")
+                        logger.info(f"[WEBHOOK]   Active Task {i+1} text: '{task.text[:100]}...' " + ("" if len(task.text) <= 100 else f"(+{len(task.text)-100} more chars)"))
+                    
                     matching_active = LeadPendingTask.objects.filter(
                         lead_id=lid, text=text, active=True
                     ).exists()
@@ -570,14 +602,24 @@ class WebhookView(APIView):
                     # Недавно виконані завдання (останні 10 хвилин)
                     from django.utils import timezone
                     ten_minutes_ago = timezone.now() - timezone.timedelta(minutes=10)
+                    recent_tasks = LeadPendingTask.objects.filter(lead_id=lid, active=False, created_at__gte=ten_minutes_ago)
+                    logger.info(f"[WEBHOOK] - Found {recent_tasks.count()} recent tasks (last 10 min)")
+                    
+                    for i, task in enumerate(recent_tasks[:5]):
+                        text_match = task.text == text
+                        logger.info(f"[WEBHOOK]   Recent Task {i+1}: match={text_match}, length={len(task.text)}, hash={hash(task.text)}")
+                        logger.info(f"[WEBHOOK]   Recent Task {i+1} text: '{task.text[:100]}...' " + ("" if len(task.text) <= 100 else f"(+{len(task.text)-100} more chars)"))
+                    
                     matching_recent = LeadPendingTask.objects.filter(
                         lead_id=lid, text=text, active=False, created_at__gte=ten_minutes_ago
                     ).exists()
                     
                     if matching_active or matching_recent:
                         defaults["from_backend"] = True
-                        logger.info(f"[WEBHOOK] 🔍 Setting from_backend=True (matches LeadPendingTask - planned or recently sent)")
-                        logger.info(f"[WEBHOOK] Active tasks found: {matching_active}, Recent tasks found: {matching_recent}")
+                        logger.info(f"[WEBHOOK] ✅ TASK MATCH FOUND - Setting from_backend=True (matches LeadPendingTask)")
+                        logger.info(f"[WEBHOOK] Active match: {matching_active}, Recent match: {matching_recent}")
+                    else:
+                        logger.info(f"[WEBHOOK] ❌ NO TASK MATCH - from_backend remains False")
                 
                 # Other detection methods removed - LeadEvent + LeadPendingTask checks are sufficient
                 
