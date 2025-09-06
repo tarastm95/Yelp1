@@ -1,5 +1,6 @@
 import logging
 import time
+import unicodedata
 from datetime import timedelta
 from zoneinfo import ZoneInfo
 from django.utils.dateparse import parse_datetime
@@ -75,6 +76,35 @@ def _extract_phone(text: str) -> str | None:
     
     logger.info(f"[PHONE-REGEX] ❌ No valid phone numbers found in text")
     return None
+
+
+def normalize_text_for_comparison(text: str) -> str:
+    """Normalize text for accurate comparison by handling Unicode and special characters."""
+    if not text:
+        return text
+    
+    # Normalize Unicode characters (NFKC handles compatibility characters)
+    normalized = unicodedata.normalize('NFKC', text)
+    
+    # Replace various apostrophe types with standard ASCII apostrophe
+    apostrophe_variants = [''', ''', '`', '´']
+    for variant in apostrophe_variants:
+        normalized = normalized.replace(variant, "'")
+    
+    # Replace various quote types with standard ASCII quotes
+    quote_variants = ['"', '"', '„', '‚', '«', '»']
+    for variant in quote_variants:
+        normalized = normalized.replace(variant, '"')
+    
+    # Replace various dash types with standard ASCII dash
+    dash_variants = ['–', '—', '−']
+    for variant in dash_variants:
+        normalized = normalized.replace(variant, '-')
+    
+    # Strip whitespace
+    normalized = normalized.strip()
+    
+    return normalized
 
 
 def safe_update_or_create(model, defaults=None, **kwargs):
@@ -317,10 +347,19 @@ class WebhookView(APIView):
                     
                 if upd.get("event_type") == "CONSUMER_PHONE_NUMBER_OPT_IN_EVENT":
                     logger.info(f"[WEBHOOK] 📱 CONSUMER_PHONE_NUMBER_OPT_IN_EVENT detected")
-                    logger.info(f"[WEBHOOK] ========== PHONE OPT-IN EVENT ==========")
+                    logger.info(f"[WEBHOOK] ========== PHONE OPT-IN EVENT → NO PHONE SCENARIO ==========")
                     logger.info(f"[WEBHOOK] Lead ID: {lid}")
                     logger.info(f"[WEBHOOK] Event type: CONSUMER_PHONE_NUMBER_OPT_IN_EVENT")
-                    logger.info(f"[WEBHOOK] About to update LeadDetail.phone_opt_in to True")
+                    logger.info(f"[WEBHOOK] 🔄 UNIFIED LOGIC: Phone opt-in → No Phone scenario")
+                    logger.info(f"[WEBHOOK] =================== PHONE OPT-IN EVENT DETAILS ===================")
+                    logger.info(f"[WEBHOOK] 📱 Consumer agreed to provide phone number via Yelp interface")
+                    logger.info(f"[WEBHOOK] 🎯 NEW BEHAVIOR: Will use No Phone scenario instead of separate logic")
+                    logger.info(f"[WEBHOOK] 📋 What happens next:")
+                    logger.info(f"[WEBHOOK] - LeadDetail.phone_opt_in set to True (for frontend badge)")
+                    logger.info(f"[WEBHOOK] - No separate phone opt-in tasks created")
+                    logger.info(f"[WEBHOOK] - Uses existing No Phone templates and follow-ups")
+                    logger.info(f"[WEBHOOK] - Frontend shows 'Phone Opt-In' badge for identification")
+                    logger.info(f"[WEBHOOK] About to update LeadDetail.phone_opt_in to True (for frontend display)")
                     
                     updated = LeadDetail.objects.filter(
                         lead_id=lid, phone_opt_in=False
@@ -328,18 +367,16 @@ class WebhookView(APIView):
                     
                     logger.info(f"[WEBHOOK] LeadDetail update result:")
                     logger.info(f"[WEBHOOK] - Records updated: {updated}")
-                    logger.info(f"[WEBHOOK] - This means {updated} LeadDetail(s) had phone_opt_in changed from False to True")
+                    logger.info(f"[WEBHOOK] - phone_opt_in set to True for tracking purposes")
                     
                     if updated:
-                        logger.info(f"[WEBHOOK] ✅ Phone opt-in updated successfully")
-                        logger.info(f"[WEBHOOK] 🚀 TRIGGERING handle_phone_opt_in")
-                        logger.info(f"[WEBHOOK] This will call _process_auto_response with phone_opt_in=True, phone_available=False")
-                        self.handle_phone_opt_in(lid)
-                        logger.info(f"[WEBHOOK] ✅ handle_phone_opt_in completed")
+                        logger.info(f"[WEBHOOK] ✅ Phone opt-in flag updated successfully")
+                        logger.info(f"[WEBHOOK] 🎯 NEW BEHAVIOR: Using No Phone scenario for phone opt-in")
+                        logger.info(f"[WEBHOOK] Phone opt-in leads will use same templates as No Phone leads")
+                        logger.info(f"[WEBHOOK] ✅ No additional handler needed - No Phone scenario handles everything")
                     else:
                         logger.warning(f"[WEBHOOK] ⚠️ No LeadDetail records updated")
                         logger.warning(f"[WEBHOOK] This means the lead already had phone_opt_in=True")
-                        logger.warning(f"[WEBHOOK] No additional auto-response will be triggered")
                     
                     logger.info(f"[WEBHOOK] =======================================")
                         
@@ -362,7 +399,6 @@ class WebhookView(APIView):
                     has_phone = bool(phone)
                     pending = LeadPendingTask.objects.filter(
                         lead_id=lid,
-                        phone_opt_in=False,
                         phone_available=False,
                         active=True,
                     ).exists()
@@ -389,7 +425,12 @@ class WebhookView(APIView):
                             self.handle_phone_available(lid, reason=reason)
                     elif pending:
                         reason = "Client responded, but no number was found"
+                        logger.info(f"[WEBHOOK] 💬 REGULAR CONSUMER RESPONSE - cancelling no-phone tasks")
                         self._cancel_no_phone_tasks(lid, reason=reason)
+                        
+                        # Check what tasks remain after no-phone cancellation
+                        remaining_after_regular = LeadPendingTask.objects.filter(lead_id=lid, active=True)
+                        logger.info(f"[WEBHOOK] 📊 TASKS AFTER NO-PHONE CANCELLATION: {remaining_after_regular.count()}")
                 else:
                     reasons = []
                     if upd.get("event_type") != "NEW_EVENT":
@@ -452,6 +493,30 @@ class WebhookView(APIView):
                     logger.error(f"[WEBHOOK] Exception details: {type(e).__name__}: {str(e)}")
                     
                 logger.info(f"[WEBHOOK] ================================================")
+            elif upd.get("event_type") == "CONSUMER_PHONE_NUMBER_OPT_IN_EVENT":
+                # Handle phone opt-in event to set badge for frontend
+                logger.info(f"[WEBHOOK] 📱 CONSUMER_PHONE_NUMBER_OPT_IN_EVENT detected (main handler)")
+                logger.info(f"[WEBHOOK] ========== PHONE OPT-IN → NO PHONE SCENARIO (MAIN LOOP) ========")
+                logger.info(f"[WEBHOOK] Lead ID: {lid}")
+                logger.info(f"[WEBHOOK] Event type: CONSUMER_PHONE_NUMBER_OPT_IN_EVENT")
+                logger.info(f"[WEBHOOK] 🔄 UNIFIED LOGIC: Phone opt-in → No Phone scenario")
+                logger.info(f"[WEBHOOK] About to update LeadDetail.phone_opt_in to True (for frontend display)")
+                
+                updated = LeadDetail.objects.filter(
+                    lead_id=lid, phone_opt_in=False
+                ).update(phone_opt_in=True)
+                
+                logger.info(f"[WEBHOOK] LeadDetail update result:")
+                logger.info(f"[WEBHOOK] - Records updated: {updated}")
+                logger.info(f"[WEBHOOK] - phone_opt_in set to True for tracking purposes")
+                
+                if updated:
+                    logger.info(f"[WEBHOOK] ✅ Phone opt-in badge set successfully for frontend")
+                else:
+                    logger.warning(f"[WEBHOOK] ⚠️ No LeadDetail records updated")
+                    logger.warning(f"[WEBHOOK] This means the lead already had phone_opt_in=True")
+                
+                logger.info(f"[WEBHOOK] =======================================")
             else:
                 logger.debug(f"[WEBHOOK] Skipping non-NEW_LEAD event: {upd.get('event_type')} for {upd.get('lead_id')}")
 
@@ -518,69 +583,678 @@ class WebhookView(APIView):
                 event_time_str = e.get("time_created")
                 event_time = parse_datetime(event_time_str) if event_time_str else None
                 
+                # Normalize text for comparison (MOVE UP!)
+                normalized_text = normalize_text_for_comparison(text)
+import logging
+import time
+import unicodedata
+from datetime import timedelta
+from zoneinfo import ZoneInfo
+from django.utils.dateparse import parse_datetime
+import re
+import requests
+import django_rq
+from django.utils import timezone
+from django.db import transaction, OperationalError, IntegrityError
+from rest_framework import status
+from rest_framework.views import APIView
+from rest_framework.response import Response
+
+from .models import (
+    Event,
+    ProcessedLead,
+    AutoResponseSettings,
+    LeadEvent,
+    LeadDetail,
+    FollowUpTemplate,
+    LeadPendingTask,
+    CeleryTaskLog,
+    YelpBusiness,
+)
+from .serializers import EventSerializer
+from .utils import (
+    get_valid_business_token,
+    get_token_for_lead,
+    adjust_due_time,
+    _already_sent,
+    _parse_days,
+    get_time_based_greeting,
+)
+from .tasks import send_follow_up
+
+logger = logging.getLogger(__name__)
+
+# Simple pattern to detect phone numbers like +380XXXXXXXXX or other
+# international formats with optional spaces or dashes.
+PHONE_RE = re.compile(r"\+?\d[\d\s\-\(\)]{8,}\d")
+# Simple pattern to detect ISO-like dates such as 2023-12-31
+DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
+
+
+def _extract_phone(text: str) -> str | None:
+    """Return first phone number found in text, if any."""
+    logger.info(f"[PHONE-REGEX] 📞 _extract_phone called with text: '{text}'")
+    logger.info(f"[PHONE-REGEX] - Text type: {type(text)}")
+    logger.info(f"[PHONE-REGEX] - Text length: {len(text) if text else 0}")
+    
+    if not text:
+        logger.info(f"[PHONE-REGEX] ❌ No text provided - returning None")
+        return None
+        
+    logger.info(f"[PHONE-REGEX] 🔍 Searching for phone patterns using regex: {PHONE_RE.pattern}")
+    
+    matches_found = list(PHONE_RE.finditer(text))
+    logger.info(f"[PHONE-REGEX] - Found {len(matches_found)} potential phone matches")
+    
+    for i, m in enumerate(matches_found):
+        candidate = m.group()
+        digits = re.sub(r"\D", "", candidate)
+        logger.info(f"[PHONE-REGEX] - Match {i+1}: '{candidate}'")
+        logger.info(f"[PHONE-REGEX] - Digits only: '{digits}'")
+        logger.info(f"[PHONE-REGEX] - Digits length: {len(digits)}")
+        logger.info(f"[PHONE-REGEX] - Is valid length (>=10): {len(digits) >= 10}")
+        logger.info(f"[PHONE-REGEX] - Matches date pattern: {bool(DATE_RE.fullmatch(candidate))}")
+        
+        if len(digits) >= 10 and not DATE_RE.fullmatch(candidate):
+            logger.info(f"[PHONE-REGEX] ✅ Valid phone number found: '{candidate}'")
+            return candidate
+        else:
+            logger.info(f"[PHONE-REGEX] ❌ Invalid phone number (too short or date-like): '{candidate}'")
+    
+    logger.info(f"[PHONE-REGEX] ❌ No valid phone numbers found in text")
+    return None
+
+
+def normalize_text_for_comparison(text: str) -> str:
+    """Normalize text for accurate comparison by handling Unicode and special characters."""
+    if not text:
+        return text
+    
+    # Normalize Unicode characters (NFKC handles compatibility characters)
+    normalized = unicodedata.normalize('NFKC', text)
+    
+    # Replace various apostrophe types with standard ASCII apostrophe
+    apostrophe_variants = [''', ''', '`', '´']
+    for variant in apostrophe_variants:
+        normalized = normalized.replace(variant, "'")
+    
+    # Replace various quote types with standard ASCII quotes
+    quote_variants = ['"', '"', '„', '‚', '«', '»']
+    for variant in quote_variants:
+        normalized = normalized.replace(variant, '"')
+    
+    # Replace various dash types with standard ASCII dash
+    dash_variants = ['–', '—', '−']
+    for variant in dash_variants:
+        normalized = normalized.replace(variant, '-')
+    
+    # Strip whitespace
+    normalized = normalized.strip()
+    
+    return normalized
+
+
+def safe_update_or_create(model, defaults=None, **kwargs):
+    """Retry update_or_create with simple retry logic."""
+    for attempt in range(1, 6):
+        try:
+            logger.debug(
+                f"[DB RETRY] Attempt {attempt}/5 for {model.__name__}.update_or_create with kwargs={kwargs}"
+            )
+            with transaction.atomic():
+                obj, created = model.objects.update_or_create(
+                    defaults=defaults or {}, **kwargs
+                )
+            logger.debug(
+                f"[DB RETRY] Success on attempt {attempt} for {model.__name__} (pk={obj.pk}, created={created})"
+            )
+            return obj, created
+        except OperationalError as e:
+            logger.warning(
+                f"[DB RETRY] OperationalError on attempt {attempt}/5 for {model.__name__}: {e}"
+            )
+            time.sleep(0.1)
+    logger.debug(f"[DB RETRY] Final attempt for {model.__name__}.update_or_create")
+    return model.objects.update_or_create(defaults=defaults or {}, **kwargs)
+
+
+class WebhookView(APIView):
+    """Handle incoming webhook events from Yelp."""
+
+    def _is_new_lead(self, lead_id: str, business_id: str | None = None) -> dict:
+        """Check Yelp events to verify if this lead is new.
+
+        When ``business_id`` is provided the access token is obtained for that
+        business.  Otherwise it falls back to :func:`get_token_for_lead`.
+
+        Returns a JSON-like dict ``{"new_lead": bool}`` where ``new_lead`` is
+        ``True`` when only a single consumer event exists.
+        """
+        logger.debug(
+            "[WEBHOOK] _is_new_lead called with lead_id=%s, business_id=%s",
+            lead_id,
+            business_id,
+        )
+
+        if business_id:
+            token = get_valid_business_token(business_id)
+        else:
+            token = get_token_for_lead(lead_id)
+
+        logger.debug("[WEBHOOK] Using token for lead=%s: %s", lead_id, token)
+
+        if not token:
+            logger.error("[WEBHOOK] No token available for lead=%s", lead_id)
+            return {"new_lead": False}
+        url = f"https://api.yelp.com/v3/leads/{lead_id}/events"
+
+        logger.debug(
+            "[WEBHOOK] Verifying new lead via %s (no limit - all events)",
+            url,
+        )
+        resp = requests.get(
+            url,
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=10,
+        )
+        logger.info(
+            "[WEBHOOK] Yelp verify status for lead=%s: %s",
+            lead_id,
+            resp.status_code,
+        )
+        if resp.status_code != 200:
+            logger.error(
+                f"[WEBHOOK] Failed to verify new lead {lead_id}: {resp.status_code}"
+            )
+            return {"new_lead": False}
+
+        events = resp.json().get("events", [])
+        logger.debug(
+            "[WEBHOOK] Yelp returned events for lead=%s: %s",
+            lead_id,
+            events,
+        )
+        logger.debug(
+            "[WEBHOOK] Number of events for lead=%s: %d",
+            lead_id,
+            len(events),
+        )
+        reason = ""
+        is_new = False
+        if not events:
+            reason = "no events returned"
+        elif len(events) == 1:
+            user_type = events[0].get("user_type")
+            if user_type == "CONSUMER":
+                is_new = True
+                reason = "single CONSUMER event"
+            else:
+                reason = f"single event with user_type={user_type}"
+        elif len(events) == 2:
+            first_user_type = events[0].get("user_type")
+            second_event_type_raw = events[1].get("event_type")
+            second_event_type = (second_event_type_raw or "").upper()
+            if first_user_type == "CONSUMER" and second_event_type != "TEXT":
+                is_new = True
+                reason = (
+                    f"consumer message followed by {second_event_type_raw or 'unknown'}"
+                )
+            else:
+                reason = (
+                    "two events: "
+                    f"first_user_type={first_user_type}, "
+                    f"second_event_type={second_event_type}"
+                )
+        else:
+            reason = f"{len(events)} events found"
+
+        logger.debug(
+            "[WEBHOOK] _is_new_lead decision for %s: %s (reason=%s)",
+            lead_id,
+            is_new,
+            reason,
+        )
+        return {"new_lead": is_new, "reason": reason}
+
+    def _apply_job_mappings(self, job_names: list) -> list:
+        """Застосовує глобальні налаштування заміни назв послуг"""
+        if not job_names:
+            return job_names
+
+        logger.info(f"[JOB-MAPPING] 🔄 Applying job mappings for: {job_names}")
+        
+        # Отримуємо всі активні маппінги з кешем
+        mappings = {}
+        try:
+            from .models import JobMapping
+            active_mappings = JobMapping.objects.filter(active=True)
+            mappings = {mapping.original_name: mapping.custom_name for mapping in active_mappings}
+            logger.info(f"[JOB-MAPPING] Found {len(mappings)} active mappings")
+        except Exception as e:
+            logger.error(f"[JOB-MAPPING] ❌ Error loading job mappings: {e}")
+            return job_names
+
+        # Застосовуємо маппінги
+        mapped_names = []
+        for job_name in job_names:
+            if job_name in mappings:
+                mapped_name = mappings[job_name]
+                mapped_names.append(mapped_name)
+                logger.info(f"[JOB-MAPPING] ✅ Mapped: '{job_name}' → '{mapped_name}'")
+            else:
+                mapped_names.append(job_name)
+                logger.info(f"[JOB-MAPPING] ➡️ No mapping for: '{job_name}' (using original)")
+
+        logger.info(f"[JOB-MAPPING] 🎯 Final mapped jobs: {mapped_names}")
+        return mapped_names
+
+    def post(self, request, *args, **kwargs):
+        logger.info("[WEBHOOK] Received POST /webhook/")
+        raw = request.data or {}
+        payload = raw.get("payload") if isinstance(raw.get("payload"), dict) else raw
+        logger.info(f"[WEBHOOK] Parsed payload keys: {list(payload.keys())}")
+
+        updates = payload.get("data", {}).get("updates", [])
+        logger.info(f"[WEBHOOK] Found {len(updates)} update(s)")
+        if not updates:
+            logger.info("[WEBHOOK] No updates → returning 204")
+            return Response({"status": "no updates"}, status=status.HTTP_204_NO_CONTENT)
+
+        ev_ser = EventSerializer(data={"payload": payload})
+        if not ev_ser.is_valid():
+            logger.error(f"[WEBHOOK] EventSerializer errors: {ev_ser.errors}")
+            return Response(ev_ser.errors, status=status.HTTP_400_BAD_REQUEST)
+        ev = ev_ser.save()
+        logger.info(f"[WEBHOOK] Saved raw Event id={ev.id}")
+
+        lead_ids = set()
+        for upd in updates:
+            lid = upd.get("lead_id")
+            if lid:
+                lead_ids.add(lid)
+                logger.info(
+                    f"[WEBHOOK] =============== LEAD VERIFICATION TRIGGER ==============="
+                )
+                logger.info(
+                    f"[WEBHOOK] Checking ProcessedLead for lead_id={lid}"
+                )
+                logger.info(
+                    f"[WEBHOOK] Current update event_type: {upd.get('event_type')}"
+                )
+                logger.info(
+                    f"[WEBHOOK] Current update user_type: {upd.get('user_type')}"
+                )
+                logger.info(
+                    f"[WEBHOOK] Current update user_display_name: {upd.get('user_display_name', '')}"
+                )
+                
+                # Check if ProcessedLead exists
+                processed_lead_exists = ProcessedLead.objects.filter(lead_id=lid).exists()
+                logger.info(f"[WEBHOOK] ProcessedLead exists for {lid}: {processed_lead_exists}")
+                
+                event_type_check = upd.get("event_type") != "NEW_LEAD"
+                logger.info(f"[WEBHOOK] Event type is not NEW_LEAD: {event_type_check}")
+                
+                if event_type_check and not processed_lead_exists:
+                    logger.info(f"[WEBHOOK] 🔍 TRIGGERING NEW LEAD VERIFICATION for {lid}")
+                    logger.info(f"[WEBHOOK] Reason: event_type='{upd.get('event_type')}' AND ProcessedLead doesn't exist")
+                    logger.info(f"[WEBHOOK] Business ID for verification: {payload['data'].get('id')}")
+                    
+                    check = self._is_new_lead(lid, payload["data"].get("id"))
+                    
+                    logger.info(f"[WEBHOOK] ============= NEW LEAD VERIFICATION RESULT =============")
+                    logger.info(f"[WEBHOOK] Lead ID: {lid}")
+                    logger.info(f"[WEBHOOK] Verification result: {check}")
+                    logger.info(f"[WEBHOOK] Is new lead: {check.get('new_lead')}")
+                    logger.info(f"[WEBHOOK] Reason: {check.get('reason')}")
+                    
+                    if check.get("new_lead"):
+                        logger.info(f"[WEBHOOK] ✅ CONVERTING EVENT TO NEW_LEAD for {lid}")
+                        upd["event_type"] = "NEW_LEAD"
+                        logger.info(
+                            f"[WEBHOOK] Successfully marked lead={lid} as NEW_LEAD via events check"
+                        )
+                        logger.info(f"[WEBHOOK] Original event_type was: {upd.get('event_type', 'UNKNOWN')}")
+                        logger.info(f"[WEBHOOK] New event_type is: NEW_LEAD")
+                    else:
+                        logger.warning(f"[WEBHOOK] ❌ LEAD NOT VERIFIED AS NEW for {lid}")
+                        logger.warning(
+                            "[WEBHOOK] _is_new_lead returned False for lead=%s: %s",
+                            lid,
+                            check.get("reason"),
+                        )
+                        logger.info(f"[WEBHOOK] Lead {lid} will be processed as regular event, not new lead")
+                    logger.info(f"[WEBHOOK] ================================================")
+                else:
+                    if not event_type_check:
+                        logger.info(f"[WEBHOOK] ⏭️ SKIPPING new lead check for {lid}: event_type is already NEW_LEAD")
+                    if processed_lead_exists:
+                        logger.info(f"[WEBHOOK] ⏭️ SKIPPING new lead check for {lid}: ProcessedLead already exists")
+                    logger.info(f"[WEBHOOK] No new lead verification needed for {lid}")
+                    
+                if upd.get("event_type") == "CONSUMER_PHONE_NUMBER_OPT_IN_EVENT":
+                    logger.info(f"[WEBHOOK] 📱 CONSUMER_PHONE_NUMBER_OPT_IN_EVENT detected")
+                    logger.info(f"[WEBHOOK] ========== PHONE OPT-IN EVENT → NO PHONE SCENARIO ==========")
+                    logger.info(f"[WEBHOOK] Lead ID: {lid}")
+                    logger.info(f"[WEBHOOK] Event type: CONSUMER_PHONE_NUMBER_OPT_IN_EVENT")
+                    logger.info(f"[WEBHOOK] 🔄 UNIFIED LOGIC: Phone opt-in → No Phone scenario")
+                    logger.info(f"[WEBHOOK] =================== PHONE OPT-IN EVENT DETAILS ===================")
+                    logger.info(f"[WEBHOOK] 📱 Consumer agreed to provide phone number via Yelp interface")
+                    logger.info(f"[WEBHOOK] 🎯 NEW BEHAVIOR: Will use No Phone scenario instead of separate logic")
+                    logger.info(f"[WEBHOOK] 📋 What happens next:")
+                    logger.info(f"[WEBHOOK] - LeadDetail.phone_opt_in set to True (for frontend badge)")
+                    logger.info(f"[WEBHOOK] - No separate phone opt-in tasks created")
+                    logger.info(f"[WEBHOOK] - Uses existing No Phone templates and follow-ups")
+                    logger.info(f"[WEBHOOK] - Frontend shows 'Phone Opt-In' badge for identification")
+                    logger.info(f"[WEBHOOK] About to update LeadDetail.phone_opt_in to True (for frontend display)")
+                    
+                    updated = LeadDetail.objects.filter(
+                        lead_id=lid, phone_opt_in=False
+                    ).update(phone_opt_in=True)
+                    
+                    logger.info(f"[WEBHOOK] LeadDetail update result:")
+                    logger.info(f"[WEBHOOK] - Records updated: {updated}")
+                    logger.info(f"[WEBHOOK] - phone_opt_in set to True for tracking purposes")
+                    
+                    if updated:
+                        logger.info(f"[WEBHOOK] ✅ Phone opt-in flag updated successfully")
+                        logger.info(f"[WEBHOOK] 🎯 NEW BEHAVIOR: Using No Phone scenario for phone opt-in")
+                        logger.info(f"[WEBHOOK] Phone opt-in leads will use same templates as No Phone leads")
+                        logger.info(f"[WEBHOOK] ✅ No additional handler needed - No Phone scenario handles everything")
+                    else:
+                        logger.warning(f"[WEBHOOK] ⚠️ No LeadDetail records updated")
+                        logger.warning(f"[WEBHOOK] This means the lead already had phone_opt_in=True")
+                    
+                    logger.info(f"[WEBHOOK] =======================================")
+                        
+                logger.debug(
+                    f"[WEBHOOK] Update for lead_id={lid}: "
+                    f"event_type={upd.get('event_type')}, "
+                    f"user_type={upd.get('user_type')}, "
+                    f"user_display_name={upd.get('user_display_name', '')}"
+                )
+                if (
+                    upd.get("event_type") == "NEW_EVENT"
+                    and upd.get("user_type") == "CONSUMER"
+                ):
+                    logger.info(
+                        f"[WEBHOOK] Consumer NEW_EVENT passed check for lead_id={lid}"
+                    )
+                    content = upd.get("event_content", {}) or {}
+                    text = content.get("text") or content.get("fallback_text", "")
+                    phone = _extract_phone(text)
+                    has_phone = bool(phone)
+                    pending = LeadPendingTask.objects.filter(
+                        lead_id=lid,
+                        phone_available=False,
+                        active=True,
+                    ).exists()
+                    if has_phone:
+                        LeadDetail.objects.filter(lead_id=lid).update(
+                            phone_in_text=True, phone_number=phone
+                        )
+                        try:
+                            from .utils import update_phone_in_sheet
+
+                            update_phone_in_sheet(lid, phone)
+                        except Exception:
+                            logger.exception(
+                                "[WEBHOOK] Failed to update phone in sheet"
+                            )
+                        updated = True
+                        trigger = updated or pending
+                        if trigger:
+                            reason = (
+                                "Client responded with a number → switched to the 'phone available' scenario"
+                                if pending
+                                else None
+                            )
+                            self.handle_phone_available(lid, reason=reason)
+                    elif pending:
+                        reason = "Client responded, but no number was found"
+                        logger.info(f"[WEBHOOK] 💬 REGULAR CONSUMER RESPONSE - cancelling no-phone tasks")
+                        self._cancel_no_phone_tasks(lid, reason=reason)
+                        
+                        # Check what tasks remain after no-phone cancellation
+                        remaining_after_regular = LeadPendingTask.objects.filter(lead_id=lid, active=True)
+                        logger.info(f"[WEBHOOK] 📊 TASKS AFTER NO-PHONE CANCELLATION: {remaining_after_regular.count()}")
+                else:
+                    reasons = []
+                    if upd.get("event_type") != "NEW_EVENT":
+                        reasons.append(f"event_type={upd.get('event_type')}")
+                    if upd.get("user_type") != "CONSUMER":
+                        reasons.append(f"user_type={upd.get('user_type')}")
+                    logger.debug(
+                        "[WEBHOOK] Update did not pass consumer NEW_EVENT check for lead_id=%s (%s)",
+                        lid,
+                        ", ".join(reasons) or "unknown",
+                    )
+        logger.info(f"[WEBHOOK] Lead IDs to process: {lead_ids}")
+
+        logger.info("[WEBHOOK] ================= PROCESSING NEW LEAD EVENTS =================")
+        new_lead_updates = [upd for upd in updates if upd.get("event_type") == "NEW_LEAD"]
+        logger.info(f"[WEBHOOK] Found {len(new_lead_updates)} NEW_LEAD events to process")
+        
+        for upd in updates:
+            if upd.get("event_type") == "NEW_LEAD":
+                lid = upd["lead_id"]
+                business_id = payload["data"]["id"]
+                
+                logger.info(f"[WEBHOOK] 🆕 PROCESSING NEW LEAD EVENT")
+                logger.info(f"[WEBHOOK] Lead ID: {lid}")
+                logger.info(f"[WEBHOOK] Business ID: {business_id}")
+                logger.info(f"[WEBHOOK] Update details: {upd}")
+                
+                logger.info(f"[WEBHOOK] Attempting to create/get ProcessedLead record")
+                
+                try:
+                    pl, created = ProcessedLead.objects.get_or_create(
+                        business_id=business_id,
+                        lead_id=lid,
+                    )
+                    
+                    logger.info(f"[WEBHOOK] ProcessedLead operation result:")
+                    logger.info(f"[WEBHOOK] - Record ID: {pl.id}")
+                    logger.info(f"[WEBHOOK] - Was created: {created}")
+                    logger.info(f"[WEBHOOK] - Business ID: {pl.business_id}")
+                    logger.info(f"[WEBHOOK] - Lead ID: {pl.lead_id}")
+                    logger.info(f"[WEBHOOK] - Processed at: {pl.processed_at}")
+                    
+                    if created:
+                        logger.info(f"[WEBHOOK] ✅ NEW ProcessedLead created successfully")
+                        logger.info(f"[WEBHOOK] Created ProcessedLead id={pl.id} for lead={lid}")
+                        logger.info(f"[WEBHOOK] 🚀 TRIGGERING handle_new_lead for lead={lid}")
+                        logger.info(f"[WEBHOOK] This will start auto-response flow")
+                        
+                        self.handle_new_lead(lid)
+                        
+                        logger.info(f"[WEBHOOK] ✅ handle_new_lead completed for lead={lid}")
+                    else:
+                        logger.warning(f"[WEBHOOK] ⚠️ ProcessedLead already exists")
+                        logger.info(f"[WEBHOOK] Lead {lid} already processed; skipping handle_new_lead")
+                        logger.info(f"[WEBHOOK] Existing record created at: {pl.processed_at}")
+                        logger.info(f"[WEBHOOK] This indicates the lead was processed before")
+                        
+                except Exception as e:
+                    logger.error(f"[WEBHOOK] ❌ ERROR creating ProcessedLead for {lid}: {e}")
+                    logger.error(f"[WEBHOOK] Exception details: {type(e).__name__}: {str(e)}")
+                    
+                logger.info(f"[WEBHOOK] ================================================")
+            elif upd.get("event_type") == "CONSUMER_PHONE_NUMBER_OPT_IN_EVENT":
+                # Handle phone opt-in event to set badge for frontend
+                logger.info(f"[WEBHOOK] 📱 CONSUMER_PHONE_NUMBER_OPT_IN_EVENT detected (main handler)")
+                logger.info(f"[WEBHOOK] ========== PHONE OPT-IN → NO PHONE SCENARIO (MAIN LOOP) ========")
+                logger.info(f"[WEBHOOK] Lead ID: {lid}")
+                logger.info(f"[WEBHOOK] Event type: CONSUMER_PHONE_NUMBER_OPT_IN_EVENT")
+                logger.info(f"[WEBHOOK] 🔄 UNIFIED LOGIC: Phone opt-in → No Phone scenario")
+                logger.info(f"[WEBHOOK] About to update LeadDetail.phone_opt_in to True (for frontend display)")
+                
+                updated = LeadDetail.objects.filter(
+                    lead_id=lid, phone_opt_in=False
+                ).update(phone_opt_in=True)
+                
+                logger.info(f"[WEBHOOK] LeadDetail update result:")
+                logger.info(f"[WEBHOOK] - Records updated: {updated}")
+                logger.info(f"[WEBHOOK] - phone_opt_in set to True for tracking purposes")
+                
+                if updated:
+                    logger.info(f"[WEBHOOK] ✅ Phone opt-in badge set successfully for frontend")
+                else:
+                    logger.warning(f"[WEBHOOK] ⚠️ No LeadDetail records updated")
+                    logger.warning(f"[WEBHOOK] This means the lead already had phone_opt_in=True")
+                
+                logger.info(f"[WEBHOOK] =======================================")
+            else:
+                logger.debug(f"[WEBHOOK] Skipping non-NEW_LEAD event: {upd.get('event_type')} for {upd.get('lead_id')}")
+
+        biz_id = payload["data"].get("id")
+        for lid in lead_ids:
+            try:
+                token = get_valid_business_token(biz_id)
+                logger.info(
+                    f"[WEBHOOK] Using business token for lead={lid}: {token}"
+                )
+            except ValueError:
+                logger.error(
+                    f"[WEBHOOK] Missing Yelp token for business={biz_id}; "
+                    f"skipping lead={lid}"
+                )
+                continue
+            except Exception:
+                logger.exception(
+                    f"[WEBHOOK] Error obtaining token for business={biz_id} "
+                    f"lead={lid}"
+                )
+                continue
+            url = f"https://api.yelp.com/v3/leads/{lid}/events"
+            params = {"limit": 20}
+            resp = requests.get(
+                url, headers={"Authorization": f"Bearer {token}"}, params=params
+            )
+            logger.info(
+                f"[WEBHOOK] Yelp response status for lead={lid}: {resp.status_code}"
+            )
+
+            if resp.status_code != 200:
+                logger.error(
+                    f"[WEBHOOK] Failed to fetch events for lead={lid}: {resp.text}"
+                )
+                continue
+
+            events = resp.json().get("events", [])
+            logger.info(f"[WEBHOOK] Received {len(events)} events for lead={lid}")
+
+            for e in events:
+                # Store every event but process phone logic only for new ones
+                # The first consumer message that created the lead often lacks
+                # a phone number.  We don't want that initial message to cancel
+                # auto-response tasks, so we compare the event time with the
+                # moment the lead was processed and skip older events.
+                eid = e["id"]
+                defaults = {
+                    "lead_id": lid,
+                    "event_type": e.get("event_type"),
+                    "user_type": e.get("user_type"),
+                    "user_id": e.get("user_id"),
+                    "user_display_name": e.get("user_display_name", ""),
+                    "text": e["event_content"].get("text")
+                    or e["event_content"].get("fallback_text", ""),
+                    "cursor": e.get("cursor", ""),
+                    "time_created": e.get("time_created"),
+                    "raw": e,
+                    "from_backend": False,
+                }
+                
+                # Покращена логіка визначення from_backend
+                text = defaults.get("text", "")
+                event_time_str = e.get("time_created")
+                event_time = parse_datetime(event_time_str) if event_time_str else None
+                
+                # Normalize text for comparison (MOVE UP!)
+                normalized_text = normalize_text_for_comparison(text)
+                
                 # Спосіб 1: Перевірка чи вже існує аналогічний LeadEvent з from_backend=True
-                if text and LeadEvent.objects.filter(
-                    lead_id=lid, text=text, from_backend=True
+                logger.info(f"[WEBHOOK] 🔍 CHECKING LeadEvent for exact text match")
+                logger.info(f"[WEBHOOK] - Lead ID: {lid}")
+                logger.info(f"[WEBHOOK] - Text length: {len(text) if text else 0}")
+                logger.info(f"[WEBHOOK] - Text hash: {hash(text) if text else 'None'}")
+                logger.info(f"[WEBHOOK] - Text preview: '{text[:100]}...' " + ("" if len(text) <= 100 else f"(+{len(text)-100} more chars)"))
+                logger.info(f"[WEBHOOK] - Normalized text: '{normalized_text}'")
+                logger.info(f"[WEBHOOK] - Normalized hash: {hash(normalized_text) if normalized_text else 'None'}")
+                
+                existing_events = LeadEvent.objects.filter(lead_id=lid, from_backend=True)
+                logger.info(f"[WEBHOOK] - Found {existing_events.count()} existing from_backend=True events")
+                
+                if existing_events.exists():
+                    logger.info(f"[WEBHOOK] - Comparing with existing texts:")
+                    for i, event in enumerate(existing_events[:3]):
+                        normalized_event_text = normalize_text_for_comparison(event.text)
+                        text_match = normalized_event_text == normalized_text  # NOW normalized_text EXISTS!
+                        logger.info(f"[WEBHOOK]   Event {i+1}: match={text_match}, length={len(event.text)}, hash={hash(event.text)}")
+                        logger.info(f"[WEBHOOK]   Event {i+1} normalized: hash={hash(normalized_event_text)}")
+                        logger.info(f"[WEBHOOK]   Event {i+1} text: '{event.text[:100]}...' " + ("" if len(event.text) <= 100 else f"(+{len(event.text)-100} more chars)"))
+                
+                # Normalize text for comparison
+                normalized_text = normalize_text_for_comparison(text)
+                logger.info(f"[WEBHOOK] - Normalized text: '{normalized_text}'")
+                logger.info(f"[WEBHOOK] - Normalized hash: {hash(normalized_text) if normalized_text else 'None'}")
+                
+                if normalized_text and LeadEvent.objects.filter(
+                    lead_id=lid, text=normalized_text, from_backend=True
                 ).exists():
                     defaults["from_backend"] = True
-                    logger.info(f"[WEBHOOK] 🔍 Setting from_backend=True (previously sent by us)")
+                    logger.info(f"[WEBHOOK] ✅ EXACT MATCH FOUND - Setting from_backend=True (previously sent by us)")
+                else:
+                    logger.info(f"[WEBHOOK] ❌ NO EXACT MATCH - from_backend remains False")
                 
                 # Спосіб 2: Перевірка чи текст співпадає з активним або недавнім LeadPendingTask
                 if not defaults["from_backend"] and text:
-                    # Активні завдання
+                    logger.info(f"[WEBHOOK] 🔍 CHECKING LeadPendingTask for text match")
+                    
+                    # Показати всі завдання для цього ліда
+                    all_tasks = LeadPendingTask.objects.filter(lead_id=lid)
+                    logger.info(f"[WEBHOOK] - Found {all_tasks.count()} total LeadPendingTask records for lead")
+                    
+                    # Активні завдання (заплановані фоловапи)
+                    active_tasks = LeadPendingTask.objects.filter(lead_id=lid, active=True)
+                    logger.info(f"[WEBHOOK] - Found {active_tasks.count()} active tasks")
+                    
+                    for i, task in enumerate(active_tasks[:5]):
+                        normalized_task_text = normalize_text_for_comparison(task.text)
+                        text_match = normalized_task_text == normalized_text
+                        logger.info(f"[WEBHOOK]   Active Task {i+1}: match={text_match}, length={len(task.text)}, hash={hash(task.text)}")
+                        logger.info(f"[WEBHOOK]   Active Task {i+1} normalized: hash={hash(normalized_task_text)}")
+                        logger.info(f"[WEBHOOK]   Active Task {i+1} text: '{task.text[:100]}...' " + ("" if len(task.text) <= 100 else f"(+{len(task.text)-100} more chars)"))
+                    
                     matching_active = LeadPendingTask.objects.filter(
-                        lead_id=lid, text=text, active=True
+                        lead_id=lid, text=normalized_text, active=True
                     ).exists()
                     
                     # Недавно виконані завдання (останні 10 хвилин)
                     from django.utils import timezone
                     ten_minutes_ago = timezone.now() - timezone.timedelta(minutes=10)
+                    recent_tasks = LeadPendingTask.objects.filter(lead_id=lid, active=False, created_at__gte=ten_minutes_ago)
+                    logger.info(f"[WEBHOOK] - Found {recent_tasks.count()} recent tasks (last 10 min)")
+                    
+                    for i, task in enumerate(recent_tasks[:5]):
+                        normalized_task_text = normalize_text_for_comparison(task.text)
+                        text_match = normalized_task_text == normalized_text
+                        logger.info(f"[WEBHOOK]   Recent Task {i+1}: match={text_match}, length={len(task.text)}, hash={hash(task.text)}")
+                        logger.info(f"[WEBHOOK]   Recent Task {i+1} normalized: hash={hash(normalized_task_text)}")
+                        logger.info(f"[WEBHOOK]   Recent Task {i+1} text: '{task.text[:100]}...' " + ("" if len(task.text) <= 100 else f"(+{len(task.text)-100} more chars)"))
+                    
                     matching_recent = LeadPendingTask.objects.filter(
-                        lead_id=lid, text=text, active=False, created_at__gte=ten_minutes_ago
+                        lead_id=lid, text=normalized_text, active=False, created_at__gte=ten_minutes_ago
                     ).exists()
                     
                     if matching_active or matching_recent:
                         defaults["from_backend"] = True
-                        logger.info(f"[WEBHOOK] 🔍 Setting from_backend=True (matches LeadPendingTask)")
+                        logger.info(f"[WEBHOOK] ✅ TASK MATCH FOUND - Setting from_backend=True (matches LeadPendingTask)")
+                        logger.info(f"[WEBHOOK] Active match: {matching_active}, Recent match: {matching_recent}")
+                    else:
+                        logger.info(f"[WEBHOOK] ❌ NO TASK MATCH - from_backend remains False")
                 
-                # Спосіб 3: Timing-based detection для BIZ/BUSINESS events
-                if (not defaults["from_backend"] and 
-                    defaults.get("user_type") in ("BIZ", "BUSINESS") and 
-                    event_time):
-                    
-                    processed_at = (
-                        ProcessedLead.objects.filter(lead_id=lid)
-                        .values_list("processed_at", flat=True)
-                        .first()
-                    )
-                    
-                    if processed_at:
-                        time_diff = (event_time - processed_at).total_seconds()
-                        # Якщо BIZ повідомлення прийшло менше ніж через 5 хвилин після обробки
-                        if 0 < time_diff < 300:
-                            defaults["from_backend"] = True
-                            logger.info(f"[WEBHOOK] 🔍 Setting from_backend=True (BIZ timing: {time_diff:.1f}s)")
-                
-                # Спосіб 4: Content-based patterns для автоматичних повідомлень
-                if not defaults["from_backend"] and text:
-                    auto_patterns = [
-                        "Hi there! Could you help me with my project?",
-                        "Thank you for reaching out",
-                        "We received your inquiry",
-                        "Hello! I'm excited to help",
-                        "Thanks for your interest",
-                        "Hi! I'd love to help",
-                        "Thank you for contacting",
-                        "Hello there!",
-                        "Hi! Thanks for reaching out",
-                        "Great to hear from you"
-                    ]
-                    
-                    for pattern in auto_patterns:
-                        if pattern.lower() in text.lower():
-                            defaults["from_backend"] = True
-                            logger.info(f"[WEBHOOK] 🔍 Setting from_backend=True (content pattern)")
-                            break
+                # Other detection methods removed - LeadEvent + LeadPendingTask checks are sufficient
                 
                 logger.info(f"[WEBHOOK] Upserting LeadEvent id={eid} for lead={lid}")
                 logger.info(f"[WEBHOOK] from_backend flag set to: {defaults['from_backend']}")
@@ -604,6 +1278,26 @@ class WebhookView(APIView):
                 # ✅ НОВИЙ КОД: Перевіряємо чи це справжня нова подія клієнта
                 
                 # Справжня нова подія = створена в БД AND час події після обробки ліда
+                logger.info(f"[WEBHOOK] 🔍 DETAILED EVENT ANALYSIS for lead={lid}, event_id={eid}")
+                logger.info(f"[WEBHOOK] =================== IS_NEW CALCULATION ===================")
+                logger.info(f"[WEBHOOK] Event details:")
+                logger.info(f"[WEBHOOK] - Event ID: {eid}")
+                logger.info(f"[WEBHOOK] - Event type: {e.get('event_type')}")
+                logger.info(f"[WEBHOOK] - User type: {e.get('user_type')}")
+                logger.info(f"[WEBHOOK] - User display name: '{e.get('user_display_name', '')}'")
+                logger.info(f"[WEBHOOK] - Text: '{text[:50]}...'")
+                logger.info(f"[WEBHOOK] - Time created: {event_time_str}")
+                logger.info(f"[WEBHOOK] IS_NEW components:")
+                logger.info(f"[WEBHOOK] - created (new in DB): {created}")
+                logger.info(f"[WEBHOOK] - event_time exists: {event_time is not None}")
+                logger.info(f"[WEBHOOK] - processed_at exists: {processed_at is not None}")
+                if event_time and processed_at:
+                    time_diff = (event_time - processed_at).total_seconds()
+                    logger.info(f"[WEBHOOK] - event_time > processed_at: {event_time > processed_at}")
+                    logger.info(f"[WEBHOOK] - Time difference: {time_diff:.1f} seconds")
+                else:
+                    logger.info(f"[WEBHOOK] - Cannot compare times (missing data)")
+                
                 is_really_new_event = (
                     created and 
                     event_time and 
@@ -611,23 +1305,28 @@ class WebhookView(APIView):
                     event_time > processed_at
                 )
                 
-                logger.info(f"[WEBHOOK] 🔍 EVENT ANALYSIS for lead={lid}, event_id={eid}")
-                logger.info(f"[WEBHOOK] - Record created in DB: {created}")
-                logger.info(f"[WEBHOOK] - Event time: {event_time_str}")
-                logger.info(f"[WEBHOOK] - Lead processed at: {processed_at}")
-                logger.info(f"[WEBHOOK] - Event after processing: {event_time > processed_at if event_time and processed_at else 'Cannot determine'}")
-                logger.info(f"[WEBHOOK] - Is really new client event: {is_really_new_event}")
+                logger.info(f"[WEBHOOK] 🎯 FINAL IS_NEW RESULT: {is_really_new_event}")
+                logger.info(f"[WEBHOOK] ========================================")
                 
                 # Замінюємо is_new на is_really_new_event
                 is_new = is_really_new_event
 
                 if e.get("event_type") == "CONSUMER_PHONE_NUMBER_OPT_IN_EVENT":
                     logger.info(f"[WEBHOOK] 📱 CONSUMER_PHONE_NUMBER_OPT_IN_EVENT detected (second handler)")
-                    logger.info(f"[WEBHOOK] ======== PHONE OPT-IN EVENT (EVENTS LOOP) ========")
+                    logger.info(f"[WEBHOOK] ========== PHONE OPT-IN → NO PHONE SCENARIO (EVENTS LOOP) ========")
                     logger.info(f"[WEBHOOK] Lead ID: {lid}")
                     logger.info(f"[WEBHOOK] Event ID: {eid}")
                     logger.info(f"[WEBHOOK] Event type: CONSUMER_PHONE_NUMBER_OPT_IN_EVENT")
-                    logger.info(f"[WEBHOOK] About to update LeadDetail.phone_opt_in to True")
+                    logger.info(f"[WEBHOOK] 🔄 UNIFIED LOGIC: Phone opt-in → No Phone scenario")
+                    logger.info(f"[WEBHOOK] =================== PHONE OPT-IN EVENT DETAILS ===================")
+                    logger.info(f"[WEBHOOK] 📱 Consumer agreed to provide phone number via Yelp interface")
+                    logger.info(f"[WEBHOOK] 🎯 NEW BEHAVIOR: Will use No Phone scenario instead of separate logic")
+                    logger.info(f"[WEBHOOK] 📋 What happens next:")
+                    logger.info(f"[WEBHOOK] - LeadDetail.phone_opt_in set to True (for frontend badge)")
+                    logger.info(f"[WEBHOOK] - No separate phone opt-in tasks created")
+                    logger.info(f"[WEBHOOK] - Uses existing No Phone templates and follow-ups")
+                    logger.info(f"[WEBHOOK] - Frontend shows 'Phone Opt-In' badge for identification")
+                    logger.info(f"[WEBHOOK] About to update LeadDetail.phone_opt_in to True (for frontend display)")
                     
                     updated = LeadDetail.objects.filter(
                         lead_id=lid, phone_opt_in=False
@@ -635,18 +1334,16 @@ class WebhookView(APIView):
                     
                     logger.info(f"[WEBHOOK] LeadDetail update result:")
                     logger.info(f"[WEBHOOK] - Records updated: {updated}")
-                    logger.info(f"[WEBHOOK] - This means {updated} LeadDetail(s) had phone_opt_in changed from False to True")
+                    logger.info(f"[WEBHOOK] - phone_opt_in set to True for tracking purposes")
                     
                     if updated:
-                        logger.info(f"[WEBHOOK] ✅ Phone opt-in updated successfully")
-                        logger.info(f"[WEBHOOK] 🚀 TRIGGERING handle_phone_opt_in (from events loop)")
-                        logger.info(f"[WEBHOOK] This will call _process_auto_response with phone_opt_in=True, phone_available=False")
-                        self.handle_phone_opt_in(lid)
-                        logger.info(f"[WEBHOOK] ✅ handle_phone_opt_in completed")
+                        logger.info(f"[WEBHOOK] ✅ Phone opt-in flag updated successfully")
+                        logger.info(f"[WEBHOOK] 🎯 NEW BEHAVIOR: Phone opt-in uses No Phone scenario")
+                        logger.info(f"[WEBHOOK] Phone opt-in leads will get No Phone templates and follow-ups")
+                        logger.info(f"[WEBHOOK] ✅ No separate handler needed - unified with No Phone scenario")
                     else:
                         logger.warning(f"[WEBHOOK] ⚠️ No LeadDetail records updated")
                         logger.warning(f"[WEBHOOK] This means the lead already had phone_opt_in=True")
-                        logger.warning(f"[WEBHOOK] No additional auto-response will be triggered")
                     
                     logger.info(f"[WEBHOOK] ==============================================")
 
@@ -658,9 +1355,66 @@ class WebhookView(APIView):
                     if has_phone:
                         logger.info(f"[WEBHOOK] Extracted phone: {phone}")
                     
+                    # 🔄 UNIFIED LOGIC: Phone opt-in responses treated as No Phone responses
+                    logger.info(f"[WEBHOOK] 🔍 CHECKING FOR PHONE OPT-IN CONSUMER RESPONSE")
+                    ld_flags = LeadDetail.objects.filter(lead_id=lid).values("phone_opt_in", "phone_number").first()
+                    logger.info(f"[WEBHOOK] LeadDetail flags: {ld_flags}")
+                    
+                    # Show existing tasks before any processing
+                    all_existing_tasks = LeadPendingTask.objects.filter(lead_id=lid, active=True)
+                    logger.info(f"[WEBHOOK] 📊 ALL EXISTING ACTIVE TASKS: {all_existing_tasks.count()}")
+                    for task in all_existing_tasks:
+                        logger.info(f"[WEBHOOK] - Task {task.task_id}: phone_available={task.phone_available}")
+                    
+                    if (ld_flags and ld_flags.get("phone_opt_in")):
+                        logger.info(f"[WEBHOOK] 📱 PHONE OPT-IN CONSUMER RESPONSE → TREAT AS NO PHONE")
+                        logger.info(f"[WEBHOOK] ========== PHONE OPT-IN → NO PHONE UNIFIED LOGIC ==========")
+                        logger.info(f"[WEBHOOK] Lead ID: {lid}")
+                        logger.info(f"[WEBHOOK] Event ID: {eid}")
+                        logger.info(f"[WEBHOOK] Phone opt-in flag: {ld_flags.get('phone_opt_in')}")
+                        logger.info(f"[WEBHOOK] 🔄 UNIFIED RESPONSE LOGIC: Phone opt-in → No Phone")
+                        logger.info(f"[WEBHOOK] =================== PHONE OPT-IN CONSUMER RESPONSE ===================")
+                        logger.info(f"[WEBHOOK] 📱 This is a phone opt-in lead that consumer is responding to")
+                        logger.info(f"[WEBHOOK] 🎯 NEW SYSTEM: Phone opt-in responses treated as No Phone responses")
+                        logger.info(f"[WEBHOOK] 📋 What this means:")
+                        logger.info(f"[WEBHOOK] - Uses No Phone cancellation logic")
+                        logger.info(f"[WEBHOOK] - Uses No Phone SMS templates")
+                        logger.info(f"[WEBHOOK] - Frontend still shows 'Phone Opt-In' badge")
+                        logger.info(f"[WEBHOOK] - Unified experience with regular no-phone responses")
+                        
+                        if not has_phone:
+                            # Споживач відповів без номера - використовуємо No Phone логіку
+                            reason = "Consumer replied to phone opt-in flow (treated as No Phone response)"
+                            logger.info(f"[WEBHOOK] 💬 USING NO PHONE LOGIC for phone opt-in response")
+                            self._cancel_no_phone_tasks(lid, reason=reason)
+                            
+                            # Check what tasks remain after cancellation
+                            remaining_tasks = LeadPendingTask.objects.filter(lid=lid, active=True)
+                            logger.info(f"[WEBHOOK] 📊 TASKS AFTER NO PHONE CANCELLATION: {remaining_tasks.count()}")
+                            
+                            # Send customer reply SMS (No Phone scenario)
+                            logger.info(f"[WEBHOOK] 📱 SENDING No Phone scenario SMS for phone opt-in response")
+                            self._send_customer_reply_sms_only(lid)
+                        else:
+                            # Споживач надав номер - переключаємося на Phone Available
+                            logger.info(f"[WEBHOOK] 📞 Phone opt-in consumer provided phone → Phone Available scenario")
+                            
+                            # Update LeadDetail with phone
+                            ld = LeadDetail.objects.get(lead_id=lid)
+                            ld.phone_in_text = True
+                            ld.phone_number = phone
+                            ld.phone_sms_sent = False
+                            ld.save(update_fields=['phone_in_text', 'phone_number', 'phone_sms_sent'])
+                            
+                            reason = "Phone opt-in consumer provided phone → Phone Available scenario"
+                            logger.info(f"[WEBHOOK] 🚀 SWITCHING to handle_phone_available")
+                            self.handle_phone_available(lid, reason=reason)
+                        
+                        logger.info(f"[WEBHOOK] ==============================================")
+                        continue  # Skip regular pending tasks logic
+                    
                     pending = LeadPendingTask.objects.filter(
                         lead_id=lid,
-                        phone_opt_in=False,
                         phone_available=False,
                         active=True,
                     ).exists()
@@ -704,13 +1458,13 @@ class WebhookView(APIView):
                             reason = "Client responded with a number → switched to the 'phone available' scenario"
                             logger.info(f"[WEBHOOK] 🔄 SWITCHING TO PHONE AVAILABLE scenario")
                             logger.info(f"[WEBHOOK] 🚀 TRIGGERING handle_phone_available (pending tasks exist)")
-                            logger.info(f"[WEBHOOK] This will call _process_auto_response with phone_opt_in=False, phone_available=True")
+                            logger.info(f"[WEBHOOK] This will call _process_auto_response with phone_available=True")
                             self.handle_phone_available(lid, reason=reason)
                             logger.info(f"[WEBHOOK] ✅ handle_phone_available completed")
                         else:
                             logger.info(f"[WEBHOOK] 🔄 NO PENDING TASKS - triggering phone available flow")
                             logger.info(f"[WEBHOOK] 🚀 TRIGGERING handle_phone_available (no pending tasks)")
-                            logger.info(f"[WEBHOOK] This will call _process_auto_response with phone_opt_in=False, phone_available=True")
+                            logger.info(f"[WEBHOOK] This will call _process_auto_response with phone_available=True")
                             self.handle_phone_available(lid)
                             logger.info(f"[WEBHOOK] ✅ handle_phone_available completed")
                         
@@ -725,11 +1479,16 @@ class WebhookView(APIView):
                         logger.info(f"[WEBHOOK] Phone number found in text: {has_phone}")
                         logger.info(f"[WEBHOOK] ❗ Customer Reply scenario - cancelling tasks + sending Customer Reply SMS")
                         logger.info(f"[WEBHOOK] 🎯 SMS DECISION ANALYSIS:")
-                        logger.info(f"[WEBHOOK] - Scenario: Customer Reply (phone_opt_in=False, phone_available=False)")
+                        logger.info(f"[WEBHOOK] - Scenario: Customer Reply (phone_available=False)")
                         logger.info(f"[WEBHOOK] - Current behavior: Cancel pending tasks + Customer Reply SMS")
                         
                         reason = "Client responded, but no number was found"
+                        logger.info(f"[WEBHOOK] 💬 REGULAR CONSUMER RESPONSE - cancelling no-phone tasks")
                         self._cancel_no_phone_tasks(lid, reason=reason)
+                        
+                        # Check what tasks remain after no-phone cancellation
+                        remaining_after_regular = LeadPendingTask.objects.filter(lead_id=lid, active=True)
+                        logger.info(f"[WEBHOOK] 📊 TASKS AFTER NO-PHONE CANCELLATION: {remaining_after_regular.count()}")
                         
                         # Send SMS notification for Customer Reply (without follow-up)
                         logger.info(f"[WEBHOOK] 📱 SENDING Customer Reply SMS (no follow-up)")
@@ -744,174 +1503,71 @@ class WebhookView(APIView):
                         logger.info(f"[WEBHOOK] Phone number found in text: {has_phone}")
                         logger.info(f"[WEBHOOK] ❗ Customer Reply scenario detected - no pending tasks to cancel")
                         logger.info(f"[WEBHOOK] 🎯 SMS DECISION ANALYSIS:")
-                        logger.info(f"[WEBHOOK] - Scenario: Customer Reply (phone_opt_in=False, phone_available=False)")
+                        logger.info(f"[WEBHOOK] - Scenario: Customer Reply (phone_available=False)")
                         logger.info(f"[WEBHOOK] - Current behavior: Customer Reply SMS (no follow-up)")
                         
                         # Send SMS notification for Customer Reply (without follow-up)
                         logger.info(f"[WEBHOOK] 📱 SENDING Customer Reply SMS (no follow-up)")
                         self._send_customer_reply_sms_only(lid)
-                elif created and e.get("user_type") == "CONSUMER":
-                    logger.info(f"[WEBHOOK] 📊 CONSUMER EVENT RECORDED but NOT PROCESSED as new")
-                    logger.info(f"[WEBHOOK] Reason: Event happened BEFORE lead processing")
-                    logger.info(f"[WEBHOOK] Event time: {event_time_str}")
-                    logger.info(f"[WEBHOOK] Processed at: {processed_at}")
-                    logger.info(f"[WEBHOOK] This prevents false triggering of task cancellations")
-                elif is_new and defaults.get("user_type") in ("BIZ", "BUSINESS"):
-                    logger.info(f"[WEBHOOK] 🏢 BUSINESS USER EVENT DETECTED")
-                    logger.info(f"[WEBHOOK] Event text: '{text[:100]}...'" + ("" if len(text) <= 100 else " (truncated)"))
-                    logger.info(f"[WEBHOOK] from_backend flag: {defaults.get('from_backend')}")
-                    
-                    # Перевіряємо чи це наше власне повідомлення
-                    is_our_message = False
-                    detection_reasons = []
-                    
-                    # Спосіб 1: Перевірка по from_backend (стара логіка)
-                    if defaults.get("from_backend"):
-                        is_our_message = True
-                        detection_reasons.append("from_backend=True")
-                        logger.info(f"[WEBHOOK] ✅ IDENTIFIED as our message (from_backend=True)")
-                    
-                    # Спосіб 2: Перевірка чи текст відповідає активному або недавно неактивному завданню
-                    if not is_our_message and text:
-                        # Перевіряємо активні задачі
-                        matching_active_tasks = LeadPendingTask.objects.filter(
-                            lead_id=lid,
-                            text=text,
-                            active=True
-                        ).exists()
-                        
-                        # Перевіряємо недавно деактивовані задачі (останні 10 хвилин)
-                        from django.utils import timezone
-                        ten_minutes_ago = timezone.now() - timezone.timedelta(minutes=10)
-                        matching_recent_tasks = LeadPendingTask.objects.filter(
-                            lead_id=lid,
-                            text=text,
-                            active=False,
-                            created_at__gte=ten_minutes_ago
-                        ).exists()
-                        
-                        if matching_active_tasks:
-                            is_our_message = True
-                            detection_reasons.append("matches active task")
-                            logger.info(f"[WEBHOOK] ✅ IDENTIFIED as our message (matches active task)")
-                        elif matching_recent_tasks:
-                            is_our_message = True
-                            detection_reasons.append("matches recently executed task")
-                            logger.info(f"[WEBHOOK] ✅ IDENTIFIED as our message (matches recently executed task)")
-                        else:
-                            logger.info(f"[WEBHOOK] ❌ Text does NOT match any active or recent tasks")
-                    
-                    # Спосіб 3: Перевірка чи текст був відправлений раніше нашою системою
-                    if not is_our_message and text:
-                        sent_by_us = LeadEvent.objects.filter(
-                            lead_id=lid,
-                            text=text,
-                            from_backend=True
-                        ).exists()
-                        if sent_by_us:
-                            is_our_message = True
-                            detection_reasons.append("previously sent by backend")
-                            logger.info(f"[WEBHOOK] ✅ IDENTIFIED as our message (previously sent by backend)")
-                        else:
-                            logger.info(f"[WEBHOOK] ❌ Text was NOT previously sent by our backend")
-                    
-                    # Спосіб 4: Content-based detection (автоматичні патерни)
-                    if not is_our_message and text:
-                        # Патерни що вказують на автоматичні повідомлення
-                        auto_patterns = [
-                            "Hi there! Could you help me with my project?",  # Greeting template
-                            "Thank you for reaching out",
-                            "We received your inquiry",
-                            "Hello! I'm excited to help",
-                            "Thanks for your interest",
-                            "Hi! I'd love to help",
-                            "Thank you for contacting",
-                            "Hello there!",
-                            "Hi! Thanks for reaching out",
-                            "Great to hear from you"
-                        ]
-                        
-                        for pattern in auto_patterns:
-                            if pattern.lower() in text.lower():
-                                is_our_message = True
-                                detection_reasons.append(f"content pattern: '{pattern}'")
-                                logger.info(f"[WEBHOOK] ✅ IDENTIFIED as our message (content pattern: '{pattern}')")
-                                break
-                        
-                        if not is_our_message:
-                            logger.info(f"[WEBHOOK] ❌ Text does NOT match any known automated patterns")
-                    
-                    # Спосіб 5: АГРЕСИВНИЙ timing-based detection
-                    if not is_our_message and event_time and processed_at:
-                        time_diff_seconds = (event_time - processed_at).total_seconds()
-                        logger.info(f"[WEBHOOK] 🕐 Event happened {time_diff_seconds:.1f}s after processing")
-                        
-                        # Якщо повідомлення прийшло менше ніж через 10 хвилин після обробки
-                        if 0 < time_diff_seconds < 600:  # 10 хвилин
-                            # Додаткові індикатори автоматичного повідомлення
-                            likely_automated = False
-                            
-                            # Перевіряємо чи є активні задачі взагалі
-                            has_active_tasks = LeadPendingTask.objects.filter(
-                                lead_id=lid, active=True
-                            ).exists()
-                            
-                            # Якщо є активні задачі і повідомлення в межах 10 хвилин - ймовірно наше
-                            if has_active_tasks and time_diff_seconds < 600:
-                                likely_automated = True
-                                logger.info(f"[WEBHOOK] 🎯 LIKELY automated (has active tasks + timing)")
-                            
-                            # Якщо повідомлення дуже скоро після обробки (менше 5 хвилин) - майже точно наше
-                            if time_diff_seconds < 300:  # 5 хвилин
-                                likely_automated = True
-                                logger.info(f"[WEBHOOK] 🎯 VERY LIKELY automated (timing < 5 min)")
-                            
-                            # Greeting зазвичай надсилається через 1-2 хвилини після обробки
-                            if 60 < time_diff_seconds < 180:  # 1-3 хвилини
-                                likely_automated = True
-                                logger.info(f"[WEBHOOK] 🎯 LIKELY greeting message (timing in greeting window)")
-                            
-                            if likely_automated:
-                                is_our_message = True
-                                detection_reasons.append(f"aggressive timing detection ({time_diff_seconds:.1f}s)")
-                                logger.info(f"[WEBHOOK] ✅ IDENTIFIED as our message (aggressive timing detection)")
-                        else:
-                            logger.info(f"[WEBHOOK] ⏰ Event too late to be automated ({time_diff_seconds:.1f}s)")
-                    
-                    # Спосіб 6: Перевірка user_display_name чи це не система
-                    if not is_our_message:
-                        user_display_name = e.get('user_display_name', '').strip()
-                        business_name_patterns = [
-                            'system', 'automated', 'bot', 'auto', 'yelp',
-                            # Можна додати назву бізнесу якщо відома
-                        ]
-                        
-                        if user_display_name and any(pattern.lower() in user_display_name.lower() for pattern in business_name_patterns):
-                            is_our_message = True
-                            detection_reasons.append(f"user_display_name: '{user_display_name}'")
-                            logger.info(f"[WEBHOOK] ✅ IDENTIFIED as our message (user_display_name: '{user_display_name}')")
-                        else:
-                            logger.info(f"[WEBHOOK] ❌ user_display_name does not suggest automation: '{user_display_name}'")
-                        
-                    # Фінальне рішення
-                    if is_our_message:
-                        logger.info(f"[WEBHOOK] 🤖 CONFIRMED: This is OUR automated message")
-                        logger.info(f"[WEBHOOK] Detection reasons: {', '.join(detection_reasons)}")
-                        logger.info(f"[WEBHOOK] No action needed - this is expected system behavior")
-                    else:
-                        logger.info(f"[WEBHOOK] 👨‍💼 CONFIRMED: Real business user response in Yelp dashboard")
-                        logger.info(f"[WEBHOOK] Will cancel all active tasks as business took over")
-                        reason = "Business user responded in Yelp dashboard"
-                        self._cancel_all_tasks(lid, reason=reason)
-                elif e.get("user_type") == "CONSUMER":
-                    logger.info(f"[WEBHOOK] 📝 CONSUMER EVENT SKIPPED")
-                    logger.info(f"[WEBHOOK] Record already existed in DB - not a new client response")
                 else:
-                    logger.debug(f"[WEBHOOK] 📄 OTHER EVENT TYPE")
-                    logger.debug(f"[WEBHOOK] Event ID: {eid}")
-                    logger.debug(f"[WEBHOOK] User type: {e.get('user_type')}")
-                    logger.debug(f"[WEBHOOK] Event type: {e.get('event_type')}")
-                    logger.debug(f"[WEBHOOK] No action required for this event type")
+                    # Simplified event processing with detailed logging
+                    user_type = e.get("user_type")
+                    logger.info(f"[WEBHOOK] 🔍 OTHER EVENT PROCESSING:")
+                    logger.info(f"[WEBHOOK] - Event type: {e.get('event_type')}")
+                    logger.info(f"[WEBHOOK] - User type: '{user_type}'")
+                    logger.info(f"[WEBHOOK] - Is new: {is_new}")
+                    logger.info(f"[WEBHOOK] - Text: '{text[:50]}...'")
+                    logger.info(f"[WEBHOOK] - Created in DB: {created}")
+                    
+                    # Check for BIZ events that might be manual business messages
+                    if user_type == "BIZ" and text:
+                        logger.info(f"[WEBHOOK] 🏢 BIZ EVENT DETECTED - Checking if manual or automated")
+                        logger.info(f"[WEBHOOK] Business message: '{text[:100]}...'")
+                        
+                        # CRITICAL: Analyze what Yelp returned vs what we sent
+                        logger.info(f"[WEBHOOK] 🔍 YELP FORMAT ANALYSIS:")
+                        logger.info(f"[WEBHOOK] ========== YELP RETURNED TEXT ==========")
+                        logger.info(f"[WEBHOOK] YELP RETURNED:")
+                        logger.info(f"[WEBHOOK] - Full text: '{text}'")
+                        logger.info(f"[WEBHOOK] - Length: {len(text)}")
+                        logger.info(f"[WEBHOOK] - Hash: {hash(text)}")
+                        logger.info(f"[WEBHOOK] - Type: {type(text)}")
+                        
+                        # Check for Unicode characters in Yelp response
+                        import unicodedata
+                        unicode_chars = []
+                        for i, char in enumerate(text):
+                            if ord(char) > 127:  # Non-ASCII
+                                unicode_chars.append(f"pos {i}: '{char}' (U+{ord(char):04X}) name={unicodedata.name(char, 'UNKNOWN')}")
+                        
+                        if unicode_chars:
+                            logger.info(f"[WEBHOOK] - Unicode chars in Yelp response: {unicode_chars[:10]}")
+                        else:
+                            logger.info(f"[WEBHOOK] - Yelp returned pure ASCII text")
+                        
+                        logger.info(f"[WEBHOOK] ===========================================")
+                        
+                        # Check if this is our automated message
+                        is_our_automated_message = defaults.get("from_backend", False)
+                        
+                        if is_our_automated_message:
+                            logger.info(f"[WEBHOOK] 🤖 AUTOMATED BIZ MESSAGE - This is our own follow-up")
+                            logger.info(f"[WEBHOOK] No action needed - system behavior is expected")
+                        else:
+                            logger.info(f"[WEBHOOK] 👨‍💼 MANUAL BIZ MESSAGE - Business responded manually in dashboard")
+                            logger.info(f"[WEBHOOK] 🛑 CANCELLING ALL FOLLOW-UP TASKS - Business took over conversation")
+                            self._cancel_all_tasks(lid, reason=f"Business responded manually in Yelp dashboard: '{text[:50]}...'")
+                            logger.info(f"[WEBHOOK] ✅ All follow-up tasks cancelled for lead={lid}")
+                    
+                    elif user_type == "CONSUMER":
+                        logger.info(f"[WEBHOOK] 📝 CONSUMER EVENT DETECTED")
+                        if created:
+                            logger.info(f"[WEBHOOK] Consumer event recorded but timing check determines: is_new={is_new}")
+                        else:
+                            logger.info(f"[WEBHOOK] Consumer event already existed in DB")
+                    
+                    else:
+                        logger.info(f"[WEBHOOK] 📄 OTHER EVENT TYPE - no specific action")
 
         return Response({"status": "received"}, status=status.HTTP_201_CREATED)
 
@@ -922,61 +1578,68 @@ class WebhookView(APIView):
         logger.info(f"[AUTO-RESPONSE] Handler type: NEW_LEAD")
         logger.info(f"[AUTO-RESPONSE] Scenario: New lead processing (will create LeadDetail + follow-ups, no SMS)")
         logger.info(f"[AUTO-RESPONSE] Trigger reason: ProcessedLead was created for this lead")
-        logger.info(f"[AUTO-RESPONSE] About to call _process_auto_response with phone_opt_in=False, phone_available=False")
+        logger.info(f"[AUTO-RESPONSE] About to determine scenario for new lead")
         
         try:
-            # Call _process_auto_response to create LeadDetail but disable SMS for new leads
-            self._process_auto_response(lead_id, phone_opt_in=False, phone_available=False)
+            # Check if this is a phone opt-in lead for detailed logging
+            ld = LeadDetail.objects.filter(lead_id=lead_id).first()
+            is_phone_optin = ld and ld.phone_opt_in
+            
+            logger.info(f"[AUTO-RESPONSE] 🔄 UNIFIED NO PHONE LOGIC")
+            logger.info(f"[AUTO-RESPONSE] =================== NEW LEAD PROCESSING ===================")
+            logger.info(f"[AUTO-RESPONSE] Lead type: {'📱 PHONE OPT-IN LEAD' if is_phone_optin else '💬 REGULAR LEAD'}")
+            logger.info(f"[AUTO-RESPONSE] phone_opt_in flag: {is_phone_optin}")
+            logger.info(f"[AUTO-RESPONSE] 🎯 SCENARIO: NO PHONE / CUSTOMER REPLY (unified)")
+            
+            if is_phone_optin:
+                logger.info(f"[AUTO-RESPONSE] 📱 PHONE OPT-IN LEAD PROCESSING:")
+                logger.info(f"[AUTO-RESPONSE] - This lead agreed to provide phone number via Yelp")
+                logger.info(f"[AUTO-RESPONSE] - Will use No Phone templates (unified logic)")
+                logger.info(f"[AUTO-RESPONSE] - Frontend will show 'Phone Opt-In' badge for tracking")
+                logger.info(f"[AUTO-RESPONSE] - Same follow-ups as regular no-phone leads")
+            else:
+                logger.info(f"[AUTO-RESPONSE] 💬 REGULAR NO PHONE LEAD PROCESSING:")
+                logger.info(f"[AUTO-RESPONSE] - Standard lead without phone number")
+                logger.info(f"[AUTO-RESPONSE] - Will use No Phone templates")
+                logger.info(f"[AUTO-RESPONSE] - Standard follow-up sequence")
+            
+            logger.info(f"[AUTO-RESPONSE] Creating No Phone scenario tasks for lead")
+            self._process_auto_response(lead_id, phone_available=False)
+            logger.info(f"[AUTO-RESPONSE] ✅ No Phone scenario tasks created")
+            
             logger.info(f"[AUTO-RESPONSE] ✅ handle_new_lead completed successfully for {lead_id}")
         except Exception as e:
             logger.error(f"[AUTO-RESPONSE] ❌ handle_new_lead failed for {lead_id}: {e}")
             logger.exception(f"[AUTO-RESPONSE] Exception details for handle_new_lead")
             raise
 
-    def handle_phone_opt_in(self, lead_id: str, reason: str | None = None):
-        logger.info(f"[AUTO-RESPONSE] 📱 STARTING handle_phone_opt_in")
-        logger.info(f"[AUTO-RESPONSE] ================ PHONE OPT-IN HANDLER ================")
-        logger.info(f"[AUTO-RESPONSE] Lead ID: {lead_id}")
-        logger.info(f"[AUTO-RESPONSE] Handler type: PHONE_OPT_IN")
-        logger.info(f"[AUTO-RESPONSE] Reason: {reason or 'Not specified'}")
-        logger.info(f"[AUTO-RESPONSE] Scenario: Phone opt-in received (phone_opt_in=True, phone_available=False)")
-        logger.info(f"[AUTO-RESPONSE] Trigger reason: CONSUMER_PHONE_NUMBER_OPT_IN_EVENT received")
-        
-        # ⭐ SMART FRESHNESS CHECK: Skip only if ProcessedLead is OLD (not created recently)
-        pl = ProcessedLead.objects.filter(lead_id=lead_id).first()
-        logger.info(f"[AUTO-RESPONSE] ProcessedLead exists for {lead_id}: {pl is not None}")
-        
-        if pl:
-            time_since_processed = timezone.now() - pl.processed_at
-            
-            logger.info(f"[AUTO-RESPONSE] ProcessedLead freshness check:")
-            logger.info(f"[AUTO-RESPONSE] - Processed at: {pl.processed_at}")
-            logger.info(f"[AUTO-RESPONSE] - Time since processed: {time_since_processed.total_seconds():.1f} seconds")
-            logger.info(f"[AUTO-RESPONSE] - Scenario: Phone Opt-in - NO FRESHNESS LIMIT")
-            logger.info(f"[AUTO-RESPONSE] ✅ Proceeding with phone opt-in auto-response (no time restrictions for Phone scenarios)")
-            logger.info(f"[AUTO-RESPONSE] Phone scenarios allow auto-response regardless of ProcessedLead age")
-        else:
-            logger.info(f"[AUTO-RESPONSE] ✅ No ProcessedLead found - proceeding with phone opt-in flow")
-        logger.info(f"[AUTO-RESPONSE] Step 1: Cancelling no-phone tasks")
-        
-        try:
-            self._cancel_no_phone_tasks(lead_id, reason)
-            logger.info(f"[AUTO-RESPONSE] Step 2: Starting auto-response for phone opt-in scenario")
-            self._process_auto_response(lead_id, phone_opt_in=True, phone_available=False)
-            logger.info(f"[AUTO-RESPONSE] ✅ handle_phone_opt_in completed successfully for {lead_id}")
-        except Exception as e:
-            logger.error(f"[AUTO-RESPONSE] ❌ handle_phone_opt_in failed for {lead_id}: {e}")
-            logger.exception(f"[AUTO-RESPONSE] Exception details for handle_phone_opt_in")
-            raise
+    # handle_phone_opt_in function REMOVED - phone opt-in now uses No Phone scenario
+    # Phone opt-in leads are processed using the same logic as regular no-phone leads
+    # This simplifies the system from 3 scenarios to 2 scenarios:
+    # 1. No Phone/Customer Reply (phone_available=False) - includes phone opt-in
+    # 2. Phone Available (phone_available=True)
 
     def handle_phone_available(self, lead_id: str, reason: str | None = None):
         logger.info(f"[AUTO-RESPONSE] 📞 STARTING handle_phone_available")
-        logger.info(f"[AUTO-RESPONSE] ============== PHONE AVAILABLE HANDLER ==============")
+        logger.info(f"[AUTO-RESPONSE] =================== PHONE AVAILABLE SCENARIO ===================")
         logger.info(f"[AUTO-RESPONSE] Lead ID: {lead_id}")
         logger.info(f"[AUTO-RESPONSE] Handler type: PHONE_AVAILABLE")
         logger.info(f"[AUTO-RESPONSE] Reason: {reason or 'Not specified'}")
-        logger.info(f"[AUTO-RESPONSE] Scenario: Phone number provided (phone_opt_in=False, phone_available=True)")
-        logger.info(f"[AUTO-RESPONSE] Trigger reason: Phone number found in consumer text")
+        logger.info(f"[AUTO-RESPONSE] 🎯 SCENARIO: Phone Available (1 of 2 scenarios)")
+        logger.info(f"[AUTO-RESPONSE] Trigger: Phone number found in consumer text")
+        logger.info(f"[AUTO-RESPONSE] Parameters: phone_available=True")
+        logger.info(f"[AUTO-RESPONSE] Templates: Will use Phone Available templates and follow-ups")
+        
+        # Check existing tasks before making changes
+        existing_tasks = LeadPendingTask.objects.filter(lead_id=lead_id, active=True)
+        logger.info(f"[AUTO-RESPONSE] 📋 EXISTING ACTIVE TASKS BEFORE PHONE AVAILABLE PROCESSING:")
+        logger.info(f"[AUTO-RESPONSE] - Total active tasks: {existing_tasks.count()}")
+        
+        for task in existing_tasks:
+            logger.info(f"[AUTO-RESPONSE] - Task {task.task_id}: phone_available={task.phone_available}, text='{task.text[:50]}...'")
+        
+        logger.info(f"[AUTO-RESPONSE] 📞 SCENARIO SELECTED: PHONE AVAILABLE")
+        logger.info(f"[AUTO-RESPONSE] ========== PHONE NUMBER PROVIDED SCENARIO ==========")
         
         # ⭐ SMART FRESHNESS CHECK: Skip only if ProcessedLead is OLD (not created recently)
         pl = ProcessedLead.objects.filter(lead_id=lead_id).first()
@@ -998,7 +1661,7 @@ class WebhookView(APIView):
         try:
             self._cancel_no_phone_tasks(lead_id, reason)
             logger.info(f"[AUTO-RESPONSE] Step 2: Starting auto-response for phone available scenario")
-            self._process_auto_response(lead_id, phone_opt_in=False, phone_available=True)
+            self._process_auto_response(lead_id, phone_available=True)
             logger.info(f"[AUTO-RESPONSE] ✅ handle_phone_available completed successfully for {lead_id}")
         except Exception as e:
             logger.error(f"[AUTO-RESPONSE] ❌ handle_phone_available failed for {lead_id}: {e}")
@@ -1029,6 +1692,28 @@ class WebhookView(APIView):
             return
         
         logger.info(f"[CUSTOMER-REPLY-SMS] Business ID: {pl.business_id}")
+        
+        # 🔒 CRITICAL: Check if SMS notifications are enabled for this business
+        logger.info(f"[CUSTOMER-REPLY-SMS] 🔔 CHECKING SMS NOTIFICATIONS STATUS")
+        business = YelpBusiness.objects.filter(business_id=pl.business_id).first()
+        
+        if business:
+            logger.info(f"[CUSTOMER-REPLY-SMS] Business found: {business.name}")
+            logger.info(f"[CUSTOMER-REPLY-SMS] SMS notifications enabled: {business.sms_notifications_enabled}")
+            
+            if not business.sms_notifications_enabled:
+                logger.info(f"[CUSTOMER-REPLY-SMS] 🚫 SMS NOTIFICATIONS DISABLED for business: {pl.business_id}")
+                logger.info(f"[CUSTOMER-REPLY-SMS] Business admin has turned off SMS notifications")
+                logger.info(f"[CUSTOMER-REPLY-SMS] 🛑 EARLY RETURN - SMS disabled for this business")
+                logger.info(f"[CUSTOMER-REPLY-SMS] This prevents unwanted SMS messages")
+                return
+            else:
+                logger.info(f"[CUSTOMER-REPLY-SMS] ✅ SMS NOTIFICATIONS ENABLED for business: {pl.business_id}")
+                logger.info(f"[CUSTOMER-REPLY-SMS] Proceeding with SMS sending")
+        else:
+            logger.warning(f"[CUSTOMER-REPLY-SMS] ⚠️ Business not found for business_id: {pl.business_id}")
+            logger.warning(f"[CUSTOMER-REPLY-SMS] Cannot check SMS enable status - proceeding with caution")
+        
         logger.info(f"[CUSTOMER-REPLY-SMS] ✅ SMS allowed - no previous SMS sent for this lead")
         
         # Get NotificationSettings for SMS
@@ -1164,23 +1849,20 @@ class WebhookView(APIView):
         logger.info(f"[NEW-LEAD-FOLLOW-UP] Original jobs: {job_names}")
         logger.info(f"[NEW-LEAD-FOLLOW-UP] Mapped jobs: '{jobs}', Separator: '{sep}'")
         
-        # Get follow-up templates for new leads (phone_opt_in=False, phone_available=False)
+        # Get follow-up templates for new leads (phone_available=False)
         now = timezone.now()
-        phone_opt_in = False
         phone_available = False
         
-        logger.info(f"[NEW-LEAD-FOLLOW-UP] Looking for FollowUpTemplate with phone_opt_in=False, phone_available=False")
+        logger.info(f"[NEW-LEAD-FOLLOW-UP] Looking for FollowUpTemplate with phone_available=False")
         
         tpls = FollowUpTemplate.objects.filter(
             active=True,
-            phone_opt_in=phone_opt_in,
             phone_available=phone_available,
             business__business_id=pl.business_id,
         )
         if not tpls.exists():
             tpls = FollowUpTemplate.objects.filter(
                 active=True,
-                phone_opt_in=phone_opt_in,
                 phone_available=phone_available,
                 business__isnull=True,
             )
@@ -1221,11 +1903,11 @@ class WebhookView(APIView):
             with transaction.atomic():
                 try:
                     from .models import LeadPendingTask
+                    normalized_task_text = normalize_text_for_comparison(text)
                     LeadPendingTask.objects.create(
                         lead_id=lead_id,
-                        text=text,
+                        text=normalized_task_text,  # Store normalized text
                         task_id="",  # Will be set when task is enqueued
-                        phone_opt_in=phone_opt_in,
                         phone_available=phone_available,
                         active=True,
                     )
@@ -1257,12 +1939,24 @@ class WebhookView(APIView):
 
     def _cancel_no_phone_tasks(self, lead_id: str, reason: str | None = None):
         logger.info(f"[AUTO-RESPONSE] 🚫 STARTING _cancel_no_phone_tasks")
+        logger.info(f"[AUTO-RESPONSE] =================== TASK CANCELLATION ===================")
         logger.info(f"[AUTO-RESPONSE] Lead ID: {lead_id}")
         logger.info(f"[AUTO-RESPONSE] Cancellation reason: {reason or 'Not specified'}")
-        logger.info(f"[AUTO-RESPONSE] Looking for pending tasks with: phone_opt_in=False, phone_available=False, active=True")
+        logger.info(f"[AUTO-RESPONSE] TARGET: Tasks with phone_available=False, active=True")
+        
+        # Show all active tasks first
+        all_active = LeadPendingTask.objects.filter(lead_id=lead_id, active=True)
+        logger.info(f"[AUTO-RESPONSE] 📊 ALL ACTIVE TASKS BEFORE CANCELLATION:")
+        logger.info(f"[AUTO-RESPONSE] - Total active tasks: {all_active.count()}")
+        
+        for task in all_active:
+            logger.info(f"[AUTO-RESPONSE] - Task {task.task_id}: phone_available={task.phone_available}, active={task.active}")
+            logger.info(f"[AUTO-RESPONSE]   Text: '{task.text[:50]}...'")
+        
+        logger.info(f"[AUTO-RESPONSE] 🔍 FILTERING FOR CANCELLATION TARGET:")
         
         pending = LeadPendingTask.objects.filter(
-            lead_id=lead_id, phone_opt_in=False, phone_available=False, active=True
+            lead_id=lead_id, phone_available=False, active=True
         )
         pending_count = pending.count()
         logger.info(f"[AUTO-RESPONSE] Found {pending_count} pending no-phone tasks to cancel")
@@ -1316,6 +2010,84 @@ class WebhookView(APIView):
         logger.info(f"[AUTO-RESPONSE] - Tasks with errors: {error_count}")
         logger.info(f"[AUTO-RESPONSE] ✅ _cancel_no_phone_tasks completed")
 
+    def _cancel_pre_phone_tasks(self, lead_id: str, reason: str | None = None):
+        """Cancel all pre-phone tasks including phone opt-in tasks."""
+        logger.info(f"[AUTO-RESPONSE] 🚫 STARTING _cancel_pre_phone_tasks")
+        logger.info(f"[AUTO-RESPONSE] =================== PRE-PHONE TASK CANCELLATION ===================")
+        logger.info(f"[AUTO-RESPONSE] Lead ID: {lead_id}")
+        logger.info(f"[AUTO-RESPONSE] Cancellation reason: {reason or 'Not specified'}")
+        logger.info(f"[AUTO-RESPONSE] TARGET: Tasks with phone_available=False AND active=True")
+        
+        # Show all active tasks first
+        all_active = LeadPendingTask.objects.filter(lead_id=lead_id, active=True)
+        logger.info(f"[AUTO-RESPONSE] 📊 ALL ACTIVE TASKS BEFORE PRE-PHONE CANCELLATION:")
+        logger.info(f"[AUTO-RESPONSE] - Total active tasks: {all_active.count()}")
+        
+        for task in all_active:
+            logger.info(f"[AUTO-RESPONSE] - Task {task.task_id}: phone_available={task.phone_available}, active={task.active}")
+            logger.info(f"[AUTO-RESPONSE]   Text: '{task.text[:50]}...'")
+        
+        logger.info(f"[AUTO-RESPONSE] 🔍 FILTERING FOR PRE-PHONE CANCELLATION TARGET:")
+        
+        # Cancel phone_available=False tasks (No Phone scenario)
+        pending = LeadPendingTask.objects.filter(
+            lead_id=lead_id, 
+            phone_available=False,
+            active=True
+        )
+        pending_count = pending.count()
+        logger.info(f"[AUTO-RESPONSE] Found {pending_count} pending pre-phone tasks to cancel")
+        
+        if pending_count == 0:
+            logger.info(f"[AUTO-RESPONSE] No pre-phone tasks to cancel for {lead_id}")
+            return
+            
+        queue = django_rq.get_queue("default")
+        scheduler = django_rq.get_scheduler("default")
+        
+        cancelled_count = 0
+        error_count = 0
+        
+        for p in pending:
+            logger.info(f"[AUTO-RESPONSE] Cancelling task: {p.task_id} for lead {lead_id}")
+            logger.info(f"[AUTO-RESPONSE] Task details: phone_available={p.phone_available}")
+            logger.info(f"[AUTO-RESPONSE] Task text preview: {p.text[:50]}...")
+            logger.info(f"[AUTO-RESPONSE] Task created at: {p.created_at}")
+            
+            try:
+                job = queue.fetch_job(p.task_id)
+                if job:
+                    job.cancel()
+                    logger.info(f"[AUTO-RESPONSE] ✅ Queue job {p.task_id} cancelled successfully")
+                else:
+                    logger.info(f"[AUTO-RESPONSE] ⚠️ Queue job {p.task_id} not found (might be already processed)")
+                    
+                scheduler.cancel(p.task_id)
+                logger.info(f"[AUTO-RESPONSE] ✅ Scheduler job {p.task_id} cancelled successfully")
+                cancelled_count += 1
+                
+            except Exception as exc:
+                logger.error(f"[AUTO-RESPONSE] ❌ Error cancelling task {p.task_id}: {exc}")
+                logger.exception(f"[AUTO-RESPONSE] Exception details for task cancellation")
+                error_count += 1
+                
+            # Update task status
+            p.active = False
+            p.save(update_fields=["active"])
+            logger.info(f"[AUTO-RESPONSE] ✅ LeadPendingTask {p.task_id} marked as inactive")
+            
+            # Update Celery log
+            updated_logs = CeleryTaskLog.objects.filter(task_id=p.task_id).update(
+                status="REVOKED", result=reason
+            )
+            logger.info(f"[AUTO-RESPONSE] ✅ Updated {updated_logs} CeleryTaskLog entries for {p.task_id}")
+            
+        logger.info(f"[AUTO-RESPONSE] 📊 _cancel_pre_phone_tasks summary for {lead_id}:")
+        logger.info(f"[AUTO-RESPONSE] - Tasks found: {pending_count}")
+        logger.info(f"[AUTO-RESPONSE] - Tasks cancelled successfully: {cancelled_count}")
+        logger.info(f"[AUTO-RESPONSE] - Tasks with errors: {error_count}")
+        logger.info(f"[AUTO-RESPONSE] ✅ _cancel_pre_phone_tasks completed")
+
     def _cancel_all_tasks(self, lead_id: str, reason: str | None = None):
         logger.info(f"[AUTO-RESPONSE] 🛑 STARTING _cancel_all_tasks")
         logger.info(f"[AUTO-RESPONSE] Lead ID: {lead_id}")
@@ -1334,7 +2106,6 @@ class WebhookView(APIView):
         for p in pending:
             logger.info(f"[AUTO-RESPONSE] Task to cancel: {p.task_id}")
             logger.info(f"[AUTO-RESPONSE] - Text: {p.text[:50]}...")
-            logger.info(f"[AUTO-RESPONSE] - phone_opt_in: {p.phone_opt_in}")
             logger.info(f"[AUTO-RESPONSE] - phone_available: {p.phone_available}")
             logger.info(f"[AUTO-RESPONSE] - Created: {p.created_at}")
             
@@ -1382,30 +2153,40 @@ class WebhookView(APIView):
         logger.info(f"[AUTO-RESPONSE] ✅ _cancel_all_tasks completed")
 
     def _process_auto_response(
-        self, lead_id: str, phone_opt_in: bool, phone_available: bool
+        self, lead_id: str, phone_available: bool
     ):
         logger.info(f"[AUTO-RESPONSE] 🔧 STARTING _process_auto_response")
+        logger.info(f"[AUTO-RESPONSE] =================== SCENARIO PROCESSING ===================")
         logger.info(f"[AUTO-RESPONSE] Parameters:")
         logger.info(f"[AUTO-RESPONSE] - Lead ID: {lead_id}")
-        logger.info(f"[AUTO-RESPONSE] - phone_opt_in: {phone_opt_in}")
         logger.info(f"[AUTO-RESPONSE] - phone_available: {phone_available}")
         
-        # Determine reason for SMS based on scenario
-        if phone_opt_in:
-            reason = "Phone Opt-in"
-        elif phone_available:
+        # Determine scenario name and reason for SMS (2-scenario system)
+        if phone_available:
+            scenario_name = "📞 PHONE AVAILABLE"
             reason = "Phone Number Found"
+            scenario_description = "Lead provided phone number in text or consumer response"
         else:
+            scenario_name = "💬 NO PHONE / CUSTOMER REPLY"
             reason = "Customer Reply"
+            scenario_description = "Regular lead without phone OR phone opt-in lead (unified)"
         
+        logger.info(f"[AUTO-RESPONSE] 🎯 SCENARIO: {scenario_name}")
+        logger.info(f"[AUTO-RESPONSE] Description: {scenario_description}")
         logger.info(f"[AUTO-RESPONSE] SMS Reason: {reason}")
+        logger.info(f"[AUTO-RESPONSE] =================== SCENARIO DETAILS ===================")
+        logger.info(f"[AUTO-RESPONSE] System now uses 2 scenarios instead of 3:")
+        logger.info(f"[AUTO-RESPONSE] 1. 💬 No Phone/Customer Reply (phone_available=False)")
+        logger.info(f"[AUTO-RESPONSE] 2. 📞 Phone Available (phone_available=True)")
+        logger.info(f"[AUTO-RESPONSE] Current scenario parameters:")
+        logger.info(f"[AUTO-RESPONSE] - phone_available={phone_available}")
+        logger.info(f"[AUTO-RESPONSE] Will look for AutoResponseSettings with these parameters")
         
         # Step 1: Look up settings
         logger.info(f"[AUTO-RESPONSE] 🔍 STEP 1: Looking up AutoResponseSettings")
         logger.info(f"[AUTO-RESPONSE] ========== SMS SETTINGS LOOKUP ==========")
         logger.info(f"[AUTO-RESPONSE] Search criteria:")
         logger.info(f"[AUTO-RESPONSE] - business__isnull=True (global settings)")
-        logger.info(f"[AUTO-RESPONSE] - phone_opt_in={phone_opt_in}")
         logger.info(f"[AUTO-RESPONSE] - phone_available={phone_available}")
         
         # Debug: Show all AutoResponseSettings in database
@@ -1413,7 +2194,7 @@ class WebhookView(APIView):
         logger.info(f"[AUTO-RESPONSE] 📊 ALL AutoResponseSettings in database:")
         if all_auto_settings.exists():
             for setting in all_auto_settings:
-                logger.info(f"[AUTO-RESPONSE] - ID={setting.id}, business={setting.business}, phone_opt_in={setting.phone_opt_in}, phone_available={setting.phone_available}, enabled={setting.enabled}")
+                logger.info(f"[AUTO-RESPONSE] - ID={setting.id}, business={setting.business}, phone_available={setting.phone_available}, enabled={setting.enabled}")
                 if hasattr(setting, 'sms_on_customer_reply'):
                     logger.info(f"[AUTO-RESPONSE]   sms_on_customer_reply={setting.sms_on_customer_reply}, sms_on_phone_found={setting.sms_on_phone_found}, sms_on_phone_opt_in={setting.sms_on_phone_opt_in}")
         else:
@@ -1421,7 +2202,6 @@ class WebhookView(APIView):
         
         default_settings = AutoResponseSettings.objects.filter(
             business__isnull=True,
-            phone_opt_in=phone_opt_in,
             phone_available=phone_available,
         ).first()
         logger.info(f"[AUTO-RESPONSE] 🎯 Default settings found: {default_settings is not None}")
@@ -1429,7 +2209,6 @@ class WebhookView(APIView):
             logger.info(f"[AUTO-RESPONSE] ✅ Default settings details:")
             logger.info(f"[AUTO-RESPONSE] - ID: {default_settings.id}")
             logger.info(f"[AUTO-RESPONSE] - enabled: {default_settings.enabled}")
-            logger.info(f"[AUTO-RESPONSE] - phone_opt_in: {default_settings.phone_opt_in}")
             logger.info(f"[AUTO-RESPONSE] - phone_available: {default_settings.phone_available}")
             if hasattr(default_settings, 'sms_on_customer_reply'):
                 logger.info(f"[AUTO-RESPONSE] - sms_on_customer_reply: {default_settings.sms_on_customer_reply}")
@@ -1438,7 +2217,7 @@ class WebhookView(APIView):
         else:
             logger.error(f"[AUTO-RESPONSE] ❌ NO MATCHING AutoResponseSettings!")
             logger.error(f"[AUTO-RESPONSE] This means SMS won't be sent for {reason} scenario")
-            logger.error(f"[AUTO-RESPONSE] Need AutoResponseSettings with business=null, phone_opt_in={phone_opt_in}, phone_available={phone_available}")
+            logger.error(f"[AUTO-RESPONSE] Need AutoResponseSettings with business=null, phone_available={phone_available}")
         
         logger.debug(
             f"[AUTO-RESPONSE] Looking up ProcessedLead for lead_id={lead_id}"
@@ -1456,7 +2235,6 @@ class WebhookView(APIView):
             
             biz_settings = AutoResponseSettings.objects.filter(
                 business__business_id=pl.business_id,
-                phone_opt_in=phone_opt_in,
                 phone_available=phone_available,
             ).first()
             logger.info(f"[AUTO-RESPONSE] Business-specific settings found: {biz_settings is not None}")
@@ -1511,7 +2289,6 @@ class WebhookView(APIView):
             logger.info(f"[AUTO-RESPONSE] - Settings type: {'Business-specific' if biz_settings is not None else 'Default'}")
             logger.info(f"[AUTO-RESPONSE] - Business: {auto_settings.business.name if auto_settings.business else 'Global (None)'}")
             logger.info(f"[AUTO-RESPONSE] - Enabled: {auto_settings.enabled}")
-            logger.info(f"[AUTO-RESPONSE] - phone_opt_in: {auto_settings.phone_opt_in}")
             logger.info(f"[AUTO-RESPONSE] - phone_available: {auto_settings.phone_available}")
             logger.info(f"[AUTO-RESPONSE] - use_ai_greeting: {getattr(auto_settings, 'use_ai_greeting', False)}")
             logger.info(f"[AUTO-RESPONSE] - export_to_sheets: {auto_settings.export_to_sheets}")
@@ -1526,7 +2303,6 @@ class WebhookView(APIView):
         else:
             logger.warning(f"[AUTO-RESPONSE] ❌ NO AutoResponseSettings found!")
             logger.warning(f"[AUTO-RESPONSE] Query filters used:")
-            logger.warning(f"[AUTO-RESPONSE] - phone_opt_in: {phone_opt_in}")
             logger.warning(f"[AUTO-RESPONSE] - phone_available: {phone_available}")
             logger.warning(f"[AUTO-RESPONSE] - business_id: {pl.business_id if pl else 'N/A'}")
         
@@ -1543,10 +2319,7 @@ class WebhookView(APIView):
         if auto_settings:
             should_send_sms = False
             sms_reason_field = ""
-            if phone_opt_in:
-                should_send_sms = getattr(auto_settings, 'sms_on_phone_opt_in', False)
-                sms_reason_field = "sms_on_phone_opt_in"
-            elif phone_available:
+            if phone_available:
                 should_send_sms = getattr(auto_settings, 'sms_on_phone_found', False)
                 sms_reason_field = "sms_on_phone_found"
             else:
@@ -1714,6 +2487,11 @@ class WebhookView(APIView):
         display_name = d.get("user", {}).get("display_name", "")
         first_name = display_name.split()[0] if display_name else ""
 
+        existing_ld = LeadDetail.objects.filter(lead_id=lead_id).first()
+        phone_opt_in_value = d.get("phone_opt_in", False)
+        if existing_ld and existing_ld.phone_opt_in:
+            phone_opt_in_value = True
+
         detail_data = {
             "lead_id": lead_id,
             "business_id": d.get("business_id"),
@@ -1724,7 +2502,7 @@ class WebhookView(APIView):
             "last_event_time": last_time,
             "user_display_name": first_name,
             "phone_number": phone_number,
-            "phone_opt_in": d.get("phone_opt_in", False),
+            "phone_opt_in": phone_opt_in_value,
             "project": {
                 "survey_answers": survey_list,
                 "location": raw_proj.get("location", {}),
@@ -2230,11 +3008,11 @@ class WebhookView(APIView):
                 logger.info(f"[AUTO-RESPONSE] Creating LeadPendingTask record...")
                 
                 try:
+                    normalized_greet_text = normalize_text_for_comparison(greet_text)
                     task_record = LeadPendingTask.objects.create(
                         lead_id=lead_id,
                         task_id=res.id,
-                        text=greet_text,
-                        phone_opt_in=phone_opt_in,
+                        text=normalized_greet_text,  # Store normalized text
                         phone_available=phone_available,
                     )
                     logger.info(f"[AUTO-RESPONSE] ✅ LeadPendingTask created with ID: {task_record.id}")
@@ -2256,14 +3034,12 @@ class WebhookView(APIView):
 
         tpls = FollowUpTemplate.objects.filter(
             active=True,
-            phone_opt_in=phone_opt_in,
             phone_available=phone_available,
             business__business_id=biz_id,
         )
         if not tpls.exists():
             tpls = FollowUpTemplate.objects.filter(
                 active=True,
-                phone_opt_in=phone_opt_in,
                 phone_available=phone_available,
                 business__isnull=True,
             )
@@ -2311,11 +3087,11 @@ class WebhookView(APIView):
                         countdown=countdown,
                     )
                     try:
+                        normalized_followup_text = normalize_text_for_comparison(text)
                         LeadPendingTask.objects.create(
                             lead_id=lead_id,
                             task_id=res.id,
-                            text=text,
-                            phone_opt_in=phone_opt_in,
+                            text=normalized_followup_text,  # Store normalized text
                             phone_available=phone_available,
                         )
                     except IntegrityError:
@@ -2332,7 +3108,7 @@ class WebhookView(APIView):
         logger.info(f"[AUTO-RESPONSE] ========== PROCESS COMPLETION ==========")
         logger.info(f"[AUTO-RESPONSE] _process_auto_response completed successfully")
         logger.info(f"[AUTO-RESPONSE] Lead ID: {lead_id}")
-        logger.info(f"[AUTO-RESPONSE] Scenario: phone_opt_in={phone_opt_in}, phone_available={phone_available}")
+        logger.info(f"[AUTO-RESPONSE] Scenario: phone_available={phone_available}")
         logger.info(f"[AUTO-RESPONSE] Messages scheduled: {len(scheduled_texts)}")
         logger.info(f"[AUTO-RESPONSE] Auto responses enabled: {auto_settings.enabled if auto_settings else 'N/A'}")
         logger.info(f"[AUTO-RESPONSE] AI generation used: {getattr(auto_settings, 'use_ai_greeting', False) if auto_settings else 'N/A'}")
