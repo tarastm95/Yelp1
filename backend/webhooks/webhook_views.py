@@ -1405,15 +1405,15 @@ class WebhookView(APIView):
         logger.info(f"[AUTO-RESPONSE] ========== SMS SETTINGS LOOKUP ==========")
         logger.info(f"[AUTO-RESPONSE] Search criteria:")
         logger.info(f"[AUTO-RESPONSE] - business__isnull=True (global settings)")
-        logger.info(f"[AUTO-RESPONSE] - phone_opt_in={phone_opt_in}")
         logger.info(f"[AUTO-RESPONSE] - phone_available={phone_available}")
+        logger.info(f"[AUTO-RESPONSE] - Note: phone_opt_in field removed from model, filtering only by phone_available")
         
         # Debug: Show all AutoResponseSettings in database
         all_auto_settings = AutoResponseSettings.objects.all()
         logger.info(f"[AUTO-RESPONSE] 📊 ALL AutoResponseSettings in database:")
         if all_auto_settings.exists():
             for setting in all_auto_settings:
-                logger.info(f"[AUTO-RESPONSE] - ID={setting.id}, business={setting.business}, phone_opt_in={setting.phone_opt_in}, phone_available={setting.phone_available}, enabled={setting.enabled}")
+                logger.info(f"[AUTO-RESPONSE] - ID={setting.id}, business={setting.business}, phone_available={setting.phone_available}, enabled={setting.enabled}")
                 if hasattr(setting, 'sms_on_customer_reply'):
                     logger.info(f"[AUTO-RESPONSE]   sms_on_customer_reply={setting.sms_on_customer_reply}, sms_on_phone_found={setting.sms_on_phone_found}, sms_on_phone_opt_in={setting.sms_on_phone_opt_in}")
         else:
@@ -1421,7 +1421,6 @@ class WebhookView(APIView):
         
         default_settings = AutoResponseSettings.objects.filter(
             business__isnull=True,
-            phone_opt_in=phone_opt_in,
             phone_available=phone_available,
         ).first()
         logger.info(f"[AUTO-RESPONSE] 🎯 Default settings found: {default_settings is not None}")
@@ -1429,7 +1428,7 @@ class WebhookView(APIView):
             logger.info(f"[AUTO-RESPONSE] ✅ Default settings details:")
             logger.info(f"[AUTO-RESPONSE] - ID: {default_settings.id}")
             logger.info(f"[AUTO-RESPONSE] - enabled: {default_settings.enabled}")
-            logger.info(f"[AUTO-RESPONSE] - phone_opt_in: {default_settings.phone_opt_in}")
+            logger.info(f"[AUTO-RESPONSE] - phone_opt_in: Not applicable (field doesn't exist in model)")
             logger.info(f"[AUTO-RESPONSE] - phone_available: {default_settings.phone_available}")
             if hasattr(default_settings, 'sms_on_customer_reply'):
                 logger.info(f"[AUTO-RESPONSE] - sms_on_customer_reply: {default_settings.sms_on_customer_reply}")
@@ -1438,7 +1437,7 @@ class WebhookView(APIView):
         else:
             logger.error(f"[AUTO-RESPONSE] ❌ NO MATCHING AutoResponseSettings!")
             logger.error(f"[AUTO-RESPONSE] This means SMS won't be sent for {reason} scenario")
-            logger.error(f"[AUTO-RESPONSE] Need AutoResponseSettings with business=null, phone_opt_in={phone_opt_in}, phone_available={phone_available}")
+            logger.error(f"[AUTO-RESPONSE] Need AutoResponseSettings with business=null, phone_available={phone_available}")
         
         logger.debug(
             f"[AUTO-RESPONSE] Looking up ProcessedLead for lead_id={lead_id}"
@@ -1456,7 +1455,6 @@ class WebhookView(APIView):
             
             biz_settings = AutoResponseSettings.objects.filter(
                 business__business_id=pl.business_id,
-                phone_opt_in=phone_opt_in,
                 phone_available=phone_available,
             ).first()
             logger.info(f"[AUTO-RESPONSE] Business-specific settings found: {biz_settings is not None}")
@@ -1511,7 +1509,7 @@ class WebhookView(APIView):
             logger.info(f"[AUTO-RESPONSE] - Settings type: {'Business-specific' if biz_settings is not None else 'Default'}")
             logger.info(f"[AUTO-RESPONSE] - Business: {auto_settings.business.name if auto_settings.business else 'Global (None)'}")
             logger.info(f"[AUTO-RESPONSE] - Enabled: {auto_settings.enabled}")
-            logger.info(f"[AUTO-RESPONSE] - phone_opt_in: {auto_settings.phone_opt_in}")
+            logger.info(f"[AUTO-RESPONSE] - phone_opt_in: Not applicable (field doesn't exist in model)")
             logger.info(f"[AUTO-RESPONSE] - phone_available: {auto_settings.phone_available}")
             logger.info(f"[AUTO-RESPONSE] - use_ai_greeting: {getattr(auto_settings, 'use_ai_greeting', False)}")
             logger.info(f"[AUTO-RESPONSE] - export_to_sheets: {auto_settings.export_to_sheets}")
