@@ -1,5 +1,6 @@
 import logging
 import time
+import unicodedata
 from datetime import timedelta
 from zoneinfo import ZoneInfo
 from django.utils.dateparse import parse_datetime
@@ -41,6 +42,41 @@ logger = logging.getLogger(__name__)
 PHONE_RE = re.compile(r"\+?\d[\d\s\-\(\)]{8,}\d")
 # Simple pattern to detect ISO-like dates such as 2023-12-31
 DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
+
+
+def normalize_text(text: str) -> str:
+    """Normalize text for reliable comparison between stored and webhook texts.
+    
+    This function ensures that texts with Unicode characters (like smart quotes
+    and apostrophes) can be reliably matched regardless of their encoding.
+    """
+    if not text:
+        return text
+    
+    # Apply Unicode NFC normalization
+    normalized = unicodedata.normalize('NFC', text)
+    
+    # Convert all apostrophe variants to ASCII apostrophe
+    apostrophe_variants = [
+        '\u2019',  # RIGHT SINGLE QUOTATION MARK (')
+        '\u2018',  # LEFT SINGLE QUOTATION MARK (')
+        '\u0060',  # GRAVE ACCENT (`)
+        '\u00B4',  # ACUTE ACCENT (´)
+    ]
+    for variant in apostrophe_variants:
+        normalized = normalized.replace(variant, "'")
+    
+    # Convert all quote variants to ASCII quotes
+    quote_variants = [
+        ('\u201C', '"'),  # LEFT DOUBLE QUOTATION MARK (")
+        ('\u201D', '"'),  # RIGHT DOUBLE QUOTATION MARK (")
+        ('\u00AB', '"'),  # LEFT-POINTING DOUBLE ANGLE QUOTATION MARK («)
+        ('\u00BB', '"'),  # RIGHT-POINTING DOUBLE ANGLE QUOTATION MARK (»)
+    ]
+    for unicode_char, ascii_char in quote_variants:
+        normalized = normalized.replace(unicode_char, ascii_char)
+    
+    return normalized
 
 
 def _extract_phone(text: str) -> str | None:
@@ -861,27 +897,28 @@ class WebhookView(APIView):
                         logger.info(f"[WEBHOOK] 🔍 CHECKING FOR EXISTING BACKEND EVENTS:")
                         
                         # Method 1: Check if we have an existing LeadEvent with from_backend=True for this text
-                        # 🔧 FIX: Search for both ASCII and Unicode versions of text
-                        yelp_search_text = convert_to_yelp_format(text)
-                        # Also create reverse conversion (Unicode → ASCII)
-                        ascii_search_text = text.replace('\u2019', "'").replace('\u201c', '"').replace('\u201d', '"')  # Common Unicode → ASCII
+                        # 🔧 FIX: Use Unicode normalization for reliable text matching
+                        normalized_search_text = normalize_text(text)
                         
-                        logger.info(f"[WEBHOOK] - Text conversion for search:")
+                        logger.info(f"[WEBHOOK] - Text normalization for search:")
                         logger.info(f"[WEBHOOK]   Original text: '{text}'")
-                        logger.info(f"[WEBHOOK]   Yelp format (ASCII→Unicode): '{yelp_search_text}'")
-                        logger.info(f"[WEBHOOK]   ASCII format (Unicode→ASCII): '{ascii_search_text}'")
-                        logger.info(f"[WEBHOOK]   ASCII→Unicode needed: {text != yelp_search_text}")
-                        logger.info(f"[WEBHOOK]   Unicode→ASCII needed: {text != ascii_search_text}")
+                        logger.info(f"[WEBHOOK]   Normalized text: '{normalized_search_text}'")
+                        logger.info(f"[WEBHOOK]   Normalization changed text: {text != normalized_search_text}")
                         
-                        # Search for all possible text variations
-                        search_texts = list(set([text, yelp_search_text, ascii_search_text]))  # Remove duplicates
-                        logger.info(f"[WEBHOOK]   Search variations: {search_texts}")
+                        if text != normalized_search_text:
+                            logger.info(f"[WEBHOOK]   🔄 Unicode normalization applied")
+                            # Show what changed
+                            for i, (orig_char, norm_char) in enumerate(zip(text, normalized_search_text)):
+                                if orig_char != norm_char:
+                                    logger.info(f"[WEBHOOK]   Pos {i}: '{orig_char}' (U+{ord(orig_char):04X}) → '{norm_char}' (U+{ord(norm_char):04X})")
+                        else:
+                            logger.info(f"[WEBHOOK]   ✅ Text already normalized (no changes needed)")
                         
                         existing_backend_event = LeadEvent.objects.filter(
                             lead_id=lid,
                             user_type="BUSINESS",
                             from_backend=True,
-                            text__in=search_texts  # 🔧 FIX: Search all text variations
+                            text=normalized_search_text  # 🔧 FIX: Use normalized text
                         ).first()
                         
                         logger.info(f"[WEBHOOK] - Method 1 (text match): {'Found' if existing_backend_event else 'Not found'}")
@@ -916,10 +953,10 @@ class WebhookView(APIView):
                             logger.info(f"[WEBHOOK]     Task ID: {recent_event.raw.get('task_id', 'None')}")
                             
                         # Method 3: Check if text matches any recent LeadPendingTask
-                        # 🔧 FIX: Search for all text variations in LeadPendingTask too
+                        # 🔧 FIX: Use normalized text for LeadPendingTask search  
                         recent_tasks = LeadPendingTask.objects.filter(
                             lead_id=lid,
-                            text__in=search_texts,  # 🔧 FIX: Search all text variations
+                            text=normalized_search_text,  # 🔧 FIX: Use normalized text
                             created_at__gte=timezone.now() - timezone.timedelta(minutes=10)
                         ).order_by('-created_at')[:2]
                         
@@ -929,24 +966,42 @@ class WebhookView(APIView):
                             logger.info(f"[WEBHOOK]     Active: {task.active}")
                             logger.info(f"[WEBHOOK]     Created: {task.created_at}")
                             logger.info(f"[WEBHOOK]     Stored text: '{task.text}'")
-                            logger.info(f"[WEBHOOK]     Text match (original): {task.text == text}")
-                            logger.info(f"[WEBHOOK]     Text match (Unicode): {task.text == yelp_search_text}")
-                            logger.info(f"[WEBHOOK]     Text match (ASCII): {task.text == ascii_search_text}")
-                            # Show which variation matched
-                            if task.text in search_texts:
-                                matching_variation = "original" if task.text == text else ("Unicode" if task.text == yelp_search_text else "ASCII")
-                                logger.info(f"[WEBHOOK]     ✅ Matched via {matching_variation} variation")
+                            logger.info(f"[WEBHOOK]     Normalized match: {task.text == normalized_search_text}")
+                            if task.text == normalized_search_text:
+                                logger.info(f"[WEBHOOK]     ✅ Exact normalized text match found")
                         
-                        # DECISION LOGIC
+                        # SIMPLIFIED DECISION LOGIC - Primary reliance on Method 1 (exact text match)
+                        method1_match = existing_backend_event is not None
+                        method2_fallback = recent_backend_events.exists()  # Backup: any recent auto messages  
+                        method3_fallback = recent_tasks.exists()  # Backup: matching scheduled tasks
+                        defaults_flag = defaults.get("from_backend", False)
+                        
+                        # Primary: Method 1 (exact text), Fallbacks: Method 2 & 3
                         is_backend_message = (
-                            existing_backend_event is not None or
-                            defaults.get("from_backend", False) or
-                            recent_tasks.exists()  # If we have matching tasks, likely from backend
+                            method1_match or           # 🎯 PRIMARY: Exact text match
+                            method2_fallback or        # 🛡️ FALLBACK: Recent auto messages
+                            method3_fallback or        # 🛡️ FALLBACK: Matching tasks
+                            defaults_flag              # 🛡️ FALLBACK: from_backend flag
                         )
                         
-                        logger.info(f"[WEBHOOK] 🎯 FINAL DECISION:")
+                        logger.info(f"[WEBHOOK] 🎯 ENHANCED DECISION ANALYSIS:")
+                        logger.info(f"[WEBHOOK] - Method 1 (exact text match): {method1_match} 🎯 PRIMARY")
+                        logger.info(f"[WEBHOOK] - Method 2 (recent auto events): {method2_fallback} 🛡️ FALLBACK")  
+                        logger.info(f"[WEBHOOK] - Method 3 (matching tasks): {method3_fallback} 🛡️ FALLBACK")
+                        logger.info(f"[WEBHOOK] - Defaults flag: {defaults_flag} 🛡️ FALLBACK")
                         logger.info(f"[WEBHOOK] - is_backend_message: {is_backend_message}")
-                        logger.info(f"[WEBHOOK] - Logic: existing_event={existing_backend_event is not None} OR defaults_flag={defaults.get('from_backend', False)} OR matching_tasks={recent_tasks.exists()}")
+                        
+                        # Show which method determined the result
+                        if method1_match:
+                            logger.info(f"[WEBHOOK] 🎯 Decision made by: PRIMARY Method 1 (exact text match)")
+                        elif method2_fallback:
+                            logger.info(f"[WEBHOOK] 🛡️ Decision made by: FALLBACK Method 2 (recent auto events)")
+                        elif method3_fallback:
+                            logger.info(f"[WEBHOOK] 🛡️ Decision made by: FALLBACK Method 3 (matching tasks)")
+                        elif defaults_flag:
+                            logger.info(f"[WEBHOOK] 🛡️ Decision made by: FALLBACK defaults flag")
+                        else:
+                            logger.info(f"[WEBHOOK] ❌ No method detected automation - treating as manual")
                         
                         if is_backend_message:
                             logger.info(f"[WEBHOOK] 🤖 AUTOMATED BIZ MESSAGE - This is our own follow-up")
@@ -1304,10 +1359,10 @@ class WebhookView(APIView):
             with transaction.atomic():
                 try:
                     from .models import LeadPendingTask
-                    yelp_task_text = convert_to_yelp_format(text)
+                    normalized_task_text = normalize_text(text)
                     LeadPendingTask.objects.create(
                         lead_id=lead_id,
-                        text=yelp_task_text,  # Store in Yelp format
+                        text=normalized_task_text,  # Store normalized text
                         task_id="",  # Will be set when task is enqueued
                         phone_available=phone_available,
                         active=True,
@@ -2488,11 +2543,11 @@ class WebhookView(APIView):
                         countdown=countdown,
                     )
                     try:
-                        yelp_followup_text = convert_to_yelp_format(text)
+                        normalized_followup_text = normalize_text(text)
                         LeadPendingTask.objects.create(
                             lead_id=lead_id,
                             task_id=res.id,
-                            text=yelp_followup_text,  # Store in Yelp format
+                            text=normalized_followup_text,  # Store in Yelp format
                             phone_available=phone_available,
                         )
                     except IntegrityError:

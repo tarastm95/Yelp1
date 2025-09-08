@@ -436,13 +436,22 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
                 # Створюємо унікальний event_id для нашого повідомлення
                 our_event_id = f"backend_sent_{uuid.uuid4().hex[:16]}"
 
-                # Convert text to Yelp format before storing to ensure exact match
-                from .webhook_views import convert_to_yelp_format
-                yelp_formatted_text = convert_to_yelp_format(text)
-                logger.info(f"[FOLLOW-UP] 🔄 TEXT CONVERSION FOR FUTURE DETECTION:")
+                # Normalize text before storing to ensure exact match with webhook
+                from .webhook_views import normalize_text
+                normalized_text = normalize_text(text)
+                logger.info(f"[FOLLOW-UP] 🔄 TEXT NORMALIZATION FOR FUTURE DETECTION:")
                 logger.info(f"[FOLLOW-UP] - Original: '{text}'")
-                logger.info(f"[FOLLOW-UP] - Yelp format: '{yelp_formatted_text}'")
-                logger.info(f"[FOLLOW-UP] - Converted: {text != yelp_formatted_text}")
+                logger.info(f"[FOLLOW-UP] - Normalized: '{normalized_text}'")
+                logger.info(f"[FOLLOW-UP] - Normalization changed text: {text != normalized_text}")
+                
+                if text != normalized_text:
+                    logger.info(f"[FOLLOW-UP] 🔄 Unicode normalization applied")
+                    # Show what changed
+                    for i, (orig_char, norm_char) in enumerate(zip(text, normalized_text)):
+                        if orig_char != norm_char:
+                            logger.info(f"[FOLLOW-UP]   Pos {i}: '{orig_char}' (U+{ord(orig_char):04X}) → '{norm_char}' (U+{ord(norm_char):04X})")
+                else:
+                    logger.info(f"[FOLLOW-UP] ✅ Text already normalized (no changes needed)")
                 
                 # Create LeadEvent BEFORE API call with placeholder raw data
                 lead_event = LeadEvent.objects.create(
@@ -452,7 +461,7 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
                     user_type="BUSINESS",  # Ми відправляємо від імені бізнесу
                     user_id="",
                     user_display_name="",
-                    text=yelp_formatted_text,  # Store in Yelp format for exact match
+                    text=normalized_text,  # Store normalized text for exact match
                     cursor="",
                     time_created=django_timezone.now().isoformat(),
                     raw={"backend_sent": True, "task_id": job_id, "api_status": "sending", "original_text": text},
