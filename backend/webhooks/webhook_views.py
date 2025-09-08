@@ -861,18 +861,27 @@ class WebhookView(APIView):
                         logger.info(f"[WEBHOOK] 🔍 CHECKING FOR EXISTING BACKEND EVENTS:")
                         
                         # Method 1: Check if we have an existing LeadEvent with from_backend=True for this text
-                        # 🔧 FIX: Convert text to Yelp format before search to match stored format
+                        # 🔧 FIX: Search for both ASCII and Unicode versions of text
                         yelp_search_text = convert_to_yelp_format(text)
+                        # Also create reverse conversion (Unicode → ASCII)
+                        ascii_search_text = text.replace(''', "'").replace('"', '"').replace('"', '"')  # Common Unicode → ASCII
+                        
                         logger.info(f"[WEBHOOK] - Text conversion for search:")
                         logger.info(f"[WEBHOOK]   Original text: '{text}'")
-                        logger.info(f"[WEBHOOK]   Yelp format text: '{yelp_search_text}'")
-                        logger.info(f"[WEBHOOK]   Conversion needed: {text != yelp_search_text}")
+                        logger.info(f"[WEBHOOK]   Yelp format (ASCII→Unicode): '{yelp_search_text}'")
+                        logger.info(f"[WEBHOOK]   ASCII format (Unicode→ASCII): '{ascii_search_text}'")
+                        logger.info(f"[WEBHOOK]   ASCII→Unicode needed: {text != yelp_search_text}")
+                        logger.info(f"[WEBHOOK]   Unicode→ASCII needed: {text != ascii_search_text}")
+                        
+                        # Search for all possible text variations
+                        search_texts = list(set([text, yelp_search_text, ascii_search_text]))  # Remove duplicates
+                        logger.info(f"[WEBHOOK]   Search variations: {search_texts}")
                         
                         existing_backend_event = LeadEvent.objects.filter(
                             lead_id=lid,
                             user_type="BUSINESS",
                             from_backend=True,
-                            text=yelp_search_text  # 🔧 FIX: Use converted text for search
+                            text__in=search_texts  # 🔧 FIX: Search all text variations
                         ).first()
                         
                         logger.info(f"[WEBHOOK] - Method 1 (text match): {'Found' if existing_backend_event else 'Not found'}")
@@ -880,6 +889,16 @@ class WebhookView(APIView):
                             logger.info(f"[WEBHOOK]   ↳ Existing event ID: {existing_backend_event.event_id}")
                             logger.info(f"[WEBHOOK]   ↳ Created at: {existing_backend_event.created_at}")
                             logger.info(f"[WEBHOOK]   ↳ Task ID in raw: {existing_backend_event.raw.get('task_id', 'None')}")
+                            logger.info(f"[WEBHOOK]   ↳ Stored text: '{existing_backend_event.text}'")
+                            # Show which variation matched
+                            if existing_backend_event.text == text:
+                                logger.info(f"[WEBHOOK]   ↳ ✅ Matched via ORIGINAL text")
+                            elif existing_backend_event.text == yelp_search_text:
+                                logger.info(f"[WEBHOOK]   ↳ ✅ Matched via UNICODE converted text")
+                            elif existing_backend_event.text == ascii_search_text:
+                                logger.info(f"[WEBHOOK]   ↳ ✅ Matched via ASCII converted text")
+                            else:
+                                logger.info(f"[WEBHOOK]   ↳ ❓ Matched via unknown text variation")
                         
                         # Method 2: Check recent backend events (last 5 minutes)
                         from django.utils import timezone
@@ -897,10 +916,10 @@ class WebhookView(APIView):
                             logger.info(f"[WEBHOOK]     Task ID: {recent_event.raw.get('task_id', 'None')}")
                             
                         # Method 3: Check if text matches any recent LeadPendingTask
-                        # 🔧 FIX: Use converted text for LeadPendingTask search too
+                        # 🔧 FIX: Search for all text variations in LeadPendingTask too
                         recent_tasks = LeadPendingTask.objects.filter(
                             lead_id=lid,
-                            text=yelp_search_text,  # 🔧 FIX: Use converted text for search
+                            text__in=search_texts,  # 🔧 FIX: Search all text variations
                             created_at__gte=timezone.now() - timezone.timedelta(minutes=10)
                         ).order_by('-created_at')[:2]
                         
@@ -909,8 +928,14 @@ class WebhookView(APIView):
                             logger.info(f"[WEBHOOK]   ↳ Task #{idx+1}: ID={task.task_id}")
                             logger.info(f"[WEBHOOK]     Active: {task.active}")
                             logger.info(f"[WEBHOOK]     Created: {task.created_at}")
+                            logger.info(f"[WEBHOOK]     Stored text: '{task.text}'")
                             logger.info(f"[WEBHOOK]     Text match (original): {task.text == text}")
-                            logger.info(f"[WEBHOOK]     Text match (converted): {task.text == yelp_search_text}")
+                            logger.info(f"[WEBHOOK]     Text match (Unicode): {task.text == yelp_search_text}")
+                            logger.info(f"[WEBHOOK]     Text match (ASCII): {task.text == ascii_search_text}")
+                            # Show which variation matched
+                            if task.text in search_texts:
+                                matching_variation = "original" if task.text == text else ("Unicode" if task.text == yelp_search_text else "ASCII")
+                                logger.info(f"[WEBHOOK]     ✅ Matched via {matching_variation} variation")
                         
                         # DECISION LOGIC
                         is_backend_message = (
