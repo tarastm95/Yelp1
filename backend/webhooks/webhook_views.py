@@ -864,7 +864,7 @@ class WebhookView(APIView):
                         # 🔧 FIX: Search for both ASCII and Unicode versions of text
                         yelp_search_text = convert_to_yelp_format(text)
                         # Also create reverse conversion (Unicode → ASCII)
-                        ascii_search_text = text.replace(''', "'").replace('"', '"').replace('"', '"')  # Common Unicode → ASCII
+                        ascii_search_text = text.replace('\u2019', "'").replace('\u201c', '"').replace('\u201d', '"')  # Common Unicode → ASCII
                         
                         logger.info(f"[WEBHOOK] - Text conversion for search:")
                         logger.info(f"[WEBHOOK]   Original text: '{text}'")
