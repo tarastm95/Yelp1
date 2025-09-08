@@ -861,11 +861,18 @@ class WebhookView(APIView):
                         logger.info(f"[WEBHOOK] 🔍 CHECKING FOR EXISTING BACKEND EVENTS:")
                         
                         # Method 1: Check if we have an existing LeadEvent with from_backend=True for this text
+                        # 🔧 FIX: Convert text to Yelp format before search to match stored format
+                        yelp_search_text = convert_to_yelp_format(text)
+                        logger.info(f"[WEBHOOK] - Text conversion for search:")
+                        logger.info(f"[WEBHOOK]   Original text: '{text}'")
+                        logger.info(f"[WEBHOOK]   Yelp format text: '{yelp_search_text}'")
+                        logger.info(f"[WEBHOOK]   Conversion needed: {text != yelp_search_text}")
+                        
                         existing_backend_event = LeadEvent.objects.filter(
                             lead_id=lid,
                             user_type="BUSINESS",
                             from_backend=True,
-                            text=text
+                            text=yelp_search_text  # 🔧 FIX: Use converted text for search
                         ).first()
                         
                         logger.info(f"[WEBHOOK] - Method 1 (text match): {'Found' if existing_backend_event else 'Not found'}")
@@ -890,9 +897,10 @@ class WebhookView(APIView):
                             logger.info(f"[WEBHOOK]     Task ID: {recent_event.raw.get('task_id', 'None')}")
                             
                         # Method 3: Check if text matches any recent LeadPendingTask
+                        # 🔧 FIX: Use converted text for LeadPendingTask search too
                         recent_tasks = LeadPendingTask.objects.filter(
                             lead_id=lid,
-                            text=text,
+                            text=yelp_search_text,  # 🔧 FIX: Use converted text for search
                             created_at__gte=timezone.now() - timezone.timedelta(minutes=10)
                         ).order_by('-created_at')[:2]
                         
@@ -901,7 +909,8 @@ class WebhookView(APIView):
                             logger.info(f"[WEBHOOK]   ↳ Task #{idx+1}: ID={task.task_id}")
                             logger.info(f"[WEBHOOK]     Active: {task.active}")
                             logger.info(f"[WEBHOOK]     Created: {task.created_at}")
-                            logger.info(f"[WEBHOOK]     Text match: {task.text == text}")
+                            logger.info(f"[WEBHOOK]     Text match (original): {task.text == text}")
+                            logger.info(f"[WEBHOOK]     Text match (converted): {task.text == yelp_search_text}")
                         
                         # DECISION LOGIC
                         is_backend_message = (
