@@ -415,8 +415,65 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
                 
             logger.info(f"[FOLLOW-UP] ================================================")
 
-            # Step 8: Send API request
-            logger.info(f"[FOLLOW-UP] 📤 STEP 8: Sending follow-up message to Yelp API")
+            # Step 8a: 🔄 CREATE LeadEvent FIRST to prevent race condition
+            logger.info(f"[FOLLOW-UP] 📝 STEP 8a: Creating LeadEvent with from_backend=True BEFORE API call")
+            logger.info(f"[FOLLOW-UP] 🎯 This prevents race condition where webhook arrives before LeadEvent creation")
+            
+            lead_event = None
+            our_event_id = None
+            
+            try:
+                from django.utils import timezone as django_timezone
+                import uuid
+
+                logger.info(f"[FOLLOW-UP] TEXT ANALYSIS FOR FUTURE DETECTION:")
+                logger.info(f"[FOLLOW-UP] - Lead ID: {lead_id}")
+                logger.info(f"[FOLLOW-UP] - Text length: {len(text)}")
+                logger.info(f"[FOLLOW-UP] - Text hash: {hash(text)}")
+                logger.info(f"[FOLLOW-UP] - Full text: '{text}'")
+                logger.info(f"[FOLLOW-UP] - Text preview: '{text[:100]}...' " + ("" if len(text) <= 100 else f"(+{len(text)-100} more chars)"))
+
+                # Створюємо унікальний event_id для нашого повідомлення
+                our_event_id = f"backend_sent_{uuid.uuid4().hex[:16]}"
+
+                # Convert text to Yelp format before storing to ensure exact match
+                from .webhook_views import convert_to_yelp_format
+                yelp_formatted_text = convert_to_yelp_format(text)
+                logger.info(f"[FOLLOW-UP] 🔄 TEXT CONVERSION FOR FUTURE DETECTION:")
+                logger.info(f"[FOLLOW-UP] - Original: '{text}'")
+                logger.info(f"[FOLLOW-UP] - Yelp format: '{yelp_formatted_text}'")
+                logger.info(f"[FOLLOW-UP] - Converted: {text != yelp_formatted_text}")
+                
+                # Create LeadEvent BEFORE API call with placeholder raw data
+                lead_event = LeadEvent.objects.create(
+                    event_id=our_event_id,
+                    lead_id=lead_id,
+                    event_type="TEXT",
+                    user_type="BUSINESS",  # Ми відправляємо від імені бізнесу
+                    user_id="",
+                    user_display_name="",
+                    text=yelp_formatted_text,  # Store in Yelp format for exact match
+                    cursor="",
+                    time_created=django_timezone.now().isoformat(),
+                    raw={"backend_sent": True, "task_id": job_id, "api_status": "sending", "original_text": text},
+                    from_backend=True  # 🔑 КЛЮЧОВИЙ FLAG!
+                )
+
+                logger.info(f"[FOLLOW-UP] ✅ Created LeadEvent id={lead_event.pk} with from_backend=True BEFORE API call")
+                logger.info(f"[FOLLOW-UP] STORED TEXT: '{lead_event.text}'")
+                logger.info(f"[FOLLOW-UP] 🛡️ This will help system recognize this message as ours when webhook arrives")
+
+            except Exception as event_error:
+                logger.error(f"[FOLLOW-UP] ❌ CRITICAL: Failed to create LeadEvent with from_backend=True: {event_error}")
+                logger.exception(f"[FOLLOW-UP] LeadEvent creation exception")
+                logger.error(f"[FOLLOW-UP] 🚨 Cannot proceed safely without LeadEvent - this would cause race condition")
+                return f"ERROR: Failed to create LeadEvent before API call - {str(event_error)}"
+
+            # Step 8b: Send API request
+            logger.info(f"[FOLLOW-UP] 📤 STEP 8b: Sending follow-up message to Yelp API")
+            api_success = False
+            resp = None
+            
             for attempt in range(3):
                 try:
                     api_start_time = time.time()
@@ -472,6 +529,7 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
 
                     resp.raise_for_status()
                     logger.info(f"[FOLLOW-UP] ✅ No HTTP errors detected!")
+                    api_success = True
                     break
                 except requests.exceptions.Timeout as e:
                     api_end_time = time.time()
@@ -490,7 +548,17 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
                     logger.error(f"[FOLLOW-UP] Request took longer than 30 seconds")
                     logger.error(f"[FOLLOW-UP] This usually means Yelp API is slow or unreachable")
                     logger.error(f"[FOLLOW-UP] =======================================")
-                    return f"ERROR: Request timeout after {api_duration:.2f}s - {str(e)}"
+                    
+                    # Clean up LeadEvent on final attempt failure
+                    if attempt == 2 and lead_event:
+                        try:
+                            lead_event.delete()
+                            logger.error(f"[FOLLOW-UP] 🧹 Cleaned up LeadEvent {lead_event.pk} due to timeout")
+                        except Exception:
+                            logger.error(f"[FOLLOW-UP] ⚠️ Failed to cleanup LeadEvent {lead_event.pk}")
+                    
+                    if attempt == 2:  # Last attempt
+                        return f"ERROR: Request timeout after {api_duration:.2f}s - {str(e)}"
                 except requests.exceptions.HTTPError as e:
                     api_end_time = time.time()
                     api_duration = api_end_time - api_start_time
@@ -520,6 +588,15 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
                         )
                         time.sleep(5)
                         continue
+                    
+                    # Clean up LeadEvent on final failure
+                    if lead_event:
+                        try:
+                            lead_event.delete()
+                            logger.error(f"[FOLLOW-UP] 🧹 Cleaned up LeadEvent {lead_event.pk} due to HTTP error")
+                        except Exception:
+                            logger.error(f"[FOLLOW-UP] ⚠️ Failed to cleanup LeadEvent {lead_event.pk}")
+                    
                     return f"ERROR: HTTP {resp.status_code} after {api_duration:.2f}s - {error_details}"
                 except requests.exceptions.RequestException as e:
                     api_end_time = time.time()
@@ -538,7 +615,17 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
                     logger.error(f"[FOLLOW-UP] - Error type: {type(e).__name__}")
                     logger.error(f"[FOLLOW-UP] =========================================")
                     logger.exception(f"[FOLLOW-UP] Request exception details")
-                    return f"ERROR: Request failed after {api_duration:.2f}s - {str(e)}"
+                    
+                    # Clean up LeadEvent on final attempt failure
+                    if attempt == 2 and lead_event:
+                        try:
+                            lead_event.delete()
+                            logger.error(f"[FOLLOW-UP] 🧹 Cleaned up LeadEvent {lead_event.pk} due to request error")
+                        except Exception:
+                            logger.error(f"[FOLLOW-UP] ⚠️ Failed to cleanup LeadEvent {lead_event.pk}")
+                    
+                    if attempt == 2:  # Last attempt
+                        return f"ERROR: Request failed after {api_duration:.2f}s - {str(e)}"
                 except Exception as e:
                     api_end_time = time.time()
                     api_duration = api_end_time - api_start_time
@@ -556,54 +643,40 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
                     logger.error(f"[FOLLOW-UP] - Error type: {type(e).__name__}")
                     logger.error(f"[FOLLOW-UP] ============================================")
                     logger.exception(f"[FOLLOW-UP] Unexpected exception details")
-                    return f"ERROR: Unexpected error after {api_duration:.2f}s - {str(e)}"
+                    
+                    # Clean up LeadEvent on final attempt failure
+                    if attempt == 2 and lead_event:
+                        try:
+                            lead_event.delete()
+                            logger.error(f"[FOLLOW-UP] 🧹 Cleaned up LeadEvent {lead_event.pk} due to unexpected error")
+                        except Exception:
+                            logger.error(f"[FOLLOW-UP] ⚠️ Failed to cleanup LeadEvent {lead_event.pk}")
+                    
+                    if attempt == 2:  # Last attempt
+                        return f"ERROR: Unexpected error after {api_duration:.2f}s - {str(e)}"
 
-            # Створюємо LeadEvent з from_backend=True щоб система знала що це наше повідомлення
-            try:
-                from django.utils import timezone as django_timezone
-
-                logger.info(f"[FOLLOW-UP] 📝 Creating LeadEvent with from_backend=True")
-                logger.info(f"[FOLLOW-UP] TEXT ANALYSIS FOR FUTURE DETECTION:")
-                logger.info(f"[FOLLOW-UP] - Lead ID: {lead_id}")
-                logger.info(f"[FOLLOW-UP] - Text length: {len(text)}")
-                logger.info(f"[FOLLOW-UP] - Text hash: {hash(text)}")
-                logger.info(f"[FOLLOW-UP] - Full text: '{text}'")
-                logger.info(f"[FOLLOW-UP] - Text preview: '{text[:100]}...' " + ("" if len(text) <= 100 else f"(+{len(text)-100} more chars)"))
-
-                # Створюємо унікальний event_id для нашого повідомлення
-                import uuid
-                our_event_id = f"backend_sent_{uuid.uuid4().hex[:16]}"
-
-                # Convert text to Yelp format before storing to ensure exact match
-                from .webhook_views import convert_to_yelp_format
-                yelp_formatted_text = convert_to_yelp_format(text)
-                logger.info(f"[FOLLOW-UP] 🔄 TEXT CONVERSION FOR FUTURE DETECTION:")
-                logger.info(f"[FOLLOW-UP] - Original: '{text}'")
-                logger.info(f"[FOLLOW-UP] - Yelp format: '{yelp_formatted_text}'")
-                logger.info(f"[FOLLOW-UP] - Converted: {text != yelp_formatted_text}")
-                
-                lead_event = LeadEvent.objects.create(
-                    event_id=our_event_id,
-                    lead_id=lead_id,
-                    event_type="TEXT",
-                    user_type="BUSINESS",  # Ми відправляємо від імені бізнесу
-                    user_id="",
-                    user_display_name="",
-                    text=yelp_formatted_text,  # Store in Yelp format for exact match
-                    cursor="",
-                    time_created=django_timezone.now().isoformat(),
-                    raw={"backend_sent": True, "task_id": job_id, "yelp_response": resp.text[:1000], "original_text": text},
-                    from_backend=True  # 🔑 КЛЮЧОВИЙ FLAG!
-                )
-
-                logger.info(f"[FOLLOW-UP] ✅ Created LeadEvent id={lead_event.pk} with from_backend=True")
-                logger.info(f"[FOLLOW-UP] STORED TEXT: '{lead_event.text}'")
-                logger.info(f"[FOLLOW-UP] This will help system recognize this message as ours when webhook arrives")
-
-            except Exception as event_error:
-                # Не падаємо якщо не вдалося створити LeadEvent - повідомлення вже надіслано
-                logger.error(f"[FOLLOW-UP] ⚠️ Failed to create LeadEvent with from_backend=True: {event_error}")
-                logger.exception(f"[FOLLOW-UP] LeadEvent creation exception (non-critical)")
+            # Step 8c: Update LeadEvent with API response details
+            if api_success and lead_event and resp:
+                try:
+                    logger.info(f"[FOLLOW-UP] 📝 STEP 8c: Updating LeadEvent with API response details")
+                    
+                    # Update raw data with actual API response
+                    updated_raw = lead_event.raw.copy()
+                    updated_raw.update({
+                        "api_status": "success",
+                        "yelp_response": resp.text[:1000],
+                        "status_code": resp.status_code,
+                        "api_duration": api_duration if 'api_duration' in locals() else None,
+                    })
+                    
+                    lead_event.raw = updated_raw
+                    lead_event.save()
+                    
+                    logger.info(f"[FOLLOW-UP] ✅ Updated LeadEvent {lead_event.pk} with API response details")
+                    
+                except Exception as update_error:
+                    logger.error(f"[FOLLOW-UP] ⚠️ Failed to update LeadEvent with API response: {update_error}")
+                    logger.exception(f"[FOLLOW-UP] LeadEvent update exception (non-critical - message was sent)")
 
             logger.info(f"[FOLLOW-UP] 🎉 FOLLOW-UP COMPLETED SUCCESSFULLY for lead={lead_id}")
             logger.info(f"[FOLLOW-UP] ========== TASK COMPLETION ==========")
@@ -611,13 +684,14 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
             logger.info(f"[FOLLOW-UP] - Business ID: {business_id}")
             logger.info(f"[FOLLOW-UP] - Task ID: {job_id}")
             logger.info(f"[FOLLOW-UP] - Message successfully sent to Yelp API")
-            logger.info(f"[FOLLOW-UP] - HTTP Status: {resp.status_code}")
-            logger.info(f"[FOLLOW-UP] - LeadEvent created with from_backend=True")
+            logger.info(f"[FOLLOW-UP] - HTTP Status: {resp.status_code if resp else 'N/A'}")
+            logger.info(f"[FOLLOW-UP] - LeadEvent created BEFORE API call with from_backend=True")
+            logger.info(f"[FOLLOW-UP] - API success: {api_success}")
             logger.info(f"[FOLLOW-UP] ===========================================")
 
             task_duration = time.time() - task_start_time if 'task_start_time' in locals() else 0
             logger.info(f"[FOLLOW-UP] 🎉 TASK COMPLETED SUCCESSFULLY in {task_duration:.2f} seconds")
-            return f"SUCCESS: Message sent to Yelp API (HTTP {resp.status_code}) in {task_duration:.2f}s"
+            return f"SUCCESS: Message sent to Yelp API (HTTP {resp.status_code if resp else 'N/A'}) in {task_duration:.2f}s"
                 
     except Exception as lock_exc:
         logger.error(f"[FOLLOW-UP] ❌ LOCK ERROR: {lock_exc}")
