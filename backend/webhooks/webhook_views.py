@@ -843,20 +843,88 @@ class WebhookView(APIView):
                     logger.info(f"[WEBHOOK] - Text: '{text[:50]}...'")
                     logger.info(f"[WEBHOOK] - Created in DB: {created}")
                     
-                    # Simple BIZ detection: if user_type=BIZ and from_backend=False → manual response
+                    # Enhanced BIZ detection with proper from_backend analysis
                     if user_type == "BIZ":
                         logger.info(f"[WEBHOOK] 🏢 BIZ EVENT DETECTED")
+                        logger.info(f"[WEBHOOK] =================== BIZ EVENT ANALYSIS ===================")
+                        logger.info(f"[WEBHOOK] Event details:")
+                        logger.info(f"[WEBHOOK] - Event ID: {eid}")
                         logger.info(f"[WEBHOOK] - User type: {user_type}")
-                        logger.info(f"[WEBHOOK] - from_backend: {defaults.get('from_backend', False)}")
                         logger.info(f"[WEBHOOK] - Text preview: '{text[:50]}...'")
+                        logger.info(f"[WEBHOOK] - Full text: '{text}'")
+                        logger.info(f"[WEBHOOK] - Text length: {len(text)}")
+                        logger.info(f"[WEBHOOK] - Text hash: {hash(text)}")
+                        logger.info(f"[WEBHOOK] - defaults.from_backend: {defaults.get('from_backend', False)}")
+                        logger.info(f"[WEBHOOK] - Raw backend_sent: {e.get('raw', {}).get('backend_sent', 'Not present')}")
                         
-                        if defaults.get("from_backend", False):
+                        # ENHANCED LOGIC: Check for existing backend events
+                        logger.info(f"[WEBHOOK] 🔍 CHECKING FOR EXISTING BACKEND EVENTS:")
+                        
+                        # Method 1: Check if we have an existing LeadEvent with from_backend=True for this text
+                        existing_backend_event = LeadEvent.objects.filter(
+                            lead_id=lid,
+                            user_type="BUSINESS",
+                            from_backend=True,
+                            text=text
+                        ).first()
+                        
+                        logger.info(f"[WEBHOOK] - Method 1 (text match): {'Found' if existing_backend_event else 'Not found'}")
+                        if existing_backend_event:
+                            logger.info(f"[WEBHOOK]   ↳ Existing event ID: {existing_backend_event.event_id}")
+                            logger.info(f"[WEBHOOK]   ↳ Created at: {existing_backend_event.created_at}")
+                            logger.info(f"[WEBHOOK]   ↳ Task ID in raw: {existing_backend_event.raw.get('task_id', 'None')}")
+                        
+                        # Method 2: Check recent backend events (last 5 minutes)
+                        from django.utils import timezone
+                        recent_backend_events = LeadEvent.objects.filter(
+                            lead_id=lid,
+                            user_type="BUSINESS", 
+                            from_backend=True,
+                            created_at__gte=timezone.now() - timezone.timedelta(minutes=5)
+                        ).order_by('-created_at')[:3]
+                        
+                        logger.info(f"[WEBHOOK] - Method 2 (recent backend events): {recent_backend_events.count()} found")
+                        for idx, recent_event in enumerate(recent_backend_events):
+                            logger.info(f"[WEBHOOK]   ↳ Event #{idx+1}: '{recent_event.text[:50]}...'")
+                            logger.info(f"[WEBHOOK]     Time: {recent_event.created_at}")
+                            logger.info(f"[WEBHOOK]     Task ID: {recent_event.raw.get('task_id', 'None')}")
+                            
+                        # Method 3: Check if text matches any recent LeadPendingTask
+                        recent_tasks = LeadPendingTask.objects.filter(
+                            lead_id=lid,
+                            text=text,
+                            created_at__gte=timezone.now() - timezone.timedelta(minutes=10)
+                        ).order_by('-created_at')[:2]
+                        
+                        logger.info(f"[WEBHOOK] - Method 3 (matching tasks): {recent_tasks.count()} found")
+                        for idx, task in enumerate(recent_tasks):
+                            logger.info(f"[WEBHOOK]   ↳ Task #{idx+1}: ID={task.task_id}")
+                            logger.info(f"[WEBHOOK]     Active: {task.active}")
+                            logger.info(f"[WEBHOOK]     Created: {task.created_at}")
+                            logger.info(f"[WEBHOOK]     Text match: {task.text == text}")
+                        
+                        # DECISION LOGIC
+                        is_backend_message = (
+                            existing_backend_event is not None or
+                            defaults.get("from_backend", False) or
+                            recent_tasks.exists()  # If we have matching tasks, likely from backend
+                        )
+                        
+                        logger.info(f"[WEBHOOK] 🎯 FINAL DECISION:")
+                        logger.info(f"[WEBHOOK] - is_backend_message: {is_backend_message}")
+                        logger.info(f"[WEBHOOK] - Logic: existing_event={existing_backend_event is not None} OR defaults_flag={defaults.get('from_backend', False)} OR matching_tasks={recent_tasks.exists()}")
+                        
+                        if is_backend_message:
                             logger.info(f"[WEBHOOK] 🤖 AUTOMATED BIZ MESSAGE - This is our own follow-up")
-                            logger.info(f"[WEBHOOK] No action needed - system behavior is expected")
+                            logger.info(f"[WEBHOOK] ✅ No action needed - system behavior is expected")
+                            logger.info(f"[WEBHOOK] 🔒 PRESERVING follow-up tasks - not cancelling")
                         else:
                             logger.info(f"[WEBHOOK] 👨‍💼 MANUAL BIZ MESSAGE - Business responded manually in Yelp dashboard")
                             logger.info(f"[WEBHOOK] 🛑 CANCELLING ALL FOLLOW-UP TASKS - Business took over conversation")
+                            logger.info(f"[WEBHOOK] 📝 Cancellation reason: Business manual response")
                             self._cancel_all_tasks(lid, reason=f"Business responded manually in Yelp dashboard: '{text[:50]}...'")
+                        
+                        logger.info(f"[WEBHOOK] ============================================================")
                     
                     elif user_type == "CONSUMER":
                         logger.info(f"[WEBHOOK] 📝 CONSUMER EVENT DETECTED")
