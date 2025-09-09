@@ -937,21 +937,9 @@ class WebhookView(APIView):
                             else:
                                 logger.info(f"[WEBHOOK]   ↳ ❓ Matched via unknown text variation")
                         
-                        # Method 2: Check recent backend events (last 5 minutes)
-                        from django.utils import timezone
-                        recent_backend_events = LeadEvent.objects.filter(
-                            lead_id=lid,
-                            user_type="BUSINESS", 
-                            from_backend=True,
-                            created_at__gte=timezone.now() - timezone.timedelta(minutes=5)
-                        ).order_by('-created_at')[:3]
+                        # Method 2 REMOVED: Was causing false positives by treating all BIZ events 
+                        # as automated if there were recent auto messages (too broad time window)
                         
-                        logger.info(f"[WEBHOOK] - Method 2 (recent backend events): {recent_backend_events.count()} found")
-                        for idx, recent_event in enumerate(recent_backend_events):
-                            logger.info(f"[WEBHOOK]   ↳ Event #{idx+1}: '{recent_event.text[:50]}...'")
-                            logger.info(f"[WEBHOOK]     Time: {recent_event.created_at}")
-                            logger.info(f"[WEBHOOK]     Task ID: {recent_event.raw.get('task_id', 'None')}")
-                            
                         # Method 3: Check if text matches any recent LeadPendingTask
                         # 🔧 FIX: Use normalized text for LeadPendingTask search  
                         recent_tasks = LeadPendingTask.objects.filter(
@@ -970,36 +958,31 @@ class WebhookView(APIView):
                             if task.text == normalized_search_text:
                                 logger.info(f"[WEBHOOK]     ✅ Exact normalized text match found")
                         
-                        # SIMPLIFIED DECISION LOGIC - Primary reliance on Method 1 (exact text match)
+                        # IMPROVED DECISION LOGIC - Reliable methods only (Method 2 removed)
                         method1_match = existing_backend_event is not None
-                        method2_fallback = recent_backend_events.exists()  # Backup: any recent auto messages  
                         method3_fallback = recent_tasks.exists()  # Backup: matching scheduled tasks
                         defaults_flag = defaults.get("from_backend", False)
                         
-                        # Primary: Method 1 (exact text), Fallbacks: Method 2 & 3
+                        # Primary: Method 1 (exact text), Reliable Fallbacks: Method 3 & 4
                         is_backend_message = (
                             method1_match or           # 🎯 PRIMARY: Exact text match
-                            method2_fallback or        # 🛡️ FALLBACK: Recent auto messages
                             method3_fallback or        # 🛡️ FALLBACK: Matching tasks
                             defaults_flag              # 🛡️ FALLBACK: from_backend flag
                         )
                         
-                        logger.info(f"[WEBHOOK] 🎯 ENHANCED DECISION ANALYSIS:")
+                        logger.info(f"[WEBHOOK] 🎯 IMPROVED DECISION ANALYSIS (3 Methods):")
                         logger.info(f"[WEBHOOK] - Method 1 (exact text match): {method1_match} 🎯 PRIMARY")
-                        logger.info(f"[WEBHOOK] - Method 2 (recent auto events): {method2_fallback} 🛡️ FALLBACK")  
                         logger.info(f"[WEBHOOK] - Method 3 (matching tasks): {method3_fallback} 🛡️ FALLBACK")
-                        logger.info(f"[WEBHOOK] - Defaults flag: {defaults_flag} 🛡️ FALLBACK")
+                        logger.info(f"[WEBHOOK] - Method 4 (defaults flag): {defaults_flag} 🛡️ FALLBACK")
                         logger.info(f"[WEBHOOK] - is_backend_message: {is_backend_message}")
                         
                         # Show which method determined the result
                         if method1_match:
                             logger.info(f"[WEBHOOK] 🎯 Decision made by: PRIMARY Method 1 (exact text match)")
-                        elif method2_fallback:
-                            logger.info(f"[WEBHOOK] 🛡️ Decision made by: FALLBACK Method 2 (recent auto events)")
                         elif method3_fallback:
                             logger.info(f"[WEBHOOK] 🛡️ Decision made by: FALLBACK Method 3 (matching tasks)")
                         elif defaults_flag:
-                            logger.info(f"[WEBHOOK] 🛡️ Decision made by: FALLBACK defaults flag")
+                            logger.info(f"[WEBHOOK] 🛡️ Decision made by: FALLBACK Method 4 (defaults flag)")
                         else:
                             logger.info(f"[WEBHOOK] ❌ No method detected automation - treating as manual")
                         
