@@ -10,12 +10,32 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 import os
+import sys
 import logging
 from decouple import config
 from logging.handlers import RotatingFileHandler
 from pythonjsonlogger import jsonlogger
 import sentry_sdk
 from sentry_sdk.integrations.django import DjangoIntegration
+
+def get_required_env(key: str) -> str:
+    """Get required environment variable or exit with error"""
+    value = os.getenv(key)
+    if not value:
+        print(f"❌ ERROR: Required environment variable '{key}' is not set in .env file!")
+        print(f"Please add {key}=your_value to backend/.env")
+        sys.exit(1)
+    return value
+
+def get_env_bool(key: str) -> bool:
+    """Get boolean environment variable or exit with error"""
+    value = get_required_env(key)
+    return value.lower() in ('true', '1', 'yes', 'on')
+
+def get_env_list(key: str, separator: str = ',') -> list:
+    """Get list environment variable or exit with error"""
+    value = get_required_env(key)
+    return [item.strip() for item in value.split(separator) if item.strip()]
 
 # Default to plain-text storage of tokens unless explicitly overridden
 os.environ.setdefault("DISABLE_TOKEN_ENCRYPTION", "true")
@@ -30,10 +50,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-_8)i-uy_l-lq%@swb75enu8e4s)wumz1ap*f-hth9gxm)k3%lg'
+SECRET_KEY = get_required_env('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = get_env_bool('DEBUG')
 
 SENTRY_DSN = os.getenv("SENTRY_DSN")
 if SENTRY_DSN:
@@ -44,14 +64,9 @@ if SENTRY_DSN:
         send_default_pii=True,
     )
 
-ALLOWED_HOSTS = [
-    '77e2-194-44-109-244.ngrok-free.app',
-    '127.0.0.1',
-    'localhost',
-    '46.62.139.177',
-]
+ALLOWED_HOSTS = get_env_list('ALLOWED_HOSTS')
 
-REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/1")
+REDIS_URL = get_required_env("REDIS_URL")
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.redis.RedisCache",
@@ -226,9 +241,9 @@ STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Yelp OAuth Settings
-YELP_CLIENT_ID = 'aqlct9xjUJHu0Lu5I0zW0Q'
-YELP_CLIENT_SECRET = 'obKNrCDl4i7Pgt8tjNmWA7Nq162QqPc2RvNqjS3BaGRBSRdkhO4rrR32o50UxYKq'
-YELP_OAUTH_REDIRECT_URI = 'http://46.62.139.177:8000/yelp/auth/callback/'
+YELP_CLIENT_ID = get_required_env('YELP_CLIENT_ID')
+YELP_CLIENT_SECRET = get_required_env('YELP_CLIENT_SECRET')
+YELP_OAUTH_REDIRECT_URI = get_required_env('YELP_OAUTH_REDIRECT_URI')
 YELP_AUTHORIZATION_URL = 'https://biz.yelp.com/oauth2/authorize'
 YELP_TOKEN_URL = 'https://api.yelp.com/oauth2/token'
 YELP_PARTNER_API_URL = 'https://partner-api.yelp.com/v3/businesses'
@@ -238,27 +253,22 @@ YELP_OAUTH_SCOPES = [
     'r2r_get_businesses', # для отримання списку бізнесів
     'r2r_business_owner'  # для отримання інформації про власника
 ]
-YELP_API_KEY = os.getenv("YELP_API_KEY", "KTqXwkcW5t4EwUN-8SusEfrSfctwVDIJ65FXXR3T72xYS-ZEuKORWvtvT1OQ8zBIcCXsP7nyrcXFuL_93988JoPpezu1Or4mE25_tSA8zVKji_4NI6_EbHJMbOYRZHYx")
-YELP_TOKEN_SECRET = os.getenv("YELP_TOKEN_SECRET", "0123456789ABCDEF0123456789ABCDEF")
+YELP_API_KEY = get_required_env("YELP_API_KEY")
+YELP_TOKEN_SECRET = get_required_env("YELP_TOKEN_SECRET")
 # When true, tokens are stored and logged in plain text without encryption
-DISABLE_TOKEN_ENCRYPTION = os.getenv("DISABLE_TOKEN_ENCRYPTION", "false").lower() in ("1", "true", "yes")
-GOOGLE_TIMEZONE_API_KEY = os.getenv("GOOGLE_TIMEZONE_API_KEY", "AIzaSyC3TB24rn-fp7IJ2m_T3PyMKLXuDSNOL9k")
+DISABLE_TOKEN_ENCRYPTION = get_env_bool("DISABLE_TOKEN_ENCRYPTION")
+GOOGLE_TIMEZONE_API_KEY = get_required_env("GOOGLE_TIMEZONE_API_KEY")
 
 # Frontend URL
-FRONTEND_URL = 'http://46.62.139.177:3000'
+FRONTEND_URL = get_required_env('FRONTEND_URL')
 
 # Google sheets
 GS_SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 
-GS_SPREADSHEET_ID   = "1yvOoB5D31scVa5oNFHFfRycD8Wtd3uqTOmbMisatc8Q"
+GS_SPREADSHEET_ID = get_required_env('GS_SPREADSHEET_ID')
 GOOGLE_SERVICE_ACCOUNT_FILE = BASE_DIR / "service_account.json"
 
-CORS_ALLOWED_ORIGINS = [
-    'http://localhost:3000',
-    'http://localhost:3002',
-    'http://localhost:5173',
-    'http://46.62.139.177:3000',
-]
+CORS_ALLOWED_ORIGINS = get_env_list('CORS_ALLOWED_ORIGINS')
 
 # Twilio SMS configuration
 TWILIO_ACCOUNT_SID = config('TWILIO_ACCOUNT_SID')
