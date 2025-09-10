@@ -22,8 +22,12 @@ import InfoIcon from '@mui/icons-material/Info';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import EventIcon from '@mui/icons-material/Event';
 
-// Base URL for API requests
-const API_BASE = import.meta.env.VITE_API_URL || 'http://46.62.139.177:8000';
+// Base URL for API requests - must be configured in frontend/.env
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
+if (!API_BASE) {
+  console.error('❌ ERROR: VITE_API_BASE_URL is not set in frontend/.env file!');
+  throw new Error('Missing VITE_API_BASE_URL environment variable');
+}
 
 interface Props {
   leads: ProcessedLead[];

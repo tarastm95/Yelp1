@@ -214,10 +214,13 @@ const theme = createTheme({
   },
 });
 
-// Base URL for the API
-axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL
-  ? `${import.meta.env.VITE_API_BASE_URL}/api`
-  : 'http://46.62.139.177:8000/api';
+// Base URL for the API - must be configured in frontend/.env
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+if (!API_BASE_URL) {
+  console.error('❌ ERROR: VITE_API_BASE_URL is not set in frontend/.env file!');
+  throw new Error('Missing VITE_API_BASE_URL environment variable');
+}
+axios.defaults.baseURL = `${API_BASE_URL}/api`;
 
 
 // ---------------------------------------------

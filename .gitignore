@@ -8,6 +8,8 @@ __pycache__/
 *.log
 .env
 .env.*
+frontend/.env
+frontend/.env.*
 # Celery beat schedule та pid-файли
 celerybeat-schedule*
 celerybeat.pid

@@ -32,7 +32,11 @@ import BusinessIcon from '@mui/icons-material/Business';
 
 const POLL_INTERVAL = 30000;
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://46.62.139.177:8000';
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
+if (!API_BASE) {
+  console.error('❌ ERROR: VITE_API_BASE_URL is not set in frontend/.env file!');
+  throw new Error('Missing VITE_API_BASE_URL environment variable');
+}
 
 interface PaginatedResponse<T> {
   count: number;
