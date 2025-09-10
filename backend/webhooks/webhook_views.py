@@ -182,27 +182,99 @@ class WebhookView(APIView):
             return {"new_lead": False}
         url = f"https://api.yelp.com/v3/leads/{lead_id}/events"
 
-        logger.debug(
-            "[WEBHOOK] Verifying new lead via %s (no limit - all events)",
-            url,
-        )
-        resp = requests.get(
-            url,
-            headers={"Authorization": f"Bearer {token}"},
-            timeout=10,
-        )
-        logger.info(
-            "[WEBHOOK] Yelp verify status for lead=%s: %s",
-            lead_id,
-            resp.status_code,
-        )
-        if resp.status_code != 200:
-            logger.error(
-                f"[WEBHOOK] Failed to verify new lead {lead_id}: {resp.status_code}"
+        logger.info(f"[WEBHOOK] 🚀 STARTING Yelp API request for lead verification")
+        logger.info(f"[WEBHOOK] =================== YELP API DEBUG ===================")
+        logger.info(f"[WEBHOOK] - Lead ID: {lead_id}")
+        logger.info(f"[WEBHOOK] - Business ID: {business_id}")
+        logger.info(f"[WEBHOOK] - URL: {url}")
+        logger.info(f"[WEBHOOK] - Token length: {len(token) if token else 0}")
+        logger.info(f"[WEBHOOK] - Token ending: ...{token[-10:] if token and len(token) > 10 else 'N/A'}")
+        logger.info(f"[WEBHOOK] - Timeout: 10 seconds")
+        logger.info(f"[WEBHOOK] - Request timestamp: {timezone.now().isoformat()}")
+        
+        import time
+        request_start_time = time.time()
+        
+        try:
+            logger.info(f"[WEBHOOK] 📡 Making HTTP GET request to Yelp API...")
+            
+            resp = requests.get(
+                url,
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=10,
             )
-            return {"new_lead": False}
+            
+            request_end_time = time.time()
+            request_duration = request_end_time - request_start_time
+            
+            logger.info(f"[WEBHOOK] ✅ Yelp API request completed successfully")
+            logger.info(f"[WEBHOOK] - Response time: {request_duration:.3f} seconds")
+            logger.info(f"[WEBHOOK] - Status code: {resp.status_code}")
+            logger.info(f"[WEBHOOK] - Response headers: {dict(resp.headers)}")
+            logger.info(f"[WEBHOOK] - Response size: {len(resp.content)} bytes")
+            
+        except requests.exceptions.Timeout as e:
+            request_end_time = time.time()
+            request_duration = request_end_time - request_start_time
+            logger.error(f"[WEBHOOK] ❌ YELP API TIMEOUT after {request_duration:.3f} seconds")
+            logger.error(f"[WEBHOOK] - Lead ID: {lead_id}")
+            logger.error(f"[WEBHOOK] - URL: {url}")
+            logger.error(f"[WEBHOOK] - Timeout exception: {e}")
+            logger.error(f"[WEBHOOK] - Exception type: {type(e).__name__}")
+            return {"new_lead": False, "error": "timeout"}
+            
+        except requests.exceptions.ConnectionError as e:
+            request_end_time = time.time()
+            request_duration = request_end_time - request_start_time
+            logger.error(f"[WEBHOOK] ❌ YELP API CONNECTION ERROR after {request_duration:.3f} seconds")
+            logger.error(f"[WEBHOOK] - Lead ID: {lead_id}")
+            logger.error(f"[WEBHOOK] - URL: {url}")
+            logger.error(f"[WEBHOOK] - Connection error: {e}")
+            logger.error(f"[WEBHOOK] - Exception type: {type(e).__name__}")
+            return {"new_lead": False, "error": "connection_error"}
+            
+        except requests.exceptions.RequestException as e:
+            request_end_time = time.time()
+            request_duration = request_end_time - request_start_time
+            logger.error(f"[WEBHOOK] ❌ YELP API REQUEST ERROR after {request_duration:.3f} seconds")
+            logger.error(f"[WEBHOOK] - Lead ID: {lead_id}")
+            logger.error(f"[WEBHOOK] - URL: {url}")
+            logger.error(f"[WEBHOOK] - Request error: {e}")
+            logger.error(f"[WEBHOOK] - Exception type: {type(e).__name__}")
+            return {"new_lead": False, "error": "request_error"}
+            
+        except Exception as e:
+            request_end_time = time.time()
+            request_duration = request_end_time - request_start_time
+            logger.error(f"[WEBHOOK] ❌ UNEXPECTED ERROR during Yelp API request after {request_duration:.3f} seconds")
+            logger.error(f"[WEBHOOK] - Lead ID: {lead_id}")
+            logger.error(f"[WEBHOOK] - URL: {url}")
+            logger.error(f"[WEBHOOK] - Unexpected error: {e}")
+            logger.error(f"[WEBHOOK] - Exception type: {type(e).__name__}")
+            logger.exception(f"[WEBHOOK] Full exception traceback:")
+            return {"new_lead": False, "error": "unexpected_error"}
+        
+        logger.info(f"[WEBHOOK] ========================================")
+        
+        if resp.status_code != 200:
+            logger.error(f"[WEBHOOK] ❌ Yelp API returned non-200 status")
+            logger.error(f"[WEBHOOK] - Lead ID: {lead_id}")
+            logger.error(f"[WEBHOOK] - Status code: {resp.status_code}")
+            logger.error(f"[WEBHOOK] - Response text: {resp.text[:500]}...")
+            logger.error(f"[WEBHOOK] - Response headers: {dict(resp.headers)}")
+            return {"new_lead": False, "error": f"http_{resp.status_code}"}
 
-        events = resp.json().get("events", [])
+        try:
+            events = resp.json().get("events", [])
+            logger.info(f"[WEBHOOK] 📋 Yelp API response parsed successfully")
+            logger.info(f"[WEBHOOK] - Events count: {len(events)}")
+            logger.info(f"[WEBHOOK] - Response JSON size: {len(str(events))} chars")
+            
+        except ValueError as e:
+            logger.error(f"[WEBHOOK] ❌ Failed to parse Yelp API JSON response")
+            logger.error(f"[WEBHOOK] - JSON error: {e}")
+            logger.error(f"[WEBHOOK] - Raw response: {resp.text[:500]}...")
+            return {"new_lead": False, "error": "json_parse_error"}
         logger.debug(
             "[WEBHOOK] Yelp returned events for lead=%s: %s",
             lead_id,
@@ -213,6 +285,22 @@ class WebhookView(APIView):
             lead_id,
             len(events),
         )
+        
+        # Add network and token diagnostics
+        logger.info(f"[WEBHOOK] 🌐 Network and token diagnostics:")
+        try:
+            import socket
+            logger.info(f"[WEBHOOK] - Local hostname: {socket.gethostname()}")
+            yelp_ip = socket.gethostbyname("api.yelp.com")
+            logger.info(f"[WEBHOOK] - api.yelp.com resolves to: {yelp_ip}")
+        except Exception as dns_error:
+            logger.error(f"[WEBHOOK] ❌ DNS resolution failed: {dns_error}")
+        
+        logger.info(f"[WEBHOOK] 🔑 Token diagnostics:")
+        logger.info(f"[WEBHOOK] - Token source: {'business_id' if business_id else 'lead_lookup'}")
+        logger.info(f"[WEBHOOK] - Token starts with Bearer: {token.startswith('Bearer ') if token else False}")
+        logger.info(f"[WEBHOOK] - Token format appears valid: {len(token) > 50 if token else False}")
+        
         reason = ""
         is_new = False
         if not events:
@@ -242,6 +330,19 @@ class WebhookView(APIView):
         else:
             reason = f"{len(events)} events found"
 
+        # Enhanced completion logging
+        total_execution_time = time.time() - request_start_time if 'request_start_time' in locals() else 0
+        
+        logger.info(f"[WEBHOOK] 🏁 _is_new_lead completed for {lead_id}")
+        logger.info(f"[WEBHOOK] =================== FINAL RESULT ===================")
+        logger.info(f"[WEBHOOK] - Lead ID: {lead_id}")
+        logger.info(f"[WEBHOOK] - Result: {is_new}")
+        logger.info(f"[WEBHOOK] - Reason: {reason}")
+        logger.info(f"[WEBHOOK] - Events analyzed: {len(events) if 'events' in locals() else 0}")
+        logger.info(f"[WEBHOOK] - Total execution time: {total_execution_time:.3f} seconds")
+        logger.info(f"[WEBHOOK] - Success: {'✅ YES' if is_new else '❌ NO (will not trigger auto-response)'}")
+        logger.info(f"[WEBHOOK] ================================================")
+        
         logger.debug(
             "[WEBHOOK] _is_new_lead decision for %s: %s (reason=%s)",
             lead_id,
@@ -1869,27 +1970,76 @@ class WebhookView(APIView):
         logger.info(f"[AUTO-RESPONSE] 🔗 STEP 4: Processing Yelp auto-response messages")
         detail_url = f"https://api.yelp.com/v3/leads/{lead_id}"
         headers = {"Authorization": f"Bearer {token}"}
-        logger.debug(
-            f"[AUTO-RESPONSE] Fetching lead details from {detail_url} using token {token[:20]}..."
-        )
-        resp = requests.get(detail_url, headers=headers, timeout=10)
+        
+        logger.info(f"[AUTO-RESPONSE] 🚀 STARTING lead details API request")
+        logger.info(f"[AUTO-RESPONSE] =================== YELP DETAIL API DEBUG ===================")
+        logger.info(f"[AUTO-RESPONSE] - Lead ID: {lead_id}")
+        logger.info(f"[AUTO-RESPONSE] - Detail URL: {detail_url}")
+        logger.info(f"[AUTO-RESPONSE] - Token ending: ...{token[-10:] if token and len(token) > 10 else 'N/A'}")
+        
+        import time
+        detail_start_time = time.time()
+        
+        try:
+            logger.info(f"[AUTO-RESPONSE] 📡 Making lead details API request...")
+            resp = requests.get(detail_url, headers=headers, timeout=10)
+            
+            detail_duration = time.time() - detail_start_time
+            logger.info(f"[AUTO-RESPONSE] ✅ Lead details API completed in {detail_duration:.3f}s")
+            logger.info(f"[AUTO-RESPONSE] - Status code: {resp.status_code}")
+            
+        except Exception as e:
+            detail_duration = time.time() - detail_start_time
+            logger.error(f"[AUTO-RESPONSE] ❌ Lead details API error after {detail_duration:.3f}s: {e}")
+            return
+        
         if resp.status_code != 200:
             source = f"business {pl.business_id}" if pl else "unknown"
-            logger.error(
-                f"[AUTO-RESPONSE] DETAIL ERROR lead={lead_id}, business_id={pl.business_id if pl else 'N/A'}, "
-                f"token_source={source}, token={token[:20]}..., status={resp.status_code}, body={resp.text}"
-            )
+            logger.error(f"[AUTO-RESPONSE] ❌ DETAIL API ERROR")
+            logger.error(f"[AUTO-RESPONSE] - Lead: {lead_id}")
+            logger.error(f"[AUTO-RESPONSE] - Business: {pl.business_id if pl else 'N/A'}")
+            logger.error(f"[AUTO-RESPONSE] - Token source: {source}")
+            logger.error(f"[AUTO-RESPONSE] - Status: {resp.status_code}")
+            logger.error(f"[AUTO-RESPONSE] - Response: {resp.text[:200]}...")
             return
-        d = resp.json()
+            
+        try:
+            d = resp.json()
+            logger.info(f"[AUTO-RESPONSE] 📋 Lead details parsed successfully")
+        except Exception as e:
+            logger.error(f"[AUTO-RESPONSE] ❌ Failed to parse lead details JSON: {e}")
+            return
 
+        logger.info(f"[AUTO-RESPONSE] 🚀 STARTING events API request")
+        events_start_time = time.time()
+        
+        try:
+            logger.info(f"[AUTO-RESPONSE] 📡 Making events API request...")
+            ev_resp = requests.get(
+                f"{detail_url}/events", headers=headers, params={"limit": 1}, timeout=10
+            )
+            
+            events_duration = time.time() - events_start_time
+            logger.info(f"[AUTO-RESPONSE] ✅ Events API completed in {events_duration:.3f}s")
+            logger.info(f"[AUTO-RESPONSE] - Status code: {ev_resp.status_code}")
+            
+        except Exception as e:
+            events_duration = time.time() - events_start_time
+            logger.error(f"[AUTO-RESPONSE] ❌ Events API error after {events_duration:.3f}s: {e}")
+            ev_resp = None
+        
         last_time = None
-        ev_resp = requests.get(
-            f"{detail_url}/events", headers=headers, params={"limit": 1}, timeout=10
-        )
-        if ev_resp.status_code == 200:
-            evs = ev_resp.json().get("events", [])
-            if evs:
-                last_time = evs[0]["time_created"]
+        if ev_resp and ev_resp.status_code == 200:
+            try:
+                evs = ev_resp.json().get("events", [])
+                if evs:
+                    last_time = evs[0]["time_created"]
+                logger.info(f"[AUTO-RESPONSE] 📋 Events API parsed successfully, found {len(evs)} event(s)")
+            except Exception as e:
+                logger.error(f"[AUTO-RESPONSE] ❌ Failed to parse events JSON: {e}")
+        else:
+            logger.warning(f"[AUTO-RESPONSE] ⚠️ Events API failed or returned non-200")
+            
         logger.info(f"[AUTO-RESPONSE] Last event time for lead={lead_id}: {last_time}")
 
         raw_proj = d.get("project", {}) or {}
