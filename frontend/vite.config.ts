@@ -13,6 +13,7 @@ export default defineConfig(({ mode }) => {
     server: {
       host: '0.0.0.0', // Дозволяє доступ з Docker контейнера
       port: 5173,
+      allowedHosts: 'all', // Дозволити всі хости
       watch: {
         usePolling: true, // Для стабільної роботи в Docker на Windows
       },
