@@ -22,12 +22,8 @@ import InfoIcon from '@mui/icons-material/Info';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import EventIcon from '@mui/icons-material/Event';
 
-// Base URL for API requests - must be configured in frontend/.env
-const API_BASE = import.meta.env.VITE_API_BASE_URL;
-if (!API_BASE) {
-  console.error('❌ ERROR: VITE_API_BASE_URL is not set in frontend/.env file!');
-  throw new Error('Missing VITE_API_BASE_URL environment variable');
-}
+// API_BASE для логування (запити тепер йдуть через Vite proxy)
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://hub.digitizeit.net';
 
 interface Props {
   leads: ProcessedLead[];
@@ -85,7 +81,7 @@ const NewLeads: FC<Props> = ({
       for (const lid of toFetch) {
         try {
           const { data } = await axios.get<LeadEvent>(
-            `${API_BASE}/api/lead-events/${encodeURIComponent(lid)}/latest/`
+            `/api/lead-events/${encodeURIComponent(lid)}/latest/`
           );
           if (data.event_id) {
             setFetchedEvents(prev => ({ ...prev, [lid]: String(data.event_id) }));

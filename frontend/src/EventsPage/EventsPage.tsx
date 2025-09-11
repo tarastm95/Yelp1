@@ -32,11 +32,8 @@ import BusinessIcon from '@mui/icons-material/Business';
 
 const POLL_INTERVAL = 30000;
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL;
-if (!API_BASE) {
-  console.error('❌ ERROR: VITE_API_BASE_URL is not set in frontend/.env file!');
-  throw new Error('Missing VITE_API_BASE_URL environment variable');
-}
+// API_BASE для логування (запити тепер йдуть через Vite proxy)
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://hub.digitizeit.net';
 
 interface PaginatedResponse<T> {
   count: number;
@@ -229,7 +226,7 @@ const EventsPage: FC = () => {
   const loadLeads = async (url?: string) => {
     const reqUrl =
       url ||
-      `${API_BASE}/api/processed_leads${
+      `/api/processed_leads${
         selectedBusiness ? `?business_id=${encodeURIComponent(selectedBusiness)}` : ''
       }`;
     
@@ -306,7 +303,7 @@ const EventsPage: FC = () => {
   const loadEvents = async (url?: string) => {
     const reqUrl =
       url ||
-      `${API_BASE}/api/lead-events${
+      `/api/lead-events${
         selectedBusiness ? `?business_id=${encodeURIComponent(selectedBusiness)}` : ''
       }`;
     
@@ -341,7 +338,7 @@ const EventsPage: FC = () => {
   const pollEvents = async () => {
     if (lastEventIdRef.current == null) return;
     try {
-      const url = `${API_BASE}/api/lead-events?after_id=${lastEventIdRef.current}${
+      const url = `/api/lead-events?after_id=${lastEventIdRef.current}${
         selectedBusiness ? `&business_id=${encodeURIComponent(selectedBusiness)}` : ''
       }`;
       console.log('[pollEvents] request', url);
