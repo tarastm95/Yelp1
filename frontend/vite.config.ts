@@ -13,7 +13,7 @@ export default defineConfig(({ mode }) => {
     server: {
       host: '0.0.0.0', // Дозволяє доступ з Docker контейнера
       port: 5173,
-      allowedHosts: 'all', // Дозволити всі хости
+      allowedHosts: true, // Дозволити всі хости (правильний синтаксис для Vite 5.x)
       watch: {
         usePolling: true, // Для стабільної роботи в Docker на Windows
       },
