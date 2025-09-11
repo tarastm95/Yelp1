@@ -28,7 +28,7 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host 0.0.0.0 --port 5173 --allowed-hosts all",
     "build": "vite build",
     "preview": "vite preview",
     "test": "react-scripts test"
