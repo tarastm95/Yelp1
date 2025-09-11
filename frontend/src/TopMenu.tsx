@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, Link } from 'react-router-dom';
 import { 
   AppBar, 
   Toolbar, 
@@ -332,8 +332,8 @@ const TopMenu: React.FC<Props> = ({ onLogout }) => {
                     return (
                       <MenuItem
                         key={item.text}
-                        component="a"
-                        href={item.href}
+                        component={Link}
+                        to={item.href}
                         onClick={() => handleMenuClose(groupKey)}
                         sx={{
                           fontWeight: isItemActive ? 600 : 400,
