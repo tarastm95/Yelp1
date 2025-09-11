@@ -18,8 +18,21 @@ export default defineConfig(({ mode }) => {
         usePolling: true, // Для стабільної роботи в Docker на Windows
       },
       proxy: {
-        // Проксуємо всі API endpoints
-        '^/(processed_leads|lead-events|businesses|tasks|sms-logs|tokens|notifications|.*\.json)': {
+        // Специфічні API endpoints (щоб не конфліктувати з React routes)
+        '/api/tasks': {
+          target: env.VITE_API_BASE_URL,
+          changeOrigin: true,
+        },
+        '/api/tokens': {
+          target: env.VITE_API_BASE_URL,
+          changeOrigin: true,
+        },
+        '/api/sms-logs': {
+          target: env.VITE_API_BASE_URL,
+          changeOrigin: true,
+        },
+        // Загальний API proxy (БЕЗ React routes)
+        '^/(processed_leads|lead-events|businesses|notifications|follow-up-templates|.*\.json)': {
           target: env.VITE_API_BASE_URL,
           changeOrigin: true,
           rewrite: (path) => `/api${path}`,
