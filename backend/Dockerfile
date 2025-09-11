@@ -20,8 +20,8 @@ RUN pip install --upgrade pip \
 COPY . .
 
 
-# зберемо статику (якщо потрібно)
-RUN python manage.py collectstatic --noinput
+# Статику будемо збирати в docker-compose для development
+# RUN python manage.py collectstatic --noinput
 
 EXPOSE 8000
 
