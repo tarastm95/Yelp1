@@ -18,9 +18,11 @@ export default defineConfig(({ mode }) => {
         usePolling: true, // Для стабільної роботи в Docker на Windows
       },
       proxy: {
-        '/api': {
+        // Проксуємо всі API endpoints
+        '^/(processed_leads|lead-events|businesses|tasks|sms-logs|tokens|notifications|.*\.json)': {
           target: env.VITE_API_BASE_URL,
           changeOrigin: true,
+          rewrite: (path) => `/api${path}`,
         },
         '/yelp-api': {
           target: 'https://api.yelp.com',

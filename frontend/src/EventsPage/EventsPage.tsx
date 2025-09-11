@@ -226,7 +226,7 @@ const EventsPage: FC = () => {
   const loadLeads = async (url?: string) => {
     const reqUrl =
       url ||
-      `/api/processed_leads${
+      `/processed_leads${
         selectedBusiness ? `?business_id=${encodeURIComponent(selectedBusiness)}` : ''
       }`;
     
@@ -303,7 +303,7 @@ const EventsPage: FC = () => {
   const loadEvents = async (url?: string) => {
     const reqUrl =
       url ||
-      `/api/lead-events${
+      `/lead-events${
         selectedBusiness ? `?business_id=${encodeURIComponent(selectedBusiness)}` : ''
       }`;
     
@@ -338,7 +338,7 @@ const EventsPage: FC = () => {
   const pollEvents = async () => {
     if (lastEventIdRef.current == null) return;
     try {
-      const url = `/api/lead-events?after_id=${lastEventIdRef.current}${
+      const url = `/lead-events?after_id=${lastEventIdRef.current}${
         selectedBusiness ? `&business_id=${encodeURIComponent(selectedBusiness)}` : ''
       }`;
       console.log('[pollEvents] request', url);

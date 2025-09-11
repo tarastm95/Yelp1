@@ -81,7 +81,7 @@ const NewLeads: FC<Props> = ({
       for (const lid of toFetch) {
         try {
           const { data } = await axios.get<LeadEvent>(
-            `/api/lead-events/${encodeURIComponent(lid)}/latest/`
+            `/lead-events/${encodeURIComponent(lid)}/latest/`
           );
           if (data.event_id) {
             setFetchedEvents(prev => ({ ...prev, [lid]: String(data.event_id) }));
