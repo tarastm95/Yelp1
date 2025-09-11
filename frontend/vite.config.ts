@@ -4,6 +4,10 @@ import react from '@vitejs/plugin-react';
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   
+  if (!env.VITE_API_BASE_URL) {
+    throw new Error('❌ VITE_API_BASE_URL must be set in frontend/.env file!');
+  }
+  
   return {
     plugins: [react()],
     server: {
@@ -14,9 +18,7 @@ export default defineConfig(({ mode }) => {
       },
       proxy: {
         '/api': {
-          target: process.env.NODE_ENV === 'development' && process.env.DOCKER_ENV 
-            ? 'http://backend:8000' // Для Docker контейнера
-            : env.VITE_API_BASE_URL || 'http://localhost:8000', // Для локальної розробки
+          target: env.VITE_API_BASE_URL,
           changeOrigin: true,
         },
         '/yelp-api': {
