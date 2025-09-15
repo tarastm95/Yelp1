@@ -25,13 +25,14 @@ class TaskLogPagination(PageNumberPagination):
 
 
 class TaskLogFilterSet(FilterSet):
-    """Allow filtering by multiple status values."""
+    """Allow filtering by multiple status values and lead ID."""
 
     status = filters.CharFilter(method="filter_status")
+    lead_id = filters.CharFilter(method="filter_lead_id")
 
     class Meta:
         model = CeleryTaskLog
-        fields = ["status", "business_id"]
+        fields = ["status", "business_id", "lead_id"]
 
     def filter_status(self, queryset, name, value):
         """Support comma separated or repeated status params with status mapping."""
@@ -62,6 +63,25 @@ class TaskLogFilterSet(FilterSet):
         if statuses:
             return queryset.filter(status__in=statuses)
         return queryset
+    
+    def filter_lead_id(self, queryset, name, value):
+        """Filter tasks by lead ID in args field."""
+        if not value:
+            return queryset
+            
+        logger.info(f"[FILTER] Lead ID filter: '{value}'")
+        
+        # Filter tasks where args contains the lead_id
+        # args is stored as JSON, first element is typically lead_id
+        filtered_qs = queryset.extra(
+            where=["JSON_EXTRACT(args, '$[0]') = %s"],
+            params=[value]
+        )
+        
+        count = filtered_qs.count()
+        logger.info(f"[FILTER] Found {count} tasks for lead_id '{value}'")
+        
+        return filtered_qs
 
 
 class TaskLogListView(generics.ListAPIView):
@@ -76,10 +96,12 @@ class TaskLogListView(generics.ListAPIView):
         """Return CeleryTaskLog data sorted by execution time."""
         status_param = self.request.query_params.get("status", "")
         business_param = self.request.query_params.get("business_id", "")
+        lead_id_param = self.request.query_params.get("lead_id", "")
         
         logger.info(f"[TASK-LIST] 📊 API REQUEST DETAILS:")
         logger.info(f"[TASK-LIST] - Status filter: '{status_param}'")
         logger.info(f"[TASK-LIST] - Business filter: '{business_param}'") 
+        logger.info(f"[TASK-LIST] - Lead ID filter: '{lead_id_param}'")
         logger.info(f"[TASK-LIST] - Full query params: {dict(self.request.query_params)}")
         
         # Clean up old pending records (they're duplicated in CeleryTaskLog)
@@ -109,6 +131,16 @@ class TaskLogListView(generics.ListAPIView):
             count = qs.filter(status=status_val).count()
             status_breakdown[status_val] = count
             logger.info(f"[TASK-LIST] - {status_val}: {count}")
+        
+        # Log specific lead_id filtering results if applicable
+        if lead_id_param:
+            lead_tasks = qs.extra(
+                where=["JSON_EXTRACT(args, '$[0]') = %s"],
+                params=[lead_id_param]
+            )
+            logger.info(f"[TASK-LIST] 🔍 Lead ID '{lead_id_param}' specific results: {lead_tasks.count()} tasks")
+            for task in lead_tasks[:3]:  # Log first 3 tasks for this lead
+                logger.info(f"[TASK-LIST]   - {task.status}: {task.name} at {task.eta}")
         
         return qs
     
@@ -173,6 +205,15 @@ class TaskStatsView(APIView):
         if business_id:
             logger.info(f"[TASK-STATS] Filtering by business_id: {business_id}")
             qs = qs.filter(business_id=business_id)
+        
+        # Apply lead ID filtering if provided
+        lead_id = request.query_params.get("lead_id")
+        if lead_id:
+            logger.info(f"[TASK-STATS] Filtering by lead_id: {lead_id}")
+            qs = qs.extra(
+                where=["JSON_EXTRACT(args, '$[0]') = %s"],
+                params=[lead_id]
+            )
         
         # Optional date filtering
         started_after = request.query_params.get("started_after")

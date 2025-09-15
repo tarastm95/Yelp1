@@ -30,6 +30,8 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
+  TextField,
+  InputAdornment,
 } from '@mui/material';
 
 // Icons
@@ -51,6 +53,8 @@ import PauseIcon from '@mui/icons-material/Pause';
 import CloseIcon from '@mui/icons-material/Close';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import SearchIcon from '@mui/icons-material/Search';
+import ClearIcon from '@mui/icons-material/Clear';
 
 interface TaskLog {
   task_id: string;
@@ -82,6 +86,7 @@ const TaskLogs: React.FC = () => {
   const [canceledTasks, setCanceledTasks] = useState<TaskLog[]>([]);
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [selectedBusiness, setSelectedBusiness] = useState<string>(''); // '' means "All Businesses"
+  const [leadIdSearch, setLeadIdSearch] = useState<string>(''); // Lead ID search filter
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [canceling, setCanceling] = useState<string | null>(null);
@@ -133,13 +138,14 @@ const TaskLogs: React.FC = () => {
     setHasMoreCanceled(true);
     
     try {
-      // Build query parameters for business filtering
+      // Build query parameters for business and lead ID filtering
       const businessParam = selectedBusiness ? `&business_id=${selectedBusiness}` : '';
+      const leadIdParam = leadIdSearch.trim() ? `&lead_id=${leadIdSearch.trim()}` : '';
       
       const [completedRes, scheduledRes, canceledRes, businessesRes] = await Promise.all([
-        axios.get<PaginatedResponse<TaskLog>>(`/tasks/?page=1&status=success,failure${businessParam}`).catch(() => ({ data: { count: 0, next: null, previous: null, results: [] } })),
-        axios.get<PaginatedResponse<TaskLog>>(`/tasks/?page=1&status=scheduled${businessParam}`).catch(() => ({ data: { count: 0, next: null, previous: null, results: [] } })),
-        axios.get<PaginatedResponse<TaskLog>>(`/tasks/?page=1&status=canceled${businessParam}`).catch(() => ({ data: { count: 0, next: null, previous: null, results: [] } })),
+        axios.get<PaginatedResponse<TaskLog>>(`/tasks/?page=1&status=success,failure${businessParam}${leadIdParam}`).catch(() => ({ data: { count: 0, next: null, previous: null, results: [] } })),
+        axios.get<PaginatedResponse<TaskLog>>(`/tasks/?page=1&status=scheduled${businessParam}${leadIdParam}`).catch(() => ({ data: { count: 0, next: null, previous: null, results: [] } })),
+        axios.get<PaginatedResponse<TaskLog>>(`/tasks/?page=1&status=canceled${businessParam}${leadIdParam}`).catch(() => ({ data: { count: 0, next: null, previous: null, results: [] } })),
         axios.get<Business[]>('/businesses/').catch(() => ({ data: [] }))
       ]);
 
@@ -155,8 +161,9 @@ const TaskLogs: React.FC = () => {
       
       // Load statistics separately from a dedicated endpoint
       const statsBusinessParam = selectedBusiness ? `?business_id=${selectedBusiness}` : '';
+      const statsLeadIdParam = leadIdSearch.trim() ? `${statsBusinessParam ? '&' : '?'}lead_id=${leadIdSearch.trim()}` : '';
       try {
-        const statsRes = await axios.get(`/tasks/stats/${statsBusinessParam}`);
+        const statsRes = await axios.get(`/tasks/stats/${statsBusinessParam}${statsLeadIdParam}`);
         setStatistics(statsRes.data);
       } catch (statsError) {
         console.error('Failed to load task statistics:', statsError);
@@ -218,8 +225,9 @@ const TaskLogs: React.FC = () => {
     
     try {
       const businessParam = selectedBusiness ? `&business_id=${selectedBusiness}` : '';
+      const leadIdParam = leadIdSearch.trim() ? `&lead_id=${leadIdSearch.trim()}` : '';
       const response = await axios.get<PaginatedResponse<TaskLog>>(
-        `/tasks/?page=${nextPage}&status=${status}${businessParam}`
+        `/tasks/?page=${nextPage}&status=${status}${businessParam}${leadIdParam}`
       );
       
       const newTasks = response.data.results;
@@ -258,7 +266,7 @@ const TaskLogs: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, [selectedBusiness]); // Re-load data when selected business changes
+  }, [selectedBusiness, leadIdSearch]); // Re-load data when filters change
 
   // Scroll listener for infinite scroll
   const handleScroll = useCallback(() => {
@@ -495,7 +503,7 @@ const TaskLogs: React.FC = () => {
                   
                   <Chip
                     icon={<TrendingUpIcon />}
-                    label={`${statistics.total} ${selectedBusiness ? 'Filtered' : 'Total'} Tasks`}
+                    label={`${statistics.total} ${leadIdSearch || selectedBusiness ? 'Filtered' : 'Total'} Tasks`}
                     sx={{
                       background: 'rgba(255, 255, 255, 0.2)',
                       color: 'white',
@@ -506,7 +514,9 @@ const TaskLogs: React.FC = () => {
                 </Stack>
                 
                 <Typography variant="h6" sx={{ opacity: 0.9 }}>
-                  {selectedBusiness 
+                  {leadIdSearch 
+                    ? `Viewing tasks for Lead ID: ${leadIdSearch}`
+                    : selectedBusiness 
                     ? `Viewing tasks for: ${businesses.find(b => b.business_id === selectedBusiness)?.name || selectedBusiness}`
                     : 'Monitor and manage your automated task execution pipeline'
                   }
@@ -624,6 +634,92 @@ const TaskLogs: React.FC = () => {
                     borderRadius: 2,
                     '& .MuiChip-deleteIcon': {
                       color: 'primary.main'
+                    }
+                  }}
+                />
+              )}
+            </Stack>
+          </CardContent>
+        </Card>
+
+        {/* Lead ID Search */}
+        <Card elevation={2} sx={{ borderRadius: 3, mb: 4 }}>
+          <CardContent sx={{ p: 3 }}>
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} alignItems="center">
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <Avatar
+                  sx={{
+                    width: 48,
+                    height: 48,
+                    background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+                    mr: 2
+                  }}
+                >
+                  <SearchIcon sx={{ fontSize: '1.5rem', color: 'white' }} />
+                </Avatar>
+                <Box>
+                  <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
+                    Search by Lead ID
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Find all follow-up tasks for a specific lead
+                  </Typography>
+                </Box>
+              </Box>
+              
+              <TextField
+                value={leadIdSearch}
+                onChange={(e) => setLeadIdSearch(e.target.value)}
+                placeholder="Enter Lead ID (e.g., BBexvaeCc7Rp3fU59AFgug)"
+                variant="outlined"
+                sx={{ 
+                  minWidth: { xs: '100%', md: 400 },
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
+                    '&:hover fieldset': {
+                      borderColor: 'primary.main',
+                    },
+                  },
+                }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon color="action" />
+                    </InputAdornment>
+                  ),
+                  endAdornment: leadIdSearch && (
+                    <InputAdornment position="end">
+                      <IconButton
+                        onClick={() => setLeadIdSearch('')}
+                        edge="end"
+                        size="small"
+                        sx={{ 
+                          color: 'text.secondary',
+                          '&:hover': { 
+                            color: 'error.main',
+                            backgroundColor: 'error.50'
+                          }
+                        }}
+                      >
+                        <ClearIcon />
+                      </IconButton>
+                    </InputAdornment>
+                  )
+                }}
+              />
+              
+              {leadIdSearch && (
+                <Chip
+                  label={`Searching: ${leadIdSearch}`}
+                  color="info"
+                  variant="outlined"
+                  onDelete={() => setLeadIdSearch('')}
+                  icon={<SearchIcon />}
+                  sx={{
+                    fontWeight: 600,
+                    borderRadius: 2,
+                    '& .MuiChip-deleteIcon': {
+                      color: 'info.main'
                     }
                   }}
                 />
@@ -868,10 +964,12 @@ const TaskLogs: React.FC = () => {
                 {tab === 'canceled' && <CancelIcon sx={{ fontSize: 64, color: 'grey.400', mb: 2 }} />}
                 
                 <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
-                  No {tab} tasks{selectedBusiness ? ' for this business' : ''}
+                  No {tab} tasks{leadIdSearch ? ' for this Lead ID' : selectedBusiness ? ' for this business' : ''}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {selectedBusiness 
+                  {leadIdSearch 
+                    ? `No ${tab} tasks found for Lead ID: ${leadIdSearch}`
+                    : selectedBusiness 
                     ? `No ${tab} tasks found for ${businesses.find(b => b.business_id === selectedBusiness)?.name || 'this business'}`
                     : tab === 'completed' && 'No tasks have been completed yet' ||
                       tab === 'scheduled' && 'No tasks are currently scheduled' ||
