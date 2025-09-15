@@ -106,7 +106,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: yelp-scheduler
-    command: python manage.py rqscheduler --interval 0.1
+    command: python manage.py rqscheduler --interval 1
     env_file:
       - ./backend/.env
     environment:
