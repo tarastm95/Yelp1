@@ -412,6 +412,7 @@ class CeleryTaskLog(models.Model):
     eta = models.DateTimeField(null=True, blank=True)
     started_at = models.DateTimeField(null=True, blank=True)
     finished_at = models.DateTimeField(null=True, blank=True)
+    sent_at = models.DateTimeField(null=True, blank=True, help_text="Real time when message was sent to Yelp API")
     status = models.CharField(max_length=20)
     result = models.TextField(blank=True, null=True)
     traceback = models.TextField(blank=True, null=True)

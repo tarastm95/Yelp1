@@ -61,6 +61,9 @@ interface TaskLog {
   name: string;
   args: any[];
   eta: string | null;
+  started_at?: string | null;
+  finished_at?: string | null;
+  sent_at?: string | null;
   status: string;
   result?: string | null;
   traceback?: string | null;
@@ -1140,15 +1143,28 @@ const TaskLogs: React.FC = () => {
                           </Box>
                         )}
 
-                        {/* Execution Time */}
+                        {/* Real Sending Time - показуємо для успішних завдань */}
+                        {task.sent_at && task.status === 'SUCCESS' && (
+                          <Box sx={{ mb: 2 }}>
+                            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', mb: 1 }}>
+                              <MessageIcon sx={{ fontSize: 14, mr: 0.5 }} />
+                              📤 SENT AT (Real Timing)
+                            </Typography>
+                            <Typography variant="body2" sx={{ fontWeight: 600, color: 'success.main' }}>
+                              {formatEta(task.sent_at, task.business_id)}
+                            </Typography>
+                          </Box>
+                        )}
+
+                        {/* Scheduled/Execution Time */}
                         <Box sx={{ mb: 2 }}>
                           <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', mb: 1 }}>
                             <AccessTimeIcon sx={{ fontSize: 14, mr: 0.5 }} />
-                            {tab === 'scheduled' ? 'SCHEDULED FOR' : 'EXECUTED AT'}
+                            {tab === 'scheduled' ? 'SCHEDULED FOR' : task.sent_at ? 'COMPLETED AT' : 'EXECUTED AT'}
                           </Typography>
                           <Stack direction="row" justifyContent="space-between" alignItems="center">
                             <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                              {formatEta(task.eta, task.business_id)}
+                              {tab === 'scheduled' ? formatEta(task.eta, task.business_id) : formatEta(task.finished_at || task.eta, task.business_id)}
                             </Typography>
                             {tab === 'scheduled' && timeUntil && (
                               <Chip
@@ -1160,6 +1176,24 @@ const TaskLogs: React.FC = () => {
                             )}
                           </Stack>
                         </Box>
+
+                        {/* Show timing difference for completed tasks */}
+                        {task.sent_at && task.finished_at && (
+                          <Box sx={{ mb: 2 }}>
+                            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', mb: 1 }}>
+                              <InfoIcon sx={{ fontSize: 14, mr: 0.5 }} />
+                              ⏱ PROCESSING TIME
+                            </Typography>
+                            <Typography variant="body2" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
+                              {(() => {
+                                const sentTime = new Date(task.sent_at).getTime();
+                                const finishedTime = new Date(task.finished_at).getTime();
+                                const diffMs = finishedTime - sentTime;
+                                return `${(diffMs / 1000).toFixed(2)}s API response time`;
+                              })()}
+                            </Typography>
+                          </Box>
+                        )}
 
                         <Divider sx={{ my: 2 }} />
 

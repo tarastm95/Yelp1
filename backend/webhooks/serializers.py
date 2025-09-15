@@ -303,6 +303,7 @@ class CeleryTaskLogSerializer(serializers.ModelSerializer):
             "eta",
             "started_at",
             "finished_at",
+            "sent_at",
             "status",
             "result",
             "traceback",

@@ -486,9 +486,19 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
             for attempt in range(3):
                 try:
                     api_start_time = time.time()
+                    api_sent_at = timezone.now()  # ✅ РЕАЛЬНИЙ ЧАС ВІДПРАВКИ
+                    
                     logger.info(
-                        f"[FOLLOW-UP] 🔄 Attempt {attempt + 1}/3: Making POST request to Yelp API at {timezone.now().isoformat()}"
+                        f"[FOLLOW-UP] 🔄 Attempt {attempt + 1}/3: Making POST request to Yelp API at {api_sent_at.isoformat()}"
                     )
+                    
+                    # Записати РЕАЛЬНИЙ час відправки перед HTTP запитом
+                    if job_id:
+                        CeleryTaskLog.objects.filter(task_id=job_id).update(
+                            sent_at=api_sent_at
+                        )
+                        logger.info(f"[FOLLOW-UP] 📤 Recorded real sent_at time: {api_sent_at.isoformat()}")
+                    
                     resp = requests.post(url, headers=headers, json=payload, timeout=30)
                     api_end_time = time.time()
                     api_duration = api_end_time - api_start_time
