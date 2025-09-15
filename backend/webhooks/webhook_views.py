@@ -2634,8 +2634,7 @@ class WebhookView(APIView):
             )
         business = YelpBusiness.objects.filter(business_id=biz_id).first()
         
-        # Track countdown times to ensure proper sequencing
-        last_countdown = 0
+        # Templates will execute at their exact configured delays
         
         for tmpl in tpls:
             # Keep exact seconds precision - don't use int() which truncates
@@ -2662,17 +2661,8 @@ class WebhookView(APIView):
             logger.info(f"[AUTO-RESPONSE] Adjusted due time: {due.isoformat()}")
             countdown = max((due - now).total_seconds(), 0)
             
-            # Ensure minimum interval between follow-up messages to preserve order
-            min_interval = 2.0  # minimum 2 seconds between messages
-            if countdown <= last_countdown + min_interval:
-                old_countdown = countdown
-                countdown = last_countdown + min_interval
-                logger.warning(f"[AUTO-RESPONSE] ⚠️ Adjusted countdown for proper sequencing:")
-                logger.warning(f"[AUTO-RESPONSE]   Original countdown: {old_countdown}s")
-                logger.warning(f"[AUTO-RESPONSE]   Adjusted countdown: {countdown}s")
-                logger.warning(f"[AUTO-RESPONSE]   Minimum interval enforced: {min_interval}s")
-            
-            last_countdown = countdown
+            # Preserve exact countdown as configured - no adjustments
+            logger.info(f"[AUTO-RESPONSE] ✅ Preserving exact countdown: {countdown}s (delay: {delay}s)")
             logger.info(f"[AUTO-RESPONSE] Final countdown (seconds): {countdown}")
             
             # Log timing details for debugging
