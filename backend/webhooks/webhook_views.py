@@ -2634,7 +2634,20 @@ class WebhookView(APIView):
             )
         business = YelpBusiness.objects.filter(business_id=biz_id).first()
         
-        # Templates will execute at their exact configured delays
+        # =============== FOLLOW-UP PLANNING OVERVIEW ===============
+        template_count = tpls.count()
+        logger.info(f"[AUTO-RESPONSE] 📋 FOLLOW-UP PLANNING for lead={lead_id}")
+        logger.info(f"[AUTO-RESPONSE] ===========================================")
+        logger.info(f"[AUTO-RESPONSE] Business: {business.name if business else 'Global'} ({biz_id})")
+        logger.info(f"[AUTO-RESPONSE] Phone available: {phone_available}")
+        logger.info(f"[AUTO-RESPONSE] Customer name: '{name}'")
+        logger.info(f"[AUTO-RESPONSE] Jobs: '{jobs}'")
+        logger.info(f"[AUTO-RESPONSE] Planning {template_count} follow-up messages...")
+        logger.info(f"[AUTO-RESPONSE] Base time: {now.isoformat()}")
+        logger.info(f"[AUTO-RESPONSE] ===========================================")
+        
+        # Track all planned messages for summary
+        planned_messages = []
         
         for tmpl in tpls:
             # Keep exact seconds precision - don't use int() which truncates
@@ -2642,11 +2655,14 @@ class WebhookView(APIView):
             text = tmpl.template.format(name=name, jobs=jobs, sep=sep, reason=reason, greetings=greetings)
             
             # Enhanced logging for precise timing debug
+            logger.info(f"[AUTO-RESPONSE] 📱 PLANNING MESSAGE #{len(planned_messages) + 1}")
             logger.info(f"[AUTO-RESPONSE] ========= FOLLOW-UP TIMING DEBUG =========")
             logger.info(f"[AUTO-RESPONSE] Template: '{tmpl.name}'")
             logger.info(f"[AUTO-RESPONSE] Raw delay (seconds): {delay}")
             logger.info(f"[AUTO-RESPONSE] Raw delay formatted: {tmpl.delay}")
             logger.info(f"[AUTO-RESPONSE] Base time (now): {now.isoformat()}")
+            logger.info(f"[AUTO-RESPONSE] Message text (first 100 chars): '{text[:100]}{'...' if len(text) > 100 else ''}'")
+            logger.info(f"[AUTO-RESPONSE] Full message length: {len(text)} characters")
             
             initial_due = now + timedelta(seconds=delay)
             logger.info(f"[AUTO-RESPONSE] Initial due time: {initial_due.isoformat()}")
@@ -2668,6 +2684,19 @@ class WebhookView(APIView):
             # Log timing details for debugging
             is_24_7 = (tmpl.open_from == datetime_time(0, 0) and tmpl.open_to == datetime_time(0, 0))
             logger.info(f"[AUTO-RESPONSE] Template working hours: {tmpl.open_from} - {tmpl.open_to} (24/7: {is_24_7})")
+            
+            # Store for summary
+            execution_time = now + timedelta(seconds=countdown)
+            planned_messages.append({
+                'template': tmpl.name,
+                'delay': delay,
+                'countdown': countdown,
+                'execution_time': execution_time.strftime('%H:%M:%S'),
+                'due_time': due.isoformat(),
+                'text_preview': text[:50] + ('...' if len(text) > 50 else ''),
+                'full_text': text
+            })
+            
             logger.info(f"[AUTO-RESPONSE] ========= END TIMING DEBUG =========")
             with transaction.atomic():
                 if (
@@ -2703,6 +2732,28 @@ class WebhookView(APIView):
                             f"[AUTO-RESPONSE] ✅ Custom follow-up '{tmpl.name}' scheduled at {due.isoformat()}"
                         )
                         scheduled_texts.add(text)
+        
+        # =============== FOLLOW-UP PLANNING SUMMARY ===============
+        logger.info(f"[AUTO-RESPONSE] 📋 FOLLOW-UP PLANNING SUMMARY for lead={lead_id}")
+        logger.info(f"[AUTO-RESPONSE] ===========================================")
+        logger.info(f"[AUTO-RESPONSE] Total planned messages: {len(planned_messages)}")
+        logger.info(f"[AUTO-RESPONSE] Total scheduled messages: {len(scheduled_texts)}")
+        
+        if planned_messages:
+            # Sort by countdown for chronological view
+            sorted_messages = sorted(planned_messages, key=lambda x: x['countdown'])
+            
+            logger.info(f"[AUTO-RESPONSE] 📅 EXECUTION SCHEDULE (chronological order):")
+            for i, msg in enumerate(sorted_messages, 1):
+                logger.info(f"[AUTO-RESPONSE] #{i}: {msg['template']} (delay: {msg['delay']}s)")
+                logger.info(f"[AUTO-RESPONSE]     ⏰ Execute at: {msg['execution_time']} (in {msg['countdown']:.1f}s)")
+                logger.info(f"[AUTO-RESPONSE]     💬 Message: \"{msg['text_preview']}\"")
+                logger.info(f"[AUTO-RESPONSE]     📏 Length: {len(msg['full_text'])} chars")
+                logger.info(f"[AUTO-RESPONSE]     🕰 Due time: {msg['due_time']}")
+                logger.info(f"[AUTO-RESPONSE]     ---")
+                
+        logger.info(f"[AUTO-RESPONSE] ===========================================")
+        logger.info(f"[AUTO-RESPONSE] 🎯 All follow-up messages planned successfully!")
         
         # ✅ COMPLETION LOGGING
         logger.info(f"[AUTO-RESPONSE] ========== PROCESS COMPLETION ==========")
