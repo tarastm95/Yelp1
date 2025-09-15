@@ -1,7 +1,7 @@
 import logging
 import time
 import unicodedata
-from datetime import timedelta
+from datetime import timedelta, time as datetime_time
 from zoneinfo import ZoneInfo
 from django.utils.dateparse import parse_datetime
 import re
@@ -2633,6 +2633,10 @@ class WebhookView(APIView):
                 business__isnull=True,
             )
         business = YelpBusiness.objects.filter(business_id=biz_id).first()
+        
+        # Track countdown times to ensure proper sequencing
+        last_countdown = 0
+        
         for tmpl in tpls:
             # Keep exact seconds precision - don't use int() which truncates
             delay = tmpl.delay.total_seconds()
@@ -2657,7 +2661,24 @@ class WebhookView(APIView):
             
             logger.info(f"[AUTO-RESPONSE] Adjusted due time: {due.isoformat()}")
             countdown = max((due - now).total_seconds(), 0)
+            
+            # Ensure minimum interval between follow-up messages to preserve order
+            min_interval = 2.0  # minimum 2 seconds between messages
+            if countdown <= last_countdown + min_interval:
+                old_countdown = countdown
+                countdown = last_countdown + min_interval
+                logger.warning(f"[AUTO-RESPONSE] ⚠️ Adjusted countdown for proper sequencing:")
+                logger.warning(f"[AUTO-RESPONSE]   Original countdown: {old_countdown}s")
+                logger.warning(f"[AUTO-RESPONSE]   Adjusted countdown: {countdown}s")
+                logger.warning(f"[AUTO-RESPONSE]   Minimum interval enforced: {min_interval}s")
+            
+            last_countdown = countdown
             logger.info(f"[AUTO-RESPONSE] Final countdown (seconds): {countdown}")
+            
+            # Log timing details for debugging
+            is_24_7 = (tmpl.open_from == datetime_time(0, 0) and tmpl.open_to == datetime_time(0, 0))
+            logger.info(f"[AUTO-RESPONSE] Template working hours: {tmpl.open_from} - {tmpl.open_to} (24/7: {is_24_7})")
+            logger.info(f"[AUTO-RESPONSE] ========= END TIMING DEBUG =========")
             with transaction.atomic():
                 if (
                     _already_sent(lead_id, text)

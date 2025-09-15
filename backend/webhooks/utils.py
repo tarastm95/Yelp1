@@ -159,12 +159,22 @@ def _parse_days(day_str: str | None) -> set[int]:
 
 
 def adjust_due_time(base_dt, tz_name: str | None, start: time, end: time, days: str | None = None):
-    """Return UTC datetime within business hours and allowed days."""
+    """Return UTC datetime within business hours and allowed days, preserving exact seconds."""
     if not tz_name:
         return base_dt
+    
+    # Special case: 24/7 working hours (00:00-00:00) - no adjustment needed
+    if start == time(0, 0) and end == time(0, 0):
+        return base_dt
+        
     tz = ZoneInfo(tz_name)
     local = base_dt.astimezone(tz)
     allowed = _parse_days(days)
+    
+    # Preserve original seconds and microseconds from the scheduled time
+    original_second = local.second
+    original_microsecond = local.microsecond
+    
     open_dt = local.replace(
         hour=start.hour, minute=start.minute, second=start.second, microsecond=0
     )
@@ -177,14 +187,14 @@ def adjust_due_time(base_dt, tz_name: str | None, start: time, end: time, days: 
         while local.weekday() not in allowed:
             local += timedelta(days=1)
         local = local.replace(
-            hour=start.hour, minute=start.minute, second=start.second, microsecond=0
+            hour=start.hour, minute=start.minute, second=original_second, microsecond=original_microsecond
         )
     elif local >= close_dt:
         local += timedelta(days=1)
         while local.weekday() not in allowed:
             local += timedelta(days=1)
         local = local.replace(
-            hour=start.hour, minute=start.minute, second=start.second, microsecond=0
+            hour=start.hour, minute=start.minute, second=original_second, microsecond=original_microsecond
         )
     return local.astimezone(UTC)
 
