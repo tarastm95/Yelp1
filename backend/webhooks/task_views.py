@@ -73,15 +73,33 @@ class TaskLogFilterSet(FilterSet):
         
         # Filter tasks where args contains the lead_id
         # args is stored as JSON, first element is typically lead_id
-        filtered_qs = queryset.extra(
-            where=["JSON_EXTRACT(args, '$[0]') = %s"],
-            params=[value]
-        )
-        
-        count = filtered_qs.count()
-        logger.info(f"[FILTER] Found {count} tasks for lead_id '{value}'")
-        
-        return filtered_qs
+        # Use PostgreSQL JSON operations instead of MySQL JSON_EXTRACT
+        try:
+            from django.db import connection
+            vendor = connection.vendor
+            
+            if vendor == 'postgresql':
+                # PostgreSQL syntax: args->0 for first array element
+                filtered_qs = queryset.extra(
+                    where=["args->>0 = %s"],
+                    params=[value]
+                )
+            else:
+                # MySQL/SQLite fallback
+                filtered_qs = queryset.extra(
+                    where=["JSON_EXTRACT(args, '$[0]') = %s"],
+                    params=[value]
+                )
+            
+            count = filtered_qs.count()
+            logger.info(f"[FILTER] Found {count} tasks for lead_id '{value}' (DB: {vendor})")
+            
+            return filtered_qs
+            
+        except Exception as e:
+            logger.error(f"[FILTER] Error filtering by lead_id '{value}': {e}")
+            # Fallback to text search in args
+            return queryset.filter(args__icontains=value)
 
 
 class TaskLogListView(generics.ListAPIView):
@@ -134,13 +152,30 @@ class TaskLogListView(generics.ListAPIView):
         
         # Log specific lead_id filtering results if applicable
         if lead_id_param:
-            lead_tasks = qs.extra(
-                where=["JSON_EXTRACT(args, '$[0]') = %s"],
-                params=[lead_id_param]
-            )
-            logger.info(f"[TASK-LIST] 🔍 Lead ID '{lead_id_param}' specific results: {lead_tasks.count()} tasks")
-            for task in lead_tasks[:3]:  # Log first 3 tasks for this lead
-                logger.info(f"[TASK-LIST]   - {task.status}: {task.name} at {task.eta}")
+            try:
+                from django.db import connection
+                vendor = connection.vendor
+                
+                if vendor == 'postgresql':
+                    lead_tasks = qs.extra(
+                        where=["args->>0 = %s"],
+                        params=[lead_id_param]
+                    )
+                else:
+                    lead_tasks = qs.extra(
+                        where=["JSON_EXTRACT(args, '$[0]') = %s"],
+                        params=[lead_id_param]
+                    )
+                    
+                logger.info(f"[TASK-LIST] 🔍 Lead ID '{lead_id_param}' specific results: {lead_tasks.count()} tasks ({vendor})")
+                for task in lead_tasks[:3]:  # Log first 3 tasks for this lead
+                    logger.info(f"[TASK-LIST]   - {task.status}: {task.name} at {task.eta}")
+                    
+            except Exception as e:
+                logger.error(f"[TASK-LIST] Error querying lead_id '{lead_id_param}': {e}")
+                # Fallback query
+                lead_tasks = qs.filter(args__icontains=lead_id_param)
+                logger.info(f"[TASK-LIST] Using fallback search: {lead_tasks.count()} tasks")
         
         return qs
     
@@ -210,10 +245,29 @@ class TaskStatsView(APIView):
         lead_id = request.query_params.get("lead_id")
         if lead_id:
             logger.info(f"[TASK-STATS] Filtering by lead_id: {lead_id}")
-            qs = qs.extra(
-                where=["JSON_EXTRACT(args, '$[0]') = %s"],
-                params=[lead_id]
-            )
+            try:
+                from django.db import connection
+                vendor = connection.vendor
+                
+                if vendor == 'postgresql':
+                    # PostgreSQL syntax: args->0 for first array element
+                    qs = qs.extra(
+                        where=["args->>0 = %s"],
+                        params=[lead_id]
+                    )
+                else:
+                    # MySQL/SQLite fallback
+                    qs = qs.extra(
+                        where=["JSON_EXTRACT(args, '$[0]') = %s"],
+                        params=[lead_id]
+                    )
+                    
+                logger.info(f"[TASK-STATS] Applied lead_id filter for {vendor} database")
+                
+            except Exception as e:
+                logger.error(f"[TASK-STATS] Error filtering by lead_id '{lead_id}': {e}")
+                # Fallback to text search in args
+                qs = qs.filter(args__icontains=lead_id)
         
         # Optional date filtering
         started_after = request.query_params.get("started_after")
