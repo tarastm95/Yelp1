@@ -12,6 +12,7 @@ from django.db import transaction, OperationalError, IntegrityError
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from unidecode import unidecode
 
 from .models import (
     Event,
@@ -53,28 +54,23 @@ def normalize_text(text: str) -> str:
     if not text:
         return text
     
-    # Apply Unicode NFC normalization
-    normalized = unicodedata.normalize('NFC', text)
+    # Use unidecode to convert Unicode to ASCII (exactly like Yelp does)
+    # This handles em-dash (—) → '--', en-dash (–) → '-', accents, etc.
+    ascii_text = unidecode(text)
     
-    # Convert all apostrophe variants to ASCII apostrophe
-    apostrophe_variants = [
-        '\u2019',  # RIGHT SINGLE QUOTATION MARK (')
-        '\u2018',  # LEFT SINGLE QUOTATION MARK (')
-        '\u0060',  # GRAVE ACCENT (`)
-        '\u00B4',  # ACUTE ACCENT (´)
-    ]
-    for variant in apostrophe_variants:
-        normalized = normalized.replace(variant, "'")
+    # Apply Unicode NFC normalization to remaining characters
+    normalized = unicodedata.normalize('NFC', ascii_text)
     
-    # Convert all quote variants to ASCII quotes
-    quote_variants = [
-        ('\u201C', '"'),  # LEFT DOUBLE QUOTATION MARK (")
-        ('\u201D', '"'),  # RIGHT DOUBLE QUOTATION MARK (")
-        ('\u00AB', '"'),  # LEFT-POINTING DOUBLE ANGLE QUOTATION MARK («)
-        ('\u00BB', '"'),  # RIGHT-POINTING DOUBLE ANGLE QUOTATION MARK (»)
-    ]
-    for unicode_char, ascii_char in quote_variants:
-        normalized = normalized.replace(unicode_char, ascii_char)
+    # Log normalization changes for debugging
+    if text != normalized:
+        logger.debug(f"[NORMALIZE] Text normalized: '{text}' → '{normalized}'")
+        # Show specific character changes
+        changes = []
+        for i, (orig, norm) in enumerate(zip(text, normalized)):
+            if orig != norm:
+                changes.append(f"Pos {i}: '{orig}' (U+{ord(orig):04X}) → '{norm}' (U+{ord(norm):04X})")
+        if changes:
+            logger.debug(f"[NORMALIZE] Character changes: {'; '.join(changes[:5])}{'...' if len(changes) > 5 else ''}")
     
     return normalized
 
