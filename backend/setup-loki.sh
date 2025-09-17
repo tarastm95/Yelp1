@@ -32,7 +32,7 @@ fi
 echo "🧪 Тестування Grafana..."
 if curl -s http://localhost:3030 > /dev/null; then
     echo "✅ Grafana працює!"
-    echo "🌐 Відкрийте браузер: http://46.62.139.177:3030"
+    echo "🌐 Відкрийте браузер: https://hub.digitizeit.net:3030"
     echo "🔑 Логін: admin / Пароль: admin123"
 else
     echo "❌ Grafana не відповідає"

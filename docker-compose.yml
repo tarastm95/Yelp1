@@ -120,9 +120,59 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # ===== LOKI (Log Aggregation) =====
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: yelp-loki
+    ports:
+      - "127.0.0.1:3100:3100"
+    volumes:
+      - ./backend/loki-config.yaml:/etc/loki/local-config.yaml
+      - loki_data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    restart: unless-stopped
+    networks:
+      - default
+
+  # ===== PROMTAIL (Log Collector) =====
+  promtail:
+    image: grafana/promtail:2.9.0
+    container_name: yelp-promtail
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./backend/promtail-config.yaml:/etc/promtail/config.yaml
+    command: -config.file=/etc/promtail/config.yaml
+    restart: unless-stopped
+    depends_on:
+      - loki
+    networks:
+      - default
+
+  # ===== GRAFANA (Visualization) =====
+  grafana:
+    image: grafana/grafana:10.0.0
+    container_name: yelp-grafana
+    ports:
+      - "127.0.0.1:3030:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./backend/grafana-datasource.yaml:/etc/grafana/provisioning/datasources/datasource.yaml
+      - ./backend/grafana-dashboard.json:/var/lib/grafana/dashboards/
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/grafana-dashboard.json
+    restart: unless-stopped
+    depends_on:
+      - loki
+    networks:
+      - default
+
 volumes:
   postgres_data:
   redis_data:
+  loki_data:
+  grafana_data:
 
 networks:
   default:
