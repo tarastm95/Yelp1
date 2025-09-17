@@ -23,7 +23,8 @@ docker-compose ps | grep -E "(loki|promtail|grafana)"
 # Перевіряємо чи працює Loki
 echo "🧪 Тестування Loki API..."
 if curl -s http://localhost:3100/ready > /dev/null; then
-    echo "✅ Loki працює!"
+    echo "✅ Loki працює локально!"
+    echo "🌐 Loki API доступний: https://hub.digitizeit.net:3100"
 else
     echo "❌ Loki не відповідає"
 fi
@@ -31,9 +32,10 @@ fi
 # Перевіряємо чи працює Grafana
 echo "🧪 Тестування Grafana..."
 if curl -s http://localhost:3030 > /dev/null; then
-    echo "✅ Grafana працює!"
+    echo "✅ Grafana працює локально!"
     echo "🌐 Відкрийте браузер: https://hub.digitizeit.net:3030"
     echo "🔑 Логін: admin / Пароль: admin123"
+    echo "🔥 Порт відкритий для інтернету!"
 else
     echo "❌ Grafana не відповідає"
 fi

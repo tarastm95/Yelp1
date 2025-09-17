@@ -125,7 +125,7 @@ services:
     image: grafana/loki:2.9.0
     container_name: yelp-loki
     ports:
-      - "127.0.0.1:3100:3100"
+      - "3100:3100"
     volumes:
       - ./backend/loki-config.yaml:/etc/loki/local-config.yaml
       - loki_data:/loki
@@ -154,7 +154,7 @@ services:
     image: grafana/grafana:10.0.0
     container_name: yelp-grafana
     ports:
-      - "127.0.0.1:3030:3000"
+      - "3030:3000"
     volumes:
       - grafana_data:/var/lib/grafana
       - ./backend/grafana-datasource.yaml:/etc/grafana/provisioning/datasources/datasource.yaml
