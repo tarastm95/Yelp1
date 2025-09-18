@@ -692,10 +692,22 @@ def get_lead_activity_summary(lead_id: str) -> dict:
             count=Count('id')
         ).order_by('-count')
         
+        # Get first and last activities as serializable data
+        first_activity = logs.order_by('timestamp').first()
+        last_activity = logs.order_by('-timestamp').first()
+        
         return {
             'total_logs': logs.count(),
-            'first_activity': logs.order_by('timestamp').first(),
-            'last_activity': logs.order_by('-timestamp').first(),
+            'first_activity': {
+                'timestamp': first_activity.timestamp,
+                'activity_type': first_activity.activity_type,
+                'message': first_activity.message,
+            } if first_activity else None,
+            'last_activity': {
+                'timestamp': last_activity.timestamp,
+                'activity_type': last_activity.activity_type,
+                'message': last_activity.message,
+            } if last_activity else None,
             'by_type': {item['activity_type']: item['count'] for item in summary}
         }
     except Exception as e:
