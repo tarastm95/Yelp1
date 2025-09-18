@@ -846,7 +846,7 @@ class WebhookView(APIView):
                             self._cancel_no_phone_tasks(lid, reason=reason)
                             
                             # Check what tasks remain after cancellation
-                            remaining_tasks = LeadPendingTask.objects.filter(lid=lid, active=True)
+                            remaining_tasks = LeadPendingTask.objects.filter(lead_id=lid, active=True)
                             logger.info(f"[WEBHOOK] 📊 TASKS AFTER NO PHONE CANCELLATION: {remaining_tasks.count()}")
                             
                             # Send customer reply SMS (No Phone scenario)
