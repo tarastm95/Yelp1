@@ -35,6 +35,7 @@ import {
   Work as WorkIcon,
   TrendingUp as TrendingUpIcon,
   Timeline as TimelineIcon,
+  HealthAndSafety as DiagnosticsIcon,
 } from '@mui/icons-material';
 
 // Grouping menu items logically
@@ -46,6 +47,7 @@ const menuGroups = {
     items: [
       { text: 'Home', icon: <HomeIcon />, href: '/', color: '#667eea' },
       { text: 'Analytics', icon: <TrendingUpIcon />, href: '/analytics', color: '#764ba2' },
+      { text: 'System Diagnostics', icon: <DiagnosticsIcon />, href: '/diagnostics', color: '#e53e3e' },
     ]
   },
   leads: {

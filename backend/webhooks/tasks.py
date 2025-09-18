@@ -31,6 +31,8 @@ from .utils import (
     update_shared_refresh_token,
     _already_sent,
     log_lead_activity,
+    log_system_error,
+    log_performance_metric,
 )
 
 logger = logging.getLogger(__name__)
@@ -664,6 +666,20 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
                     logger.error(f"[FOLLOW-UP] ============================================")
                     logger.exception(f"[FOLLOW-UP] Unexpected exception details")
                     
+                    # Log to database for tracking
+                    log_system_error(
+                        error_type='TASK_ERROR',
+                        error_message=f'Follow-up API request failed for lead {lead_id}',
+                        exception=e,
+                        severity='HIGH',
+                        lead_id=lead_id,
+                        business_id=business_id,
+                        task_id=job_id,
+                        attempt=attempt + 1,
+                        api_duration=api_duration,
+                        url=url
+                    )
+                    
                     # Clean up LeadEvent on final attempt failure
                     if attempt == 2 and lead_event:
                         try:
@@ -712,7 +728,7 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
             task_duration = time.time() - task_start_time if 'task_start_time' in locals() else 0
             logger.info(f"[FOLLOW-UP] 🎉 TASK COMPLETED SUCCESSFULLY in {task_duration:.2f} seconds")
             
-            # Database logging for successful follow-up execution
+                    # Database logging for successful follow-up execution
             log_lead_activity(
                 lead_id=lead_id,
                 activity_type="EXECUTION",
@@ -726,6 +742,26 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
                 task_duration=task_duration,
                 message_preview=text[:100],
                 api_response_time=globals().get('api_duration', 0)
+            )
+            
+            # Log performance metrics
+            if 'api_duration' in globals():
+                log_performance_metric(
+                    metric_type='API_RESPONSE_TIME',
+                    value=globals()['api_duration'] * 1000,  # Convert to milliseconds
+                    unit='ms',
+                    component='YELP_API',
+                    business_id=business_id,
+                    lead_id=lead_id,
+                    endpoint='follow_up'
+                )
+            
+            log_performance_metric(
+                metric_type='FOLLOW_UP_SUCCESS_RATE',
+                value=100.0,  # This task succeeded
+                unit='%',
+                component='FOLLOW_UP_SYSTEM',
+                business_id=business_id
             )
             return f"SUCCESS: Message sent to Yelp API (HTTP {resp.status_code if resp else 'N/A'}) in {task_duration:.2f}s"
                 
@@ -759,6 +795,15 @@ def refresh_expiring_tokens():
                 logger.info(f"[TOKEN REFRESH] ✅ Token refreshed for business={tok.business_id}")
         except Exception as exc:
             logger.error(f"[TOKEN REFRESH] ❌ Failed to refresh token for business={tok.business_id}: {exc}")
+            
+            # Log error to database for tracking
+            log_system_error(
+                error_type='TOKEN_ERROR',
+                error_message=f'Failed to refresh token for business {tok.business_id}',
+                exception=exc,
+                severity='HIGH',
+                business_id=tok.business_id
+            )
 
 
 @logged_job

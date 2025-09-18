@@ -618,3 +618,99 @@ class LeadActivityLog(models.Model):
         return f"[{self.activity_type}] {self.lead_id}: {self.message[:50]}"
 
 
+class SystemErrorLog(models.Model):
+    """System-wide error tracking for monitoring and diagnostics"""
+    
+    # Error identification
+    error_id = models.CharField(max_length=128, unique=True, db_index=True)
+    timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
+    
+    # Error categorization
+    error_type = models.CharField(max_length=50, choices=[
+        ('API_ERROR', 'API Communication Error'),
+        ('DJANGO_ERROR', 'Django Application Error'), 
+        ('TASK_ERROR', 'RQ Task Execution Error'),
+        ('TOKEN_ERROR', 'Token/Authentication Error'),
+        ('DATABASE_ERROR', 'Database Operation Error'),
+        ('TIMING_ERROR', 'Follow-up Timing Error'),
+        ('WEBHOOK_ERROR', 'Webhook Processing Error'),
+        ('VALIDATION_ERROR', 'Data Validation Error'),
+    ], db_index=True)
+    
+    severity = models.CharField(max_length=20, choices=[
+        ('LOW', 'Low - Informational'),
+        ('MEDIUM', 'Medium - Warning'),
+        ('HIGH', 'High - Error'),
+        ('CRITICAL', 'Critical - System Down'),
+    ], default='MEDIUM', db_index=True)
+    
+    # Error context
+    component = models.CharField(max_length=50)  # webhook_views, tasks, etc.
+    function_name = models.CharField(max_length=100, blank=True)
+    line_number = models.IntegerField(null=True, blank=True)
+    
+    # Error content
+    error_message = models.TextField()
+    exception_type = models.CharField(max_length=100, blank=True)
+    traceback = models.TextField(blank=True)
+    
+    # Context data
+    lead_id = models.CharField(max_length=128, null=True, blank=True, db_index=True)
+    business_id = models.CharField(max_length=128, null=True, blank=True, db_index=True)
+    task_id = models.CharField(max_length=128, null=True, blank=True, db_index=True)
+    
+    # Additional context
+    metadata = models.JSONField(default=dict, blank=True)
+    
+    # Resolution tracking
+    resolved = models.BooleanField(default=False, db_index=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    resolution_notes = models.TextField(blank=True)
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['-timestamp']),
+            models.Index(fields=['error_type', '-timestamp']),
+            models.Index(fields=['severity', '-timestamp']),
+            models.Index(fields=['lead_id', '-timestamp']),
+            models.Index(fields=['resolved', '-timestamp']),
+        ]
+        
+    def __str__(self):
+        return f"[{self.error_type}] {self.error_message[:50]}"
+
+
+class SystemHealthMetric(models.Model):
+    """System performance and health metrics tracking"""
+    
+    timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
+    metric_type = models.CharField(max_length=50, choices=[
+        ('API_RESPONSE_TIME', 'API Response Time'),
+        ('FOLLOW_UP_SUCCESS_RATE', 'Follow-up Success Rate'),
+        ('QUEUE_LENGTH', 'RQ Queue Length'),
+        ('DATABASE_QUERY_TIME', 'Database Query Time'),
+        ('YELP_API_SUCCESS_RATE', 'Yelp API Success Rate'),
+        ('TOKEN_REFRESH_RATE', 'Token Refresh Rate'),
+        ('MEMORY_USAGE', 'Memory Usage'),
+        ('ACTIVE_LEADS', 'Active Leads Count'),
+    ], db_index=True)
+    
+    # Metric values
+    value = models.FloatField()
+    unit = models.CharField(max_length=20, default='count')  # ms, %, count, MB
+    
+    # Context
+    component = models.CharField(max_length=50, blank=True)
+    business_id = models.CharField(max_length=128, null=True, blank=True, db_index=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['metric_type', '-timestamp']),
+            models.Index(fields=['-timestamp']),
+        ]
+        
+    def __str__(self):
+        return f"{self.metric_type}: {self.value}{self.unit}"
+
+

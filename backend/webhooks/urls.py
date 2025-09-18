@@ -17,6 +17,10 @@ from .lead_views import BusinessSMSSettingsView, AIPreviewView, AIGlobalSettings
 from .task_views import TaskLogListView, TaskStatsView, TaskRevokeView, MessageTaskListView, TaskTimeSeriesView
 from .sms_views import SendSMSAPIView, SMSLogListView, SMSStatsView, SMSTimeSeriesView, SMSUpdatePricesView
 from .lead_logs_views import lead_activity_history, lead_complete_timeline, lead_logs_search
+from .diagnostic_views import (
+    system_health_dashboard, error_logs_dashboard, resolve_error,
+    performance_metrics_dashboard, diagnostic_action, lead_diagnostic_report, system_status_check
+)
 
 urlpatterns = [
     path('webhook/', WebhookView.as_view(), name='webhook'),
@@ -118,4 +122,13 @@ urlpatterns = [
     path('leads/<str:lead_id>/logs/', lead_activity_history, name='lead-activity-logs'),
     path('leads/<str:lead_id>/timeline/', lead_complete_timeline, name='lead-complete-timeline'),
     path('leads/search/', lead_logs_search, name='lead-logs-search'),
+    
+    # ===== DIAGNOSTIC & ERROR TRACKING ENDPOINTS =====
+    path('system/health/', system_health_dashboard, name='system-health'),
+    path('system/errors/', error_logs_dashboard, name='error-logs'),
+    path('system/errors/<str:error_id>/resolve/', resolve_error, name='resolve-error'),
+    path('system/metrics/', performance_metrics_dashboard, name='performance-metrics'),
+    path('system/actions/', diagnostic_action, name='diagnostic-actions'),
+    path('system/status/', system_status_check, name='system-status'),
+    path('leads/<str:lead_id>/diagnostics/', lead_diagnostic_report, name='lead-diagnostics'),
 ]

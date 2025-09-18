@@ -730,3 +730,186 @@ def cleanup_old_lead_logs(days: int = 30):
         logger.error(f"[DB-LOG] Failed to cleanup old logs: {e}")
         return 0
 
+
+# ===== ERROR TRACKING SYSTEM =====
+
+import uuid
+import traceback
+import inspect
+
+def log_system_error(
+    error_type: str,
+    error_message: str,
+    exception: Exception = None,
+    severity: str = 'MEDIUM',
+    lead_id: str = None,
+    business_id: str = None,
+    task_id: str = None,
+    **metadata
+):
+    """
+    Universal error logging function for system-wide error tracking.
+    
+    Args:
+        error_type: API_ERROR, DJANGO_ERROR, TASK_ERROR, etc.
+        error_message: Human-readable error description
+        exception: Python exception object (if available)
+        severity: LOW, MEDIUM, HIGH, CRITICAL
+        lead_id: Associated lead (if applicable)
+        business_id: Associated business (if applicable)
+        task_id: Associated task (if applicable)
+        **metadata: Additional context data
+    """
+    try:
+        from .models import SystemErrorLog
+        
+        # Generate unique error ID
+        error_id = str(uuid.uuid4())[:8]
+        
+        # Extract caller information
+        frame = inspect.currentframe().f_back
+        component = frame.f_globals.get('__name__', 'unknown')
+        function_name = frame.f_code.co_name
+        line_number = frame.f_lineno
+        
+        # Extract exception details
+        exception_type = ""
+        tb = ""
+        if exception:
+            exception_type = exception.__class__.__name__
+            tb = traceback.format_exc()
+        
+        # Console logging
+        logger = logging.getLogger('system.errors')
+        logger.error(f"[{error_type}] {error_message}")
+        if exception:
+            logger.exception(f"[{error_type}] Exception details")
+        
+        # Database logging
+        SystemErrorLog.objects.create(
+            error_id=error_id,
+            error_type=error_type,
+            severity=severity,
+            component=component,
+            function_name=function_name,
+            line_number=line_number,
+            error_message=error_message,
+            exception_type=exception_type,
+            traceback=tb,
+            lead_id=lead_id,
+            business_id=business_id,
+            task_id=task_id,
+            metadata=metadata
+        )
+        
+        return error_id
+        
+    except Exception as e:
+        # Never let error logging break the main flow
+        logger.error(f"[ERROR-LOG] Failed to log error: {e}")
+        return None
+
+
+def log_performance_metric(
+    metric_type: str,
+    value: float,
+    unit: str = 'count',
+    component: str = '',
+    business_id: str = None,
+    **metadata
+):
+    """Log performance metrics for system monitoring"""
+    try:
+        from .models import SystemHealthMetric
+        
+        SystemHealthMetric.objects.create(
+            metric_type=metric_type,
+            value=value,
+            unit=unit,
+            component=component,
+            business_id=business_id,
+            metadata=metadata
+        )
+        
+        # Console logging for critical metrics
+        if metric_type in ['QUEUE_LENGTH', 'API_RESPONSE_TIME'] and value > 100:
+            logger.warning(f"[PERFORMANCE] High {metric_type}: {value}{unit}")
+            
+    except Exception as e:
+        logger.error(f"[METRIC-LOG] Failed to log metric: {e}")
+
+
+def get_system_health_summary() -> dict:
+    """Get current system health status"""
+    try:
+        from .models import SystemErrorLog, SystemHealthMetric, CeleryTaskLog
+        from django.db.models import Count, Q
+        from datetime import timedelta
+        
+        now = timezone.now()
+        last_hour = now - timedelta(hours=1)
+        last_day = now - timedelta(days=1)
+        
+        # Error statistics
+        recent_errors = SystemErrorLog.objects.filter(timestamp__gte=last_hour)
+        critical_errors = recent_errors.filter(severity='CRITICAL').count()
+        high_errors = recent_errors.filter(severity='HIGH').count()
+        unresolved_errors = SystemErrorLog.objects.filter(resolved=False).count()
+        
+        # Task statistics
+        recent_tasks = CeleryTaskLog.objects.filter(finished_at__gte=last_hour)
+        total_tasks = recent_tasks.count()
+        failed_tasks = recent_tasks.filter(status='FAILURE').count()
+        success_rate = ((total_tasks - failed_tasks) / total_tasks * 100) if total_tasks > 0 else 100
+        
+        # Performance metrics
+        latest_metrics = {}
+        for metric_type in ['API_RESPONSE_TIME', 'QUEUE_LENGTH', 'MEMORY_USAGE']:
+            latest = SystemHealthMetric.objects.filter(
+                metric_type=metric_type
+            ).order_by('-timestamp').first()
+            if latest:
+                latest_metrics[metric_type] = {
+                    'value': latest.value,
+                    'unit': latest.unit,
+                    'timestamp': latest.timestamp
+                }
+        
+        # Overall health score (0-100)
+        health_score = 100
+        if critical_errors > 0:
+            health_score -= 50
+        if high_errors > 0:
+            health_score -= min(high_errors * 10, 30)
+        if success_rate < 95:
+            health_score -= (95 - success_rate)
+        if unresolved_errors > 5:
+            health_score -= min(unresolved_errors * 2, 20)
+            
+        health_score = max(0, health_score)
+        
+        return {
+            'health_score': health_score,
+            'status': 'HEALTHY' if health_score > 80 else 'WARNING' if health_score > 60 else 'CRITICAL',
+            'errors': {
+                'critical_last_hour': critical_errors,
+                'high_last_hour': high_errors,
+                'total_unresolved': unresolved_errors
+            },
+            'tasks': {
+                'total_last_hour': total_tasks,
+                'failed_last_hour': failed_tasks,
+                'success_rate': round(success_rate, 1)
+            },
+            'metrics': latest_metrics,
+            'last_updated': now
+        }
+        
+    except Exception as e:
+        logger.error(f"[HEALTH] Failed to get system health: {e}")
+        return {
+            'health_score': 0,
+            'status': 'ERROR',
+            'error': str(e)
+        }
+
