@@ -33,6 +33,7 @@ from .utils import (
     _already_sent,
     _parse_days,
     get_time_based_greeting,
+    log_lead_activity,
 )
 from .tasks import send_follow_up
 
@@ -596,6 +597,18 @@ class WebhookView(APIView):
                         logger.info(f"[WEBHOOK] Created ProcessedLead id={pl.id} for lead={lid}")
                         logger.info(f"[WEBHOOK] 🚀 TRIGGERING handle_new_lead for lead={lid}")
                         logger.info(f"[WEBHOOK] This will start auto-response flow")
+                        
+                        # Database logging for new lead creation
+                        log_lead_activity(
+                            lead_id=lid,
+                            activity_type="WEBHOOK",
+                            event_name="new_lead_created",
+                            message=f"New lead created and ProcessedLead record created (id={pl.id})",
+                            business_id=business_id,
+                            processed_lead_id=pl.id,
+                            event_type=upd.get('event_type'),
+                            user_display_name=upd.get('user_display_name', '')
+                        )
                         
                         self.handle_new_lead(lid)
                         
@@ -2659,6 +2672,22 @@ class WebhookView(APIView):
             logger.info(f"[AUTO-RESPONSE] Base time (now): {now.isoformat()}")
             logger.info(f"[AUTO-RESPONSE] Message text (first 100 chars): '{text[:100]}{'...' if len(text) > 100 else ''}'")
             logger.info(f"[AUTO-RESPONSE] Full message length: {len(text)} characters")
+            
+            # Database logging for follow-up planning
+            log_lead_activity(
+                lead_id=lead_id,
+                activity_type="PLANNING",
+                event_name="template_planning",
+                message=f"Planning follow-up message #{len(planned_messages) + 1}: {tmpl.name}",
+                business_id=biz_id,
+                template_name=tmpl.name,
+                template_id=tmpl.id,
+                delay_seconds=delay,
+                delay_formatted=str(tmpl.delay),
+                message_preview=text[:100],
+                message_length=len(text),
+                phone_available=phone_available
+            )
             
             initial_due = now + timedelta(seconds=delay)
             logger.info(f"[AUTO-RESPONSE] Initial due time: {initial_due.isoformat()}")

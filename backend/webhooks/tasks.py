@@ -30,6 +30,7 @@ from .utils import (
     rotate_refresh_token,
     update_shared_refresh_token,
     _already_sent,
+    log_lead_activity,
 )
 
 logger = logging.getLogger(__name__)
@@ -710,6 +711,22 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
 
             task_duration = time.time() - task_start_time if 'task_start_time' in locals() else 0
             logger.info(f"[FOLLOW-UP] 🎉 TASK COMPLETED SUCCESSFULLY in {task_duration:.2f} seconds")
+            
+            # Database logging for successful follow-up execution
+            log_lead_activity(
+                lead_id=lead_id,
+                activity_type="EXECUTION",
+                event_name="follow_up_completed",
+                message="Follow-up message sent successfully to Yelp API",
+                component="WORKER",
+                business_id=business_id,
+                task_id=job_id,
+                http_status=resp.status_code if resp else None,
+                api_success=api_success,
+                task_duration=task_duration,
+                message_preview=text[:100],
+                api_response_time=globals().get('api_duration', 0)
+            )
             return f"SUCCESS: Message sent to Yelp API (HTTP {resp.status_code if resp else 'N/A'}) in {task_duration:.2f}s"
                 
     except Exception as lock_exc:

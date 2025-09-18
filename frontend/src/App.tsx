@@ -34,6 +34,7 @@ import TopMenu from "./TopMenu";
 import TimeBasedGreetings from "./TimeBasedGreetings";
 import JobMappings from "./JobMappings";
 import Analytics from "./Analytics";
+import LeadLogs from "./LeadLogs";
 
 // A enhanced theme for the application with modern design
 const theme = createTheme({
@@ -277,6 +278,7 @@ const App: FC = () => {
               <Route path="/tasks" element={<TaskLogs />} />
               <Route path="/sms-logs" element={<SMSLogs />} />
               <Route path="/analytics" element={<Analytics />} />
+              <Route path="/lead-logs" element={<LeadLogs />} />
             </Routes>
         </Box>
       </Router>

@@ -34,6 +34,7 @@ import {
   AccessTime as AccessTimeIcon,
   Work as WorkIcon,
   TrendingUp as TrendingUpIcon,
+  Timeline as TimelineIcon,
 } from '@mui/icons-material';
 
 // Grouping menu items logically
@@ -55,6 +56,7 @@ const menuGroups = {
       { text: 'Events', icon: <EventIcon />, href: '/events', color: '#f093fb' },
       { text: 'Tasks', icon: <ChecklistIcon />, href: '/tasks', color: '#fa709a' },
       { text: 'SMS Logs', icon: <SmsIcon />, href: '/sms-logs', color: '#4facfe' },
+      { text: 'Lead Activity Logs', icon: <TimelineIcon />, href: '/lead-logs', color: '#667eea' },
     ]
   },
   config: {

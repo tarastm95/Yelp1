@@ -571,3 +571,50 @@ class TimeBasedGreeting(models.Model):
         return "Global Default Greetings"
 
 
+class LeadActivityLog(models.Model):
+    """Detailed persistent logging for every lead activity"""
+    
+    # Lead identification
+    lead_id = models.CharField(max_length=128, db_index=True)
+    
+    # Timing
+    timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
+    
+    # Categorization
+    activity_type = models.CharField(max_length=50, db_index=True, choices=[
+        ('WEBHOOK', 'Webhook Processing'),
+        ('PLANNING', 'Follow-up Planning'),
+        ('EXECUTION', 'Message Execution'),
+        ('ANALYSIS', 'Event Analysis'),
+        ('ERROR', 'Error Handling'),
+    ])
+    
+    component = models.CharField(max_length=30, choices=[
+        ('BACKEND', 'Django Backend'),
+        ('WORKER', 'RQ Worker'),
+        ('SCHEDULER', 'RQ Scheduler'),
+        ('API', 'API Request'),
+    ])
+    
+    event_name = models.CharField(max_length=100, help_text="Function or event name")
+    
+    # Content
+    message = models.TextField()
+    metadata = models.JSONField(default=dict, blank=True)
+    
+    # Optional relationships
+    business_id = models.CharField(max_length=128, null=True, blank=True, db_index=True)
+    task_id = models.CharField(max_length=128, null=True, blank=True, db_index=True)
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['lead_id', '-timestamp']),
+            models.Index(fields=['activity_type', '-timestamp']),
+            models.Index(fields=['business_id', '-timestamp']),
+            models.Index(fields=['task_id', '-timestamp']),
+        ]
+        
+    def __str__(self):
+        return f"[{self.activity_type}] {self.lead_id}: {self.message[:50]}"
+
+

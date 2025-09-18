@@ -617,3 +617,104 @@ def get_time_based_greeting(business_id: str = None, current_time=None):
         # Night (after evening_end or before morning_start)
         return night_greeting
 
+
+# ===== DATABASE LOGGING SYSTEM =====
+
+import logging
+from django.utils import timezone
+
+def log_lead_activity(
+    lead_id: str,
+    activity_type: str,
+    event_name: str, 
+    message: str,
+    component: str = 'BACKEND',
+    business_id: str = None,
+    task_id: str = None,
+    **metadata
+):
+    """
+    Universal lead logging function that saves to both console and database.
+    
+    Args:
+        lead_id: Lead identifier
+        activity_type: WEBHOOK, PLANNING, EXECUTION, ANALYSIS, ERROR
+        event_name: Function/event name (e.g., 'handle_new_lead', 'send_follow_up')
+        message: Human-readable log message
+        component: BACKEND, WORKER, SCHEDULER, API
+        business_id: Optional business identifier
+        task_id: Optional task identifier
+        **metadata: Additional structured data
+    
+    Examples:
+        log_lead_activity(
+            lead_id="ABC123",
+            activity_type="PLANNING",
+            event_name="template_planning",
+            message="Planning follow-up message #1",
+            template_name="Custom 5",
+            delay_seconds=15.0,
+            countdown=15.0
+        )
+    """
+    # Console logging (existing behavior)
+    logger = logging.getLogger(f'lead.{lead_id}')
+    logger.info(f"[{activity_type}] {message}")
+    
+    # Database logging (new persistent storage)
+    try:
+        from .models import LeadActivityLog
+        
+        LeadActivityLog.objects.create(
+            lead_id=lead_id,
+            activity_type=activity_type,
+            component=component,
+            event_name=event_name,
+            message=message,
+            business_id=business_id,
+            task_id=task_id,
+            metadata=metadata
+        )
+    except Exception as e:
+        # Never let logging errors break the main flow
+        logger.error(f"[DB-LOG] Failed to save lead activity log: {e}")
+
+
+def get_lead_activity_summary(lead_id: str) -> dict:
+    """Get activity summary for a lead"""
+    try:
+        from .models import LeadActivityLog
+        from django.db.models import Count
+        
+        logs = LeadActivityLog.objects.filter(lead_id=lead_id)
+        
+        summary = logs.values('activity_type').annotate(
+            count=Count('id')
+        ).order_by('-count')
+        
+        return {
+            'total_logs': logs.count(),
+            'first_activity': logs.order_by('timestamp').first(),
+            'last_activity': logs.order_by('-timestamp').first(),
+            'by_type': {item['activity_type']: item['count'] for item in summary}
+        }
+    except Exception as e:
+        logger.error(f"[DB-LOG] Failed to get lead summary: {e}")
+        return {'error': str(e)}
+
+
+def cleanup_old_lead_logs(days: int = 30):
+    """Clean up lead activity logs older than specified days"""
+    try:
+        from .models import LeadActivityLog
+        from datetime import timedelta
+        
+        cutoff = timezone.now() - timedelta(days=days)
+        deleted_count, _ = LeadActivityLog.objects.filter(timestamp__lt=cutoff).delete()
+        
+        logger.info(f"[DB-LOG] Cleaned up {deleted_count} old lead activity logs (older than {days} days)")
+        return deleted_count
+    except Exception as e:
+        logger.error(f"[DB-LOG] Failed to cleanup old logs: {e}")
+        return 0
+
