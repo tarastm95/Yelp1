@@ -33,13 +33,15 @@ storage_config:
     directory: /loki/chunks
 
 limits_config:
-  retention_period: 168h  # 7 днів
-  ingestion_rate_mb: 16
-  ingestion_burst_size_mb: 32
-  max_query_length: 168h
+  retention_period: 720h  # 30 днів (місяць)
+  ingestion_rate_mb: 32   # Збільшено для старих логів
+  ingestion_burst_size_mb: 64  # Збільшено для пакетів
+  max_query_length: 720h  # 30 днів запитів
+  reject_old_samples: false  # ✅ Приймати старі логи
+  reject_old_samples_max_age: 720h  # Максимум 30 днів назад
 
 chunk_store_config:
-  max_look_back_period: 168h
+  max_look_back_period: 720h  # 30 днів назад
 
 # Single instance режим (запускає всі компоненти в одному процесі)
 target: all
