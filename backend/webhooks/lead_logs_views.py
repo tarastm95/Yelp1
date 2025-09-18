@@ -101,8 +101,8 @@ def lead_activity_history(request, lead_id):
     return Response({
         'lead_id': lead_id,
         'lead_info': {
-            'name': lead_detail.name if lead_detail else None,
-            'jobs': lead_detail.jobs if lead_detail else None,
+            'name': lead_detail.user_display_name if lead_detail else None,
+            'jobs': lead_detail.project.get('job_names', []) if lead_detail and lead_detail.project else None,
             'created_at': lead_detail.created_at if lead_detail else None,
             'phone_number': lead_detail.phone_number if lead_detail else None,
         } if lead_detail else None,
@@ -197,8 +197,8 @@ def lead_complete_timeline(request, lead_id):
     return Response({
         'lead_id': lead_id,
         'lead_info': {
-            'name': lead_detail.name if lead_detail else None,
-            'jobs': lead_detail.jobs if lead_detail else None,
+            'name': lead_detail.user_display_name if lead_detail else None,
+            'jobs': lead_detail.project.get('job_names', []) if lead_detail and lead_detail.project else None,
             'created_at': lead_detail.created_at if lead_detail else None,
             'phone_number': lead_detail.phone_number if lead_detail else None,
         } if lead_detail else None,
