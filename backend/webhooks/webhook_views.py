@@ -110,21 +110,6 @@ def _extract_phone(text: str) -> str | None:
     return None
 
 
-def convert_to_yelp_format(text: str) -> str:
-    """Convert text to Yelp's preferred Unicode format.
-    
-    NOTE: This function is kept for backward compatibility with existing tasks,
-    but the new simplified logic doesn't rely on text matching anymore.
-    We use the from_backend flag which is more reliable than text comparison.
-    """
-    if not text:
-        return text
-    
-    # Convert ASCII apostrophes to Unicode (Yelp's preferred format)
-    converted = text.replace("'", "'")  # U+0027 → U+2019
-    return converted
-
-
 def safe_update_or_create(model, defaults=None, **kwargs):
     """Retry update_or_create with simple retry logic."""
     for attempt in range(1, 6):
@@ -513,7 +498,7 @@ class WebhookView(APIView):
                         f"[WEBHOOK] Consumer NEW_EVENT passed check for lead_id={lid}"
                     )
                     content = upd.get("event_content", {}) or {}
-                    text = content.get("text") or content.get("fallback_text", "")
+                    text = content.get("fallback_text", "")
                     phone = _extract_phone(text)
                     has_phone = bool(phone)
                     pending = LeadPendingTask.objects.filter(
@@ -701,8 +686,7 @@ class WebhookView(APIView):
                     "user_type": e.get("user_type"),
                     "user_id": e.get("user_id"),
                     "user_display_name": e.get("user_display_name", ""),
-                    "text": e["event_content"].get("text")
-                    or e["event_content"].get("fallback_text", ""),
+                "text": e["event_content"].get("fallback_text", ""),
                     "cursor": e.get("cursor", ""),
                     "time_created": e.get("time_created"),
                     "raw": e,
@@ -1408,15 +1392,18 @@ class WebhookView(APIView):
             active=True,
             phone_available=phone_available,
             business__business_id=pl.business_id,
-        )
+        ).order_by('delay')
         if not tpls.exists():
             tpls = FollowUpTemplate.objects.filter(
                 active=True,
                 phone_available=phone_available,
                 business__isnull=True,
-            )
+            ).order_by('delay')
         
         logger.info(f"[NEW-LEAD-FOLLOW-UP] Found {tpls.count()} follow-up templates")
+        logger.info(f"[NEW-LEAD-FOLLOW-UP] 🔢 TEMPLATE PROCESSING ORDER (sorted by delay):")
+        for i, tmpl in enumerate(tpls, 1):
+            logger.info(f"[NEW-LEAD-FOLLOW-UP]   #{i}. '{tmpl.name}' - delay: {tmpl.delay}")
         
         if not tpls.exists():
             logger.warning(f"[NEW-LEAD-FOLLOW-UP] ⚠️ No follow-up templates found for new leads")
@@ -1446,7 +1433,10 @@ class WebhookView(APIView):
             )
             
             countdown = max((due - now).total_seconds(), 0)
+            execution_time = now + timedelta(seconds=countdown)
             
+            logger.info(f"[NEW-LEAD-FOLLOW-UP] 🕐 EXACT EXECUTION TIME: {execution_time.isoformat()}")
+            logger.info(f"[NEW-LEAD-FOLLOW-UP] ⏰ Will execute in: {countdown/3600:.2f} hours from now")
             logger.info(f"[NEW-LEAD-FOLLOW-UP] Scheduling follow-up in {countdown} seconds")
             
             with transaction.atomic():
@@ -2606,11 +2596,17 @@ class WebhookView(APIView):
                 logger.info(f"[AUTO-RESPONSE] Creating LeadPendingTask record...")
                 
                 try:
-                    yelp_greet_text = convert_to_yelp_format(greet_text)
+                    normalized_greet_text = normalize_text(greet_text)
+                    logger.info(f"[AUTO-RESPONSE] 🔄 GREETING TEXT NORMALIZATION (CONSISTENT):")
+                    logger.info(f"[AUTO-RESPONSE] - Original: '{greet_text[:50]}...'")
+                    logger.info(f"[AUTO-RESPONSE] - Normalized: '{normalized_greet_text[:50]}...'")
+                    logger.info(f"[AUTO-RESPONSE] - Normalization changed text: {greet_text != normalized_greet_text}")
+                    if greet_text != normalized_greet_text:
+                        logger.info(f"[AUTO-RESPONSE] ✅ Using same normalization as follow-ups for consistency")
                     task_record = LeadPendingTask.objects.create(
                         lead_id=lead_id,
                         task_id=res.id,
-                        text=yelp_greet_text,  # Store in Yelp format
+                        text=normalized_greet_text,  # Store in normalized format
                         phone_available=phone_available,
                     )
                     logger.info(f"[AUTO-RESPONSE] ✅ LeadPendingTask created with ID: {task_record.id}")
@@ -2634,13 +2630,13 @@ class WebhookView(APIView):
             active=True,
             phone_available=phone_available,
             business__business_id=biz_id,
-        )
+        ).order_by('delay')
         if not tpls.exists():
             tpls = FollowUpTemplate.objects.filter(
                 active=True,
                 phone_available=phone_available,
                 business__isnull=True,
-            )
+            ).order_by('delay')
         business = YelpBusiness.objects.filter(business_id=biz_id).first()
         
         # =============== FOLLOW-UP PLANNING OVERVIEW ===============
@@ -2653,6 +2649,9 @@ class WebhookView(APIView):
         logger.info(f"[AUTO-RESPONSE] Jobs: '{jobs}'")
         logger.info(f"[AUTO-RESPONSE] Planning {template_count} follow-up messages...")
         logger.info(f"[AUTO-RESPONSE] Base time: {now.isoformat()}")
+        logger.info(f"[AUTO-RESPONSE] 🔢 TEMPLATE PROCESSING ORDER (sorted by delay):")
+        for i, tmpl in enumerate(tpls, 1):
+            logger.info(f"[AUTO-RESPONSE]   #{i}. '{tmpl.name}' - delay: {tmpl.delay}")
         logger.info(f"[AUTO-RESPONSE] ===========================================")
         
         # Track all planned messages for summary
@@ -2664,9 +2663,9 @@ class WebhookView(APIView):
             text = tmpl.template.format(name=name, jobs=jobs, sep=sep, reason=reason, greetings=greetings)
             
             # Enhanced logging for precise timing debug
-            logger.info(f"[AUTO-RESPONSE] 📱 PLANNING MESSAGE #{len(planned_messages) + 1}")
+            logger.info(f"[AUTO-RESPONSE] 📱 PLANNING MESSAGE #{len(planned_messages) + 1} (IN DELAY ORDER)")
             logger.info(f"[AUTO-RESPONSE] ========= FOLLOW-UP TIMING DEBUG =========")
-            logger.info(f"[AUTO-RESPONSE] Template: '{tmpl.name}'")
+            logger.info(f"[AUTO-RESPONSE] Template: '{tmpl.name}' (processing in correct delay order)")
             logger.info(f"[AUTO-RESPONSE] Raw delay (seconds): {delay}")
             logger.info(f"[AUTO-RESPONSE] Raw delay formatted: {tmpl.delay}")
             logger.info(f"[AUTO-RESPONSE] Base time (now): {now.isoformat()}")
@@ -2706,12 +2705,16 @@ class WebhookView(APIView):
             logger.info(f"[AUTO-RESPONSE] ✅ Preserving exact countdown: {countdown}s (delay: {delay}s)")
             logger.info(f"[AUTO-RESPONSE] Final countdown (seconds): {countdown}")
             
+            # Calculate exact execution time for ordering verification
+            execution_time = now + timedelta(seconds=countdown)
+            logger.info(f"[AUTO-RESPONSE] 🕐 EXACT EXECUTION TIME: {execution_time.isoformat()}")
+            logger.info(f"[AUTO-RESPONSE] ⏰ Will execute in: {countdown/3600:.2f} hours from now")
+            
             # Log timing details for debugging
             is_24_7 = (tmpl.open_from == datetime_time(0, 0) and tmpl.open_to == datetime_time(0, 0))
             logger.info(f"[AUTO-RESPONSE] Template working hours: {tmpl.open_from} - {tmpl.open_to} (24/7: {is_24_7})")
             
             # Store for summary
-            execution_time = now + timedelta(seconds=countdown)
             planned_messages.append({
                 'template': tmpl.name,
                 'delay': delay,

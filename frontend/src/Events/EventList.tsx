@@ -159,7 +159,7 @@ const EventList: FC<Props> = ({ events }) => {
                     </Box>
                     
                     {/* Message Text */}
-                    {evt.event_content.text && (
+                    {evt.event_content.fallback_text && (
                       <Typography 
                         variant="body1" 
                         sx={{ 
@@ -168,7 +168,7 @@ const EventList: FC<Props> = ({ events }) => {
                           fontSize: '0.95rem'
                         }}
                       >
-                        {evt.event_content.text}
+                        {evt.event_content.fallback_text}
                       </Typography>
                     )}
 

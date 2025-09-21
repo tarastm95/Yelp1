@@ -420,15 +420,23 @@ def _already_sent(lead_id: str, text: str, exclude_task_id: str | None = None) -
     This function uses database-level locking to prevent race conditions.
     """
     from django.db import transaction
+    from .webhook_views import normalize_text
+    
+    # 🔧 FIX: Normalize text before checking duplicates (consistent with storage)
+    normalized_text = normalize_text(text)
+    logger.debug(f"[DUP CHECK] Text normalization for duplicate check:")
+    logger.debug(f"[DUP CHECK] - Original: '{text[:100]}...'")
+    logger.debug(f"[DUP CHECK] - Normalized: '{normalized_text[:100]}...'")
+    logger.debug(f"[DUP CHECK] - Normalization changed text: {text != normalized_text}")
     
     with transaction.atomic():
         # Exact match check with select_for_update to prevent race conditions
-        event_exists = LeadEvent.objects.filter(lead_id=lead_id, text=text).exists()
+        event_exists = LeadEvent.objects.filter(lead_id=lead_id, text=normalized_text).exists()
 
         # Use select_for_update to lock rows during duplicate check
         task_qs = LeadPendingTask.objects.select_for_update().filter(
             lead_id=lead_id,
-            text=text,
+            text=normalized_text,
             active=True,
         )
         if exclude_task_id:
@@ -445,7 +453,10 @@ def _already_sent(lead_id: str, text: str, exclude_task_id: str | None = None) -
                 list(task_qs.values_list("task_id", "active"))[:5],
             )
             logger.info(f"[DUP CHECK] ✅ EXACT DUPLICATE found for lead={lead_id}")
-            logger.info(f"[DUP CHECK] Message: '{text[:100]}...'")
+            logger.info(f"[DUP CHECK] Original message: '{text[:100]}...'")
+            logger.info(f"[DUP CHECK] Normalized message: '{normalized_text[:100]}...'")
+            if text != normalized_text:
+                logger.info(f"[DUP CHECK] 🔄 Text was normalized for duplicate detection")
             return True
         else:
             logger.debug("[DUP CHECK] No prior follow-up found for lead=%s", lead_id)
@@ -490,23 +501,31 @@ def create_lead_pending_task_safe(lead_id: str, text: str, task_id: str, phone_a
     """
     from django.db import IntegrityError, transaction
     from .models import LeadPendingTask
+    from .webhook_views import normalize_text
+    
+    # 🔧 FIX: Normalize text before storing (consistent with other storage)
+    normalized_text = normalize_text(text)
+    logger.debug(f"[SAFE CREATE] Text normalization:")
+    logger.debug(f"[SAFE CREATE] - Original: '{text[:50]}...'")
+    logger.debug(f"[SAFE CREATE] - Normalized: '{normalized_text[:50]}...'")
+    logger.debug(f"[SAFE CREATE] - Normalization changed text: {text != normalized_text}")
     
     try:
         with transaction.atomic():
             # Double-check for duplicates with locking
             existing = LeadPendingTask.objects.select_for_update().filter(
                 lead_id=lead_id, 
-                text=text, 
+                text=normalized_text, 
                 active=True
             ).exists()
             
             if existing:
-                logger.info(f"[SAFE CREATE] Task already exists for lead={lead_id}, text='{text[:50]}...'")
+                logger.info(f"[SAFE CREATE] Task already exists for lead={lead_id}, text='{normalized_text[:50]}...'")
                 return False
                 
             LeadPendingTask.objects.create(
                 lead_id=lead_id,
-                text=text,
+                text=normalized_text,
                 task_id=task_id,
                 phone_available=phone_available,
                 active=True,

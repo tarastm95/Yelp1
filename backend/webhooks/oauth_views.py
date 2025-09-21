@@ -93,8 +93,7 @@ def fetch_and_store_lead(access_token: str, lead_id: str) -> None:
                 "user_type": e.get("user_type"),
                 "user_id": e.get("user_id"),
                 "user_display_name": e.get("user_display_name", ""),
-                "text": e.get("event_content", {}).get("text")
-                or e.get("event_content", {}).get("fallback_text", ""),
+                "text": e.get("event_content", {}).get("fallback_text", ""),
                 "cursor": e.get("cursor", ""),
                 "time_created": e.get("time_created"),
                 "raw": e,

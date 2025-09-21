@@ -4,8 +4,8 @@ export interface PayloadUpdate {
   event_type: string;
   lead_id: string;
   event_content?: {
-    text?: string;
     fallback_text?: string;
+    text?: string;
   };
   // If other fields are needed (cursor, user_type, etc.), add them here:
   [key: string]: any;

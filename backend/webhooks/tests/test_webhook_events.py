@@ -60,7 +60,7 @@ class WebhookEventProcessingTests(TestCase):
                 "user_type": "CONSUMER",
                 "user_id": "u",
                 "user_display_name": "d",
-                "event_content": {"text": "hi"},
+                "event_content": {"fallback_text": "hi"},
                 "cursor": "c1",
                 "time_created": event_time,
             }
@@ -91,7 +91,7 @@ class WebhookEventProcessingTests(TestCase):
                 "user_type": "CONSUMER",
                 "user_id": "u",
                 "user_display_name": "d",
-                "event_content": {"text": "hello"},
+                "event_content": {"fallback_text": "hello"},
                 "cursor": "c2",
                 "time_created": event_time,
             }
@@ -129,7 +129,7 @@ class WebhookEventProcessingTests(TestCase):
                             "user_type": "CONSUMER",
                             "user_id": "u",
                             "user_display_name": "d",
-                            "event_content": {"text": "hello"},
+                            "event_content": {"fallback_text": "hello"},
                             "cursor": "c2",
                             "time_created": event_time,
                         }
@@ -169,7 +169,7 @@ class WebhookEventProcessingTests(TestCase):
                             "user_type": "CONSUMER",
                             "user_id": "u",
                             "user_display_name": "d",
-                            "event_content": {"text": "+380111111111"},
+                            "event_content": {"fallback_text": "+380111111111"},
                             "cursor": "c3",
                             "time_created": event_time,
                         }
@@ -210,7 +210,7 @@ class WebhookEventProcessingTests(TestCase):
                             "user_type": "BIZ",
                             "user_id": "u",
                             "user_display_name": "d",
-                            "event_content": {"text": "+123"},
+                            "event_content": {"fallback_text": "+123"},
                             "cursor": "c4",
                             "time_created": event_time,
                         }
@@ -253,7 +253,7 @@ class WebhookEventProcessingTests(TestCase):
                             "user_type": "BIZ",
                             "user_id": "u",
                             "user_display_name": "d",
-                            "event_content": {"text": "manual"},
+                            "event_content": {"fallback_text": "manual"},
                             "cursor": "c5",
                             "time_created": event_time,
                         }
@@ -626,7 +626,7 @@ class AutoResponse404DetailTests(TestCase):
     ):
         events_resp = {"events": []}
         mock_get.side_effect = [
-            type("R", (), {"status_code": 404, "text": "not found"})(),
+            type("R", (), {"status_code": 404, "fallback_text": "not found"})(),
             type("R", (), {"status_code": 200, "json": lambda self: events_resp})(),
         ]
 
@@ -687,7 +687,7 @@ class AutoResponse404DetailTests(TestCase):
                             "user_type": "CONSUMER",
                             "user_id": "u",
                             "user_display_name": "d",
-                            "event_content": {"text": "thanks"},
+                            "event_content": {"fallback_text": "thanks"},
                             "cursor": "c_optin",
                             "time_created": event_time,
                         }
