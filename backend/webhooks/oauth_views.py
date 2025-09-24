@@ -21,6 +21,7 @@ from .models import (
     ProcessedLead,
     LeadDetail,
     LeadEvent,
+    CeleryTaskLog,
 )
 from .webhook_views import safe_update_or_create, _extract_phone
 
@@ -274,8 +275,6 @@ class OAuthProcessingStatusView(APIView):
     def get(self, request):
         """Get OAuth processing status."""
         try:
-            from .models import CeleryTaskLog
-            
             # Check if we have any recent OAuth processing logs (last 30 minutes)
             recent_logs = CeleryTaskLog.objects.filter(
                 name__in=['process_oauth_data', 'process_single_business'],
