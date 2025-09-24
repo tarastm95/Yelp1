@@ -885,7 +885,424 @@ def _apply_async(func, args=None, kwargs=None, countdown=0, headers=None):
     return SimpleNamespace(id=task_id)
 
 
+# OAuth Background Processing Jobs ============================================
+
+@logged_job
+def process_oauth_data(access_token: str, refresh_token: str, expires_in: int, retry_count: int = 0):
+    """
+    Background processing of OAuth data after successful token exchange.
+    
+    This job handles:
+    1. Fetching business list
+    2. Storing tokens 
+    3. Queuing individual business processing jobs
+    
+    Args:
+        access_token: OAuth access token
+        refresh_token: OAuth refresh token  
+        expires_in: Token expiration time in seconds
+        retry_count: Current retry attempt (for retry logic)
+    """
+    MAX_RETRIES = 3
+    RETRY_DELAY = 60  # seconds
+    
+    logger.info("[OAUTH-BG] 🚀 Starting OAuth background processing")
+    logger.info(f"[OAUTH-BG] Token expires in: {expires_in} seconds")
+    logger.info(f"[OAUTH-BG] Retry count: {retry_count}/{MAX_RETRIES}")
+    
+    start_time = time.time()
+    
+    try:
+        # Step 1: Get businesses list
+        logger.info("[OAUTH-BG] 📋 Step 1: Fetching businesses list")
+        biz_resp = requests.get(
+            "https://partner-api.yelp.com/token/v1/businesses",
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=30,
+        )
+        
+        if biz_resp.status_code != 200:
+            logger.error(f"[OAUTH-BG] ❌ Failed to fetch businesses: status={biz_resp.status_code}, response={biz_resp.text}")
+            return f"ERROR: Failed to fetch businesses - {biz_resp.status_code}"
+            
+        business_data = biz_resp.json()
+        biz_ids = business_data.get("business_ids", [])
+        logger.info(f"[OAUTH-BG] ✅ Found {len(biz_ids)} businesses: {biz_ids}")
+        
+        if not biz_ids:
+            logger.warning("[OAUTH-BG] ⚠️ No businesses found for this token")
+            return "SUCCESS: No businesses to process"
+        
+        # Step 2: Store tokens for each business
+        logger.info("[OAUTH-BG] 💾 Step 2: Storing tokens")
+        from .models import YelpToken
+        expires_at = timezone.now() + timedelta(seconds=expires_in)
+        
+        stored_count = 0
+        for bid in biz_ids:
+            try:
+                token_obj, created = YelpToken.objects.update_or_create(
+                    business_id=bid,
+                    defaults={
+                        "access_token": access_token,
+                        "refresh_token": refresh_token,
+                        "expires_at": expires_at,
+                    },
+                )
+                stored_count += 1
+                action = "Created" if created else "Updated"
+                logger.info(f"[OAUTH-BG] ✅ {action} token for business {bid}")
+            except Exception as e:
+                logger.error(f"[OAUTH-BG] ❌ Failed to store token for business {bid}: {e}")
+        
+        logger.info(f"[OAUTH-BG] 💾 Stored tokens for {stored_count}/{len(biz_ids)} businesses")
+        
+        # Step 3: Queue business processing jobs
+        logger.info("[OAUTH-BG] 📤 Step 3: Queuing business processing jobs")
+        queued_jobs = 0
+        for bid in biz_ids:
+            try:
+                # Add small delay between jobs to avoid overwhelming APIs
+                delay_seconds = queued_jobs * 2  # 0, 2, 4, 6... seconds
+                
+                job = process_single_business.apply_async(
+                    args=[access_token, bid],
+                    countdown=delay_seconds,
+                )
+                queued_jobs += 1
+                logger.info(f"[OAUTH-BG] 📤 Queued job for business {bid} (delay: {delay_seconds}s, job_id: {job.id})")
+            except Exception as e:
+                logger.error(f"[OAUTH-BG] ❌ Failed to queue job for business {bid}: {e}")
+        
+        duration = time.time() - start_time
+        logger.info(f"[OAUTH-BG] ✅ OAuth processing completed successfully")
+        logger.info(f"[OAUTH-BG] 📊 Summary:")
+        logger.info(f"[OAUTH-BG] - Businesses found: {len(biz_ids)}")
+        logger.info(f"[OAUTH-BG] - Tokens stored: {stored_count}")
+        logger.info(f"[OAUTH-BG] - Jobs queued: {queued_jobs}")
+        logger.info(f"[OAUTH-BG] - Total duration: {duration:.2f}s")
+        
+        return f"SUCCESS: Processed {len(biz_ids)} businesses, queued {queued_jobs} jobs"
+        
+    except requests.RequestException as e:
+        duration = time.time() - start_time
+        logger.error(f"[OAUTH-BG] ❌ Network error during OAuth processing: {e}")
+        logger.error(f"[OAUTH-BG] Duration before error: {duration:.2f}s")
+        
+        # Retry logic for network errors
+        if retry_count < MAX_RETRIES:
+            retry_count += 1
+            logger.warning(f"[OAUTH-BG] 🔄 Retrying in {RETRY_DELAY}s (attempt {retry_count}/{MAX_RETRIES})")
+            
+            try:
+                # Schedule retry with delay
+                process_oauth_data.apply_async(
+                    args=[access_token, refresh_token, expires_in, retry_count],
+                    countdown=RETRY_DELAY,
+                )
+                return f"RETRYING: Network error, scheduled retry {retry_count}/{MAX_RETRIES}"
+            except Exception as retry_error:
+                logger.error(f"[OAUTH-BG] ❌ Failed to schedule retry: {retry_error}")
+                return f"ERROR: Network error + retry failed - {str(e)}"
+        else:
+            logger.error(f"[OAUTH-BG] 💀 Max retries ({MAX_RETRIES}) exceeded for network error")
+            
+            # Log critical error for monitoring
+            log_system_error(
+                error_type='OAUTH_NETWORK_ERROR',
+                error_message=f'OAuth processing failed after {MAX_RETRIES} retries',
+                exception=e,
+                severity='HIGH',
+                metadata={'retry_count': retry_count, 'duration': duration}
+            )
+            return f"ERROR: Network error after {MAX_RETRIES} retries - {str(e)}"
+        
+    except Exception as e:
+        duration = time.time() - start_time
+        logger.error(f"[OAUTH-BG] ❌ Unexpected error during OAuth processing: {e}")
+        logger.exception("[OAUTH-BG] Full exception traceback:")
+        logger.error(f"[OAUTH-BG] Duration before error: {duration:.2f}s")
+        
+        # For unexpected errors, only retry if it's not a permanent error
+        should_retry = (
+            retry_count < MAX_RETRIES and
+            not isinstance(e, (KeyError, TypeError, AttributeError))  # Don't retry programming errors
+        )
+        
+        if should_retry:
+            retry_count += 1
+            logger.warning(f"[OAUTH-BG] 🔄 Retrying unexpected error in {RETRY_DELAY}s (attempt {retry_count}/{MAX_RETRIES})")
+            
+            try:
+                process_oauth_data.apply_async(
+                    args=[access_token, refresh_token, expires_in, retry_count],
+                    countdown=RETRY_DELAY,
+                )
+                return f"RETRYING: Unexpected error, scheduled retry {retry_count}/{MAX_RETRIES}"
+            except Exception as retry_error:
+                logger.error(f"[OAUTH-BG] ❌ Failed to schedule retry: {retry_error}")
+                return f"ERROR: Unexpected error + retry failed - {str(e)}"
+        else:
+            logger.error(f"[OAUTH-BG] 💀 Not retrying unexpected error (retry_count: {retry_count}, error_type: {type(e).__name__})")
+            
+            # Log critical error for monitoring
+            log_system_error(
+                error_type='OAUTH_PROCESSING_ERROR',
+                error_message=f'OAuth processing failed with unexpected error',
+                exception=e,
+                severity='CRITICAL',
+                metadata={'retry_count': retry_count, 'duration': duration}
+            )
+            return f"ERROR: Unexpected error - {str(e)}"
+
+
+@logged_job
+def process_single_business(access_token: str, business_id: str, retry_count: int = 0):
+    """
+    Process single business details and leads.
+    
+    This job handles:
+    1. Fetching business details from Yelp API
+    2. Getting timezone from Google Maps
+    3. Storing business information
+    4. Fetching and processing all leads for this business
+    
+    Args:
+        access_token: OAuth access token
+        business_id: Yelp business ID to process
+        retry_count: Current retry attempt (for retry logic)
+    """
+    MAX_RETRIES = 2  # Fewer retries for individual business processing
+    RETRY_DELAY = 30  # seconds
+    
+    logger.info(f"[OAUTH-BIZ] 🏢 Processing business {business_id}")
+    logger.info(f"[OAUTH-BIZ] Retry count: {retry_count}/{MAX_RETRIES}")
+    start_time = time.time()
+    
+    try:
+        from .models import YelpBusiness, ProcessedLead
+        from .oauth_views import fetch_and_store_lead
+        import time as time_module
+        
+        # Days mapping (should be imported from oauth_views)
+        DAYS = {0: "Mon", 1: "Tue", 2: "Wed", 3: "Thu", 4: "Fri", 5: "Sat", 6: "Sun"}
+        
+        # Step 1: Get business details
+        logger.info(f"[OAUTH-BIZ] 📋 Step 1: Fetching business details for {business_id}")
+        det_resp = requests.get(
+            f"https://api.yelp.com/v3/businesses/{business_id}",
+            headers={"Authorization": f"Bearer {settings.YELP_API_KEY}"},
+            timeout=30,
+        )
+        
+        if det_resp.status_code != 200:
+            logger.error(f"[OAUTH-BIZ] ❌ Failed to fetch business details: status={det_resp.status_code}")
+            return f"ERROR: Failed to fetch business details - {det_resp.status_code}"
+        
+        det = det_resp.json()
+        name = det.get("name", "")
+        loc = ", ".join(det.get("location", {}).get("display_address", []))
+        lat = det.get("coordinates", {}).get("latitude")
+        lng = det.get("coordinates", {}).get("longitude")
+        
+        logger.info(f"[OAUTH-BIZ] ✅ Business details: {name} at {loc}")
+        
+        # Step 2: Get timezone (if coordinates available)
+        tz = ""
+        if lat is not None and lng is not None:
+            logger.info(f"[OAUTH-BIZ] 🌍 Step 2: Fetching timezone for coordinates {lat},{lng}")
+            try:
+                tz_resp = requests.get(
+                    "https://maps.googleapis.com/maps/api/timezone/json",
+                    params={
+                        "location": f"{lat},{lng}",
+                        "timestamp": int(time_module.time()),
+                        "key": settings.GOOGLE_TIMEZONE_API_KEY,
+                    },
+                    timeout=30,
+                )
+                if tz_resp.status_code == 200:
+                    tz_data = tz_resp.json()
+                    tz = tz_data.get("timeZoneId", "")
+                    logger.info(f"[OAUTH-BIZ] ✅ Timezone: {tz}")
+                else:
+                    logger.warning(f"[OAUTH-BIZ] ⚠️ Failed to fetch timezone: {tz_resp.status_code}")
+            except requests.RequestException as e:
+                logger.error(f"[OAUTH-BIZ] ❌ Error fetching timezone: {e}")
+        else:
+            logger.info("[OAUTH-BIZ] ⚠️ No coordinates available, skipping timezone")
+        
+        # Step 3: Parse business hours
+        logger.info("[OAUTH-BIZ] ⏰ Step 3: Parsing business hours")
+        open_days = ""
+        open_hours = ""
+        hours_info = det.get("hours") or []
+        
+        if hours_info:
+            open_data = hours_info[0].get("open") or []
+            days_set = []
+            hours_lines = []
+            
+            for o in open_data:
+                day = o.get("day")
+                if day is None:
+                    continue
+                days_set.append(day)
+                start = o.get("start", "")
+                end = o.get("end", "")
+                line = f"{DAYS[day]}: {start[:2]}:{start[2:]} - {end[:2]}:{end[2:]}"
+                if o.get("is_overnight"):
+                    line += " (+1)"
+                hours_lines.append(line)
+                
+            if days_set:
+                open_days = ", ".join(DAYS[d] for d in sorted(set(days_set)))
+            if hours_lines:
+                open_hours = "; ".join(hours_lines)
+                
+        logger.info(f"[OAUTH-BIZ] ✅ Business hours: {open_days} | {open_hours}")
+        
+        # Step 4: Store business information
+        logger.info("[OAUTH-BIZ] 💾 Step 4: Storing business information")
+        biz_obj, created = YelpBusiness.objects.update_or_create(
+            business_id=business_id,
+            defaults={
+                "name": name,
+                "location": loc,
+                "time_zone": tz,
+                "open_days": open_days,
+                "open_hours": open_hours,
+                "details": det,
+            },
+        )
+        action = "Created" if created else "Updated"
+        logger.info(f"[OAUTH-BIZ] ✅ {action} business record")
+        
+        # Step 5: Get leads list
+        logger.info("[OAUTH-BIZ] 📋 Step 5: Fetching leads for business")
+        lid_resp = requests.get(
+            f"https://api.yelp.com/v3/businesses/{business_id}/lead_ids",
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=30,
+        )
+        
+        if lid_resp.status_code != 200:
+            logger.error(f"[OAUTH-BIZ] ❌ Failed to fetch lead_ids: status={lid_resp.status_code}")
+            # Continue without leads - business info is still saved
+            duration = time.time() - start_time
+            logger.info(f"[OAUTH-BIZ] ✅ Business processing completed (no leads) in {duration:.2f}s")
+            return f"SUCCESS: Business processed, failed to get leads - {lid_resp.status_code}"
+        
+        leads_data = lid_resp.json()
+        lead_ids = leads_data.get("lead_ids", [])
+        logger.info(f"[OAUTH-BIZ] ✅ Found {len(lead_ids)} leads")
+        
+        # Step 6: Process each lead
+        if lead_ids:
+            logger.info("[OAUTH-BIZ] 📋 Step 6: Processing leads")
+            processed_leads = 0
+            
+            for lid in lead_ids:
+                try:
+                    # Mark lead as processed
+                    ProcessedLead.objects.get_or_create(
+                        business_id=business_id, lead_id=lid
+                    )
+                    
+                    # Fetch and store lead details
+                    fetch_and_store_lead(access_token, lid)
+                    processed_leads += 1
+                    logger.info(f"[OAUTH-BIZ] ✅ Processed lead {lid} ({processed_leads}/{len(lead_ids)})")
+                    
+                except Exception as e:
+                    logger.error(f"[OAUTH-BIZ] ❌ Failed to process lead {lid}: {e}")
+                    
+            logger.info(f"[OAUTH-BIZ] ✅ Processed {processed_leads}/{len(lead_ids)} leads")
+        
+        duration = time.time() - start_time
+        logger.info(f"[OAUTH-BIZ] ✅ Business processing completed successfully in {duration:.2f}s")
+        logger.info(f"[OAUTH-BIZ] 📊 Summary for {business_id}:")
+        logger.info(f"[OAUTH-BIZ] - Name: {name}")
+        logger.info(f"[OAUTH-BIZ] - Leads processed: {processed_leads if lead_ids else 0}")
+        logger.info(f"[OAUTH-BIZ] - Duration: {duration:.2f}s")
+        
+        return f"SUCCESS: Business {name} processed with {len(lead_ids)} leads"
+        
+    except requests.RequestException as e:
+        duration = time.time() - start_time
+        logger.error(f"[OAUTH-BIZ] ❌ Network error processing business {business_id}: {e}")
+        logger.error(f"[OAUTH-BIZ] Duration before error: {duration:.2f}s")
+        
+        # Retry logic for network errors
+        if retry_count < MAX_RETRIES:
+            retry_count += 1
+            logger.warning(f"[OAUTH-BIZ] 🔄 Retrying business {business_id} in {RETRY_DELAY}s (attempt {retry_count}/{MAX_RETRIES})")
+            
+            try:
+                # Schedule retry with delay
+                process_single_business.apply_async(
+                    args=[access_token, business_id, retry_count],
+                    countdown=RETRY_DELAY,
+                )
+                return f"RETRYING: Business {business_id} network error, retry {retry_count}/{MAX_RETRIES}"
+            except Exception as retry_error:
+                logger.error(f"[OAUTH-BIZ] ❌ Failed to schedule retry for business {business_id}: {retry_error}")
+                return f"ERROR: Network error + retry failed - {str(e)}"
+        else:
+            logger.error(f"[OAUTH-BIZ] 💀 Max retries ({MAX_RETRIES}) exceeded for business {business_id}")
+            
+            # Log error for monitoring
+            log_system_error(
+                error_type='OAUTH_BUSINESS_NETWORK_ERROR',
+                error_message=f'Business processing failed after {MAX_RETRIES} retries',
+                exception=e,
+                severity='MEDIUM',
+                business_id=business_id,
+                metadata={'retry_count': retry_count, 'duration': duration}
+            )
+            return f"ERROR: Business {business_id} network error after {MAX_RETRIES} retries - {str(e)}"
+        
+    except Exception as e:
+        duration = time.time() - start_time
+        logger.error(f"[OAUTH-BIZ] ❌ Unexpected error processing business {business_id}: {e}")
+        logger.exception(f"[OAUTH-BIZ] Full exception traceback:")
+        logger.error(f"[OAUTH-BIZ] Duration before error: {duration:.2f}s")
+        
+        # For unexpected errors, be more selective about retrying individual business
+        should_retry = (
+            retry_count < MAX_RETRIES and
+            not isinstance(e, (KeyError, TypeError, AttributeError, ImportError))  # Don't retry programming/config errors
+        )
+        
+        if should_retry:
+            retry_count += 1
+            logger.warning(f"[OAUTH-BIZ] 🔄 Retrying business {business_id} for unexpected error in {RETRY_DELAY}s (attempt {retry_count}/{MAX_RETRIES})")
+            
+            try:
+                process_single_business.apply_async(
+                    args=[access_token, business_id, retry_count],
+                    countdown=RETRY_DELAY,
+                )
+                return f"RETRYING: Business {business_id} unexpected error, retry {retry_count}/{MAX_RETRIES}"
+            except Exception as retry_error:
+                logger.error(f"[OAUTH-BIZ] ❌ Failed to schedule retry for business {business_id}: {retry_error}")
+                return f"ERROR: Unexpected error + retry failed - {str(e)}"
+        else:
+            logger.error(f"[OAUTH-BIZ] 💀 Not retrying business {business_id} for unexpected error (retry_count: {retry_count}, error_type: {type(e).__name__})")
+            
+            # Log error for monitoring (lower severity since it's individual business)
+            log_system_error(
+                error_type='OAUTH_BUSINESS_PROCESSING_ERROR',
+                error_message=f'Business {business_id} processing failed with unexpected error',
+                exception=e,
+                severity='MEDIUM',
+                business_id=business_id,
+                metadata={'retry_count': retry_count, 'duration': duration}
+            )
+            return f"ERROR: Business {business_id} unexpected error - {str(e)}"
+
+
 # Fix the job setup
-for _f in (send_follow_up, refresh_expiring_tokens, cleanup_celery_logs):
+for _f in (send_follow_up, refresh_expiring_tokens, cleanup_celery_logs, process_oauth_data, process_single_business):
     _f.apply = lambda args=None, kwargs=None, f=_f: _apply(f, args, kwargs)
     _f.apply_async = lambda args=None, kwargs=None, countdown=0, headers=None, f=_f: _apply_async(f, args, kwargs, countdown, headers)

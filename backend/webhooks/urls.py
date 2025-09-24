@@ -13,6 +13,7 @@ from .views import (
     NotificationSettingListCreateView,
     NotificationSettingDetailView,
 )
+from .oauth_views import OAuthProcessingStatusView
 from .lead_views import BusinessSMSSettingsView, AIPreviewView, AIGlobalSettingsView, AITestPreviewView, TimeBasedGreetingView, JobMappingListCreateView, JobMappingDetailView, LeadTimeSeriesView
 from .task_views import TaskLogListView, TaskStatsView, TaskRevokeView, MessageTaskListView, TaskTimeSeriesView
 from .sms_views import SendSMSAPIView, SMSLogListView, SMSStatsView, SMSTimeSeriesView, SMSUpdatePricesView
@@ -45,6 +46,11 @@ urlpatterns = [
         'yelp/auth/callback-advanced/',
         YelpAuthCallbackView.as_view(),
         name='yelp-auth-callback'
+    ),
+    path(
+        'oauth/processing-status/',
+        OAuthProcessingStatusView.as_view(),
+        name='oauth-processing-status'
     ),
     path(
         'settings/auto-response/',

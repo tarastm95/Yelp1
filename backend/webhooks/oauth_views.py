@@ -191,124 +191,165 @@ class YelpAuthCallbackView(APIView):
         }
 
         try:
+            # Step 1: Exchange code for tokens (FAST - only essential operation)
+            logger.info("[OAUTH-CALLBACK] 🚀 Starting OAuth callback processing")
+            logger.info(f"[OAUTH-CALLBACK] Code: {code[:10]}...")
+            logger.info(f"[OAUTH-CALLBACK] State: {state}")
+            
+            callback_start_time = time.time()
+            
             resp = requests.post(
                 settings.YELP_TOKEN_URL,
                 data=token_data,
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
+                timeout=30,  # Increased timeout for token exchange
             )
+            
             if resp.status_code != 200:
-                logger.error(f"Yelp token exchange failed: {resp.text}")
+                logger.error(f"[OAUTH-CALLBACK] ❌ Token exchange failed: status={resp.status_code}, response={resp.text}")
                 return redirect(f"{settings.FRONTEND_URL}/callback?error=token_exchange_failed")
 
             data = resp.json()
             access_token = data.get("access_token")
             refresh_token = data.get("refresh_token")
-            expires_in = data.get("expires_in")
+            expires_in = data.get("expires_in", 3600)  # Default to 1 hour if not specified
 
             if not access_token:
+                logger.error("[OAUTH-CALLBACK] ❌ No access token in response")
                 return redirect(f"{settings.FRONTEND_URL}/callback?error=token_error")
 
-
-            biz_resp = requests.get(
-                "https://partner-api.yelp.com/token/v1/businesses",
-                headers={"Authorization": f"Bearer {access_token}"},
-                timeout=10,
-            )
-            if biz_resp.status_code == 200:
-                biz_ids = biz_resp.json().get("business_ids", [])
-                for bid in biz_ids:
-                    YelpToken.objects.update_or_create(
-                        business_id=bid,
-                        defaults={
-                            "access_token": access_token,
-                            "refresh_token": refresh_token,
-                            "expires_at": timezone.now() + timedelta(seconds=expires_in),
-                        },
-                    )
-                    try:
-                        det_resp = requests.get(
-                            f"https://api.yelp.com/v3/businesses/{bid}",
-                            headers={"Authorization": f"Bearer {settings.YELP_API_KEY}"},
-                            timeout=10,
-                        )
-                        if det_resp.status_code == 200:
-                            det = det_resp.json()
-                            name = det.get("name", "")
-                            loc = ", ".join(det.get("location", {}).get("display_address", []))
-                            lat = det.get("coordinates", {}).get("latitude")
-                            lng = det.get("coordinates", {}).get("longitude")
-                            tz = ""
-                            if lat is not None and lng is not None:
-                                try:
-                                    tz_resp = requests.get(
-                                        "https://maps.googleapis.com/maps/api/timezone/json",
-                                        params={
-                                            "location": f"{lat},{lng}",
-                                            "timestamp": int(time.time()),
-                                            "key": settings.GOOGLE_TIMEZONE_API_KEY,
-                                        },
-                                        timeout=10,
-                                    )
-                                    if tz_resp.status_code == 200:
-                                        tz = tz_resp.json().get("timeZoneId", "")
-                                except requests.RequestException as e:
-                                    logger.error(f"Failed to fetch timezone for {bid}: {e}")
-
-                            open_days = ""
-                            open_hours = ""
-                            hours_info = det.get("hours") or []
-                            if hours_info:
-                                open_data = hours_info[0].get("open") or []
-                                days_set = []
-                                hours_lines = []
-                                for o in open_data:
-                                    day = o.get("day")
-                                    if day is None:
-                                        continue
-                                    days_set.append(day)
-                                    start = o.get("start", "")
-                                    end = o.get("end", "")
-                                    line = f"{DAYS[day]}: {start[:2]}:{start[2:]} - {end[:2]}:{end[2:]}"
-                                    if o.get("is_overnight"):
-                                        line += " (+1)"
-                                    hours_lines.append(line)
-                                if days_set:
-                                    open_days = ", ".join(DAYS[d] for d in sorted(set(days_set)))
-                                if hours_lines:
-                                    open_hours = "; ".join(hours_lines)
-                            YelpBusiness.objects.update_or_create(
-                                business_id=bid,
-                                defaults={
-                                    "name": name,
-                                    "location": loc,
-                                    "time_zone": tz,
-                                    "open_days": open_days,
-                                    "open_hours": open_hours,
-                                    "details": det,
-                                },
-                            )
-                        try:
-                            lid_resp = requests.get(
-                                f"https://api.yelp.com/v3/businesses/{bid}/lead_ids",
-                                headers={"Authorization": f"Bearer {access_token}"},
-                                timeout=10,
-                            )
-                            if lid_resp.status_code == 200:
-                                for lid in lid_resp.json().get("lead_ids", []):
-                                    ProcessedLead.objects.get_or_create(
-                                        business_id=bid, lead_id=lid
-                                    )
-                                    fetch_and_store_lead(access_token, lid)
-                            else:
-                                logger.error(
-                                    f"Failed to fetch lead_ids for {bid}: status={lid_resp.status_code}"
-                                )
-                        except requests.RequestException as e:
-                            logger.error(f"Failed to fetch lead_ids for {bid}: {e}")
-                    except requests.RequestException as e:
-                        logger.error(f"Failed to fetch business details for {bid}: {e}")
-
-            return redirect(f"{settings.FRONTEND_URL}/callback?access_token={access_token}")
+            token_exchange_duration = time.time() - callback_start_time
+            logger.info(f"[OAUTH-CALLBACK] ✅ Token exchange successful in {token_exchange_duration:.2f}s")
+            logger.info(f"[OAUTH-CALLBACK] Token expires in: {expires_in} seconds")
+            logger.info(f"[OAUTH-CALLBACK] Access token: {access_token[:20]}...")
+            
+            # Step 2: Queue background processing (FAST - just queue the job)
+            logger.info("[OAUTH-CALLBACK] 📤 Queuing background OAuth data processing")
+            
+            try:
+                from .tasks import process_oauth_data
+                
+                # Queue the background job
+                job = process_oauth_data.delay(access_token, refresh_token, expires_in)
+                
+                queue_duration = time.time() - callback_start_time - token_exchange_duration
+                total_duration = time.time() - callback_start_time
+                
+                logger.info(f"[OAUTH-CALLBACK] ✅ Background job queued successfully")
+                logger.info(f"[OAUTH-CALLBACK] Job ID: {job.id}")
+                logger.info(f"[OAUTH-CALLBACK] Queue duration: {queue_duration:.2f}s")
+                logger.info(f"[OAUTH-CALLBACK] Total callback duration: {total_duration:.2f}s")
+                
+                # Step 3: Return immediately with success
+                logger.info("[OAUTH-CALLBACK] 🎉 OAuth callback completed - returning to frontend")
+                return redirect(f"{settings.FRONTEND_URL}/callback?access_token={access_token}&processing=background")
+                
+            except ImportError as e:
+                logger.error(f"[OAUTH-CALLBACK] ❌ Failed to import background job: {e}")
+                return redirect(f"{settings.FRONTEND_URL}/callback?error=background_job_failed")
+            except Exception as e:
+                logger.error(f"[OAUTH-CALLBACK] ❌ Failed to queue background job: {e}")
+                logger.exception("[OAUTH-CALLBACK] Background job queue exception:")
+                return redirect(f"{settings.FRONTEND_URL}/callback?error=background_job_failed")
+                
         except requests.RequestException as e:
-            logger.error(f"OAuth request error: {e}")
+            duration = time.time() - callback_start_time if 'callback_start_time' in locals() else 0
+            logger.error(f"[OAUTH-CALLBACK] ❌ Network error during token exchange: {e}")
+            logger.error(f"[OAUTH-CALLBACK] Duration before error: {duration:.2f}s")
             return redirect(f"{settings.FRONTEND_URL}/callback?error=token_request_failed")
+        except Exception as e:
+            duration = time.time() - callback_start_time if 'callback_start_time' in locals() else 0
+            logger.error(f"[OAUTH-CALLBACK] ❌ Unexpected error during OAuth callback: {e}")
+            logger.exception("[OAUTH-CALLBACK] Full exception traceback:")
+            logger.error(f"[OAUTH-CALLBACK] Duration before error: {duration:.2f}s")
+            return redirect(f"{settings.FRONTEND_URL}/callback?error=unexpected_error")
+
+
+class OAuthProcessingStatusView(APIView):
+    """
+    Check the status of OAuth background processing.
+    Returns processing progress and completion status.
+    """
+    
+    def get(self, request):
+        """Get OAuth processing status."""
+        try:
+            from .models import CeleryTaskLog
+            
+            # Check if we have any recent OAuth processing logs (last 30 minutes)
+            recent_logs = CeleryTaskLog.objects.filter(
+                name__in=['process_oauth_data', 'process_single_business'],
+                created_at__gte=timezone.now() - timedelta(minutes=30)
+            ).order_by('-created_at')
+            
+            if not recent_logs.exists():
+                return Response({
+                    "status": "no_recent_activity",
+                    "message": "No recent OAuth processing activity found",
+                    "progress": 0,
+                    "details": {}
+                })
+            
+            # Count total businesses and processed businesses
+            total_tokens = YelpToken.objects.count()
+            businesses_with_details = YelpBusiness.objects.count()
+            
+            # Get job statuses
+            oauth_jobs = recent_logs.filter(name='process_oauth_data')
+            business_jobs = recent_logs.filter(name='process_single_business')
+            
+            running_jobs = recent_logs.filter(status__in=['STARTED', 'SCHEDULED']).count()
+            completed_jobs = recent_logs.filter(status='SUCCESS').count()
+            failed_jobs = recent_logs.filter(status='FAILURE').count()
+            total_jobs = recent_logs.count()
+            
+            # Determine overall status
+            if running_jobs > 0:
+                overall_status = "processing"
+                message = f"Processing {running_jobs} jobs..."
+            elif failed_jobs > 0 and completed_jobs == 0:
+                overall_status = "failed"
+                message = f"Processing failed ({failed_jobs} failed jobs)"
+            elif completed_jobs > 0 and running_jobs == 0:
+                overall_status = "completed"
+                message = f"Processing completed successfully"
+            else:
+                overall_status = "unknown"
+                message = "Processing status unknown"
+            
+            # Calculate progress percentage
+            if total_jobs > 0:
+                progress = round((completed_jobs / total_jobs) * 100, 1)
+            else:
+                progress = 0
+            
+            # Get latest activity
+            latest_log = recent_logs.first()
+            
+            return Response({
+                "status": overall_status,
+                "message": message,
+                "progress": progress,
+                "last_updated": latest_log.created_at if latest_log else None,
+                "details": {
+                    "total_businesses": total_tokens,
+                    "businesses_processed": businesses_with_details,
+                    "jobs": {
+                        "running": running_jobs,
+                        "completed": completed_jobs,
+                        "failed": failed_jobs,
+                        "total": total_jobs
+                    },
+                    "recent_oauth_jobs": oauth_jobs.count(),
+                    "recent_business_jobs": business_jobs.count()
+                }
+            })
+            
+        except Exception as e:
+            logger.error(f"[OAUTH-STATUS] ❌ Error checking OAuth status: {e}")
+            logger.exception("[OAUTH-STATUS] Full exception traceback:")
+            return Response({
+                "status": "error",
+                "message": f"Failed to check processing status: {str(e)}",
+                "progress": 0
+            }, status=500)
