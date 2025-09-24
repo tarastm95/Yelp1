@@ -59,19 +59,48 @@ const YelpCallback: React.FC = () => {
     try {
       const response = await axios.get<ProcessingStatus>('/oauth/processing-status/');
       const data = response.data;
-      setProcessingStatus(data);
-
-      // If processing is completed, navigate to events
+      
+      // Handle different statuses
       if (data.status === 'completed') {
+        // Create completion status for UI
+        setProcessingStatus({
+          ...data,
+          progress: 100,
+          message: 'Processing completed successfully!'
+        });
         setTimeout(() => {
           navigate('/events');
-        }, 2000); // Give user 2 seconds to see completion message
+        }, 2000);
+      } else if (data.status === 'no_recent_activity') {
+        // No recent activity means processing likely completed
+        setProcessingStatus({
+          status: 'completed',
+          message: 'Processing completed! No recent activity found.',
+          progress: 100,
+          last_updated: null,
+          details: {
+            total_businesses: 0,
+            businesses_processed: 0,
+            jobs: {
+              running: 0,
+              completed: 0,
+              failed: 0,
+              total: 0
+            }
+          }
+        });
+        setTimeout(() => {
+          navigate('/events');
+        }, 1500);
+      } else {
+        // Regular processing status
+        setProcessingStatus(data);
       }
       
       return data.status;
     } catch (error) {
       console.error('Failed to check processing status:', error);
-      return null;
+      return 'error';
     }
   }, [navigate]);
 
@@ -114,6 +143,15 @@ const YelpCallback: React.FC = () => {
         } else if (currentStatus === 'failed') {
           setStatus('error');
           setErrorMessage('Background processing failed');
+        } else if (currentStatus === 'completed' || currentStatus === 'no_recent_activity') {
+          // Processing completed - checkProcessingStatus already handles redirect
+          return;
+        } else if (currentStatus === 'error') {
+          setStatus('error');
+          setErrorMessage('Failed to check processing status');
+        } else {
+          // Fallback: try again in 3 seconds for unknown statuses
+          setTimeout(pollStatus, 3000);
         }
       };
       
@@ -148,13 +186,18 @@ const YelpCallback: React.FC = () => {
             setCanClose(true);
           }
           
+          // Auto-redirect after 3 minutes if still no clear status
+          if (newTime === 180 && !processingStatus) {
+            navigate('/events');
+          }
+          
           return newTime;
         });
       }, 1000);
 
       return () => clearInterval(timer);
     }
-  }, [status]);
+  }, [status, processingStatus, navigate]);
 
   const handleContinueInBackground = () => {
     // Store processing state in localStorage for potential later check
@@ -329,7 +372,7 @@ const YelpCallback: React.FC = () => {
                   )}
 
                   {/* Completion Alert */}
-                  {processingStatus.status === 'completed' && (
+                  {(processingStatus.status === 'completed' || processingStatus.progress === 100) && (
                     <Grow in={true}>
                       <Alert 
                         severity="success" 
@@ -345,10 +388,23 @@ const YelpCallback: React.FC = () => {
             ) : (
               // Loading state while waiting for first status
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 3 }}>
-                <CircularProgress size={24} />
-                <Typography variant="body2" color="text.secondary">
-                  Initializing processing...
-                </Typography>
+                {timeElapsed > 20 ? (
+                  // After 20 seconds without status, likely completed
+                  <>
+                    <CheckCircleIcon color="success" size={24} />
+                    <Typography variant="body2" color="success.main">
+                      Processing likely completed! Redirecting to your leads...
+                    </Typography>
+                  </>
+                ) : (
+                  // First 20 seconds - show initializing
+                  <>
+                    <CircularProgress size={24} />
+                    <Typography variant="body2" color="text.secondary">
+                      {timeElapsed < 5 ? 'Initializing processing...' : 'Checking processing status...'}
+                    </Typography>
+                  </>
+                )}
               </Box>
             )}
 
