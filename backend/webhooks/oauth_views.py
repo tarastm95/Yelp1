@@ -274,14 +274,22 @@ class OAuthProcessingStatusView(APIView):
     
     def get(self, request):
         """Get OAuth processing status."""
+        logger.info("[OAUTH-STATUS] 📊 Processing status request received")
+        
         try:
-            # Check if we have any recent OAuth processing logs (last 30 minutes)
+            # Check if we have any recent OAuth processing logs (last 24 hours for debugging)
+            logger.info("[OAUTH-STATUS] 🔍 Querying CeleryTaskLog for recent OAuth activity")
+            
             recent_logs = CeleryTaskLog.objects.filter(
                 name__in=['process_oauth_data', 'process_single_business'],
-                created_at__gte=timezone.now() - timedelta(minutes=30)
-            ).order_by('-created_at')
+                started_at__isnull=False,  # Ensure started_at is not NULL
+                started_at__gte=timezone.now() - timedelta(hours=24)
+            ).order_by('-started_at')
+            
+            logger.info(f"[OAUTH-STATUS] 📋 Found {recent_logs.count()} recent OAuth logs")
             
             if not recent_logs.exists():
+                logger.info("[OAUTH-STATUS] ⚠️ No recent OAuth activity found")
                 return Response({
                     "status": "no_recent_activity",
                     "message": "No recent OAuth processing activity found",
@@ -325,11 +333,11 @@ class OAuthProcessingStatusView(APIView):
             # Get latest activity
             latest_log = recent_logs.first()
             
-            return Response({
+            response_data = {
                 "status": overall_status,
                 "message": message,
                 "progress": progress,
-                "last_updated": latest_log.created_at if latest_log else None,
+                "last_updated": latest_log.started_at if latest_log else None,
                 "details": {
                     "total_businesses": total_tokens,
                     "businesses_processed": businesses_with_details,
@@ -342,13 +350,32 @@ class OAuthProcessingStatusView(APIView):
                     "recent_oauth_jobs": oauth_jobs.count(),
                     "recent_business_jobs": business_jobs.count()
                 }
-            })
+            }
+            
+            logger.info(f"[OAUTH-STATUS] ✅ Returning status: {overall_status}, progress: {progress}%")
+            return Response(response_data)
             
         except Exception as e:
             logger.error(f"[OAUTH-STATUS] ❌ Error checking OAuth status: {e}")
             logger.exception("[OAUTH-STATUS] Full exception traceback:")
+            
+            # Additional debugging info
+            try:
+                total_logs = CeleryTaskLog.objects.count()
+                recent_count = CeleryTaskLog.objects.filter(
+                    name__in=['process_oauth_data', 'process_single_business']
+                ).count()
+                logger.error(f"[OAUTH-STATUS] Debug: Total CeleryTaskLog entries: {total_logs}")
+                logger.error(f"[OAUTH-STATUS] Debug: OAuth-related entries: {recent_count}")
+            except Exception as debug_e:
+                logger.error(f"[OAUTH-STATUS] Debug query failed: {debug_e}")
+            
             return Response({
                 "status": "error",
                 "message": f"Failed to check processing status: {str(e)}",
-                "progress": 0
+                "progress": 0,
+                "debug": {
+                    "error_type": type(e).__name__,
+                    "error_details": str(e)
+                }
             }, status=500)
