@@ -2419,19 +2419,63 @@ class WebhookView(APIView):
                     
                     logger.info(f"[AUTO-RESPONSE] Calling AI service...")
                     
-                    # Generate AI greeting
-                    ai_greeting = ai_service.generate_greeting_message(
-                        lead_detail=ld,
-                        business=business,
-                        is_off_hours=not within_hours,
-                        response_style=getattr(auto_settings, 'ai_response_style', 'auto'),
-                        include_location=getattr(auto_settings, 'ai_include_location', False),
-                        mention_response_time=getattr(auto_settings, 'ai_mention_response_time', False),
-                        custom_prompt=getattr(auto_settings, 'ai_custom_prompt', None),
-                        business_data_settings=business_data_settings,
-                        max_length=getattr(auto_settings, 'ai_max_message_length', None),
-                        business_ai_settings=auto_settings  # 🏢 Передаємо business AI налаштування
-                    )
+                    # 🎯 MODE 2: Sample Replies Priority (тільки для AI Generated режиму)
+                    ai_greeting = None
+                    
+                    if getattr(auto_settings, 'use_sample_replies', False):
+                        
+                        logger.info(f"[AUTO-RESPONSE] 🔍 MODE 2: Using Vector-Enhanced Sample Replies AI generation...")
+                        
+                        # Перевірка чи є векторні дані
+                        try:
+                            from .vector_models import VectorDocument
+                            vector_docs = VectorDocument.objects.filter(
+                                business_id=business.business_id,
+                                processing_status='completed'
+                            ).count()
+                            
+                            if vector_docs > 0:
+                                logger.info(f"[AUTO-RESPONSE] ✅ Found {vector_docs} vector documents - using vector search")
+                            else:
+                                logger.info(f"[AUTO-RESPONSE] ⚠️ No vector documents found - will try legacy fallback")
+                                
+                        except Exception as e:
+                            logger.warning(f"[AUTO-RESPONSE] Vector check failed: {e}")
+                        
+                        logger.info(f"[AUTO-RESPONSE] Sample Replies filename: {getattr(auto_settings, 'sample_replies_filename', 'Unknown')}")
+                        
+                        # 🔍 Спроба векторної генерації з Sample Replies (Режим 2)
+                        ai_greeting = ai_service.generate_sample_replies_response(
+                            lead_detail=ld,
+                            business=business,
+                            max_length=getattr(auto_settings, 'ai_max_message_length', None),
+                            business_ai_settings=auto_settings,
+                            use_vector_search=True  # Використовуємо векторний пошук
+                        )
+                        
+                        if ai_greeting:
+                            logger.info(f"[AUTO-RESPONSE] ✅ MODE 2: Sample Replies AI generated successfully")
+                            logger.info(f"[AUTO-RESPONSE] Sample Replies response: {ai_greeting[:100]}...")
+                        else:
+                            logger.warning(f"[AUTO-RESPONSE] ⚠️ MODE 2: Sample Replies AI failed, falling back...")
+                    
+                    # 🎯 MODE 2: Fallback to standard AI generation if Sample Replies didn't work
+                    if not ai_greeting:
+                        logger.info(f"[AUTO-RESPONSE] MODE 2: Using standard AI generation (fallback or no Sample Replies)...")
+                        
+                        # Generate standard AI greeting 
+                        ai_greeting = ai_service.generate_greeting_message(
+                            lead_detail=ld,
+                            business=business,
+                            is_off_hours=not within_hours,
+                            response_style=getattr(auto_settings, 'ai_response_style', 'auto'),
+                            include_location=getattr(auto_settings, 'ai_include_location', False),
+                            mention_response_time=getattr(auto_settings, 'ai_mention_response_time', False),
+                            custom_prompt=getattr(auto_settings, 'ai_custom_prompt', None),
+                            business_data_settings=business_data_settings,
+                            max_length=getattr(auto_settings, 'ai_max_message_length', None),
+                            business_ai_settings=auto_settings  # 🏢 Передаємо business AI налаштування
+                        )
                     
                     if ai_greeting:
                         logger.info(f"[AUTO-RESPONSE] ✅ AI generated greeting successfully")

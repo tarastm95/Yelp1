@@ -937,3 +937,162 @@ Please analyze the customer's request and respond according to the instructions 
         
         logger.info(f"[AI-SERVICE] 🔄 Fallback parsing result: {result}")
         return result 
+
+    def generate_sample_replies_response(
+        self, 
+        lead_detail: LeadDetail, 
+        business: Optional[YelpBusiness] = None,
+        max_length: Optional[int] = None,
+        business_ai_settings: Optional['AutoResponseSettings'] = None,
+        use_vector_search: bool = True
+    ) -> Optional[str]:
+        """🔍 Режим 2: Генерує відповідь на основі векторного пошуку Sample Replies (тільки для AI Generated)"""
+        
+        if not business:
+            logger.warning("[AI-SERVICE] No business provided for Mode 2 vector search")
+            return None
+        
+        logger.info(f"[AI-SERVICE] ========== MODE 2: VECTOR SAMPLE REPLIES AI GENERATION ==========")
+        logger.info(f"[AI-SERVICE] Lead ID: {lead_detail.lead_id}")
+        logger.info(f"[AI-SERVICE] Business: {business.name} ({business.business_id})")
+        logger.info(f"[AI-SERVICE] Use vector search: {use_vector_search}")
+        
+        if not self.is_available():
+            logger.error("[AI-SERVICE] ❌ OpenAI client not available")
+            return None
+        
+        if not self.check_rate_limit():
+            logger.warning("[AI-SERVICE] ⚠️ Rate limit exceeded, skipping Sample Replies AI generation")
+            return None
+        
+        try:
+            # Отримуємо текст ліда для пошуку
+            lead_inquiry = self._get_lead_text(lead_detail)
+            
+            if not lead_inquiry:
+                logger.warning("[AI-SERVICE] No lead inquiry text found")
+                return None
+            
+            logger.info(f"[AI-SERVICE] Lead inquiry: {lead_inquiry[:200]}...")
+            
+            customer_name = lead_detail.user_display_name or "there"
+            response_length = max_length or 160
+            
+            if use_vector_search:
+                # 🔍 ВЕКТОРНИЙ ПОШУК: Знаходимо найбільш схожі чанки
+                try:
+                    from .vector_search_service import vector_search_service
+                    
+                    similar_chunks = vector_search_service.search_similar_chunks(
+                        query_text=lead_inquiry,
+                        business_id=business.business_id,
+                        location_id=None,  # TODO: Add location support if needed
+                        limit=5,
+                        similarity_threshold=0.6,
+                        chunk_types=['example', 'response', 'inquiry']  # Пріоритет релевантним типам
+                    )
+                    
+                    if not similar_chunks:
+                        logger.warning("[AI-SERVICE] No similar chunks found via vector search")
+                        return None
+                    
+                    logger.info(f"[AI-SERVICE] Found {len(similar_chunks)} similar chunks via vector search")
+                    for i, chunk in enumerate(similar_chunks[:3]):
+                        logger.info(f"[AI-SERVICE] Chunk {i+1}: similarity={chunk['similarity_score']:.3f}, type={chunk['chunk_type']}")
+                    
+                    # 🤖 ГЕНЕРАЦІЯ КОНТЕКСТУАЛЬНОЇ ВІДПОВІДІ
+                    contextual_response = vector_search_service.generate_contextual_response(
+                        lead_inquiry=lead_inquiry,
+                        customer_name=customer_name,
+                        similar_chunks=similar_chunks,
+                        business_name=business.name,
+                        max_response_length=response_length
+                    )
+                    
+                    if contextual_response:
+                        logger.info(f"[AI-SERVICE] 🎉 MODE 2 VECTOR: Generated contextual response:")
+                        logger.info(f"[AI-SERVICE] - Length: {len(contextual_response)} chars")
+                        logger.info(f"[AI-SERVICE] - Response: '{contextual_response}'")
+                        logger.info(f"[AI-SERVICE] - Based on {len(similar_chunks)} similar chunks")
+                        logger.info(f"[AI-SERVICE] ==============================================")
+                        
+                        return contextual_response
+                    else:
+                        logger.warning("[AI-SERVICE] Contextual response generation failed")
+                        return None
+                        
+                except Exception as vector_error:
+                    logger.error(f"[AI-SERVICE] Vector search failed: {vector_error}")
+                    logger.warning("[AI-SERVICE] Falling back to legacy Sample Replies method...")
+                    # Fallback to legacy method if vector search fails
+                    use_vector_search = False
+            
+            # 📄 LEGACY FALLBACK: Використовуємо старий метод з повним текстом
+            if not use_vector_search and business_ai_settings and business_ai_settings.sample_replies_content:
+                logger.info("[AI-SERVICE] Using legacy Sample Replies method as fallback...")
+                return self._generate_legacy_sample_replies_response(
+                    lead_detail, business, business_ai_settings.sample_replies_content, 
+                    response_length, business_ai_settings
+                )
+            
+            logger.warning("[AI-SERVICE] No Sample Replies available for Mode 2")
+            return None
+            
+        except Exception as e:
+            logger.error(f"[AI-SERVICE] ❌ Error in Sample Replies generation (Mode 2): {e}")
+            logger.exception("Sample replies generation error details")
+            return None
+    
+    def _generate_legacy_sample_replies_response(
+        self,
+        lead_detail: LeadDetail,
+        business: YelpBusiness,
+        sample_replies_content: str,
+        max_length: int,
+        business_ai_settings: 'AutoResponseSettings'
+    ) -> Optional[str]:
+        """Legacy метод генерації з повним Sample Replies текстом (fallback)"""
+        
+        try:
+            lead_inquiry = self._get_lead_text(lead_detail)
+            customer_name = lead_detail.user_display_name or "there"
+            
+            # Отримуємо AI налаштування
+            ai_config = self._get_ai_settings(business_ai_settings)
+            model = ai_config['model']
+            temperature = ai_config['temperature']
+            
+            # Системний промпт для legacy режиму
+            system_prompt = f"""You are a professional business communication assistant for {business.name}.
+
+MODE 2: AI GENERATED - LEGACY SAMPLE REPLIES METHOD
+
+TASK: Generate a personalized response using the full sample replies content as training data.
+
+SAMPLE REPLIES TRAINING DATA:
+{sample_replies_content}
+
+INSTRUCTIONS:
+1. Study the sample replies to understand communication style and approach
+2. Generate a NEW response matching this learned style for the current inquiry
+3. Keep under {max_length} characters
+4. Be professional and personalized"""
+            
+            user_prompt = f"""Customer: {customer_name}
+Inquiry: "{lead_inquiry}"
+
+Generate a response in the style of the sample replies provided."""
+            
+            # Підготовка та виклик API
+            messages = self._prepare_messages_for_model(model, system_prompt, user_prompt)
+            api_params = self._get_api_params_for_model(model, messages, max_length, temperature)
+            
+            response = self.client.chat.completions.create(**api_params)
+            ai_message = response.choices[0].message.content.strip()
+            
+            logger.info(f"[AI-SERVICE] 📄 Legacy Sample Replies response: {ai_message}")
+            return ai_message
+            
+        except Exception as e:
+            logger.error(f"[AI-SERVICE] Legacy Sample Replies generation failed: {e}")
+            return None

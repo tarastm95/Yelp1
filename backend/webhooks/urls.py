@@ -20,7 +20,16 @@ from .sms_views import SendSMSAPIView, SMSLogListView, SMSStatsView, SMSTimeSeri
 from .lead_logs_views import lead_activity_history, lead_complete_timeline, lead_logs_search
 from .diagnostic_views import (
     system_health_dashboard, error_logs_dashboard, resolve_error,
-    performance_metrics_dashboard, diagnostic_action, lead_diagnostic_report, system_status_check
+      performance_metrics_dashboard, diagnostic_action, lead_diagnostic_report, system_status_check
+  )
+
+# Sample Replies API Views (Mode 2: AI Generated) + Vector Search
+from .sample_replies_views import (
+    SampleRepliesFileUploadView,
+    SampleRepliesTextSaveView,
+    SampleRepliesStatusView,
+    VectorSearchTestView,
+    VectorChunkListView
 )
 
 urlpatterns = [
@@ -137,4 +146,11 @@ urlpatterns = [
     path('system/actions/', diagnostic_action, name='diagnostic-actions'),
     path('system/status/', system_status_check, name='system-status'),
     path('leads/<str:lead_id>/diagnostics/', lead_diagnostic_report, name='lead-diagnostics'),
+    
+    # Sample Replies Management (Mode 2: AI Generated) + Vector Search
+    path('sample-replies/upload/', SampleRepliesFileUploadView.as_view(), name='sample_replies_upload'),
+    path('sample-replies/save-text/', SampleRepliesTextSaveView.as_view(), name='sample_replies_save_text'),
+    path('sample-replies/status/', SampleRepliesStatusView.as_view(), name='sample_replies_status'),
+    path('sample-replies/vector-test/', VectorSearchTestView.as_view(), name='vector_search_test'),
+    path('sample-replies/chunks/', VectorChunkListView.as_view(), name='vector_chunks_list'),
 ]

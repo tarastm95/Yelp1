@@ -64,6 +64,11 @@ class AutoResponseSettingsSerializer(serializers.ModelSerializer):
             # Business-specific AI Model Settings
             "ai_model",
             "ai_temperature",
+            # Sample Replies Settings (режим 2: AI Generated)
+            "use_sample_replies",
+            "sample_replies_content",
+            "sample_replies_filename",
+            "sample_replies_priority",
             # SMS Notification Settings
             "sms_on_phone_found",
             "sms_on_customer_reply", 

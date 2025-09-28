@@ -4,6 +4,14 @@ from django.utils import timezone
 from datetime import timedelta, time
 from .fields import EncryptedTextField
 
+# Import vector models for Sample Replies
+try:
+    from .vector_models import VectorDocument, VectorChunk
+except ImportError:
+    # Fallback if pgvector not available yet
+    VectorDocument = None
+    VectorChunk = None
+
 
 class Event(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
@@ -182,6 +190,27 @@ class AutoResponseSettings(models.Model):
         null=True,
         blank=True,
         help_text="Temperature для AI генерації цього бізнесу (якщо порожня - використовується глобальна)"
+    )
+
+    # 📄 Sample Replies Settings (тільки для режиму 2: AI Generated)
+    use_sample_replies = models.BooleanField(
+        default=False,
+        help_text="🤖 Режим 2: Використовувати Sample Replies для AI генерації (тільки для AI Generated режиму)"
+    )
+    sample_replies_content = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Зміст Sample Replies (текст з PDF або ручний ввід)"
+    )
+    sample_replies_filename = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        help_text="Назва завантаженого файлу Sample Replies"
+    )
+    sample_replies_priority = models.BooleanField(
+        default=True,
+        help_text="Режим 2: Пріоритет Sample Replies над звичайним AI промптом"
     )
 
     export_to_sheets = models.BooleanField(

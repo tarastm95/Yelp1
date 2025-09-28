@@ -58,6 +58,7 @@ import PhoneDisabledIcon from '@mui/icons-material/PhoneDisabled';
 import ContactPhoneIcon from '@mui/icons-material/ContactPhone';
 import BusinessInfoCard from './BusinessInfoCard';
 import NotificationSettings from './NotificationSettings';
+import SampleRepliesManager from './SampleRepliesManager';
 import WarningIcon from '@mui/icons-material/Warning';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
@@ -151,6 +152,11 @@ interface AutoResponseSettingsData {
   ai_include_location: boolean;
   ai_mention_response_time: boolean;
   ai_custom_prompt?: string;
+  // Sample Replies fields (MODE 2: AI Generated)
+  use_sample_replies?: boolean;
+  sample_replies_content?: string;
+  sample_replies_filename?: string;
+  sample_replies_priority?: boolean;
   // AI Business Data Settings
   ai_include_rating: boolean;
   ai_include_categories: boolean;
@@ -200,6 +206,12 @@ const AutoResponseSettings: FC = () => {
   const [aiPreview, setAiPreview] = useState('');
   const [aiPreviewLoading, setAiPreviewLoading] = useState(false);
   const [aiCustomPreviewText, setAiCustomPreviewText] = useState('');
+
+  // Sample Replies state (MODE 2: AI Generated)
+  const [useSampleReplies, setUseSampleReplies] = useState(false);
+  const [sampleRepliesContent, setSampleRepliesContent] = useState('');
+  const [sampleRepliesFilename, setSampleRepliesFilename] = useState('');
+  const [sampleRepliesPriority, setSampleRepliesPriority] = useState(true);
 
   // AI Business Data Settings
   const [aiIncludeRating, setAiIncludeRating] = useState(true);
@@ -397,6 +409,12 @@ const AutoResponseSettings: FC = () => {
           setAiIncludeLocation(d.ai_include_location || false);
           setAiMentionResponseTime(d.ai_mention_response_time || false);
           setAiCustomPrompt(d.ai_custom_prompt || '');
+          
+          // Set Sample Replies settings (MODE 2: AI Generated)
+          setUseSampleReplies(d.use_sample_replies || false);
+          setSampleRepliesContent(d.sample_replies_content || '');
+          setSampleRepliesFilename(d.sample_replies_filename || '');
+          setSampleRepliesPriority(d.sample_replies_priority ?? true);
           
           // Set AI Business Data Settings
           setAiIncludeRating(d.ai_include_rating ?? true);
@@ -713,6 +731,11 @@ const AutoResponseSettings: FC = () => {
         ai_include_location: aiIncludeLocation,
         ai_mention_response_time: aiMentionResponseTime,
         ai_custom_prompt: aiCustomPrompt,
+        // Sample Replies fields (MODE 2: AI Generated)
+        use_sample_replies: useSampleReplies,
+        sample_replies_content: sampleRepliesContent,
+        sample_replies_filename: sampleRepliesFilename,
+        sample_replies_priority: sampleRepliesPriority,
         // AI Business Data Settings
         ai_include_rating: aiIncludeRating,
         ai_include_categories: aiIncludeCategories,
@@ -2496,6 +2519,23 @@ In what location do you need the service?
                           </Grid>
                         </Grid>
                         {/* End of AI Configuration Grid */}
+                        
+                        {/* Sample Replies Manager - только для MODE 2: AI Generated */}
+                        <Box sx={{ mt: 4 }}>
+                          <SampleRepliesManager 
+                            selectedBusiness={businesses.find(b => b.business_id === selectedBusiness) || null}
+                            phoneAvailable={phoneAvailable}
+                            sampleRepliesContent={sampleRepliesContent}
+                            sampleRepliesFilename={sampleRepliesFilename}
+                            useSampleReplies={useSampleReplies}
+                            onSampleRepliesUpdate={() => {
+                              // Reload settings after Sample Replies update
+                              if (selectedBusiness) {
+                                loadSettings(selectedBusiness);
+                              }
+                            }}
+                          />
+                        </Box>
                       </>
                     )}
 
