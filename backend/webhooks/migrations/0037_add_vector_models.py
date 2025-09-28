@@ -6,6 +6,7 @@ import pgvector.django
 
 
 class Migration(migrations.Migration):
+    atomic = False  # Required for CREATE INDEX CONCURRENTLY
 
     dependencies = [
         ('webhooks', '0036_add_sample_replies_fields'),
