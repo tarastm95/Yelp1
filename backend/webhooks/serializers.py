@@ -64,6 +64,10 @@ class AutoResponseSettingsSerializer(serializers.ModelSerializer):
             # Business-specific AI Model Settings
             "ai_model",
             "ai_temperature",
+            # Vector Search Settings
+            "vector_similarity_threshold",
+            "vector_search_limit", 
+            "vector_chunk_types",
             # Sample Replies Settings (режим 2: AI Generated)
             "use_sample_replies",
             "sample_replies_content",

@@ -192,6 +192,21 @@ class AutoResponseSettings(models.Model):
         help_text="Temperature для AI генерації цього бізнесу (якщо порожня - використовується глобальна)"
     )
 
+    # 🔍 Vector Search Settings (для Sample Replies режиму)
+    vector_similarity_threshold = models.FloatField(
+        default=0.6,
+        help_text="Поріг семантичної схожості для vector search (0.0-1.0). Нижчі значення дають більше результатів"
+    )
+    vector_search_limit = models.PositiveIntegerField(
+        default=5,
+        help_text="Максимальна кількість результатів vector search"
+    )
+    vector_chunk_types = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Типи чанків для пошуку: ['inquiry', 'response', 'example', 'general']. Порожній список = всі типи"
+    )
+
     # 📄 Sample Replies Settings (тільки для режиму 2: AI Generated)
     use_sample_replies = models.BooleanField(
         default=False,

@@ -64,13 +64,47 @@ class VectorSearchService:
             logger.error(f"[VECTOR-SEARCH] Error generating query embedding: {e}")
             raise
     
+    def _get_vector_search_settings(self, business_id: str, phone_available: bool = False) -> Dict:
+        """Отримує налаштування vector search з AutoResponseSettings"""
+        try:
+            from .models import AutoResponseSettings, YelpBusiness
+            
+            business = YelpBusiness.objects.get(business_id=business_id)
+            settings = AutoResponseSettings.objects.filter(
+                business=business,
+                phone_available=phone_available
+            ).first()
+            
+            if settings:
+                return {
+                    'similarity_threshold': settings.vector_similarity_threshold,
+                    'search_limit': settings.vector_search_limit,
+                    'chunk_types': settings.vector_chunk_types if settings.vector_chunk_types else None
+                }
+            else:
+                # Fallback значення
+                return {
+                    'similarity_threshold': 0.6,
+                    'search_limit': 5,
+                    'chunk_types': None
+                }
+                
+        except Exception as e:
+            logger.warning(f"[VECTOR-SEARCH] Could not load settings for {business_id}: {e}")
+            # Fallback значення
+            return {
+                'similarity_threshold': 0.6,
+                'search_limit': 5,
+                'chunk_types': None
+            }
+    
     def search_similar_chunks(
         self,
         query_text: str,
         business_id: str,
         location_id: Optional[str] = None,
         limit: int = 5,
-        similarity_threshold: float = 0.7,
+        similarity_threshold: float = 0.6,
         chunk_types: Optional[List[str]] = None
     ) -> List[Dict]:
         """
@@ -366,6 +400,10 @@ Based on the similar sample replies ranked above (especially the highest similar
         logger.info(f"[VECTOR-SEARCH] Business: {business_id}")
         
         try:
+            # Отримання налаштувань пошуку
+            search_settings = self._get_vector_search_settings(business_id)
+            logger.info(f"[VECTOR-SEARCH] Using settings: threshold={search_settings['similarity_threshold']}, limit={search_settings['search_limit']}")
+            
             # Отримання статистики
             stats = self.get_chunk_statistics(business_id, location_id)
             
@@ -376,13 +414,14 @@ Based on the similar sample replies ranked above (especially the highest similar
                     'stats': stats
                 }
             
-            # Тестовий пошук
+            # Тестовий пошук з налаштуваннями
             results = self.search_similar_chunks(
                 query_text=test_query,
                 business_id=business_id,
                 location_id=location_id,
-                limit=3,
-                similarity_threshold=0.5  # Нижчий поріг для тестування
+                limit=search_settings['search_limit'],
+                similarity_threshold=search_settings['similarity_threshold'],
+                chunk_types=search_settings['chunk_types']
             )
             
             if not results:

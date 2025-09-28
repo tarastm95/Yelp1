@@ -171,6 +171,10 @@ interface AutoResponseSettingsData {
   // Business-specific AI Model Settings
   ai_model?: string;
   ai_temperature?: number | null;
+  // Vector Search Settings
+  vector_similarity_threshold?: number;
+  vector_search_limit?: number;
+  vector_chunk_types?: string[];
 }
 
 
@@ -228,6 +232,11 @@ const AutoResponseSettings: FC = () => {
   // 🤖 Business-specific AI Model Settings
   const [aiModel, setAiModel] = useState('');
   const [aiTemperature, setAiTemperature] = useState<number | ''>('');
+  
+  // 🔍 Vector Search Settings  
+  const [vectorSimilarityThreshold, setVectorSimilarityThreshold] = useState(0.6);
+  const [vectorSearchLimit, setVectorSearchLimit] = useState(5);
+  const [vectorChunkTypes, setVectorChunkTypes] = useState<string[]>([]);
 
   // 📱 SMS Notification Settings
   const [smsOnPhoneFound, setSmsOnPhoneFound] = useState(true);
@@ -432,6 +441,11 @@ const AutoResponseSettings: FC = () => {
           setAiModel(d.ai_model ?? '');
           setAiTemperature(d.ai_temperature ?? '');
           
+          // Set Vector Search Settings
+          setVectorSimilarityThreshold(d.vector_similarity_threshold ?? 0.6);
+          setVectorSearchLimit(d.vector_search_limit ?? 5);
+          setVectorChunkTypes(d.vector_chunk_types ?? []);
+          
           // Set SMS Notification Settings
           setSmsOnPhoneFound(d.sms_on_phone_found ?? true);
           setSmsOnCustomerReply(d.sms_on_customer_reply ?? true);
@@ -464,6 +478,13 @@ const AutoResponseSettings: FC = () => {
             ai_include_address: false,
             ai_include_transactions: false,
             ai_max_message_length: 0,
+            // AI Model Settings
+            ai_model: d.ai_model ?? '',
+            ai_temperature: d.ai_temperature ?? null,
+            // Vector Search Settings
+            vector_similarity_threshold: d.vector_similarity_threshold ?? 0.6,
+            vector_search_limit: d.vector_search_limit ?? 5,
+            vector_chunk_types: d.vector_chunk_types ?? [],
           };
           setLoading(false);
         })
@@ -888,6 +909,10 @@ const AutoResponseSettings: FC = () => {
         ai_temperature: newAiTemperature !== undefined 
           ? (newAiTemperature === '' ? null : newAiTemperature)
           : (aiTemperature === '' ? null : aiTemperature),
+        // Vector Search Settings
+        vector_similarity_threshold: vectorSimilarityThreshold,
+        vector_search_limit: vectorSearchLimit,
+        vector_chunk_types: vectorChunkTypes,
         // SMS Notification Settings
         sms_on_phone_found: smsOnPhoneFound,
         sms_on_customer_reply: smsOnCustomerReply,
@@ -899,6 +924,72 @@ const AutoResponseSettings: FC = () => {
     } catch (error) {
       console.error('Failed to auto-save AI model settings:', error);
       // Could show a brief error message here if desired
+    }
+  };
+
+  // auto-save vector search settings
+  const handleSaveVectorSettings = async () => {
+    if (!selectedBusiness) return; // Only save if a business is selected
+    
+    const params = new URLSearchParams();
+    params.append('phone_opt_in', 'false');  // Always false - merged with No Phone
+    params.append('phone_available', phoneAvailable ? 'true' : 'false');
+    params.append('business_id', selectedBusiness);
+    const url = `/settings/auto-response/?${params.toString()}`;
+    
+    const greetDelaySecs =
+      greetingDelayHours * 3600 +
+      greetingDelayMinutes * 60 +
+      greetingDelaySeconds;
+    
+    try {
+      await axios.put<AutoResponse>(url, {
+        enabled,
+        greeting_template: greetingTemplate,
+        greeting_off_hours_template: greetingAfterTemplate,
+        greeting_delay: greetDelaySecs,
+        greeting_open_from: greetingOpenFrom,
+        greeting_open_to: greetingOpenTo,
+        greeting_open_days: greetingOpenDays,
+        export_to_sheets: exportToSheets,
+        // AI fields
+        use_ai_greeting: useAiGreeting,
+        ai_response_style: aiResponseStyle,
+        ai_include_location: aiIncludeLocation,
+        ai_mention_response_time: aiMentionResponseTime,
+        ai_custom_prompt: aiCustomPrompt,
+        // Sample Replies fields (MODE 2: AI Generated)
+        use_sample_replies: useSampleReplies,
+        sample_replies_content: sampleRepliesContent,
+        sample_replies_filename: sampleRepliesFilename,
+        sample_replies_priority: sampleRepliesPriority,
+        // AI Business Data Settings
+        ai_include_rating: aiIncludeRating,
+        ai_include_categories: aiIncludeCategories,
+        ai_include_phone: aiIncludePhone,
+        ai_include_website: aiIncludeWebsite,
+        ai_include_price_range: aiIncludePriceRange,
+        ai_include_hours: aiIncludeHours,
+        ai_include_reviews_count: aiIncludeReviewsCount,
+        ai_include_address: aiIncludeAddress,
+        ai_include_transactions: aiIncludeTransactions,
+        ai_max_message_length: aiMaxMessageLength,
+        // Business-specific AI Model Settings
+        ai_model: aiModel,
+        ai_temperature: aiTemperature === '' ? null : aiTemperature,
+        // Vector Search Settings
+        vector_similarity_threshold: vectorSimilarityThreshold,
+        vector_search_limit: vectorSearchLimit,
+        vector_chunk_types: vectorChunkTypes,
+        // SMS Notification Settings
+        sms_on_phone_found: smsOnPhoneFound,
+        sms_on_customer_reply: smsOnCustomerReply,
+        sms_on_phone_opt_in: smsOnPhoneOptIn,
+      });
+      
+      console.log('Vector search settings auto-saved');
+    } catch (error) {
+      console.error('Failed to auto-save vector search settings:', error);
     }
   };
 
@@ -2364,6 +2455,120 @@ const AutoResponseSettings: FC = () => {
                                     </Box>
                                   </Stack>
                                 </Box>
+                              </Box>
+
+                              {/* 🔍 Vector Search Settings (for Sample Replies) */}
+                              {useSampleReplies && (
+                                <Box sx={{ 
+                                  p: 2, 
+                                  borderRadius: 1, 
+                                  border: '1px solid', 
+                                  borderColor: 'info.300',
+                                  backgroundColor: 'info.50'
+                                }}>
+                                  <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600, color: 'info.main' }}>
+                                    🔍 Vector Search Settings
+                                  </Typography>
+                                  <Typography variant="caption" sx={{ mb: 2, color: 'text.secondary', display: 'block' }}>
+                                    Configure semantic similarity search for your Sample Replies documents
+                                  </Typography>
+                                  
+                                  <Stack spacing={2}>
+                                    {/* Similarity Threshold */}
+                                    <Box>
+                                      <FormControl size="small" sx={{ width: 300, backgroundColor: 'white' }}>
+                                        <InputLabel>Similarity Threshold</InputLabel>
+                                        <Select
+                                          value={vectorSimilarityThreshold.toString()}
+                                          onChange={e => {
+                                            const newValue = Number(e.target.value);
+                                            setVectorSimilarityThreshold(newValue);
+                                            handleSaveVectorSettings();
+                                          }}
+                                          label="Similarity Threshold"
+                                        >
+                                          <MenuItem value="0.4">
+                                            <Box>
+                                              <Typography variant="body2">0.4 - Very Loose <Chip label="More Results" size="small" color="success" sx={{ ml: 1 }} /></Typography>
+                                              <Typography variant="caption" color="text.secondary">Finds many results, including loosely related content</Typography>
+                                            </Box>
+                                          </MenuItem>
+                                          <MenuItem value="0.5">
+                                            <Box>
+                                              <Typography variant="body2">0.5 - Loose</Typography>
+                                              <Typography variant="caption" color="text.secondary">Good balance for diverse content matching</Typography>
+                                            </Box>
+                                          </MenuItem>
+                                          <MenuItem value="0.6">
+                                            <Box>
+                                              <Typography variant="body2">0.6 - Balanced <Chip label="Recommended" size="small" color="primary" sx={{ ml: 1 }} /></Typography>
+                                              <Typography variant="caption" color="text.secondary">Good balance of quality and quantity of results</Typography>
+                                            </Box>
+                                          </MenuItem>
+                                          <MenuItem value="0.7">
+                                            <Box>
+                                              <Typography variant="body2">0.7 - Focused</Typography>
+                                              <Typography variant="caption" color="text.secondary">More precise matching, fewer but higher quality results</Typography>
+                                            </Box>
+                                          </MenuItem>
+                                          <MenuItem value="0.8">
+                                            <Box>
+                                              <Typography variant="body2">0.8 - Very Focused</Typography>
+                                              <Typography variant="caption" color="text.secondary">Very precise matching, only highly similar content</Typography>
+                                            </Box>
+                                          </MenuItem>
+                                        </Select>
+                                        <FormHelperText>
+                                          Lower values = more results (less strict). Higher values = fewer results (more strict).
+                                        </FormHelperText>
+                                      </FormControl>
+                                    </Box>
+                                    
+                                    {/* Search Results Limit */}
+                                    <Box>
+                                      <FormControl size="small" sx={{ width: 200, backgroundColor: 'white' }}>
+                                        <InputLabel>Max Results</InputLabel>
+                                        <Select
+                                          value={vectorSearchLimit.toString()}
+                                          onChange={e => {
+                                            const newValue = Number(e.target.value);
+                                            setVectorSearchLimit(newValue);
+                                            handleSaveVectorSettings();
+                                          }}
+                                          label="Max Results"
+                                        >
+                                          <MenuItem value="3">3 Results</MenuItem>
+                                          <MenuItem value="5">5 Results (Default)</MenuItem>
+                                          <MenuItem value="10">10 Results</MenuItem>
+                                          <MenuItem value="15">15 Results</MenuItem>
+                                        </Select>
+                                        <FormHelperText>
+                                          Maximum number of similar chunks to return in searches
+                                        </FormHelperText>
+                                      </FormControl>
+                                    </Box>
+                                    
+                                    {/* Current Settings Display */}
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                                      <Chip
+                                        label={`Threshold: ${vectorSimilarityThreshold}`}
+                                        size="small"
+                                        color="info"
+                                        variant="outlined"
+                                      />
+                                      <Chip
+                                        label={`Limit: ${vectorSearchLimit}`}
+                                        size="small"
+                                        color="info" 
+                                        variant="outlined"
+                                      />
+                                      <Typography variant="caption" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
+                                        🔄 Settings auto-save when changed
+                                      </Typography>
+                                    </Box>
+                                  </Stack>
+                                </Box>
+                              )}
                               </Box>
 
                               {/* 📊 Model Support Information */}
