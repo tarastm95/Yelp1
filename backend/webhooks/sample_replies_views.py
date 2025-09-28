@@ -12,7 +12,6 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from .models import AutoResponseSettings, YelpBusiness
 from .vector_pdf_service import vector_pdf_service
 from .vector_search_service import vector_search_service
-import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -91,12 +90,14 @@ class SampleRepliesFileUploadView(APIView):
                 logger.info(f"[SAMPLE-REPLIES-API] 🔍 Starting vector processing...")
                 
                 # Асинхронна обробка PDF з векторизацією
-                processing_result = asyncio.run(vector_pdf_service.process_pdf_file(
+                from asgiref.sync import async_to_sync
+                process_pdf_sync = async_to_sync(vector_pdf_service.process_pdf_file)
+                processing_result = process_pdf_sync(
                     file_content=file_content,
                     filename=uploaded_file.name,
                     business_id=business_id,
                     location_id=None  # TODO: Add location support
-                ))
+                )
                 
                 logger.info(f"[SAMPLE-REPLIES-API] ✅ Vector processing completed:")
                 logger.info(f"[SAMPLE-REPLIES-API] - Document ID: {processing_result['document_id']}")
@@ -291,12 +292,14 @@ class SampleRepliesTextSaveView(APIView):
                 logger.info(f"[SAMPLE-REPLIES-API] 🔍 Starting vector processing for text input...")
                 
                 # Асинхронна обробка тексту з векторизацією
-                processing_result = asyncio.run(vector_pdf_service.process_pdf_file(
+                from asgiref.sync import async_to_sync
+                process_pdf_sync = async_to_sync(vector_pdf_service.process_pdf_file)
+                processing_result = process_pdf_sync(
                     file_content=sample_text.encode('utf-8'),
                     filename="Manual_Text_Input.txt",
                     business_id=business_id,
                     location_id=None
-                ))
+                )
                 
                 logger.info(f"[SAMPLE-REPLIES-API] ✅ Vector processing completed for text input:")
                 logger.info(f"[SAMPLE-REPLIES-API] - Document ID: {processing_result['document_id']}")
