@@ -2569,7 +2569,6 @@ const AutoResponseSettings: FC = () => {
                                   </Stack>
                                 </Box>
                               )}
-                              </Box>
 
                               {/* 📊 Model Support Information */}
                               {aiModel && (
