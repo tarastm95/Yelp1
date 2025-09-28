@@ -98,7 +98,7 @@ const SampleRepliesManager: React.FC<Props> = ({
 
     setStatusLoading(true);
     try {
-      const response = await axios.get('/webhooks/sample-replies/status/', {
+      const response = await axios.get('/sample-replies/status/', {
         params: {
           business_id: selectedBusiness.business_id,
           phone_available: phoneAvailable
@@ -137,7 +137,7 @@ const SampleRepliesManager: React.FC<Props> = ({
       formData.append('business_id', selectedBusiness.business_id);
       formData.append('phone_available', phoneAvailable.toString());
 
-      const response = await axios.post('/webhooks/sample-replies/upload/', formData, {
+      const response = await axios.post('/sample-replies/upload/', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
 
@@ -179,7 +179,7 @@ const SampleRepliesManager: React.FC<Props> = ({
 
     setUploading(true);
     try {
-      const response = await axios.post('/webhooks/sample-replies/save-text/', {
+      const response = await axios.post('/sample-replies/save-text/', {
         business_id: selectedBusiness.business_id,
         phone_available: phoneAvailable,
         sample_text: sampleText
@@ -206,7 +206,7 @@ const SampleRepliesManager: React.FC<Props> = ({
 
     setVectorTesting(true);
     try {
-      const response = await axios.post('/webhooks/sample-replies/vector-test/', {
+      const response = await axios.post('/sample-replies/vector-test/', {
         business_id: selectedBusiness.business_id,
         test_query: vectorTestQuery
       });
@@ -231,7 +231,7 @@ const SampleRepliesManager: React.FC<Props> = ({
     if (!selectedBusiness) return;
 
     try {
-      const response = await axios.get('/webhooks/sample-replies/chunks/', {
+      const response = await axios.get('/sample-replies/chunks/', {
         params: {
           business_id: selectedBusiness.business_id,
           limit: 20
