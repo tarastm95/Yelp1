@@ -19,6 +19,7 @@ import {
   Alert,
   Chip,
   Stack,
+  Grid,
   Divider,
   IconButton,
   Collapse,
@@ -42,6 +43,43 @@ import axios from 'axios';
 interface Business {
   business_id: string;
   name: string;
+}
+
+interface VectorDocument {
+  id: number;
+  filename: string;
+  status: 'processing' | 'completed' | 'error';
+  chunks_count: number;
+  page_count: number;
+  total_tokens: number;
+  file_size: number;
+  created_at: string;
+  updated_at: string;
+  error_message?: string;
+  embedding_model: string;
+  has_vector_data: boolean;
+}
+
+interface VectorStatus {
+  total_documents: number;
+  completed_documents: number;
+  processing_documents: number;
+  error_documents: number;
+  total_chunks: number;
+  documents: VectorDocument[];
+}
+
+interface DetailedStatus {
+  business_name: string;
+  has_sample_replies: boolean;
+  use_sample_replies: boolean;
+  filename?: string;
+  content_length: number;
+  priority: boolean;
+  ai_mode_enabled: boolean;
+  mode: string;
+  vector_status: VectorStatus;
+  vector_search_available: boolean;
 }
 
 interface Props {
@@ -70,6 +108,7 @@ const SampleRepliesManager: React.FC<Props> = ({
   const [messageType, setMessageType] = useState<'success' | 'error' | 'info'>('success');
   const [previewExpanded, setPreviewExpanded] = useState(false);
   const [statusLoading, setStatusLoading] = useState(false);
+  const [detailedStatus, setDetailedStatus] = useState<DetailedStatus | null>(null);
   
   // Vector functionality state
   const [vectorStats, setVectorStats] = useState<any>(null);
@@ -93,6 +132,18 @@ const SampleRepliesManager: React.FC<Props> = ({
     }
   }, [selectedBusiness, phoneAvailable]);
 
+  // Auto-refresh status for processing documents
+  useEffect(() => {
+    if (detailedStatus?.vector_status?.processing_documents > 0) {
+      const interval = setInterval(() => {
+        console.log('[SAMPLE-REPLIES] Auto-refreshing status for processing documents...');
+        loadStatus();
+      }, 10000); // Check every 10 seconds
+
+      return () => clearInterval(interval);
+    }
+  }, [detailedStatus?.vector_status?.processing_documents]);
+
   const loadStatus = async () => {
     if (!selectedBusiness) return;
 
@@ -105,11 +156,12 @@ const SampleRepliesManager: React.FC<Props> = ({
         }
       });
 
-      // Status is loaded but we rely on props for actual content
+      setDetailedStatus(response.data);
       console.log('[SAMPLE-REPLIES] Status loaded:', response.data);
       
     } catch (error) {
       console.error('[SAMPLE-REPLIES] Failed to load status:', error);
+      setDetailedStatus(null);
     } finally {
       setStatusLoading(false);
     }
@@ -155,6 +207,9 @@ const SampleRepliesManager: React.FC<Props> = ({
       setUploadDialogOpen(false);
       setSelectedFile(null);
       onSampleRepliesUpdate(); // Reload settings
+      
+      // Auto-refresh status to show the new document
+      setTimeout(() => loadStatus(), 1000);
 
     } catch (error: any) {
       console.error('[SAMPLE-REPLIES] Upload error:', error);
@@ -399,6 +454,132 @@ const SampleRepliesManager: React.FC<Props> = ({
                     </Paper>
                   </Collapse>
                 </Box>
+                
+                {/* Detailed Vector Documents Status */}
+                {detailedStatus && detailedStatus.vector_status && (
+                  <Box sx={{ mt: 3 }}>
+                    <Divider sx={{ mb: 2 }} />
+                    <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                      <StatsIcon sx={{ mr: 1 }} />
+                      📊 Vector Documents Status
+                    </Typography>
+                    
+                    {/* Summary Stats */}
+                    <Grid container spacing={2} sx={{ mb: 2 }}>
+                      <Grid item xs={6} sm={3}>
+                        <Paper sx={{ p: 1.5, textAlign: 'center', backgroundColor: 'primary.50' }}>
+                          <Typography variant="h5" color="primary" sx={{ fontWeight: 700 }}>
+                            {detailedStatus.vector_status.total_documents}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            Documents
+                          </Typography>
+                        </Paper>
+                      </Grid>
+                      <Grid item xs={6} sm={3}>
+                        <Paper sx={{ p: 1.5, textAlign: 'center', backgroundColor: 'success.50' }}>
+                          <Typography variant="h5" color="success.main" sx={{ fontWeight: 700 }}>
+                            {detailedStatus.vector_status.completed_documents}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            Completed
+                          </Typography>
+                        </Paper>
+                      </Grid>
+                      <Grid item xs={6} sm={3}>
+                        <Paper sx={{ p: 1.5, textAlign: 'center', backgroundColor: 'warning.50' }}>
+                          <Typography variant="h5" color="warning.main" sx={{ fontWeight: 700 }}>
+                            {detailedStatus.vector_status.processing_documents}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            Processing
+                          </Typography>
+                        </Paper>
+                      </Grid>
+                      <Grid item xs={6} sm={3}>
+                        <Paper sx={{ p: 1.5, textAlign: 'center', backgroundColor: 'info.50' }}>
+                          <Typography variant="h5" color="info.main" sx={{ fontWeight: 700 }}>
+                            {detailedStatus.vector_status.total_chunks}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            Vector Chunks
+                          </Typography>
+                        </Paper>
+                      </Grid>
+                    </Grid>
+                    
+                    {/* Document List */}
+                    {detailedStatus.vector_status.documents.length > 0 && (
+                      <Box>
+                        <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
+                          📄 Recent Documents:
+                        </Typography>
+                        <Stack spacing={1}>
+                          {detailedStatus.vector_status.documents.map((doc: VectorDocument) => (
+                            <Paper key={doc.id} sx={{ p: 2, border: '1px solid', borderColor: 'grey.200' }}>
+                              <Grid container spacing={2} alignItems="center">
+                                <Grid item xs={12} sm={6}>
+                                  <Typography variant="body1" sx={{ fontWeight: 600, mb: 0.5 }}>
+                                    📄 {doc.filename}
+                                  </Typography>
+                                  <Typography variant="caption" color="text.secondary">
+                                    Uploaded: {new Date(doc.created_at).toLocaleString()}
+                                  </Typography>
+                                </Grid>
+                                <Grid item xs={6} sm={3}>
+                                  <Chip 
+                                    label={doc.status}
+                                    size="small"
+                                    color={
+                                      doc.status === 'completed' ? 'success' : 
+                                      doc.status === 'processing' ? 'warning' : 'error'
+                                    }
+                                    variant={doc.status === 'completed' ? 'filled' : 'outlined'}
+                                  />
+                                </Grid>
+                                <Grid item xs={6} sm={3}>
+                                  <Typography variant="body2" color="text.secondary">
+                                    {doc.chunks_count} chunks • {doc.total_tokens} tokens
+                                  </Typography>
+                                </Grid>
+                              </Grid>
+                              
+                              {doc.error_message && (
+                                <Alert severity="error" sx={{ mt: 1 }}>
+                                  <Typography variant="caption">
+                                    ❌ Error: {doc.error_message}
+                                  </Typography>
+                                </Alert>
+                              )}
+                              
+                              {doc.status === 'processing' && (
+                                <Box sx={{ mt: 1 }}>
+                                  <LinearProgress />
+                                  <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                                    🔄 Processing... This may take a few minutes for large files.
+                                  </Typography>
+                                </Box>
+                              )}
+                            </Paper>
+                          ))}
+                        </Stack>
+                      </Box>
+                    )}
+                    
+                    {detailedStatus.vector_status.total_documents === 0 && (
+                      <Alert severity="info">
+                        <Typography variant="body2">
+                          ℹ️ No vector documents found. Upload a PDF or text file to get started with semantic search.
+                        </Typography>
+                      </Alert>
+                    )}
+                    
+                    {/* Auto-refresh notice */}
+                    <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block', fontStyle: 'italic' }}>
+                      🔄 Status refreshes automatically after file uploads
+                    </Typography>
+                  </Box>
+                )}
               </Box>
             ) : (
               <Alert severity="info" sx={{ display: 'flex', alignItems: 'center' }}>

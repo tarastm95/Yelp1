@@ -360,6 +360,40 @@ class SampleRepliesStatusView(APIView):
                 auto_settings.sample_replies_content
             )
             
+            # 🔍 Перевіряємо vector документи для детального статусу
+            from .vector_models import VectorDocument, VectorChunk
+            
+            vector_documents = VectorDocument.objects.filter(
+                business_id=business_id
+            ).order_by('-created_at')
+            
+            vector_status = {
+                'total_documents': vector_documents.count(),
+                'completed_documents': vector_documents.filter(processing_status='completed').count(),
+                'processing_documents': vector_documents.filter(processing_status='processing').count(),
+                'error_documents': vector_documents.filter(processing_status='error').count(),
+                'total_chunks': VectorChunk.objects.filter(document__business_id=business_id).count(),
+                'documents': []
+            }
+            
+            # Детальна інформація про кожен документ
+            for doc in vector_documents[:10]:  # Останні 10 документів
+                chunks_count = doc.chunks.count()
+                vector_status['documents'].append({
+                    'id': doc.id,
+                    'filename': doc.filename,
+                    'status': doc.processing_status,
+                    'chunks_count': chunks_count,
+                    'page_count': doc.page_count,
+                    'total_tokens': doc.total_tokens,
+                    'file_size': doc.file_size,
+                    'created_at': doc.created_at.isoformat(),
+                    'updated_at': doc.updated_at.isoformat(),
+                    'error_message': doc.error_message,
+                    'embedding_model': doc.embedding_model,
+                    'has_vector_data': chunks_count > 0
+                })
+            
             return Response({
                 'business_name': business.name,
                 'has_sample_replies': has_sample_replies,
@@ -368,10 +402,46 @@ class SampleRepliesStatusView(APIView):
                 'content_length': len(auto_settings.sample_replies_content) if auto_settings.sample_replies_content else 0,
                 'priority': auto_settings.sample_replies_priority,
                 'ai_mode_enabled': auto_settings.use_ai_greeting,
-                'mode': 'AI Generated (Mode 2)' if auto_settings.use_ai_greeting else 'Template (Mode 1)'
+                'mode': 'AI Generated (Mode 2)' if auto_settings.use_ai_greeting else 'Template (Mode 1)',
+                'vector_status': vector_status,
+                'vector_search_available': vector_status['total_chunks'] > 0
             })
             
         except AutoResponseSettings.DoesNotExist:
+            # 🔍 Навіть якщо немає налаштувань, перевіряємо vector документи
+            from .vector_models import VectorDocument, VectorChunk
+            
+            vector_documents = VectorDocument.objects.filter(
+                business_id=business_id
+            ).order_by('-created_at')
+            
+            vector_status = {
+                'total_documents': vector_documents.count(),
+                'completed_documents': vector_documents.filter(processing_status='completed').count(),
+                'processing_documents': vector_documents.filter(processing_status='processing').count(),
+                'error_documents': vector_documents.filter(processing_status='error').count(),
+                'total_chunks': VectorChunk.objects.filter(document__business_id=business_id).count(),
+                'documents': []
+            }
+            
+            # Детальна інформація про кожен документ
+            for doc in vector_documents[:10]:
+                chunks_count = doc.chunks.count()
+                vector_status['documents'].append({
+                    'id': doc.id,
+                    'filename': doc.filename,
+                    'status': doc.processing_status,
+                    'chunks_count': chunks_count,
+                    'page_count': doc.page_count,
+                    'total_tokens': doc.total_tokens,
+                    'file_size': doc.file_size,
+                    'created_at': doc.created_at.isoformat(),
+                    'updated_at': doc.updated_at.isoformat(),
+                    'error_message': doc.error_message,
+                    'embedding_model': doc.embedding_model,
+                    'has_vector_data': chunks_count > 0
+                })
+            
             return Response({
                 'business_name': business.name,
                 'has_sample_replies': False,
@@ -380,7 +450,9 @@ class SampleRepliesStatusView(APIView):
                 'content_length': 0,
                 'priority': True,
                 'ai_mode_enabled': False,
-                'mode': 'Not configured'
+                'mode': 'Not configured',
+                'vector_status': vector_status,
+                'vector_search_available': vector_status['total_chunks'] > 0
             })
 
 
