@@ -24,7 +24,10 @@ class SampleRepliesFileUploadView(APIView):
     def post(self, request):
         """Завантажити та обробити файл"""
         
-        logger.info("[SAMPLE-REPLIES-API] ========== FILE UPLOAD (Mode 2: AI Generated) ==========")
+        import datetime
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        logger.info(f"[SAMPLE-REPLIES-API] ========== FILE UPLOAD STARTED [{timestamp}] ==========")
+        logger.info(f"[SAMPLE-REPLIES-API] 🚀 MODE 2: AI Generated - Vector Processing")
         
         try:
             # Валідація обов'язкових полів
@@ -43,8 +46,25 @@ class SampleRepliesFileUploadView(APIView):
                 }, status=status.HTTP_400_BAD_REQUEST)
             
             logger.info(f"[SAMPLE-REPLIES-API] Processing file: {uploaded_file.name}")
+            logger.info(f"[SAMPLE-REPLIES-API] File size: {uploaded_file.size} bytes ({uploaded_file.size / (1024*1024):.2f} MB)")
+            logger.info(f"[SAMPLE-REPLIES-API] File type: {uploaded_file.content_type}")
             logger.info(f"[SAMPLE-REPLIES-API] Business: {business_id}")
             logger.info(f"[SAMPLE-REPLIES-API] Phone Available: {phone_available}")
+            
+            # Перевіримо поточні налаштування бізнесу ПЕРЕД обробкою
+            existing_settings = AutoResponseSettings.objects.filter(
+                business__business_id=business_id,
+                phone_available=phone_available
+            ).first()
+            
+            if existing_settings:
+                logger.info(f"[SAMPLE-REPLIES-API] 📋 Existing settings found:")
+                logger.info(f"[SAMPLE-REPLIES-API]   - AI mode: {existing_settings.use_ai_greeting}")
+                logger.info(f"[SAMPLE-REPLIES-API]   - Sample replies: {existing_settings.use_sample_replies}")
+                logger.info(f"[SAMPLE-REPLIES-API]   - Current filename: {existing_settings.sample_replies_filename}")
+                logger.info(f"[SAMPLE-REPLIES-API]   - Content length: {len(existing_settings.sample_replies_content or '')}")
+            else:
+                logger.info(f"[SAMPLE-REPLIES-API] 📋 No existing settings found - will create new ones")
             
             # Валідація бізнесу
             try:
@@ -86,6 +106,7 @@ class SampleRepliesFileUploadView(APIView):
                 logger.info(f"[SAMPLE-REPLIES-API] - Chunk types: {processing_result['chunk_types']}")
                 
                 # Оновлення AutoResponseSettings для backward compatibility
+                logger.info(f"[SAMPLE-REPLIES-API] 🔧 Creating/updating AutoResponseSettings...")
                 auto_settings, created = AutoResponseSettings.objects.get_or_create(
                     business=business,
                     phone_available=phone_available,
@@ -95,11 +116,30 @@ class SampleRepliesFileUploadView(APIView):
                     }
                 )
                 
+                logger.info(f"[SAMPLE-REPLIES-API] 📋 AutoResponseSettings result:")
+                logger.info(f"[SAMPLE-REPLIES-API]   - Created new: {created}")
+                logger.info(f"[SAMPLE-REPLIES-API]   - Settings ID: {auto_settings.id}")
+                logger.info(f"[SAMPLE-REPLIES-API]   - AI mode: {auto_settings.use_ai_greeting}")
+                logger.info(f"[SAMPLE-REPLIES-API]   - Enabled: {auto_settings.enabled}")
+                
+                # Переконаємося що AI режим увімкнений для векторної обробки
+                if not auto_settings.use_ai_greeting:
+                    logger.warning(f"[SAMPLE-REPLIES-API] ⚠️ AI mode was disabled, enabling for vector processing...")
+                    auto_settings.use_ai_greeting = True
+                
                 # Зберігаємо базову інформацію (для fallback)
                 auto_settings.sample_replies_filename = uploaded_file.name
                 auto_settings.use_sample_replies = True  # Автоматично увімкнути
                 # sample_replies_content залишається порожнім - використовуємо векторний пошук
                 auto_settings.save()
+                
+                logger.info(f"[SAMPLE-REPLIES-API] 💾 Settings saved successfully:")
+                logger.info(f"[SAMPLE-REPLIES-API]   - Final AI mode: {auto_settings.use_ai_greeting}")
+                logger.info(f"[SAMPLE-REPLIES-API]   - Final sample replies: {auto_settings.use_sample_replies}")
+                logger.info(f"[SAMPLE-REPLIES-API]   - Filename stored: {auto_settings.sample_replies_filename}")
+                
+                logger.info(f"[SAMPLE-REPLIES-API] ✅ VECTOR PROCESSING SUCCESS!")
+                logger.info(f"[SAMPLE-REPLIES-API] 🎉 File '{uploaded_file.name}' processed with {processing_result['chunks_count']} chunks")
                 
                 return Response({
                     'message': 'Sample replies uploaded and processed with vector embeddings successfully',
@@ -115,8 +155,12 @@ class SampleRepliesFileUploadView(APIView):
                 }, status=status.HTTP_201_CREATED)
                 
             except Exception as vector_error:
-                logger.error(f"[SAMPLE-REPLIES-API] Vector processing failed: {vector_error}")
-                logger.warning("[SAMPLE-REPLIES-API] Falling back to simple text processing...")
+                logger.error(f"[SAMPLE-REPLIES-API] ❌ VECTOR PROCESSING FAILED!")
+                logger.error(f"[SAMPLE-REPLIES-API] Error type: {type(vector_error).__name__}")
+                logger.error(f"[SAMPLE-REPLIES-API] Error message: {vector_error}")
+                logger.error(f"[SAMPLE-REPLIES-API] File details: {uploaded_file.name}, {uploaded_file.size} bytes")
+                logger.exception("[SAMPLE-REPLIES-API] Full error traceback:")
+                logger.warning("[SAMPLE-REPLIES-API] 🔄 Falling back to simple text processing...")
                 
                 # 📄 FALLBACK: Простий парсинг якщо векторна обробка не вдалася
                 extracted_text = vector_pdf_service.extract_text_from_uploaded_file(
@@ -177,6 +221,12 @@ class SampleRepliesFileUploadView(APIView):
                 auto_settings.use_sample_replies = True
                 auto_settings.save()
                 
+                logger.warning(f"[SAMPLE-REPLIES-API] ⚠️ FALLBACK MODE SUCCESS:")
+                logger.warning(f"[SAMPLE-REPLIES-API]   - File stored in legacy mode: {uploaded_file.name}")
+                logger.warning(f"[SAMPLE-REPLIES-API]   - Content length: {len(formatted_content)} characters")
+                logger.warning(f"[SAMPLE-REPLIES-API]   - AI mode: {auto_settings.use_ai_greeting}")
+                logger.warning(f"[SAMPLE-REPLIES-API]   - Vector search: DISABLED due to processing failure")
+                
                 return Response({
                     'message': 'Sample replies uploaded (fallback mode - vector processing failed)',
                     'filename': uploaded_file.name,
@@ -188,8 +238,15 @@ class SampleRepliesFileUploadView(APIView):
                 }, status=status.HTTP_201_CREATED)
             
         except Exception as e:
-            logger.error(f"[SAMPLE-REPLIES-API] Upload error: {e}")
-            logger.exception("File upload error details")
+            logger.error(f"[SAMPLE-REPLIES-API] 🔥 CRITICAL UPLOAD ERROR!")
+            logger.error(f"[SAMPLE-REPLIES-API] Error type: {type(e).__name__}")
+            logger.error(f"[SAMPLE-REPLIES-API] Error message: {e}")
+            if 'uploaded_file' in locals():
+                logger.error(f"[SAMPLE-REPLIES-API] File context: {uploaded_file.name if uploaded_file else 'N/A'}")
+            if 'business_id' in locals():
+                logger.error(f"[SAMPLE-REPLIES-API] Business context: {business_id}")
+            logger.exception("[SAMPLE-REPLIES-API] Full error traceback:")
+            
             return Response({
                 'error': 'Upload failed',
                 'details': str(e)
@@ -334,17 +391,25 @@ class SampleRepliesStatusView(APIView):
     def get(self, request):
         """Отримати статус Sample Replies"""
         
+        logger.info(f"[SAMPLE-REPLIES-STATUS] ========== STATUS CHECK REQUEST ==========")
+        
         business_id = request.GET.get('business_id')
         phone_available = request.GET.get('phone_available', 'false').lower() == 'true'
         
+        logger.info(f"[SAMPLE-REPLIES-STATUS] Business ID: {business_id}")
+        logger.info(f"[SAMPLE-REPLIES-STATUS] Phone Available: {phone_available}")
+        
         if not business_id:
+            logger.error(f"[SAMPLE-REPLIES-STATUS] ❌ Missing business_id parameter")
             return Response({
                 'error': 'business_id parameter is required'
             }, status=status.HTTP_400_BAD_REQUEST)
         
         try:
             business = YelpBusiness.objects.get(business_id=business_id)
+            logger.info(f"[SAMPLE-REPLIES-STATUS] ✅ Business found: {business.name}")
         except YelpBusiness.DoesNotExist:
+            logger.error(f"[SAMPLE-REPLIES-STATUS] ❌ Business not found: {business_id}")
             return Response({
                 'error': f'Business {business_id} not found'
             }, status=status.HTTP_404_NOT_FOUND)
@@ -355,12 +420,19 @@ class SampleRepliesStatusView(APIView):
                 phone_available=phone_available
             )
             
+            logger.info(f"[SAMPLE-REPLIES-STATUS] 📋 AutoResponseSettings found:")
+            logger.info(f"[SAMPLE-REPLIES-STATUS]   - AI mode: {auto_settings.use_ai_greeting}")
+            logger.info(f"[SAMPLE-REPLIES-STATUS]   - Use sample replies: {auto_settings.use_sample_replies}")
+            logger.info(f"[SAMPLE-REPLIES-STATUS]   - Filename: {auto_settings.sample_replies_filename}")
+            logger.info(f"[SAMPLE-REPLIES-STATUS]   - Content length: {len(auto_settings.sample_replies_content or '')}")
+            
             has_sample_replies = bool(
                 auto_settings.use_sample_replies and 
                 auto_settings.sample_replies_content
             )
             
             # 🔍 Перевіряємо vector документи для детального статусу
+            logger.info(f"[SAMPLE-REPLIES-STATUS] 🔍 Checking vector documents...")
             from .vector_models import VectorDocument, VectorChunk
             
             vector_documents = VectorDocument.objects.filter(
