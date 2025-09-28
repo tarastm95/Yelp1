@@ -100,6 +100,9 @@ class VectorSearchService:
             # Генерація ембедінгу для запиту
             query_embedding = self.generate_query_embedding(query_text)
             
+            # Форматування ембедінгу для pgvector
+            query_embedding_str = '[' + ','.join(map(str, query_embedding)) + ']'
+            
             # Побудова SQL запиту з векторною схожістю
             # Використовуємо pgvector cosine similarity operator (<=>)
             base_query = """
@@ -114,14 +117,14 @@ class VectorSearchService:
                     vd.filename,
                     vd.business_id,
                     vd.location_id,
-                    (1 - (vc.embedding <=> %s)) as similarity_score
+                    (1 - (vc.embedding <=> %s::vector)) as similarity_score
                 FROM webhooks_vectorchunk vc
                 JOIN webhooks_vectordocument vd ON vc.document_id = vd.id
                 WHERE vd.business_id = %s
                   AND vd.processing_status = 'completed'
             """
             
-            params = [query_embedding, business_id]
+            params = [query_embedding_str, business_id]
             
             # Додаємо фільтр локації якщо вказано
             if location_id:
@@ -136,12 +139,12 @@ class VectorSearchService:
             
             # Додаємо similarity threshold та ordering
             base_query += """
-                AND (1 - (vc.embedding <=> %s)) >= %s
-                ORDER BY vc.embedding <=> %s
+                AND (1 - (vc.embedding <=> %s::vector)) >= %s
+                ORDER BY vc.embedding <=> %s::vector
                 LIMIT %s
             """
             
-            params.extend([query_embedding, similarity_threshold, query_embedding, limit])
+            params.extend([query_embedding_str, similarity_threshold, query_embedding_str, limit])
             
             logger.info(f"[VECTOR-SEARCH] Executing vector similarity search...")
             
