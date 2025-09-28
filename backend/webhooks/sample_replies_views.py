@@ -89,10 +89,8 @@ class SampleRepliesFileUploadView(APIView):
             try:
                 logger.info(f"[SAMPLE-REPLIES-API] 🔍 Starting vector processing...")
                 
-                # Асинхронна обробка PDF з векторизацією
-                from asgiref.sync import async_to_sync
-                process_pdf_sync = async_to_sync(vector_pdf_service.process_pdf_file)
-                processing_result = process_pdf_sync(
+                # Обробка PDF з векторизацією
+                processing_result = vector_pdf_service.process_pdf_file(
                     file_content=file_content,
                     filename=uploaded_file.name,
                     business_id=business_id,
@@ -291,10 +289,8 @@ class SampleRepliesTextSaveView(APIView):
             try:
                 logger.info(f"[SAMPLE-REPLIES-API] 🔍 Starting vector processing for text input...")
                 
-                # Асинхронна обробка тексту з векторизацією
-                from asgiref.sync import async_to_sync
-                process_pdf_sync = async_to_sync(vector_pdf_service.process_pdf_file)
-                processing_result = process_pdf_sync(
+                # Обробка тексту з векторизацією
+                processing_result = vector_pdf_service.process_pdf_file(
                     file_content=sample_text.encode('utf-8'),
                     filename="Manual_Text_Input.txt",
                     business_id=business_id,

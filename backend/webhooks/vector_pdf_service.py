@@ -318,7 +318,7 @@ class VectorPDFService:
         """Розраховує SHA-256 хеш вмісту файлу"""
         return hashlib.sha256(file_content).hexdigest()
     
-    async def process_pdf_file(
+    def process_pdf_file(
         self, 
         file_content: bytes, 
         filename: str, 
