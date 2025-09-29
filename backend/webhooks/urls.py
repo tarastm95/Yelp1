@@ -38,7 +38,9 @@ from .sample_replies_views import (
 from .ml_classifier_views import (
     MLClassifierStatusView,
     MLClassifierRetrainView,
-    MLClassifierTestView
+    MLClassifierTestView,
+    HybridClassifierTestView,
+    ReclassifyChunksView
 )
 
 urlpatterns = [
@@ -171,4 +173,8 @@ urlpatterns = [
     path('ml-classifier/status/', MLClassifierStatusView.as_view(), name='ml_classifier_status'),
     path('ml-classifier/retrain/', MLClassifierRetrainView.as_view(), name='ml_classifier_retrain'),
     path('ml-classifier/test/', MLClassifierTestView.as_view(), name='ml_classifier_test'),
+    
+    # Hybrid Enterprise Classifier
+    path('hybrid-classifier/test/', HybridClassifierTestView.as_view(), name='hybrid_classifier_test'),
+    path('chunks/reclassify/', ReclassifyChunksView.as_view(), name='reclassify_chunks'),
 ]

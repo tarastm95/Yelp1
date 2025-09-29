@@ -268,21 +268,26 @@ class VectorPDFService:
         return len(self.encoding.encode(text))
     
     def _identify_chunk_type(self, text: str) -> str:
-        """🤖 ML-powered classification з fallback на pattern matching"""
+        """🚀 Enterprise Hybrid Classification: Rules → Scoring → Zero-shot → ML"""
         try:
-            # Використовуємо ML classifier
-            from .chunk_classifier_ml import ml_chunk_classifier
+            # 🎯 HYBRID APPROACH: Professional multi-stage classification
+            from .hybrid_chunk_classifier import hybrid_classifier
             
-            classification_result = ml_chunk_classifier.classify_chunk(text)
+            classification_result = hybrid_classifier.classify_chunk_hybrid(text)
             
-            logger.info(f"[VECTOR-PDF] 🧠 ML Classification result: {classification_result}")
-            return classification_result
+            logger.info(f"[VECTOR-PDF] 🏆 Hybrid Classification:")
+            logger.info(f"[VECTOR-PDF]   - Type: {classification_result.predicted_type}")
+            logger.info(f"[VECTOR-PDF]   - Confidence: {classification_result.confidence_score:.2f}")
+            logger.info(f"[VECTOR-PDF]   - Method: {classification_result.method_used}")
+            logger.info(f"[VECTOR-PDF]   - Rule matches: {classification_result.rule_matches}")
+            
+            return classification_result.predicted_type
             
         except Exception as e:
-            logger.error(f"[VECTOR-PDF] ❌ ML classification failed: {e}")
-            logger.warning("[VECTOR-PDF] 🔄 Falling back to pattern matching...")
+            logger.error(f"[VECTOR-PDF] ❌ Hybrid classification failed: {e}")
+            logger.warning("[VECTOR-PDF] 🔄 Using basic fallback classification...")
             
-            # Fallback pattern matching (simplified version)
+            # Basic fallback (minimal rules)
             text_lower = text.lower().strip()
             
             if 'response:' in text_lower:
@@ -291,9 +296,9 @@ class VectorPDFService:
                 return 'inquiry'
             elif ('inquiry information:' in text_lower and 'response:' in text_lower):
                 return 'example'
-            elif any(pattern in text_lower for pattern in ['good afternoon', 'thanks for reaching', "we'd be glad"]):
+            elif any(phrase in text_lower for phrase in ['good afternoon', 'thanks for reaching', "we'd be glad", 'talk soon']):
                 return 'response'
-            elif any(pattern in text_lower for pattern in ['name:', 'lead created:', 'what kind of']):
+            elif any(phrase in text_lower for phrase in ['name:', 'lead created:', 'ca 9', 'what kind of']):
                 return 'inquiry'
             else:
                 return 'general'
