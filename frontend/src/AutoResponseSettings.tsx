@@ -48,6 +48,7 @@ import ScheduleIcon from '@mui/icons-material/Schedule';
 import AddIcon from '@mui/icons-material/Add';
 import SettingsIcon from '@mui/icons-material/Settings';
 import PersonIcon from '@mui/icons-material/Person';
+import Psychology as VectorIcon from '@mui/icons-material/Psychology';
 import WorkIcon from '@mui/icons-material/Work';
 import TimerIcon from '@mui/icons-material/Timer';
 import BusinessCenterIcon from '@mui/icons-material/BusinessCenter';
