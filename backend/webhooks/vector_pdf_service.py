@@ -1,6 +1,6 @@
 """
-🔍 Minimal Working Vector PDF Service
-Simplified version without broken code
+🔍 Clean Vector PDF Service 
+Minimal working version without broken code
 """
 
 import logging
@@ -14,9 +14,9 @@ from django.core.files.base import ContentFile
 import openai
 import os
 
-# PDF processing imports
+# PDF processing
 try:
-    import fitz  # PyMuPDF
+    import fitz
     import tiktoken
     import numpy as np
     PDF_PROCESSING_AVAILABLE = True
@@ -27,7 +27,6 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class DocumentChunk:
-    """Представляє семантичний чанк документу"""
     content: str
     page_number: int
     chunk_index: int
@@ -36,8 +35,6 @@ class DocumentChunk:
     metadata: Dict
 
 class VectorPDFService:
-    """🔍 Мінімальний векторний сервіс для обробки PDF"""
-    
     def __init__(self):
         self.openai_client = None
         self.encoding = None
@@ -45,7 +42,6 @@ class VectorPDFService:
         self._init_tokenizer()
     
     def _init_openai(self):
-        """Ініціалізація OpenAI клієнта"""
         try:
             from .models import AISettings
             
@@ -66,10 +62,8 @@ class VectorPDFService:
             logger.error(f"[VECTOR-PDF] Failed to initialize OpenAI client: {e}")
     
     def _init_tokenizer(self):
-        """Ініціалізація tiktoken енкодера"""
         try:
             if not PDF_PROCESSING_AVAILABLE:
-                logger.warning("[VECTOR-PDF] Tiktoken not available")
                 return
                 
             self.encoding = tiktoken.encoding_for_model("text-embedding-3-small")
@@ -79,12 +73,10 @@ class VectorPDFService:
             logger.error(f"[VECTOR-PDF] Failed to initialize tokenizer: {e}")
     
     def extract_text_from_pdf_bytes(self, pdf_bytes: bytes, filename: str) -> Dict:
-        """📄 Simple PDF extraction using PyMuPDF"""
-        
-        logger.info(f"[VECTOR-PDF] 📄 Extracting text from PDF: {filename}")
+        logger.info(f"[VECTOR-PDF] Extracting text from PDF: {filename}")
         
         if not PDF_PROCESSING_AVAILABLE:
-            raise ValueError("PDF processing libraries not available.")
+            raise ValueError("PDF processing not available")
         
         try:
             doc = fitz.open("pdf", pdf_bytes)
@@ -111,8 +103,7 @@ class VectorPDFService:
             return {
                 'success': True,
                 'text': all_text,
-                'pages': pages_data,
-                'parser_used': 'pymupdf'
+                'pages': pages_data
             }
             
         except Exception as e:
@@ -125,9 +116,7 @@ class VectorPDFService:
             }
     
     def extract_text_from_uploaded_file(self, file_content: bytes, filename: str) -> str:
-        """Legacy method for fallback compatibility"""
-        
-        logger.info(f"[VECTOR-PDF] 📄 Processing {filename} ({len(file_content)} bytes)")
+        logger.info(f"[VECTOR-PDF] Processing {filename} ({len(file_content)} bytes)")
         
         try:
             if b'%PDF' in file_content[:100] or filename.lower().endswith('.pdf'):
@@ -138,23 +127,17 @@ class VectorPDFService:
                 else:
                     return "PDF_PROCESSING_ERROR"
             else:
-                # Plain text file
                 text_content = file_content.decode('utf-8', errors='ignore')
                 return text_content if text_content.strip() else "EMPTY_FILE"
                 
         except Exception as e:
             logger.error(f"[VECTOR-PDF] Error processing {filename}: {e}")
             return "PROCESSING_ERROR"
-
-        def create_semantic_chunks(self, text: str, max_tokens: int = 800) -> List[DocumentChunk]:
-        """Створює семантичні чанки з тексту"""
+    
+    def create_semantic_chunks(self, text: str, max_tokens: int = 800) -> List[DocumentChunk]:
+        logger.info(f"[VECTOR-PDF] Creating semantic chunks from {len(text)} chars")
         
-        logger.info(f"[VECTOR-PDF] Creating semantic chunks...")
-        logger.info(f"[VECTOR-PDF] Text length: {len(text)} chars")
-        
-        # Розділення на секції
         sections = self._split_by_sections(text)
-        
         chunks = []
         chunk_index = 0
         
@@ -165,9 +148,7 @@ class VectorPDFService:
             token_count = self._count_tokens(section)
             chunk_type = self._identify_chunk_type(section)
             
-            logger.info(f"[VECTOR-PDF] 🧩 CHUNK #{chunk_index}:")
-            logger.info(f"[VECTOR-PDF]   Type: {chunk_type}")
-            logger.info(f"[VECTOR-PDF]   Length: {len(section)} chars")
+            logger.info(f"[VECTOR-PDF] CHUNK #{chunk_index}: {chunk_type} ({len(section)} chars)")
             logger.info(f"[VECTOR-PDF]   Preview: {section[:100]}...")
             
             chunks.append(DocumentChunk(
@@ -189,8 +170,6 @@ class VectorPDFService:
         return chunks
     
     def _split_by_sections(self, text: str) -> List[str]:
-        """Розділяє текст на логічні секції"""
-        
         logger.info(f"[VECTOR-PDF] Splitting text into sections...")
         
         patterns = [
@@ -214,8 +193,6 @@ class VectorPDFService:
         return [s for s in sections if len(s.strip()) > 20]
     
     def _identify_chunk_type(self, text: str) -> str:
-        """Визначає тип чанка з enhanced logic"""
-        
         text_lower = text.lower().strip()
         
         # Explicit markers
@@ -224,7 +201,7 @@ class VectorPDFService:
         elif 'response:' in text_lower:
             return 'response'
         
-        # Business response patterns (Norma's style)
+        # Business response patterns
         business_patterns = ['good afternoon', 'good morning', 'thanks for reaching', 
                            'thanks so much', "we'd be glad", 'talk soon', 'norma']
         business_matches = sum(1 for pattern in business_patterns if pattern in text_lower)
@@ -247,19 +224,15 @@ class VectorPDFService:
             return 'general'
     
     def _count_tokens(self, text: str) -> int:
-        """Підрахунок токенів"""
         if not self.encoding:
             return len(text) // 4
         return len(self.encoding.encode(text))
     
     def generate_embeddings(self, chunks: List[DocumentChunk]) -> List[Tuple[DocumentChunk, List[float]]]:
-        """Генерує OpenAI ембедінги"""
         if not self.openai_client:
             raise ValueError("OpenAI client not initialized")
         
         logger.info(f"[VECTOR-PDF] Generating embeddings for {len(chunks)} chunks")
-        
-        embeddings_data = []
         
         try:
             texts = [chunk.content for chunk in chunks]
@@ -270,6 +243,7 @@ class VectorPDFService:
                 dimensions=1536
             )
             
+            embeddings_data = []
             for chunk, embedding_obj in zip(chunks, response.data):
                 embeddings_data.append((chunk, embedding_obj.embedding))
             
@@ -281,24 +255,15 @@ class VectorPDFService:
             raise
     
     def calculate_file_hash(self, file_content: bytes) -> str:
-        """Розраховує хеш файлу"""
         return hashlib.sha256(file_content).hexdigest()
     
-    def process_pdf_file(
-        self, 
-        file_content: bytes, 
-        filename: str, 
-        business_id: str,
-        location_id: Optional[str] = None
-    ) -> Dict:
-        """Головний метод обробки PDF"""
-        
+    def process_pdf_file(self, file_content: bytes, filename: str, business_id: str, location_id: Optional[str] = None) -> Dict:
         logger.info(f"[VECTOR-PDF] ======== PROCESSING PDF ========")
         logger.info(f"[VECTOR-PDF] File: {filename}")
         logger.info(f"[VECTOR-PDF] Business: {business_id}")
         
         try:
-            # Витягування тексту
+            # Extract text
             if b'%PDF' in file_content[:100] or filename.lower().endswith('.pdf'):
                 pdf_result = self.extract_text_from_pdf_bytes(file_content, filename)
                 
@@ -314,28 +279,28 @@ class VectorPDFService:
             if not all_text.strip():
                 raise ValueError("No text content found")
             
-            # Створення чанків
+            # Create chunks
             chunks = self.create_semantic_chunks(all_text)
             
             if not chunks:
                 raise ValueError("No chunks created")
             
-            # Генерація ембедінгів
+            # Generate embeddings
             embeddings_data = self.generate_embeddings(chunks)
             
-            # Збереження в БД
+            # Save to database
             from .vector_models import VectorDocument, VectorChunk
             
             with transaction.atomic():
                 file_hash = self.calculate_file_hash(file_content)
                 
-                # Перевіряємо чи документ вже існує
+                # Handle duplicates
                 try:
                     existing_doc = VectorDocument.objects.get(file_hash=file_hash)
-                    logger.warning(f"[VECTOR-PDF] ⚠️ Document with same hash exists, deleting old version")
+                    logger.warning(f"[VECTOR-PDF] Deleting existing document with same hash")
                     existing_doc.delete()
                 except VectorDocument.DoesNotExist:
-                    pass  # Все ок, документа не існує
+                    pass
                 
                 document = VectorDocument.objects.create(
                     business_id=business_id,
@@ -357,7 +322,7 @@ class VectorPDFService:
                     }
                 )
                 
-                # Створення чанків
+                # Create chunks
                 chunk_objects = []
                 for chunk, embedding in embeddings_data:
                     chunk_obj = VectorChunk(
@@ -375,19 +340,52 @@ class VectorPDFService:
                 VectorChunk.objects.bulk_create(chunk_objects)
                 
                 logger.info(f"[VECTOR-PDF] ✅ SUCCESS: {len(chunk_objects)} chunks saved")
-                logger.info(f"[VECTOR-PDF] Types: {document.metadata['chunks_by_type']}")
+                
+                # Log chunk statistics
+                chunk_stats = document.metadata['chunks_by_type']
+                logger.info(f"[VECTOR-PDF] Chunk types: {chunk_stats}")
+                
+                for chunk_type, count in chunk_stats.items():
+                    logger.info(f"[VECTOR-PDF]   {chunk_type}: {count}")
             
             return {
                 'document_id': document.id,
                 'chunks_count': len(chunk_objects),
-                'chunk_types': document.metadata['chunks_by_type']
+                'chunk_types': chunk_stats
             }
             
         except Exception as e:
-            logger.error(f"[VECTOR-PDF] Error: {e}")
+            logger.error(f"[VECTOR-PDF] Error processing PDF: {e}")
             raise
+    
+    def format_sample_replies(self, raw_content: str) -> str:
+        if raw_content in ["PDF_BINARY_DETECTED", "PROCESSING_ERROR", "EMPTY_FILE", "ENCODING_ERROR"]:
+            return raw_content
+        
+        if not raw_content or not raw_content.strip():
+            return "EMPTY_CONTENT"
+        
+        # Basic text cleanup
+        cleaned = raw_content.strip()
+        cleaned = re.sub(r'\n\s*\n\s*\n+', '\n\n', cleaned)
+        cleaned = re.sub(r' +', ' ', cleaned)
+        
+        logger.info(f"[VECTOR-PDF] Formatted content: {len(cleaned)} chars")
+        return cleaned
+    
+    def validate_sample_replies_content(self, content: str) -> tuple[bool, Optional[str]]:
+        if not content or not content.strip():
+            return False, "Empty content"
+        
+        if len(content.strip()) < 50:
+            return False, "Content too short"
+        
+        if len(content) > 100000:
+            return False, "Content too long"
+        
+        return True, None
 
 
-# Глобальна змінна (ВАЖЛИВО!)
+# Global instances
 vector_pdf_service = VectorPDFService()
-simple_pdf_service = vector_pdf_service  # Legacy compatibility
+simple_pdf_service = vector_pdf_service
