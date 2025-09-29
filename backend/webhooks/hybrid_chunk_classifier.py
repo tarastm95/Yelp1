@@ -158,29 +158,65 @@ class HybridChunkClassifier:
     def classify_chunk_hybrid(self, text: str) -> ClassificationResult:
         """🎯 Гібридна класифікація за вашим планом"""
         
-        logger.info(f"[HYBRID-CLASSIFIER] 🧠 Classifying chunk: {text[:100]}...")
+        logger.info(f"[HYBRID-CLASSIFIER] ====== CLASSIFYING NEW CHUNK ======")
+        logger.info(f"[HYBRID-CLASSIFIER] 📝 Text length: {len(text)} chars")
+        logger.info(f"[HYBRID-CLASSIFIER] 📝 Text preview: {text[:200]}...")
+        logger.info(f"[HYBRID-CLASSIFIER] 📝 Confidence threshold: {self.confidence_threshold}")
+        
+        # Швидка діагностика маркерів перед етапами
+        text_lower = text.lower()
+        quick_check = {
+            'inquiry_information': 'inquiry information:' in text_lower,
+            'response_marker': 'response:' in text_lower,
+            'name_colon': 'name:' in text_lower,
+            'good_afternoon': 'good afternoon' in text_lower,
+            'good_morning': 'good morning' in text_lower,
+            'thanks_reaching': 'thanks for reaching' in text_lower,
+            'talk_soon': 'talk soon' in text_lower,
+            'norma': 'norma' in text_lower
+        }
+        logger.info(f"[HYBRID-CLASSIFIER] 🔍 QUICK MARKERS CHECK: {quick_check}")
         
         # 🔍 ЕТАП 1: Explicit Markers (найвища впевненість)
+        logger.info(f"[HYBRID-CLASSIFIER] 🎯 STAGE 1: Checking explicit markers...")
         explicit_result = self._check_explicit_markers(text)
         if explicit_result:
+            logger.info(f"[HYBRID-CLASSIFIER] ✅ STAGE 1 SUCCESS: {explicit_result.predicted_type} via {explicit_result.method_used}")
             return explicit_result
+        else:
+            logger.info(f"[HYBRID-CLASSIFIER] ⚪ STAGE 1: No explicit markers found")
         
         # 🔍 ЕТАП 2: Rule-based + spaCy Patterns
+        logger.info(f"[HYBRID-CLASSIFIER] 🎯 STAGE 2: Running rule-based classification...")
         rule_result = self._rule_based_classification(text)
+        logger.info(f"[HYBRID-CLASSIFIER] 📊 STAGE 2 RESULT: {rule_result.predicted_type}, confidence: {rule_result.confidence_score}, threshold: {self.confidence_threshold}")
         if rule_result.confidence_score >= self.confidence_threshold:
+            logger.info(f"[HYBRID-CLASSIFIER] ✅ STAGE 2 SUCCESS: {rule_result.predicted_type} via {rule_result.method_used}")
             return rule_result
+        else:
+            logger.info(f"[HYBRID-CLASSIFIER] ⚪ STAGE 2: Confidence too low ({rule_result.confidence_score:.2f} < {self.confidence_threshold})")
         
         # 🔍 ЕТАП 3: Zero-shot Classification (для edge cases)
+        logger.info(f"[HYBRID-CLASSIFIER] 🎯 STAGE 3: Trying zero-shot classification...")
         zero_shot_result = self._zero_shot_classification(text)
         if zero_shot_result:
+            logger.info(f"[HYBRID-CLASSIFIER] ✅ STAGE 3 SUCCESS: {zero_shot_result.predicted_type} via {zero_shot_result.method_used}")
             return zero_shot_result
+        else:
+            logger.info(f"[HYBRID-CLASSIFIER] ⚪ STAGE 3: Zero-shot failed or unavailable")
         
         # 🔍 ЕТАП 4: ML Fallback
+        logger.info(f"[HYBRID-CLASSIFIER] 🎯 STAGE 4: Trying heuristic fallback...")
         ml_result = self._ml_fallback_classification(text)
         if ml_result:
+            logger.info(f"[HYBRID-CLASSIFIER] ✅ STAGE 4 SUCCESS: {ml_result.predicted_type} via {ml_result.method_used}")
             return ml_result
+        else:
+            logger.info(f"[HYBRID-CLASSIFIER] ⚪ STAGE 4: Heuristic fallback failed")
         
         # 🔍 ЕТАП 5: Default fallback
+        logger.warning(f"[HYBRID-CLASSIFIER] ❌ ALL STAGES FAILED - Defaulting to 'general'")
+        logger.warning(f"[HYBRID-CLASSIFIER] 📝 Failed text: {text[:300]}...")
         return ClassificationResult(
             predicted_type='general',
             confidence_score=0.0,

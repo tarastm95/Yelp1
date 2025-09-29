@@ -338,17 +338,37 @@ class VectorPDFService:
                 token_count = self._count_tokens(chunk_text)
                 
                 if token_count > 0:
+                    chunk_type = self._identify_chunk_type(chunk_text)
+                    
+                    logger.info(f"[VECTOR-PDF] 🧩 CREATING CHUNK #{chunk_index}:")
+                    logger.info(f"[VECTOR-PDF]   Text length: {len(chunk_text)} chars")
+                    logger.info(f"[VECTOR-PDF]   Token count: {token_count}")
+                    logger.info(f"[VECTOR-PDF]   Classified as: {chunk_type}")
+                    logger.info(f"[VECTOR-PDF]   Content preview: {chunk_text[:150]}...")
+                    
+                    # Детальна перевірка metadata
+                    has_inquiry = 'Inquiry information:' in chunk_text or 'Name:' in chunk_text
+                    has_response = 'Response:' in chunk_text
+                    has_customer_name = bool(re.search(r'Name:\s*\w+', chunk_text))
+                    has_service_type = any(word in chunk_text.lower() for word in ['roof', 'repair', 'construction', 'service'])
+                    
+                    logger.info(f"[VECTOR-PDF]   Metadata analysis:")
+                    logger.info(f"[VECTOR-PDF]     - has_inquiry: {has_inquiry}")
+                    logger.info(f"[VECTOR-PDF]     - has_response: {has_response}")
+                    logger.info(f"[VECTOR-PDF]     - has_customer_name: {has_customer_name}")
+                    logger.info(f"[VECTOR-PDF]     - has_service_type: {has_service_type}")
+                    
                     chunks.append(DocumentChunk(
                         content=chunk_text.strip(),
                         page_number=1,  # Default for text input
                         chunk_index=chunk_index,
                         token_count=token_count,
-                        chunk_type=self._identify_chunk_type(chunk_text),
+                        chunk_type=chunk_type,
                         metadata={
-                            'has_inquiry': 'Inquiry information:' in chunk_text or 'Name:' in chunk_text,
-                            'has_response': 'Response:' in chunk_text,
-                            'has_customer_name': bool(re.search(r'Name:\s*\w+', chunk_text)),
-                            'has_service_type': any(word in chunk_text.lower() for word in ['roof', 'repair', 'construction', 'service']),
+                            'has_inquiry': has_inquiry,
+                            'has_response': has_response,
+                            'has_customer_name': has_customer_name,
+                            'has_service_type': has_service_type,
                             'section_length': len(chunk_text),
                             'specialized_chunking': False
                         }
@@ -801,17 +821,37 @@ class VectorPDFService:
                 token_count = self._count_tokens(chunk_text)
                 
                 if token_count > 0:
+                    chunk_type = self._identify_chunk_type(chunk_text)
+                    
+                    logger.info(f"[VECTOR-PDF] 🧩 CREATING CHUNK #{chunk_index}:")
+                    logger.info(f"[VECTOR-PDF]   Text length: {len(chunk_text)} chars")
+                    logger.info(f"[VECTOR-PDF]   Token count: {token_count}")
+                    logger.info(f"[VECTOR-PDF]   Classified as: {chunk_type}")
+                    logger.info(f"[VECTOR-PDF]   Content preview: {chunk_text[:150]}...")
+                    
+                    # Детальна перевірка metadata
+                    has_inquiry = 'Inquiry information:' in chunk_text or 'Name:' in chunk_text
+                    has_response = 'Response:' in chunk_text
+                    has_customer_name = bool(re.search(r'Name:\s*\w+', chunk_text))
+                    has_service_type = any(word in chunk_text.lower() for word in ['roof', 'repair', 'construction', 'service'])
+                    
+                    logger.info(f"[VECTOR-PDF]   Metadata analysis:")
+                    logger.info(f"[VECTOR-PDF]     - has_inquiry: {has_inquiry}")
+                    logger.info(f"[VECTOR-PDF]     - has_response: {has_response}")
+                    logger.info(f"[VECTOR-PDF]     - has_customer_name: {has_customer_name}")
+                    logger.info(f"[VECTOR-PDF]     - has_service_type: {has_service_type}")
+                    
                     chunks.append(DocumentChunk(
                         content=chunk_text.strip(),
                         page_number=1,  # Default for text input
                         chunk_index=chunk_index,
                         token_count=token_count,
-                        chunk_type=self._identify_chunk_type(chunk_text),
+                        chunk_type=chunk_type,
                         metadata={
-                            'has_inquiry': 'Inquiry information:' in chunk_text or 'Name:' in chunk_text,
-                            'has_response': 'Response:' in chunk_text,
-                            'has_customer_name': bool(re.search(r'Name:\s*\w+', chunk_text)),
-                            'has_service_type': any(word in chunk_text.lower() for word in ['roof', 'repair', 'construction', 'service']),
+                            'has_inquiry': has_inquiry,
+                            'has_response': has_response,
+                            'has_customer_name': has_customer_name,
+                            'has_service_type': has_service_type,
                             'section_length': len(chunk_text),
                             'specialized_chunking': False
                         }
