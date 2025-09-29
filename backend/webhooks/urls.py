@@ -32,6 +32,13 @@ from .sample_replies_views import (
     VectorChunkListView
 )
 
+# ML Classifier API Views
+from .ml_classifier_views import (
+    MLClassifierStatusView,
+    MLClassifierRetrainView,
+    MLClassifierTestView
+)
+
 urlpatterns = [
     path('webhook/', WebhookView.as_view(), name='webhook'),
     path('events/', EventListView.as_view(), name='events'),
@@ -153,4 +160,9 @@ urlpatterns = [
     path('sample-replies/status/', SampleRepliesStatusView.as_view(), name='sample_replies_status'),
     path('sample-replies/vector-test/', VectorSearchTestView.as_view(), name='vector_search_test'),
     path('sample-replies/chunks/', VectorChunkListView.as_view(), name='vector_chunks_list'),
+    
+    # ML Classifier Management
+    path('ml-classifier/status/', MLClassifierStatusView.as_view(), name='ml_classifier_status'),
+    path('ml-classifier/retrain/', MLClassifierRetrainView.as_view(), name='ml_classifier_retrain'),
+    path('ml-classifier/test/', MLClassifierTestView.as_view(), name='ml_classifier_test'),
 ]

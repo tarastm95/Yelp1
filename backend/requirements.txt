@@ -31,3 +31,8 @@ pgvector>=0.2.4,<1.0.0     # PostgreSQL vector support
 tiktoken>=0.5.0,<1.0.0     # OpenAI tokenizer
 numpy>=1.24.0,<2.0.0       # Vector operations
 
+# 🤖 Machine Learning & NLP dependencies
+scikit-learn>=1.3.0,<2.0.0 # ML algorithms for chunk classification
+pandas>=2.0.0,<3.0.0       # Data manipulation for ML training
+nltk>=3.8.0,<4.0.0         # Natural language processing utilities
+
