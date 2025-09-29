@@ -24,6 +24,13 @@ import {
   IconButton,
   Collapse,
   LinearProgress,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
+  Tooltip,
+  ButtonGroup,
+  CircularProgress,
 } from '@mui/material';
 import {
   CloudUpload as UploadIcon,
@@ -37,6 +44,10 @@ import {
   Psychology as VectorIcon,
   Search as SearchIcon,
   Analytics as StatsIcon,
+  Delete as DeleteIcon,
+  Refresh as RefreshIcon,
+  Info as InfoIcon,
+  MoreVert as MoreIcon,
 } from '@mui/icons-material';
 import axios from 'axios';
 
@@ -118,6 +129,11 @@ const SampleRepliesManager: React.FC<Props> = ({
   const [vectorTesting, setVectorTesting] = useState(false);
   const [chunksDialogOpen, setChunksDialogOpen] = useState(false);
   const [chunks, setChunks] = useState<any[]>([]);
+  
+  // Document management state
+  const [documentMenuAnchor, setDocumentMenuAnchor] = useState<null | HTMLElement>(null);
+  const [selectedDocumentId, setSelectedDocumentId] = useState<number | null>(null);
+  const [deletingDocument, setDeletingDocument] = useState<number | null>(null);
 
   const showMessage = (msg: string, type: 'success' | 'error' | 'info') => {
     setMessage(msg);
@@ -301,6 +317,49 @@ const SampleRepliesManager: React.FC<Props> = ({
       console.error('[CHUNKS] Load error:', error);
       showMessage('Failed to load chunks', 'error');
     }
+  };
+
+  const handleDeleteDocument = async (documentId: number, filename: string) => {
+    if (!selectedBusiness) return;
+    
+    if (!window.confirm(`Are you sure you want to delete "${filename}"?\n\nThis will permanently remove:\n- The document\n- All vector chunks\n- All embeddings\n\nThis action cannot be undone.`)) {
+      return;
+    }
+
+    setDeletingDocument(documentId);
+    
+    try {
+      const response = await axios.delete(`/sample-replies/documents/${documentId}/delete/`, {
+        params: {
+          business_id: selectedBusiness.business_id
+        }
+      });
+
+      showMessage(
+        `✅ Document "${filename}" deleted successfully. Removed ${response.data.deleted_document.chunks_count} chunks.`,
+        'success'
+      );
+      
+      // Refresh status to update document list
+      setTimeout(() => loadStatus(), 500);
+      
+    } catch (error: any) {
+      console.error('[DOCUMENT-DELETE] Error:', error);
+      const errorMessage = error.response?.data?.error || 'Failed to delete document';
+      showMessage(`❌ Delete failed: ${errorMessage}`, 'error');
+    } finally {
+      setDeletingDocument(null);
+    }
+  };
+
+  const handleDocumentMenuOpen = (event: React.MouseEvent<HTMLElement>, documentId: number) => {
+    setDocumentMenuAnchor(event.currentTarget);
+    setSelectedDocumentId(documentId);
+  };
+
+  const handleDocumentMenuClose = () => {
+    setDocumentMenuAnchor(null);
+    setSelectedDocumentId(null);
   };
 
   if (!selectedBusiness) {
@@ -511,14 +570,33 @@ const SampleRepliesManager: React.FC<Props> = ({
                     {/* Document List */}
                     {detailedStatus.vector_status.documents.length > 0 && (
                       <Box>
-                        <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
-                          📄 Recent Documents:
-                        </Typography>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                            📄 Recent Documents:
+                          </Typography>
+                          
+                          {detailedStatus.vector_status.documents.length > 1 && (
+                            <Button
+                              size="small"
+                              color="error"
+                              variant="outlined"
+                              startIcon={<DeleteIcon />}
+                              onClick={() => {
+                                if (window.confirm(`Delete ALL ${detailedStatus.vector_status.documents.length} documents?\n\nThis will permanently remove all vector documents and chunks.\nThis action cannot be undone.`)) {
+                                  // TODO: Implement bulk delete
+                                  showMessage('Bulk delete not implemented yet', 'info');
+                                }
+                              }}
+                            >
+                              Delete All ({detailedStatus.vector_status.documents.length})
+                            </Button>
+                          )}
+                        </Box>
                         <Stack spacing={1}>
                           {detailedStatus.vector_status.documents.map((doc: VectorDocument) => (
                             <Paper key={doc.id} sx={{ p: 2, border: '1px solid', borderColor: 'grey.200' }}>
                               <Grid container spacing={2} alignItems="center">
-                                <Grid item xs={12} sm={6}>
+                                <Grid item xs={12} sm={5}>
                                   <Typography variant="body1" sx={{ fontWeight: 600, mb: 0.5 }}>
                                     📄 {doc.filename}
                                   </Typography>
@@ -526,7 +604,7 @@ const SampleRepliesManager: React.FC<Props> = ({
                                     Uploaded: {new Date(doc.created_at).toLocaleString()}
                                   </Typography>
                                 </Grid>
-                                <Grid item xs={6} sm={3}>
+                                <Grid item xs={6} sm={2}>
                                   <Chip 
                                     label={doc.status}
                                     size="small"
@@ -541,6 +619,48 @@ const SampleRepliesManager: React.FC<Props> = ({
                                   <Typography variant="body2" color="text.secondary">
                                     {doc.chunks_count} chunks • {doc.total_tokens} tokens
                                   </Typography>
+                                </Grid>
+                                <Grid item xs={12} sm={2}>
+                                  <ButtonGroup size="small" variant="outlined">
+                                    <Tooltip title="Delete Document">
+                                      <IconButton
+                                        size="small"
+                                        color="error"
+                                        onClick={() => handleDeleteDocument(doc.id, doc.filename)}
+                                        disabled={deletingDocument === doc.id}
+                                      >
+                                        {deletingDocument === doc.id ? (
+                                          <CircularProgress size={16} />
+                                        ) : (
+                                          <DeleteIcon />
+                                        )}
+                                      </IconButton>
+                                    </Tooltip>
+                                    
+                                    {doc.status === 'error' && (
+                                      <Tooltip title="Re-process Document">
+                                        <IconButton
+                                          size="small"
+                                          color="warning"
+                                          onClick={() => {
+                                            // TODO: Implement re-processing
+                                            showMessage('Re-processing not implemented yet', 'info');
+                                          }}
+                                        >
+                                          <RefreshIcon />
+                                        </IconButton>
+                                      </Tooltip>
+                                    )}
+                                    
+                                    <Tooltip title="Document Details">
+                                      <IconButton
+                                        size="small"
+                                        onClick={(e) => handleDocumentMenuOpen(e, doc.id)}
+                                      >
+                                        <InfoIcon />
+                                      </IconButton>
+                                    </Tooltip>
+                                  </ButtonGroup>
                                 </Grid>
                               </Grid>
                               
@@ -670,6 +790,68 @@ const SampleRepliesManager: React.FC<Props> = ({
           </Stack>
         </CardContent>
       </Card>
+
+      {/* Document Details Menu */}
+      <Menu
+        anchorEl={documentMenuAnchor}
+        open={Boolean(documentMenuAnchor)}
+        onClose={handleDocumentMenuClose}
+        anchorOrigin={{
+          vertical: 'bottom',
+          horizontal: 'right',
+        }}
+        transformOrigin={{
+          vertical: 'top',
+          horizontal: 'right',
+        }}
+      >
+        {selectedDocumentId && detailedStatus?.vector_status.documents && (
+          (() => {
+            const selectedDoc = detailedStatus.vector_status.documents.find(d => d.id === selectedDocumentId);
+            if (!selectedDoc) return null;
+            
+            return [
+              <MenuItem key="filename" disabled>
+                <ListItemIcon>
+                  <InfoIcon />
+                </ListItemIcon>
+                <ListItemText 
+                  primary={selectedDoc.filename}
+                  secondary={`Document ID: ${selectedDoc.id}`}
+                />
+              </MenuItem>,
+              
+              <MenuItem key="details" disabled>
+                <ListItemText 
+                  primary="Details"
+                  secondary={`${selectedDoc.chunks_count} chunks • ${selectedDoc.total_tokens} tokens • ${(selectedDoc.file_size / 1024).toFixed(1)} KB`}
+                />
+              </MenuItem>,
+              
+              <MenuItem key="dates" disabled>
+                <ListItemText 
+                  primary="Created"
+                  secondary={new Date(selectedDoc.created_at).toLocaleString()}
+                />
+              </MenuItem>,
+              
+              <MenuItem 
+                key="delete"
+                onClick={() => {
+                  handleDocumentMenuClose();
+                  handleDeleteDocument(selectedDoc.id, selectedDoc.filename);
+                }}
+                sx={{ color: 'error.main' }}
+              >
+                <ListItemIcon>
+                  <DeleteIcon color="error" />
+                </ListItemIcon>
+                <ListItemText primary="Delete Document" />
+              </MenuItem>
+            ];
+          })()
+        )}
+      </Menu>
 
       {/* File Upload Dialog */}
       <Dialog open={uploadDialogOpen} onClose={() => !uploading && setUploadDialogOpen(false)}>

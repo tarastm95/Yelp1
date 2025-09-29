@@ -682,3 +682,144 @@ class VectorChunkListView(APIView):
                 'error': 'Failed to load chunks',
                 'details': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class VectorDocumentDeleteView(APIView):
+    """Видалення vector document та всіх його chunks"""
+    
+    def delete(self, request, document_id):
+        """Видалити document та всі його chunks"""
+        
+        logger.info(f"[VECTOR-DELETE-API] ========== DELETE DOCUMENT REQUEST ==========")
+        logger.info(f"[VECTOR-DELETE-API] Document ID: {document_id}")
+        
+        try:
+            from .vector_models import VectorDocument
+            
+            # Знаходимо документ
+            try:
+                document = VectorDocument.objects.get(id=document_id)
+                logger.info(f"[VECTOR-DELETE-API] Found document: {document.filename}")
+                logger.info(f"[VECTOR-DELETE-API] Business: {document.business_id}")
+                logger.info(f"[VECTOR-DELETE-API] Chunks count: {document.chunk_count}")
+            except VectorDocument.DoesNotExist:
+                logger.error(f"[VECTOR-DELETE-API] Document {document_id} not found")
+                return Response({
+                    'error': f'Document {document_id} not found'
+                }, status=status.HTTP_404_NOT_FOUND)
+            
+            # Перевіряємо права (опціонально - якщо потрібно business validation)
+            business_id = request.query_params.get('business_id')
+            if business_id and document.business_id != business_id:
+                logger.error(f"[VECTOR-DELETE-API] Business mismatch: {business_id} != {document.business_id}")
+                return Response({
+                    'error': 'Document does not belong to specified business'
+                }, status=status.HTTP_403_FORBIDDEN)
+            
+            # Зберігаємо інформацію для відповіді
+            document_info = {
+                'id': document.id,
+                'filename': document.filename,
+                'business_id': document.business_id,
+                'chunks_count': document.chunk_count,
+                'total_tokens': document.total_tokens,
+                'file_size': document.file_size
+            }
+            
+            # Видаляємо документ (chunks видаляться автоматично через CASCADE)
+            logger.info(f"[VECTOR-DELETE-API] 🗑️ Deleting document and all related chunks...")
+            document.delete()
+            
+            logger.info(f"[VECTOR-DELETE-API] ✅ Document '{document_info['filename']}' deleted successfully")
+            
+            return Response({
+                'message': f"Document '{document_info['filename']}' deleted successfully",
+                'deleted_document': document_info
+            })
+            
+        except Exception as e:
+            logger.error(f"[VECTOR-DELETE-API] 🔥 Error deleting document: {e}")
+            logger.exception("Document deletion error details:")
+            return Response({
+                'error': 'Failed to delete document',
+                'details': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class VectorDocumentBulkDeleteView(APIView):
+    """Bulk видалення кількох документів"""
+    
+    def post(self, request):
+        """Видалити кілька documents за ID"""
+        
+        logger.info(f"[VECTOR-BULK-DELETE-API] ========== BULK DELETE REQUEST ==========")
+        
+        try:
+            document_ids = request.data.get('document_ids', [])
+            business_id = request.data.get('business_id')
+            
+            if not document_ids:
+                return Response({
+                    'error': 'document_ids list is required'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            if not business_id:
+                return Response({
+                    'error': 'business_id is required'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            logger.info(f"[VECTOR-BULK-DELETE-API] Deleting {len(document_ids)} documents for business {business_id}")
+            
+            from .vector_models import VectorDocument
+            
+            # Знаходимо всі документи та перевіряємо права
+            documents = VectorDocument.objects.filter(
+                id__in=document_ids,
+                business_id=business_id
+            )
+            
+            found_count = documents.count()
+            requested_count = len(document_ids)
+            
+            if found_count != requested_count:
+                logger.warning(f"[VECTOR-BULK-DELETE-API] ⚠️ Found {found_count} documents, requested {requested_count}")
+            
+            # Зберігаємо інформацію для відповіді
+            deleted_documents = []
+            total_chunks = 0
+            total_tokens = 0
+            
+            for doc in documents:
+                deleted_documents.append({
+                    'id': doc.id,
+                    'filename': doc.filename,
+                    'chunks_count': doc.chunk_count,
+                    'total_tokens': doc.total_tokens
+                })
+                total_chunks += doc.chunk_count
+                total_tokens += doc.total_tokens
+                
+                logger.info(f"[VECTOR-BULK-DELETE-API] - Deleting: {doc.filename} ({doc.chunk_count} chunks)")
+            
+            # Bulk видалення
+            deleted_count, _ = documents.delete()
+            
+            logger.info(f"[VECTOR-BULK-DELETE-API] ✅ Bulk delete complete:")
+            logger.info(f"[VECTOR-BULK-DELETE-API] - Documents deleted: {len(deleted_documents)}")
+            logger.info(f"[VECTOR-BULK-DELETE-API] - Total chunks removed: {total_chunks}")
+            logger.info(f"[VECTOR-BULK-DELETE-API] - Total tokens removed: {total_tokens}")
+            
+            return Response({
+                'message': f'Successfully deleted {len(deleted_documents)} documents',
+                'deleted_documents': deleted_documents,
+                'total_chunks_removed': total_chunks,
+                'total_tokens_removed': total_tokens
+            })
+            
+        except Exception as e:
+            logger.error(f"[VECTOR-BULK-DELETE-API] 🔥 Error in bulk delete: {e}")
+            logger.exception("Bulk delete error details:")
+            return Response({
+                'error': 'Failed to delete documents',
+                'details': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

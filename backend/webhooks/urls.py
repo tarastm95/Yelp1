@@ -29,7 +29,9 @@ from .sample_replies_views import (
     SampleRepliesTextSaveView,
     SampleRepliesStatusView,
     VectorSearchTestView,
-    VectorChunkListView
+    VectorChunkListView,
+    VectorDocumentDeleteView,
+    VectorDocumentBulkDeleteView
 )
 
 # ML Classifier API Views
@@ -160,6 +162,10 @@ urlpatterns = [
     path('sample-replies/status/', SampleRepliesStatusView.as_view(), name='sample_replies_status'),
     path('sample-replies/vector-test/', VectorSearchTestView.as_view(), name='vector_search_test'),
     path('sample-replies/chunks/', VectorChunkListView.as_view(), name='vector_chunks_list'),
+    
+    # Vector Document Management
+    path('sample-replies/documents/<int:document_id>/delete/', VectorDocumentDeleteView.as_view(), name='vector_document_delete'),
+    path('sample-replies/documents/bulk-delete/', VectorDocumentBulkDeleteView.as_view(), name='vector_documents_bulk_delete'),
     
     # ML Classifier Management
     path('ml-classifier/status/', MLClassifierStatusView.as_view(), name='ml_classifier_status'),
