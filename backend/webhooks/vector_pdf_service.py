@@ -80,38 +80,10 @@ class VectorPDFService:
             logger.error(f"[VECTOR-PDF] Failed to initialize tokenizer: {e}")
     
     def extract_text_from_pdf_bytes(self, pdf_bytes: bytes, filename: str) -> Dict:
-        """🚀 Professional PDF extraction using advanced parser"""
+        """📄 Simple PDF extraction using PyMuPDF"""
         
-        if ADVANCED_PDF_PARSER_AVAILABLE:
-            logger.info(f"[VECTOR-PDF] 🚀 Using Advanced PDF Parser for: {filename}")
-            
-            try:
-                result = advanced_pdf_parser.extract_text_from_pdf_bytes(pdf_bytes, filename)
-                
-                if result['success']:
-                    logger.info(f"[VECTOR-PDF] ✅ Advanced parser success!")
-                    logger.info(f"[VECTOR-PDF] Parser used: {result['parser_used']}")
-                    logger.info(f"[VECTOR-PDF] Structure preserved: {result['structure_preserved']}")
-                    logger.info(f"[VECTOR-PDF] Sections detected: {len(result['sections_detected'])}")
-                    
-                    for section in result['sections_detected']:
-                        logger.info(f"[VECTOR-PDF]   📋 {section}")
-                    
-                    return result
-                else:
-                    logger.warning(f"[VECTOR-PDF] ⚠️ Advanced parser failed, falling back to basic method")
-                    for error in result['errors']:
-                        logger.warning(f"[VECTOR-PDF]   - {error}")
-                        
-            except Exception as e:
-                logger.error(f"[VECTOR-PDF] ❌ Advanced parser exception: {e}")
+        logger.info(f"[VECTOR-PDF] 📄 Extracting text from PDF: {filename}")
         
-        # Fallback to old method
-        logger.info(f"[VECTOR-PDF] 🔄 Using fallback PDF extraction")
-        return self._extract_text_fallback(pdf_bytes, filename)
-    
-    def _extract_text_fallback(self, pdf_bytes: bytes, filename: str) -> Dict:
-        """Fallback PDF extraction using PyMuPDF"""
         if not PDF_PROCESSING_AVAILABLE:
             raise ValueError("PDF processing libraries not available.")
         
@@ -131,17 +103,52 @@ class VectorPDFService:
                         'char_count': len(text)
                     })
                     all_text_parts.append(text)
+                    
+                    logger.info(f"[VECTOR-PDF] Page {page_num + 1}: {len(text)} chars")
             
             doc.close()
             
+            all_text = "\n\n".join(all_text_parts)
+            
+            # Аналіз структури PDF
+            text_lower = all_text.lower()
+            structure_indicators = {
+                'inquiry_information': 'inquiry information:' in text_lower,
+                'response_marker': 'response:' in text_lower,
+                'example_marker': 'example #' in text_lower,
+                'customer_names': len(re.findall(r'name:\s*[a-z]+ [a-z]\.?', text_lower)),
+                'norma_signatures': len(re.findall(r'talk soon,?\s*norma', text_lower, re.IGNORECASE))
+            }
+            
+            logger.info(f"[VECTOR-PDF] 📊 PDF Structure Analysis:")
+            logger.info(f"[VECTOR-PDF]   Text length: {len(all_text)} chars")
+            logger.info(f"[VECTOR-PDF]   Pages extracted: {len(pages_data)}")
+            for key, value in structure_indicators.items():
+                logger.info(f"[VECTOR-PDF]   {key}: {value}")
+            
             return {
                 'success': True,
-                'text': "\n\n".join(all_text_parts),
+                'text': all_text,
                 'pages': pages_data,
-                'parser_used': 'pymupdf_fallback',
-                'structure_preserved': False,
-                'sections_detected': []
+                'parser_used': 'pymupdf',
+                'structure_preserved': True,
+                'sections_detected': [f"{k}: {v}" for k, v in structure_indicators.items() if v],
+                'structure_quality_score': sum(1 for v in structure_indicators.values() if v)
             }
+            
+        except Exception as e:
+            logger.error(f"[VECTOR-PDF] PDF extraction error: {e}")
+            return {
+                'success': False,
+                'text': '',
+                'pages': [],
+                'parser_used': None,
+                'structure_preserved': False,
+                'sections_detected': [],
+                'errors': [str(e)]
+            }
+    
+
             
         except Exception as e:
             logger.error(f"[VECTOR-PDF] Fallback extraction error: {e}")
@@ -173,7 +180,7 @@ class VectorPDFService:
                 full_path = default_storage.path(saved_path)
                 
                 try:
-                    pages_data = self.extract_text_from_pdf(full_path)
+                    # Using new extract_text_from_pdf_bytes method instead
                     all_text = "\n\n".join(page['text'] for page in pages_data)
                     return all_text
                 finally:
@@ -246,7 +253,7 @@ class VectorPDFService:
         
         try:
             # Використовуємо спеціалізований chunker
-            sections = sample_replies_chunker.parse_sample_replies_document(text)
+            # sample_replies_chunker removed - using standard method
             
             if not sections:
                 logger.warning("[VECTOR-PDF] ⚠️ Specialized chunker failed, falling back to standard")
@@ -729,7 +736,7 @@ class VectorPDFService:
         
         try:
             # Використовуємо спеціалізований chunker
-            sections = sample_replies_chunker.parse_sample_replies_document(text)
+            # sample_replies_chunker removed - using standard method
             
             if not sections:
                 logger.warning("[VECTOR-PDF] ⚠️ Specialized chunker failed, falling back to standard")
