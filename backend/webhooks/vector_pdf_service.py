@@ -253,7 +253,7 @@ class VectorPDFService:
         
         logger.warning("[VECTOR-PDF] ⚠️ Specialized chunker not available - using enhanced standard method")
         return self._create_standard_chunks(text, max_tokens)
-            
+
     def _create_standard_chunks(self, text: str, max_tokens: int) -> List[DocumentChunk]:
         """Стандартне створення chunks (original method)"""
         
@@ -667,71 +667,7 @@ class VectorPDFService:
         
         logger.warning("[VECTOR-PDF] ⚠️ Specialized chunker not available - using enhanced standard method")
         return self._create_standard_chunks(text, max_tokens)
-            
-            # Конвертуємо в DocumentChunk об'єкти
-            chunks = []
-            chunk_index = 0
-            
-            for section in sections:
-                # Inquiry chunk
-                inquiry_chunk = DocumentChunk(
-                    content=section.inquiry_text,
-                    page_number=1,
-                    chunk_index=chunk_index,
-                    token_count=self._count_tokens(section.inquiry_text),
-                    chunk_type='inquiry',
-                    metadata={
-                        'example_number': section.example_number,
-                        'customer_name': section.customer_name,
-                        'service_type': section.service_type,
-                        'location': section.location,
-                        'chunk_purpose': 'customer_data',
-                        'has_inquiry': True,
-                        'has_response': False,
-                        'specialized_chunking': True
-                    }
-                )
-                chunks.append(inquiry_chunk)
-                chunk_index += 1
-                
-                # Response chunk  
-                response_chunk = DocumentChunk(
-                    content=section.response_text,
-                    page_number=1,
-                    chunk_index=chunk_index,
-                    token_count=self._count_tokens(section.response_text),
-                    chunk_type='response',
-                    metadata={
-                        'example_number': section.example_number,
-                        'customer_name': section.customer_name,
-                        'service_type': section.service_type,
-                        'location': section.location,
-                        'chunk_purpose': 'business_response',
-                        'has_inquiry': False,
-                        'has_response': True,
-                        'specialized_chunking': True,
-                        'response_style': section.raw_response[:50] + '...' if len(section.raw_response) > 50 else section.raw_response
-                    }
-                )
-                chunks.append(response_chunk)
-                chunk_index += 1
-            
-            logger.info(f"[VECTOR-PDF] 🎉 SPECIALIZED CHUNKING SUCCESS:")
-            logger.info(f"[VECTOR-PDF] Created {len(chunks)} specialized chunks from {len(sections)} examples")
-            
-            # Статистика
-            chunk_stats = {}
-            for chunk in chunks:
-                chunk_stats[chunk.chunk_type] = chunk_stats.get(chunk.chunk_type, 0) + 1
-            logger.info(f"[VECTOR-PDF] Chunk distribution: {chunk_stats}")
-            
-            return chunks
-            
-        except Exception as e:
-            logger.error(f"[VECTOR-PDF] ❌ Specialized chunking failed: {e}")
-            logger.warning("[VECTOR-PDF] 🔄 Falling back to standard chunking")
-            return self._create_standard_chunks(text, max_tokens)
-    
+
     def _create_standard_chunks(self, text: str, max_tokens: int) -> List[DocumentChunk]:
         """Стандартне створення chunks (original method)"""
         
