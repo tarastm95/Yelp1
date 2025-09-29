@@ -172,11 +172,11 @@ class VectorChunk(models.Model):
     @property
     def similarity_search_ready(self) -> bool:
         """Перевірка чи чанк готовий для векторного пошуку"""
-        return bool(self.embedding)
+        return self.embedding is not None and len(self.embedding) > 0
     
     def calculate_similarity(self, query_embedding: list) -> float:
         """Розрахунок косинусної схожості з query embedding"""
-        if not self.embedding:
+        if self.embedding is None or len(self.embedding) == 0:
             return 0.0
         
         # Це буде виконано через raw SQL в реальному пошуку
