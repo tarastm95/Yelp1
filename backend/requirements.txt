@@ -68,4 +68,5 @@ pydantic>=2.0.0,<3.0.0     # Data validation and contracts
 
 # 🚀 Production Server (optional)
 gunicorn>=21.0.0,<22.0.0   # WSGI HTTP server
+uvicorn>=0.30.0,<1.0.0     # ASGI HTTP server
 whitenoise>=6.0.0,<7.0.0   # Static file serving
