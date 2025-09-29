@@ -1137,6 +1137,10 @@ const AutoResponseSettings: FC = () => {
         // Business-specific AI Model Settings
         ai_model: aiModel,
         ai_temperature: aiTemperature === '' ? null : aiTemperature,
+        // Vector Search Settings (for preview)
+        vector_similarity_threshold: vectorSimilarityThreshold,
+        vector_search_limit: vectorSearchLimit,
+        vector_chunk_types: vectorChunkTypes,
       });
 
       setAiPreview(response.data.preview);
@@ -2677,6 +2681,52 @@ In what location do you need the service?
                                   }}
                                   helperText={`${aiCustomPreviewText.length} characters. If provided, this text will be used instead of mock data for AI Preview generation.`}
                                 />
+                                
+                                {/* Vector Search Status for Preview */}
+                                {aiCustomPreviewText && (
+                                  <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                                    {useSampleReplies ? (
+                                      <Chip 
+                                        icon={<VectorIcon />}
+                                        label="🔍 Vector Search Active for Preview"
+                                        size="small"
+                                        color="success"
+                                        variant="filled"
+                                      />
+                                    ) : (
+                                      <Chip 
+                                        label="📝 Standard Preview (No Vector Search)"
+                                        size="small"
+                                        color="default"
+                                        variant="outlined"
+                                      />
+                                    )}
+                                    
+                                    {useSampleReplies && (
+                                      <Box sx={{ display: 'flex', gap: 0.5 }}>
+                                        <Chip 
+                                          label={`Threshold: ${vectorSimilarityThreshold}`}
+                                          size="small"
+                                          color="info"
+                                          variant="outlined"
+                                        />
+                                        <Chip 
+                                          label={`Limit: ${vectorSearchLimit}`}
+                                          size="small"
+                                          color="info"
+                                          variant="outlined"
+                                        />
+                                      </Box>
+                                    )}
+                                    
+                                    <Typography variant="caption" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
+                                      {useSampleReplies 
+                                        ? `Preview will use vector search from ${sampleRepliesFilename || 'your Sample Replies'}`
+                                        : 'Enable Sample Replies for vector-enhanced previews'
+                                      }
+                                    </Typography>
+                                  </Box>
+                                )}
                               </Box>
 
                               {/* AI Preview */}

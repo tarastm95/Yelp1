@@ -383,6 +383,57 @@ class OpenAIService:
                 "original_customer_text": original_customer_text  # 🎯 Використовуємо custom або мокові дані
             }
             
+            # 🔍 VECTOR SEARCH INTEGRATION for Custom Preview Text
+            if custom_preview_text and business_ai_settings and business_ai_settings.use_sample_replies:
+                logger.info(f"[AI-SERVICE] 🔍 PREVIEW: Integrating Vector Search with Custom Preview Text")
+                logger.info(f"[AI-SERVICE] Custom text: {custom_preview_text[:100]}...")
+                
+                try:
+                    from .vector_search_service import vector_search_service
+                    
+                    # Використовуємо налаштування vector search з business settings
+                    similarity_threshold = getattr(business_ai_settings, 'vector_similarity_threshold', 0.6)
+                    search_limit = getattr(business_ai_settings, 'vector_search_limit', 5)
+                    chunk_types = getattr(business_ai_settings, 'vector_chunk_types', None)
+                    
+                    logger.info(f"[AI-SERVICE] Vector search settings: threshold={similarity_threshold}, limit={search_limit}")
+                    
+                    similar_chunks = vector_search_service.search_similar_chunks(
+                        query_text=custom_preview_text,
+                        business_id=business.business_id,
+                        location_id=None,
+                        limit=search_limit,
+                        similarity_threshold=similarity_threshold,
+                        chunk_types=chunk_types if chunk_types else None
+                    )
+                    
+                    if similar_chunks:
+                        logger.info(f"[AI-SERVICE] 🎉 PREVIEW: Found {len(similar_chunks)} similar chunks via vector search")
+                        for i, chunk in enumerate(similar_chunks[:3]):
+                            logger.info(f"[AI-SERVICE] Preview Chunk {i+1}: similarity={chunk['similarity_score']:.3f}, type={chunk['chunk_type']}")
+                        
+                        # Додаємо vector context до prompt
+                        context["sample_replies_context"] = similar_chunks
+                        context["vector_search_enabled"] = True
+                        context["vector_results_count"] = len(similar_chunks)
+                        
+                        logger.info(f"[AI-SERVICE] ✅ PREVIEW: Vector context added to AI prompt")
+                    else:
+                        logger.warning(f"[AI-SERVICE] ⚠️ PREVIEW: No similar chunks found for custom text")
+                        context["vector_search_enabled"] = False
+                        
+                except Exception as vector_error:
+                    logger.error(f"[AI-SERVICE] ❌ PREVIEW: Vector search failed: {vector_error}")
+                    context["vector_search_enabled"] = False
+            else:
+                context["vector_search_enabled"] = False
+                if not business_ai_settings:
+                    logger.info(f"[AI-SERVICE] PREVIEW: No business AI settings for vector search")
+                elif not business_ai_settings.use_sample_replies:
+                    logger.info(f"[AI-SERVICE] PREVIEW: Sample Replies not enabled for this business")
+                elif not custom_preview_text:
+                    logger.info(f"[AI-SERVICE] PREVIEW: No custom preview text provided")
+            
             prompt = self._create_greeting_prompt(context, response_style, custom_prompt)
             
             # Отримання AI налаштувань з business-specific fallback для preview
@@ -750,6 +801,30 @@ class OpenAIService:
             
             business_info = "\n".join(business_info_parts) if business_info_parts else "No additional business information configured."
             
+            # 🔍 VECTOR SEARCH CONTEXT for Custom Preview Text
+            vector_context = ""
+            if context.get('sample_replies_context'):
+                logger.info(f"[AI-SERVICE] 🔍 Adding vector search context to preview prompt")
+                similar_chunks = context['sample_replies_context']
+                
+                vector_parts = []
+                for i, chunk in enumerate(similar_chunks[:3]):  # Top 3 most similar
+                    similarity_score = chunk['similarity_score']
+                    chunk_type = chunk['chunk_type']
+                    content = chunk['content']
+                    
+                    vector_parts.append(
+                        f"Similar Example {i+1} (similarity: {similarity_score:.2f}, type: {chunk_type}):\n{content}\n"
+                    )
+                
+                vector_context = f"""
+RELEVANT SAMPLE REPLIES (found via vector search):
+{chr(10).join(vector_parts)}
+
+STYLE GUIDANCE: Use the tone, approach, and communication style from the similar examples above. The higher the similarity score, the more closely you should match that style.
+"""
+                logger.info(f"[AI-SERVICE] 📝 Added {len(similar_chunks)} vector chunks to preview context")
+            
             contextual_prompt = f"""Customer message:
 "{customer_text}"
 
@@ -757,7 +832,7 @@ Customer name: {customer_name}
 Business name: {business_name}
 
 Business Information:
-{business_info}
+{business_info}{vector_context}
 
 Please analyze the customer's request and respond according to the instructions provided in the system prompt. Use the business information provided above when generating your response. Generate a complete, personalized response."""
             
