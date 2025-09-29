@@ -27,15 +27,10 @@ cryptography>=41.0.0,<42.0.0
 # Database
 psycopg2-binary>=2.9.6,<3.0.0
 
-# Vector Database Support
-pgvector>=0.2.4,<1.0.0     # PostgreSQL vector support
-tiktoken>=0.5.0,<1.0.0     # OpenAI tokenizer
-numpy>=1.24.0,<2.0.0       # Vector operations
-
 # OpenAI API
-openai>=1.10.0,<2.0.0      # OpenAI API client
+openai>=1.10.0,<2.0.0
 
-# PDF Processing
+# PDF Processing & Vector Database
 PyMuPDF>=1.23.0,<2.0.0     # PDF parsing and text extraction
 pgvector>=0.2.4,<1.0.0     # PostgreSQL vector support
 tiktoken>=0.5.0,<1.0.0     # OpenAI tokenizer
@@ -53,5 +48,5 @@ spacy>=3.7.0,<4.0.0        # Professional NLP with Matcher/PhraseMatcher
 transformers>=4.35.0,<5.0.0 # Zero-shot classification for edge cases
 
 # 🎯 Structured Data Extraction (ExtractThinker)
-extract-thinker>=0.14.0    # AI-powered structured data extraction
+extract-thinker>=0.1.14,<0.2.0  # AI-powered structured data extraction (fixed version)
 pydantic>=2.0.0,<3.0.0     # Data validation and contracts
