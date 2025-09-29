@@ -404,7 +404,7 @@ class OpenAIService:
                         location_id=None,
                         limit=search_limit,
                         similarity_threshold=similarity_threshold,
-                        chunk_types=chunk_types if chunk_types else None
+                        chunk_types=['response', 'example'] if not chunk_types else chunk_types  # Приоритет response chunks
                     )
                     
                     if similar_chunks:
@@ -1105,7 +1105,7 @@ Generate a personalized, professional response to the customer using the style g
                         location_id=None,  # TODO: Add location support if needed
                         limit=5,
                         similarity_threshold=0.6,
-                        chunk_types=['example', 'response', 'inquiry']  # Пріоритет релевантним типам
+                        chunk_types=['response', 'example']  # Тільки business responses, не customer inquiries
                     )
                     
                     if not similar_chunks:

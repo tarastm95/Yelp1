@@ -268,15 +268,46 @@ class VectorPDFService:
         return len(self.encoding.encode(text))
     
     def _identify_chunk_type(self, text: str) -> str:
-        """Визначає тип контенту секції"""
-        text_lower = text.lower()
+        """Визначає тип контенту секції з покращеним розпізнаванням"""
+        text_lower = text.lower().strip()
         
-        if 'inquiry information:' in text_lower:
+        # Пріоритет: шукаємо business response patterns
+        response_patterns = [
+            'good afternoon', 'good morning', 'thanks for reaching out', 
+            'thank you for', "we'd be glad", 'we could set up', 'talk soon',
+            'thanks so much', 'we can take care of', 'we understand that',
+            'our team', 'please let', 'if you have any', 'we look forward'
+        ]
+        
+        # Inquiry patterns (customer data)  
+        inquiry_patterns = [
+            'name:', 'lead created:', 'what kind of', 'how many stories',
+            'when do you require', 'in what location', 'are there any other details'
+        ]
+        
+        # Підрахунок відповідностей
+        response_matches = sum(1 for pattern in response_patterns if pattern in text_lower)
+        inquiry_matches = sum(1 for pattern in inquiry_patterns if pattern in text_lower)
+        
+        # Явні маркери
+        if 'response:' in text_lower:
+            return 'response'
+        elif 'inquiry information:' in text_lower:
             return 'inquiry'
-        elif 'response:' in text_lower:
-            return 'response'  
         elif ('inquiry information:' in text_lower and 'response:' in text_lower):
             return 'example'
+        # Інтелектуальне розпізнавання за контентом
+        elif response_matches >= 2:  # 2+ response patterns
+            return 'response'
+        elif inquiry_matches >= 3:   # 3+ inquiry patterns  
+            return 'inquiry'
+        elif response_matches > 0 and inquiry_matches > 0:
+            return 'example'  # Mixed content
+        # Аналіз довжини та структури
+        elif len(text_lower) > 200 and any(greeting in text_lower for greeting in ['good ', 'thank', 'we ', 'our ']):
+            return 'response'  # Довгі тексти з business language
+        elif any(marker in text_lower for marker in ['name:', 'lead created:', 'ca 9']):
+            return 'inquiry'  # Короткі структуровані дані
         else:
             return 'general'
     
