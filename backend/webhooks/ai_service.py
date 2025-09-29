@@ -842,8 +842,49 @@ Please analyze the customer's request and respond according to the instructions 
             
             return contextual_prompt
         
-        # 🚫 БЕЗ CUSTOM INSTRUCTIONS - повертаємо порожній промпт
-        logger.warning(f"[AI-SERVICE] ⚠️ No custom instructions provided - returning empty prompt")
+        # 🔍 БЕЗ CUSTOM INSTRUCTIONS - але перевіряємо чи є Vector Search context
+        customer_text = context.get('original_customer_text', '')
+        customer_name = context.get('customer_name', 'there')
+        business_name = context.get('business_name', 'our business')
+        
+        # Якщо є Vector Search context - використовуємо його навіть без custom prompt
+        if context.get('sample_replies_context'):
+            logger.info(f"[AI-SERVICE] 🔍 No custom instructions, but using Vector Search context for prompt")
+            
+            vector_context = ""
+            similar_chunks = context['sample_replies_context']
+            
+            vector_parts = []
+            for i, chunk in enumerate(similar_chunks[:3]):  # Top 3 most similar
+                similarity_score = chunk['similarity_score']
+                chunk_type = chunk['chunk_type']
+                content = chunk['content']
+                
+                vector_parts.append(
+                    f"Example {i+1} (similarity: {similarity_score:.2f}):\n{content}\n"
+                )
+            
+            vector_context = f"""
+RELEVANT SAMPLE REPLIES:
+{chr(10).join(vector_parts)}
+
+INSTRUCTIONS: Generate a professional response in the style of the examples above. Use the tone, approach, and communication patterns shown in the similar examples.
+"""
+            
+            basic_prompt = f"""Customer message:
+"{customer_text}"
+
+Customer name: {customer_name}
+Business name: {business_name}
+{vector_context}
+
+Generate a personalized, professional response to the customer using the style guidance from the examples above."""
+            
+            logger.info(f"[AI-SERVICE] ✅ Using Vector Search context without custom prompt")
+            return basic_prompt
+        
+        # Якщо немає ні custom prompt, ні vector context
+        logger.warning(f"[AI-SERVICE] ⚠️ No custom instructions and no vector context - returning empty prompt")
         return ""
     
     def _fallback_message(self, context: Dict[str, Any]) -> str:
