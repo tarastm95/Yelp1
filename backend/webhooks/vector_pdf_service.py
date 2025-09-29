@@ -258,7 +258,7 @@ class VectorPDFService:
         
         return self._create_standard_chunks(text, max_tokens)
 
-        def _create_standard_chunks(self, text: str, max_tokens: int) -> List[DocumentChunk]:
+    def _create_standard_chunks(self, text: str, max_tokens: int) -> List[DocumentChunk]:
         """Стандартне створення chunks (original method)"""
         
         logger.info(f"[VECTOR-PDF] 📄 Using standard chunking method")
