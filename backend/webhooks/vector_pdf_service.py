@@ -285,4 +285,5 @@ class VectorPDFService:
             r'Example\s*#\d+',
             r'Inquiry information:',
             r'Response:',
-            r'\n\n
+            r'\n\n\n+',  # Множинні переноси рядків
+        ]
