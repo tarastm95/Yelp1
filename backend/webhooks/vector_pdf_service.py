@@ -79,35 +79,81 @@ class VectorPDFService:
         except Exception as e:
             logger.error(f"[VECTOR-PDF] Failed to initialize tokenizer: {e}")
     
-    def extract_text_from_pdf(self, file_path: str) -> List[Dict]:
-        """Витягує текст з PDF з інформацією про сторінки"""
+    def extract_text_from_pdf_bytes(self, pdf_bytes: bytes, filename: str) -> Dict:
+        """🚀 Professional PDF extraction using advanced parser"""
+        
+        if ADVANCED_PDF_PARSER_AVAILABLE:
+            logger.info(f"[VECTOR-PDF] 🚀 Using Advanced PDF Parser for: {filename}")
+            
+            try:
+                result = advanced_pdf_parser.extract_text_from_pdf_bytes(pdf_bytes, filename)
+                
+                if result['success']:
+                    logger.info(f"[VECTOR-PDF] ✅ Advanced parser success!")
+                    logger.info(f"[VECTOR-PDF] Parser used: {result['parser_used']}")
+                    logger.info(f"[VECTOR-PDF] Structure preserved: {result['structure_preserved']}")
+                    logger.info(f"[VECTOR-PDF] Sections detected: {len(result['sections_detected'])}")
+                    
+                    for section in result['sections_detected']:
+                        logger.info(f"[VECTOR-PDF]   📋 {section}")
+                    
+                    return result
+                else:
+                    logger.warning(f"[VECTOR-PDF] ⚠️ Advanced parser failed, falling back to basic method")
+                    for error in result['errors']:
+                        logger.warning(f"[VECTOR-PDF]   - {error}")
+                        
+            except Exception as e:
+                logger.error(f"[VECTOR-PDF] ❌ Advanced parser exception: {e}")
+        
+        # Fallback to old method
+        logger.info(f"[VECTOR-PDF] 🔄 Using fallback PDF extraction")
+        return self._extract_text_fallback(pdf_bytes, filename)
+    
+    def _extract_text_fallback(self, pdf_bytes: bytes, filename: str) -> Dict:
+        """Fallback PDF extraction using PyMuPDF"""
         if not PDF_PROCESSING_AVAILABLE:
-            raise ValueError("PDF processing libraries not available. Please install PyMuPDF, tiktoken, numpy.")
+            raise ValueError("PDF processing libraries not available.")
         
         try:
-            logger.info(f"[VECTOR-PDF] Extracting text from PDF: {file_path}")
-            
-            doc = fitz.open(file_path)
+            doc = fitz.open("pdf", pdf_bytes)
             pages_data = []
+            all_text_parts = []
             
             for page_num in range(len(doc)):
                 page = doc[page_num]
                 text = page.get_text()
                 
-                if text.strip():  # Only add non-empty pages
+                if text.strip():
                     pages_data.append({
                         'page_number': page_num + 1,
                         'text': text,
                         'char_count': len(text)
                     })
+                    all_text_parts.append(text)
             
             doc.close()
-            logger.info(f"[VECTOR-PDF] Extracted text from {len(pages_data)} pages")
-            return pages_data
+            
+            return {
+                'success': True,
+                'text': "\n\n".join(all_text_parts),
+                'pages': pages_data,
+                'parser_used': 'pymupdf_fallback',
+                'structure_preserved': False,
+                'sections_detected': []
+            }
             
         except Exception as e:
-            logger.error(f"[VECTOR-PDF] Error extracting text from PDF: {e}")
-            raise
+            logger.error(f"[VECTOR-PDF] Fallback extraction error: {e}")
+            return {
+                'success': False,
+                'text': '',
+                'pages': [],
+                'parser_used': None,
+                'structure_preserved': False,
+                'sections_detected': [],
+                'errors': [str(e)]
+            }
     
     def extract_text_from_uploaded_file(self, file_content: bytes, filename: str) -> str:
         """Базовий парсинг файлу з підтримкою PDF та text"""
@@ -157,8 +203,123 @@ class VectorPDFService:
             return "PROCESSING_ERROR"
     
     def create_semantic_chunks(self, text: str, max_tokens: int = 800) -> List[DocumentChunk]:
-        """Створює семантичні чанки з тексту"""
-        logger.info(f"[VECTOR-PDF] Creating semantic chunks with max_tokens: {max_tokens}")
+        """🎯 Розумне створення chunks з детекцією Sample Replies структури"""
+        
+        logger.info(f"[VECTOR-PDF] 🧠 SMART CHUNKING: Analyzing document structure...")
+        logger.info(f"[VECTOR-PDF] Text length: {len(text)} chars, max_tokens: {max_tokens}")
+        
+        # Детекція чи це Sample Replies документ
+        is_sample_replies = self._detect_sample_replies_document(text)
+        
+        if is_sample_replies:
+            logger.info(f"[VECTOR-PDF] 🎯 SAMPLE REPLIES DETECTED - Using specialized chunker")
+            return self._create_sample_replies_chunks(text, max_tokens)
+        else:
+            logger.info(f"[VECTOR-PDF] 📄 REGULAR DOCUMENT - Using standard chunking")
+            return self._create_standard_chunks(text, max_tokens)
+    
+    def _detect_sample_replies_document(self, text: str) -> bool:
+        """Детектує чи це документ Sample Replies"""
+        
+        text_lower = text.lower()
+        
+        # Ключові індикатори Sample Replies
+        indicators = [
+            'inquiry information:' in text_lower,
+            'response:' in text_lower,
+            'example #' in text_lower or 'example#' in text_lower,
+            re.search(r'name:\s*[a-z]+ [a-z]\.?', text_lower),  # Name: John D.
+            'talk soon' in text_lower
+        ]
+        
+        detected_count = sum(indicators)
+        is_sample_replies = detected_count >= 2  # Мінімум 2 індикатори
+        
+        logger.info(f"[VECTOR-PDF] 🔍 Sample Replies detection:")
+        logger.info(f"[VECTOR-PDF]   Indicators found: {detected_count}/5")
+        logger.info(f"[VECTOR-PDF]   Is Sample Replies: {is_sample_replies}")
+        
+        return is_sample_replies
+    
+    def _create_sample_replies_chunks(self, text: str, max_tokens: int) -> List[DocumentChunk]:
+        """Створює chunks використовуючи спеціалізований Sample Replies chunker"""
+        
+        try:
+            # Використовуємо спеціалізований chunker
+            sections = sample_replies_chunker.parse_sample_replies_document(text)
+            
+            if not sections:
+                logger.warning("[VECTOR-PDF] ⚠️ Specialized chunker failed, falling back to standard")
+                return self._create_standard_chunks(text, max_tokens)
+            
+            # Конвертуємо в DocumentChunk об'єкти
+            chunks = []
+            chunk_index = 0
+            
+            for section in sections:
+                # Inquiry chunk
+                inquiry_chunk = DocumentChunk(
+                    content=section.inquiry_text,
+                    page_number=1,
+                    chunk_index=chunk_index,
+                    token_count=self._count_tokens(section.inquiry_text),
+                    chunk_type='inquiry',
+                    metadata={
+                        'example_number': section.example_number,
+                        'customer_name': section.customer_name,
+                        'service_type': section.service_type,
+                        'location': section.location,
+                        'chunk_purpose': 'customer_data',
+                        'has_inquiry': True,
+                        'has_response': False,
+                        'specialized_chunking': True
+                    }
+                )
+                chunks.append(inquiry_chunk)
+                chunk_index += 1
+                
+                # Response chunk  
+                response_chunk = DocumentChunk(
+                    content=section.response_text,
+                    page_number=1,
+                    chunk_index=chunk_index,
+                    token_count=self._count_tokens(section.response_text),
+                    chunk_type='response',
+                    metadata={
+                        'example_number': section.example_number,
+                        'customer_name': section.customer_name,
+                        'service_type': section.service_type,
+                        'location': section.location,
+                        'chunk_purpose': 'business_response',
+                        'has_inquiry': False,
+                        'has_response': True,
+                        'specialized_chunking': True,
+                        'response_style': section.raw_response[:50] + '...' if len(section.raw_response) > 50 else section.raw_response
+                    }
+                )
+                chunks.append(response_chunk)
+                chunk_index += 1
+            
+            logger.info(f"[VECTOR-PDF] 🎉 SPECIALIZED CHUNKING SUCCESS:")
+            logger.info(f"[VECTOR-PDF] Created {len(chunks)} specialized chunks from {len(sections)} examples")
+            
+            # Статистика
+            chunk_stats = {}
+            for chunk in chunks:
+                chunk_stats[chunk.chunk_type] = chunk_stats.get(chunk.chunk_type, 0) + 1
+            logger.info(f"[VECTOR-PDF] Chunk distribution: {chunk_stats}")
+            
+            return chunks
+            
+        except Exception as e:
+            logger.error(f"[VECTOR-PDF] ❌ Specialized chunking failed: {e}")
+            logger.warning("[VECTOR-PDF] 🔄 Falling back to standard chunking")
+            return self._create_standard_chunks(text, max_tokens)
+    
+    def _create_standard_chunks(self, text: str, max_tokens: int) -> List[DocumentChunk]:
+        """Стандартне створення chunks (original method)"""
+        
+        logger.info(f"[VECTOR-PDF] 📄 Using standard chunking method")
         
         chunks = []
         chunk_index = 0
@@ -188,12 +349,13 @@ class VectorPDFService:
                             'has_response': 'Response:' in chunk_text,
                             'has_customer_name': bool(re.search(r'Name:\s*\w+', chunk_text)),
                             'has_service_type': any(word in chunk_text.lower() for word in ['roof', 'repair', 'construction', 'service']),
-                            'section_length': len(chunk_text)
+                            'section_length': len(chunk_text),
+                            'specialized_chunking': False
                         }
                     ))
                     chunk_index += 1
         
-        logger.info(f"[VECTOR-PDF] Created {len(chunks)} semantic chunks")
+        logger.info(f"[VECTOR-PDF] Created {len(chunks)} standard chunks")
         return chunks
     
     def _split_by_sections(self, text: str) -> List[str]:
@@ -391,25 +553,25 @@ class VectorPDFService:
         try:
             # Витягування тексту з файлу
             if b'%PDF' in file_content[:100] or filename.lower().endswith('.pdf'):
-                if not PDF_PROCESSING_AVAILABLE:
-                    raise ValueError("PDF processing not available. Please install required libraries.")
+                logger.info(f"[VECTOR-PDF] 📄 PDF detected: {filename}")
                 
-                # Збереження тимчасового файлу для PyMuPDF
+                # Використовуємо професійний PDF parser
+                pdf_result = self.extract_text_from_pdf_bytes(file_content, filename)
+                
+                if not pdf_result['success']:
+                    raise ValueError("Failed to extract text from PDF with all available parsers")
+                
+                all_text = pdf_result['text']
+                page_count = len(pdf_result['pages'])
+                
+                logger.info(f"[VECTOR-PDF] 📊 PDF Extraction Results:")
+                logger.info(f"[VECTOR-PDF]   Parser used: {pdf_result['parser_used']}")
+                logger.info(f"[VECTOR-PDF]   Pages: {page_count}")
+                logger.info(f"[VECTOR-PDF]   Text length: {len(all_text)} chars")
+                logger.info(f"[VECTOR-PDF]   Structure preserved: {pdf_result['structure_preserved']}")
+                
+                # Додаємо інформацію про парсер у metadata
                 file_hash = self.calculate_file_hash(file_content)
-                temp_path = f"temp_pdfs/{file_hash}_{filename}"
-                saved_path = default_storage.save(temp_path, ContentFile(file_content))
-                full_path = default_storage.path(saved_path)
-                
-                try:
-                    pages_data = self.extract_text_from_pdf(full_path)
-                    all_text = "\n\n".join(page['text'] for page in pages_data)
-                    page_count = len(pages_data)
-                finally:
-                    # Очищення тимчасового файлу
-                    try:
-                        default_storage.delete(saved_path)
-                    except:
-                        pass
             else:
                 # Plain text file
                 all_text = file_content.decode('utf-8', errors='ignore')
@@ -453,7 +615,14 @@ class VectorPDFService:
                                 for chunk_type in set(chunk.chunk_type for chunk in chunks)
                             },
                             'avg_tokens_per_chunk': sum(chunk.token_count for chunk in chunks) / len(chunks)
-                        }
+                        },
+                        'pdf_parsing_info': {
+                            'parser_used': pdf_result.get('parser_used', 'unknown'),
+                            'structure_preserved': pdf_result.get('structure_preserved', False),
+                            'sections_detected': pdf_result.get('sections_detected', []),
+                            'pages_parsed': page_count,
+                            'structure_quality_score': pdf_result.get('structure_quality_score', 0)
+                        } if 'pdf_result' in locals() else {}
                     }
                 )
                 
@@ -497,8 +666,123 @@ class VectorPDFService:
             raise
     
     def create_semantic_chunks(self, text: str, max_tokens: int = 800) -> List[DocumentChunk]:
-        """Створює семантичні чанки з тексту"""
-        logger.info(f"[VECTOR-PDF] Creating semantic chunks with max_tokens: {max_tokens}")
+        """🎯 Розумне створення chunks з детекцією Sample Replies структури"""
+        
+        logger.info(f"[VECTOR-PDF] 🧠 SMART CHUNKING: Analyzing document structure...")
+        logger.info(f"[VECTOR-PDF] Text length: {len(text)} chars, max_tokens: {max_tokens}")
+        
+        # Детекція чи це Sample Replies документ
+        is_sample_replies = self._detect_sample_replies_document(text)
+        
+        if is_sample_replies:
+            logger.info(f"[VECTOR-PDF] 🎯 SAMPLE REPLIES DETECTED - Using specialized chunker")
+            return self._create_sample_replies_chunks(text, max_tokens)
+        else:
+            logger.info(f"[VECTOR-PDF] 📄 REGULAR DOCUMENT - Using standard chunking")
+            return self._create_standard_chunks(text, max_tokens)
+    
+    def _detect_sample_replies_document(self, text: str) -> bool:
+        """Детектує чи це документ Sample Replies"""
+        
+        text_lower = text.lower()
+        
+        # Ключові індикатори Sample Replies
+        indicators = [
+            'inquiry information:' in text_lower,
+            'response:' in text_lower,
+            'example #' in text_lower or 'example#' in text_lower,
+            re.search(r'name:\s*[a-z]+ [a-z]\.?', text_lower),  # Name: John D.
+            'talk soon' in text_lower
+        ]
+        
+        detected_count = sum(indicators)
+        is_sample_replies = detected_count >= 2  # Мінімум 2 індикатори
+        
+        logger.info(f"[VECTOR-PDF] 🔍 Sample Replies detection:")
+        logger.info(f"[VECTOR-PDF]   Indicators found: {detected_count}/5")
+        logger.info(f"[VECTOR-PDF]   Is Sample Replies: {is_sample_replies}")
+        
+        return is_sample_replies
+    
+    def _create_sample_replies_chunks(self, text: str, max_tokens: int) -> List[DocumentChunk]:
+        """Створює chunks використовуючи спеціалізований Sample Replies chunker"""
+        
+        try:
+            # Використовуємо спеціалізований chunker
+            sections = sample_replies_chunker.parse_sample_replies_document(text)
+            
+            if not sections:
+                logger.warning("[VECTOR-PDF] ⚠️ Specialized chunker failed, falling back to standard")
+                return self._create_standard_chunks(text, max_tokens)
+            
+            # Конвертуємо в DocumentChunk об'єкти
+            chunks = []
+            chunk_index = 0
+            
+            for section in sections:
+                # Inquiry chunk
+                inquiry_chunk = DocumentChunk(
+                    content=section.inquiry_text,
+                    page_number=1,
+                    chunk_index=chunk_index,
+                    token_count=self._count_tokens(section.inquiry_text),
+                    chunk_type='inquiry',
+                    metadata={
+                        'example_number': section.example_number,
+                        'customer_name': section.customer_name,
+                        'service_type': section.service_type,
+                        'location': section.location,
+                        'chunk_purpose': 'customer_data',
+                        'has_inquiry': True,
+                        'has_response': False,
+                        'specialized_chunking': True
+                    }
+                )
+                chunks.append(inquiry_chunk)
+                chunk_index += 1
+                
+                # Response chunk  
+                response_chunk = DocumentChunk(
+                    content=section.response_text,
+                    page_number=1,
+                    chunk_index=chunk_index,
+                    token_count=self._count_tokens(section.response_text),
+                    chunk_type='response',
+                    metadata={
+                        'example_number': section.example_number,
+                        'customer_name': section.customer_name,
+                        'service_type': section.service_type,
+                        'location': section.location,
+                        'chunk_purpose': 'business_response',
+                        'has_inquiry': False,
+                        'has_response': True,
+                        'specialized_chunking': True,
+                        'response_style': section.raw_response[:50] + '...' if len(section.raw_response) > 50 else section.raw_response
+                    }
+                )
+                chunks.append(response_chunk)
+                chunk_index += 1
+            
+            logger.info(f"[VECTOR-PDF] 🎉 SPECIALIZED CHUNKING SUCCESS:")
+            logger.info(f"[VECTOR-PDF] Created {len(chunks)} specialized chunks from {len(sections)} examples")
+            
+            # Статистика
+            chunk_stats = {}
+            for chunk in chunks:
+                chunk_stats[chunk.chunk_type] = chunk_stats.get(chunk.chunk_type, 0) + 1
+            logger.info(f"[VECTOR-PDF] Chunk distribution: {chunk_stats}")
+            
+            return chunks
+            
+        except Exception as e:
+            logger.error(f"[VECTOR-PDF] ❌ Specialized chunking failed: {e}")
+            logger.warning("[VECTOR-PDF] 🔄 Falling back to standard chunking")
+            return self._create_standard_chunks(text, max_tokens)
+    
+    def _create_standard_chunks(self, text: str, max_tokens: int) -> List[DocumentChunk]:
+        """Стандартне створення chunks (original method)"""
+        
+        logger.info(f"[VECTOR-PDF] 📄 Using standard chunking method")
         
         chunks = []
         chunk_index = 0
@@ -528,12 +812,13 @@ class VectorPDFService:
                             'has_response': 'Response:' in chunk_text,
                             'has_customer_name': bool(re.search(r'Name:\s*\w+', chunk_text)),
                             'has_service_type': any(word in chunk_text.lower() for word in ['roof', 'repair', 'construction', 'service']),
-                            'section_length': len(chunk_text)
+                            'section_length': len(chunk_text),
+                            'specialized_chunking': False
                         }
                     ))
                     chunk_index += 1
         
-        logger.info(f"[VECTOR-PDF] Created {len(chunks)} semantic chunks")
+        logger.info(f"[VECTOR-PDF] Created {len(chunks)} standard chunks")
         return chunks
     
     def _split_by_sections(self, text: str) -> List[str]:
