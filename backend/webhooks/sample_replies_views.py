@@ -569,10 +569,16 @@ class VectorChunkListView(APIView):
     def get(self, request):
         """Отримати список чанків"""
         
+        logger.info(f"[VECTOR-CHUNKS-API] ========== CHUNKS LIST REQUEST ==========")
+        
         business_id = request.GET.get('business_id')
         location_id = request.GET.get('location_id', None)
         chunk_type = request.GET.get('chunk_type', None)
         limit = min(int(request.GET.get('limit', 10)), 50)
+        
+        logger.info(f"[VECTOR-CHUNKS-API] Business: {business_id}")
+        logger.info(f"[VECTOR-CHUNKS-API] Limit: {limit}")
+        logger.info(f"[VECTOR-CHUNKS-API] Filters: location={location_id}, type={chunk_type}")
         
         if not business_id:
             return Response({
@@ -589,8 +595,10 @@ class VectorChunkListView(APIView):
                 doc_filter &= Q(location_id=location_id)
             
             documents = VectorDocument.objects.filter(doc_filter)
+            logger.info(f"[VECTOR-CHUNKS-API] Found {documents.count()} completed documents")
             
             if not documents.exists():
+                logger.warning(f"[VECTOR-CHUNKS-API] No completed vector documents found for business {business_id}")
                 return Response({
                     'chunks': [],
                     'total': 0,
@@ -603,25 +611,58 @@ class VectorChunkListView(APIView):
                 chunk_filter &= Q(chunk_type=chunk_type)
             
             chunks = VectorChunk.objects.filter(chunk_filter).select_related('document')[:limit]
+            logger.info(f"[VECTOR-CHUNKS-API] Found {chunks.count()} chunks to process")
             
             chunks_data = []
             for chunk in chunks:
-                chunks_data.append({
-                    'id': chunk.id,
-                    'content': chunk.get_preview(200),
-                    'full_content': chunk.content,
-                    'page_number': chunk.page_number,
-                    'chunk_index': chunk.chunk_index,
-                    'token_count': chunk.token_count,
-                    'chunk_type': chunk.chunk_type,
-                    'metadata': chunk.metadata,
-                    'document_filename': chunk.document.filename,
-                    'created_at': chunk.created_at.isoformat(),
-                    'has_embedding': chunk.similarity_search_ready
-                })
+                try:
+                    chunks_data.append({
+                        'id': chunk.id,
+                        'content': chunk.get_preview(200),
+                        'full_content': chunk.content,
+                        'page_number': chunk.page_number,
+                        'chunk_index': chunk.chunk_index,
+                        'token_count': chunk.token_count,
+                        'chunk_type': chunk.chunk_type,
+                        'metadata': chunk.metadata,
+                        'document_filename': chunk.document.filename,
+                        'created_at': chunk.created_at.isoformat(),
+                        'has_embedding': chunk.similarity_search_ready
+                    })
+                except Exception as chunk_error:
+                    logger.error(f"[VECTOR-CHUNKS-API] Error processing chunk {chunk.id}: {chunk_error}")
+                    logger.exception("[VECTOR-CHUNKS-API] Chunk processing error details:")
+                    # Додати chunk з мінімальною інформацією
+                    chunks_data.append({
+                        'id': chunk.id,
+                        'content': 'Error loading chunk content',
+                        'full_content': f'Error: {str(chunk_error)}',
+                        'page_number': getattr(chunk, 'page_number', 0),
+                        'chunk_index': getattr(chunk, 'chunk_index', 0),
+                        'token_count': getattr(chunk, 'token_count', 0),
+                        'chunk_type': getattr(chunk, 'chunk_type', 'unknown'),
+                        'metadata': {},
+                        'document_filename': 'Unknown',
+                        'created_at': 'Unknown',
+                        'has_embedding': False,
+                        'error': str(chunk_error)
+                    })
             
-            # Статистика
-            stats = vector_search_service.get_chunk_statistics(business_id, location_id)
+            # Статистика (з безпечною обробкою)
+            try:
+                stats = vector_search_service.get_chunk_statistics(business_id, location_id)
+                logger.info(f"[VECTOR-CHUNKS-API] Statistics loaded successfully")
+            except Exception as stats_error:
+                logger.error(f"[VECTOR-CHUNKS-API] Error loading statistics: {stats_error}")
+                stats = {
+                    'total_documents': 0,
+                    'total_chunks': len(chunks_data),
+                    'total_tokens': 0,
+                    'chunk_types': {},
+                    'error': str(stats_error)
+                }
+            
+            logger.info(f"[VECTOR-CHUNKS-API] ✅ Returning {len(chunks_data)} chunks")
             
             return Response({
                 'chunks': chunks_data,
