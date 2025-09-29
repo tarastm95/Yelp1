@@ -50,7 +50,7 @@ class HybridChunkClassifier:
         self.matcher = None
         self.phrase_matcher = None
         self.zero_shot_classifier = None
-        self.confidence_threshold = 2.0  # Мінімум matches для впевненості
+        self.confidence_threshold = 1.0  # ⬇️ Знижений поріг для кращого розпізнавання
         
         self._init_spacy()
         self._init_zero_shot()
@@ -381,31 +381,39 @@ class HybridChunkClassifier:
             return None
     
     def _ml_fallback_classification(self, text: str) -> Optional[ClassificationResult]:
-        """ML fallback використовуючи існуючий scikit-learn classifier"""
-        try:
-            from .chunk_classifier_ml import ml_chunk_classifier
-            
-            if not ml_chunk_classifier.is_trained:
-                logger.warning("[HYBRID-CLASSIFIER] ⚠️ ML classifier not trained")
-                return None
-            
-            predicted_type = ml_chunk_classifier.classify_chunk(text)
-            confidence_analysis = ml_chunk_classifier.analyze_chunk_confidence(text)
-            
-            max_confidence = confidence_analysis.get('max_confidence', 0.0)
-            
-            logger.info(f"[HYBRID-CLASSIFIER] 🤖 ML fallback: {predicted_type} (conf: {max_confidence:.3f})")
-            
+        """🚫 ML fallback відключений до встановлення scikit-learn"""
+        logger.warning("[HYBRID-CLASSIFIER] ⚠️ ML fallback not available - using simplified heuristics")
+        
+        # Простий heuristic fallback на основі довжини та структури
+        text_lower = text.lower().strip()
+        text_len = len(text)
+        
+        # Структурні дані зазвичай коротші та містять двокрапки
+        colon_count = text_lower.count(':')
+        has_structured_data = colon_count >= 2 and text_len < 300
+        
+        # Довгі тексти з бізнес-мовою
+        has_business_language = any(word in text_lower for word in ['we', 'our', 'company', 'service', 'team'])
+        is_long_text = text_len > 100
+        
+        if has_structured_data:
             return ClassificationResult(
-                predicted_type=predicted_type,
-                confidence_score=max_confidence * 2.0,  # Scale to match rule scoring
-                method_used='ml_fallback',
-                rule_matches={'ml_confidence': max_confidence}
+                predicted_type='inquiry',
+                confidence_score=1.5,  # Medium confidence for heuristics
+                method_used='heuristic_structured',
+                rule_matches={'colon_count': colon_count, 'text_length': text_len}
             )
-            
-        except Exception as e:
-            logger.error(f"[HYBRID-CLASSIFIER] ❌ ML fallback failed: {e}")
-            return None
+        elif has_business_language and is_long_text:
+            return ClassificationResult(
+                predicted_type='response', 
+                confidence_score=1.2,  # Lower confidence for heuristics
+                method_used='heuristic_business',
+                rule_matches={'text_length': text_len, 'business_indicators': 1}
+            )
+        
+        # Якщо нічого не підходить
+        logger.warning("[HYBRID-CLASSIFIER] ⚠️ Heuristic fallback: no clear pattern detected")
+        return None
     
     def classify_chunk(self, text: str) -> str:
         """Основний метод класифікації (для сумісності з існуючим кодом)"""
