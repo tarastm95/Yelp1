@@ -398,6 +398,13 @@ class OpenAIService:
                     
                     logger.info(f"[AI-SERVICE] Vector search settings: threshold={similarity_threshold}, limit={search_limit}")
                     
+                    logger.info(f"[AI-SERVICE] 🔍 CALLING VECTOR SEARCH:")
+                    logger.info(f"[AI-SERVICE] Query text: {custom_preview_text[:100]}...")
+                    logger.info(f"[AI-SERVICE] Business: {business.business_id}")
+                    logger.info(f"[AI-SERVICE] Similarity threshold: {similarity_threshold}")
+                    logger.info(f"[AI-SERVICE] Search limit: {search_limit}")
+                    logger.info(f"[AI-SERVICE] Chunk types filter: {['response', 'example'] if not chunk_types else chunk_types}")
+                    
                     similar_chunks = vector_search_service.search_similar_chunks(
                         query_text=custom_preview_text,
                         business_id=business.business_id,
@@ -406,6 +413,9 @@ class OpenAIService:
                         similarity_threshold=similarity_threshold,
                         chunk_types=['response', 'example'] if not chunk_types else chunk_types  # Приоритет response chunks
                     )
+                    
+                    logger.info(f"[AI-SERVICE] 📊 VECTOR SEARCH RESULTS:")
+                    logger.info(f"[AI-SERVICE] Found chunks: {len(similar_chunks) if similar_chunks else 0}")
                     
                     if similar_chunks:
                         logger.info(f"[AI-SERVICE] 🎉 PREVIEW: Found {len(similar_chunks)} similar chunks via vector search")

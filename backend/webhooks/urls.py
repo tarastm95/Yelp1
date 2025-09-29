@@ -35,6 +35,7 @@ from .sample_replies_views import (
 )
 
 # ML Classifier API Views
+from .debug_views import VectorDebugView, ChunkAnalysisView
 from .ml_classifier_views import (
     MLClassifierStatusView,
     MLClassifierRetrainView,
@@ -177,4 +178,8 @@ urlpatterns = [
     # Hybrid Enterprise Classifier
     path('hybrid-classifier/test/', HybridClassifierTestView.as_view(), name='hybrid_classifier_test'),
     path('chunks/reclassify/', ReclassifyChunksView.as_view(), name='reclassify_chunks'),
+    
+    # 🔍 Debug Endpoints
+    path('debug/vector/', VectorDebugView.as_view(), name='vector_debug'),
+    path('debug/chunk-analysis/', ChunkAnalysisView.as_view(), name='chunk_analysis'),
 ]

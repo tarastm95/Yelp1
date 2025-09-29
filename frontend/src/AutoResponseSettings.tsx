@@ -397,6 +397,13 @@ const AutoResponseSettings: FC = () => {
     const fetch = (remain: number) => {
       axios.get<AutoResponse>(url)
         .then(res => {
+        console.log('✅ [FRONTEND] AI Preview response received:', res.data);
+        console.log('📊 [FRONTEND] Response details:', {
+          preview: res.data.preview?.substring(0, 100) + '...',
+          vectorSearchEnabled: res.data.vector_search_enabled,
+          vectorResultsCount: res.data.vector_results_count,
+          status: res.status
+        });
           setError('');
           const d = res.data;
           setSettingsId(d.id);
@@ -516,6 +523,13 @@ const AutoResponseSettings: FC = () => {
     const url = `/follow-up-templates/?${params.toString()}`;
     axios.get<FollowUpTemplate[]>(url)
       .then(res => {
+        console.log('✅ [FRONTEND] AI Preview response received:', res.data);
+        console.log('📊 [FRONTEND] Response details:', {
+          preview: res.data.preview?.substring(0, 100) + '...',
+          vectorSearchEnabled: res.data.vector_search_enabled,
+          vectorResultsCount: res.data.vector_results_count,
+          status: res.status
+        });
         setError('');
         setTemplates(res.data);
         loadedTemplateIds.current = res.data.map(t => t.id);
@@ -662,6 +676,13 @@ const AutoResponseSettings: FC = () => {
     setBusinessesLoading(true);
     axios.get<Business[]>('/businesses/')
       .then(res => {
+        console.log('✅ [FRONTEND] AI Preview response received:', res.data);
+        console.log('📊 [FRONTEND] Response details:', {
+          preview: res.data.preview?.substring(0, 100) + '...',
+          vectorSearchEnabled: res.data.vector_search_enabled,
+          vectorResultsCount: res.data.vector_results_count,
+          status: res.status
+        });
         setBusinesses(res.data);
         setBusinessesLoading(false);
       })
@@ -1016,6 +1037,13 @@ const AutoResponseSettings: FC = () => {
       active: true,
     })
       .then(res => {
+        console.log('✅ [FRONTEND] AI Preview response received:', res.data);
+        console.log('📊 [FRONTEND] Response details:', {
+          preview: res.data.preview?.substring(0, 100) + '...',
+          vectorSearchEnabled: res.data.vector_search_enabled,
+          vectorResultsCount: res.data.vector_results_count,
+          status: res.status
+        });
         setTemplates(prev => [...prev, res.data]);
         loadedTemplateIds.current.push(res.data.id);
         setNewText('');
@@ -1068,6 +1096,13 @@ const AutoResponseSettings: FC = () => {
         active: editingTpl.active,
       })
       .then(res => {
+        console.log('✅ [FRONTEND] AI Preview response received:', res.data);
+        console.log('📊 [FRONTEND] Response details:', {
+          preview: res.data.preview?.substring(0, 100) + '...',
+          vectorSearchEnabled: res.data.vector_search_enabled,
+          vectorResultsCount: res.data.vector_results_count,
+          status: res.status
+        });
         setTemplates(prev => prev.map(t => (t.id === res.data.id ? res.data : t)));
         setSaved(true);
         setEditOpen(false);
@@ -1115,6 +1150,20 @@ const AutoResponseSettings: FC = () => {
       return;
     }
 
+    console.log('📡 [FRONTEND] Sending AI Preview request...', {
+      apiEndpoint: '/ai-preview/',
+      requestData: {
+        business_id: selectedBusiness,
+        phone_available: phoneAvailable,
+        custom_preview_text: aiCustomPreviewText,
+        vector_settings: {
+          similarity_threshold: vectorSimilarityThreshold,
+          search_limit: vectorSearchLimit,
+          chunk_types: vectorChunkTypes
+        }
+      }
+    });
+    
     setAiPreviewLoading(true);
     try {
       const response = await axios.post('/ai/preview/', {

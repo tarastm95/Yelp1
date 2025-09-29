@@ -199,6 +199,10 @@ class VectorPDFService:
     def _split_by_sections(self, text: str) -> List[str]:
         """Розділяє текст на логічні секції"""
         
+        logger.info(f"[VECTOR-PDF] 📄 SPLITTING TEXT INTO SECTIONS:")
+        logger.info(f"[VECTOR-PDF] Original text length: {len(text)} chars")
+        logger.info(f"[VECTOR-PDF] Text preview (first 300 chars): {text[:300]}...")
+        
         # Паттерни для розділення Sample Replies
         patterns = [
             r'Example\s*#\d+',
@@ -209,16 +213,27 @@ class VectorPDFService:
         
         sections = [text]
         
-        for pattern in patterns:
+        for i, pattern in enumerate(patterns):
+            logger.info(f"[VECTOR-PDF] 🔄 Applying pattern {i+1}: {pattern}")
             new_sections = []
             for section in sections:
                 parts = re.split(f'({pattern})', section, flags=re.IGNORECASE)
-                for part in parts:
+                logger.info(f"[VECTOR-PDF]   Split into {len(parts)} parts")
+                for j, part in enumerate(parts):
                     if part.strip():
+                        logger.info(f"[VECTOR-PDF]     Part {j+1}: {len(part)} chars - '{part[:50]}...'")
                         new_sections.append(part.strip())
             sections = new_sections
+            logger.info(f"[VECTOR-PDF] After pattern {i+1}: {len(sections)} sections")
         
-        return [s for s in sections if len(s.strip()) > 20]  # Фільтруємо дуже короткі секції
+        filtered_sections = [s for s in sections if len(s.strip()) > 20]
+        logger.info(f"[VECTOR-PDF] 📋 FINAL SECTIONS: {len(filtered_sections)} (after filtering < 20 chars)")
+        
+        for i, section in enumerate(filtered_sections):
+            logger.info(f"[VECTOR-PDF] Section {i+1}: {len(section)} chars")
+            logger.info(f"[VECTOR-PDF]   Content: {section[:100]}...")
+        
+        return filtered_sections
     
     def _split_long_text(self, text: str, max_tokens: int) -> List[str]:
         """Розділяє текст що занадто довгий на менші чанки"""
@@ -269,6 +284,23 @@ class VectorPDFService:
     
     def _identify_chunk_type(self, text: str) -> str:
         """🚀 Enterprise Hybrid Classification: Rules → Scoring → Zero-shot → ML"""
+        logger.info(f"[VECTOR-PDF] 🎯 CLASSIFYING CHUNK:")
+        logger.info(f"[VECTOR-PDF] Text length: {len(text)} chars")
+        logger.info(f"[VECTOR-PDF] Text preview: {text[:150]}...")
+        
+        # Швидка перевірка основних маркерів перед класифікацією
+        text_lower = text.lower()
+        quick_markers = {
+            'inquiry_marker': 'inquiry information:' in text_lower,
+            'response_marker': 'response:' in text_lower,
+            'name_marker': 'name:' in text_lower,
+            'good_afternoon': 'good afternoon' in text_lower,
+            'good_morning': 'good morning' in text_lower,
+            'thanks_reaching': 'thanks for reaching' in text_lower,
+            'talk_soon': 'talk soon' in text_lower
+        }
+        logger.info(f"[VECTOR-PDF] Quick markers: {quick_markers}")
+        
         try:
             # 🎯 HYBRID APPROACH: Professional multi-stage classification
             from .hybrid_chunk_classifier import hybrid_classifier
@@ -507,6 +539,10 @@ class VectorPDFService:
     def _split_by_sections(self, text: str) -> List[str]:
         """Розділяє текст на логічні секції"""
         
+        logger.info(f"[VECTOR-PDF] 📄 SPLITTING TEXT INTO SECTIONS:")
+        logger.info(f"[VECTOR-PDF] Original text length: {len(text)} chars")
+        logger.info(f"[VECTOR-PDF] Text preview (first 300 chars): {text[:300]}...")
+        
         # Паттерни для розділення Sample Replies
         patterns = [
             r'Example\s*#\d+',
@@ -517,16 +553,27 @@ class VectorPDFService:
         
         sections = [text]
         
-        for pattern in patterns:
+        for i, pattern in enumerate(patterns):
+            logger.info(f"[VECTOR-PDF] 🔄 Applying pattern {i+1}: {pattern}")
             new_sections = []
             for section in sections:
                 parts = re.split(f'({pattern})', section, flags=re.IGNORECASE)
-                for part in parts:
+                logger.info(f"[VECTOR-PDF]   Split into {len(parts)} parts")
+                for j, part in enumerate(parts):
                     if part.strip():
+                        logger.info(f"[VECTOR-PDF]     Part {j+1}: {len(part)} chars - '{part[:50]}...'")
                         new_sections.append(part.strip())
             sections = new_sections
+            logger.info(f"[VECTOR-PDF] After pattern {i+1}: {len(sections)} sections")
         
-        return [s for s in sections if len(s.strip()) > 20]  # Фільтруємо дуже короткі секції
+        filtered_sections = [s for s in sections if len(s.strip()) > 20]
+        logger.info(f"[VECTOR-PDF] 📋 FINAL SECTIONS: {len(filtered_sections)} (after filtering < 20 chars)")
+        
+        for i, section in enumerate(filtered_sections):
+            logger.info(f"[VECTOR-PDF] Section {i+1}: {len(section)} chars")
+            logger.info(f"[VECTOR-PDF]   Content: {section[:100]}...")
+        
+        return filtered_sections
     
     def _split_long_text(self, text: str, max_tokens: int) -> List[str]:
         """Розділяє текст що занадто довгий на менші чанки"""
