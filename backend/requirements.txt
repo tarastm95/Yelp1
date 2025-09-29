@@ -2,6 +2,7 @@ Django>=4.2.0,<5.0.0
 djangorestframework>=3.14.0,<4.0.0
 python-dotenv>=0.19.0
 python-decouple>=3.8     # Configuration management
+python-json-logger>=2.0.0  # JSON logging support
 django-cors-headers>=4.0.0
 celery>=5.3.0,<6.0.0
 redis>=4.5.0,<5.0.0
