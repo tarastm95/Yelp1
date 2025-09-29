@@ -508,7 +508,6 @@ class AIPreviewView(APIView):
             # Отримуємо AutoResponseSettings для бізнесу (для AI налаштувань)
             business_ai_settings = AutoResponseSettings.objects.filter(
                 business=business,
-                phone_opt_in=False,
                 phone_available=False
             ).first()
             
