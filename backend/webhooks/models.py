@@ -194,7 +194,7 @@ class AutoResponseSettings(models.Model):
 
     # 🔍 Vector Search Settings (для Sample Replies режиму)
     vector_similarity_threshold = models.FloatField(
-        default=0.6,
+        default=0.4,
         help_text="Поріг семантичної схожості для vector search (0.0-1.0). Нижчі значення дають більше результатів"
     )
     vector_search_limit = models.PositiveIntegerField(

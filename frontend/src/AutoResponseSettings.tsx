@@ -235,7 +235,7 @@ const AutoResponseSettings: FC = () => {
   const [aiTemperature, setAiTemperature] = useState<number | ''>('');
   
   // 🔍 Vector Search Settings  
-  const [vectorSimilarityThreshold, setVectorSimilarityThreshold] = useState(0.6);
+  const [vectorSimilarityThreshold, setVectorSimilarityThreshold] = useState(0.4);
   const [vectorSearchLimit, setVectorSearchLimit] = useState(5);
   const [vectorChunkTypes, setVectorChunkTypes] = useState<string[]>([]);
 
