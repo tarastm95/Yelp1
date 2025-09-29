@@ -124,7 +124,29 @@ class VectorPDFService:
                 'errors': [str(e)]
             }
     
-    def create_semantic_chunks(self, text: str, max_tokens: int = 800) -> List[DocumentChunk]:
+    def extract_text_from_uploaded_file(self, file_content: bytes, filename: str) -> str:
+        """Legacy method for fallback compatibility"""
+        
+        logger.info(f"[VECTOR-PDF] 📄 Processing {filename} ({len(file_content)} bytes)")
+        
+        try:
+            if b'%PDF' in file_content[:100] or filename.lower().endswith('.pdf'):
+                pdf_result = self.extract_text_from_pdf_bytes(file_content, filename)
+                
+                if pdf_result['success']:
+                    return pdf_result['text']
+                else:
+                    return "PDF_PROCESSING_ERROR"
+            else:
+                # Plain text file
+                text_content = file_content.decode('utf-8', errors='ignore')
+                return text_content if text_content.strip() else "EMPTY_FILE"
+                
+        except Exception as e:
+            logger.error(f"[VECTOR-PDF] Error processing {filename}: {e}")
+            return "PROCESSING_ERROR"
+
+        def create_semantic_chunks(self, text: str, max_tokens: int = 800) -> List[DocumentChunk]:
         """Створює семантичні чанки з тексту"""
         
         logger.info(f"[VECTOR-PDF] Creating semantic chunks...")
@@ -306,6 +328,14 @@ class VectorPDFService:
             
             with transaction.atomic():
                 file_hash = self.calculate_file_hash(file_content)
+                
+                # Перевіряємо чи документ вже існує
+                try:
+                    existing_doc = VectorDocument.objects.get(file_hash=file_hash)
+                    logger.warning(f"[VECTOR-PDF] ⚠️ Document with same hash exists, deleting old version")
+                    existing_doc.delete()
+                except VectorDocument.DoesNotExist:
+                    pass  # Все ок, документа не існує
                 
                 document = VectorDocument.objects.create(
                     business_id=business_id,
