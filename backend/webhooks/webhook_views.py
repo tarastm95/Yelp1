@@ -1024,10 +1024,8 @@ class WebhookView(APIView):
                             # Show which variation matched
                             if existing_backend_event.text == text:
                                 logger.info(f"[WEBHOOK]   ↳ ✅ Matched via ORIGINAL text")
-                            elif existing_backend_event.text == yelp_search_text:
-                                logger.info(f"[WEBHOOK]   ↳ ✅ Matched via UNICODE converted text")
-                            elif existing_backend_event.text == ascii_search_text:
-                                logger.info(f"[WEBHOOK]   ↳ ✅ Matched via ASCII converted text")
+                            elif existing_backend_event.text == normalized_search_text:
+                                logger.info(f"[WEBHOOK]   ↳ ✅ Matched via NORMALIZED text")
                             else:
                                 logger.info(f"[WEBHOOK]   ↳ ❓ Matched via unknown text variation")
                         
