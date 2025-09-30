@@ -1109,28 +1109,30 @@ Generate a personalized, professional response to the customer using the style g
                 try:
                     from .vector_search_service import vector_search_service
                     
-                    similar_chunks = vector_search_service.search_similar_chunks(
+                    # 🎯 НОВИЙ ПІДХІД: Inquiry→Response pair matching
+                    inquiry_response_pairs = vector_search_service.search_inquiry_response_pairs(
                         query_text=lead_inquiry,
                         business_id=business.business_id,
                         location_id=None,  # TODO: Add location support if needed
                         limit=business_ai_settings.vector_search_limit if business_ai_settings else 5,
-                        similarity_threshold=business_ai_settings.vector_similarity_threshold if business_ai_settings else 0.6,
-                        chunk_types=['response', 'example']  # Тільки business responses, не customer inquiries
+                        similarity_threshold=business_ai_settings.vector_similarity_threshold if business_ai_settings else 0.6
                     )
                     
-                    if not similar_chunks:
-                        logger.warning("[AI-SERVICE] No similar chunks found via vector search")
+                    if not inquiry_response_pairs:
+                        logger.warning("[AI-SERVICE] No similar inquiry→response pairs found via vector search")
                         return None
                     
-                    logger.info(f"[AI-SERVICE] Found {len(similar_chunks)} similar chunks via vector search")
-                    for i, chunk in enumerate(similar_chunks[:3]):
-                        logger.info(f"[AI-SERVICE] Chunk {i+1}: similarity={chunk['similarity_score']:.3f}, type={chunk['chunk_type']}")
+                    logger.info(f"[AI-SERVICE] Found {len(inquiry_response_pairs)} inquiry→response pairs via vector search")
+                    for i, pair in enumerate(inquiry_response_pairs[:3]):
+                        logger.info(f"[AI-SERVICE] Pair {i+1}: similarity={pair['pair_similarity']:.3f}, quality={pair['pair_quality']}")
+                        logger.info(f"[AI-SERVICE]   Inquiry: {pair['inquiry']['content'][:80]}...")
+                        logger.info(f"[AI-SERVICE]   Response: {pair['response']['content'][:80]}...")
                     
-                    # 🤖 ГЕНЕРАЦІЯ КОНТЕКСТУАЛЬНОЇ ВІДПОВІДІ
-                    contextual_response = vector_search_service.generate_contextual_response(
+                    # 🤖 ГЕНЕРАЦІЯ КОНТЕКСТУАЛЬНОЇ ВІДПОВІДІ З ПАР
+                    contextual_response = vector_search_service.generate_contextual_response_from_pairs(
                         lead_inquiry=lead_inquiry,
                         customer_name=customer_name,
-                        similar_chunks=similar_chunks,
+                        inquiry_response_pairs=inquiry_response_pairs,
                         business_name=business.name,
                         max_response_length=response_length
                     )
@@ -1139,7 +1141,7 @@ Generate a personalized, professional response to the customer using the style g
                         logger.info(f"[AI-SERVICE] 🎉 MODE 2 VECTOR: Generated contextual response:")
                         logger.info(f"[AI-SERVICE] - Length: {len(contextual_response)} chars")
                         logger.info(f"[AI-SERVICE] - Response: '{contextual_response}'")
-                        logger.info(f"[AI-SERVICE] - Based on {len(similar_chunks)} similar chunks")
+                        logger.info(f"[AI-SERVICE] - Based on {len(inquiry_response_pairs)} inquiry→response pairs")
                         logger.info(f"[AI-SERVICE] ==============================================")
                         
                         return contextual_response

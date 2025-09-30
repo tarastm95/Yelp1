@@ -224,6 +224,262 @@ class VectorSearchService:
             logger.exception("Vector search error details")
             return []
     
+    def search_inquiry_response_pairs(
+        self,
+        query_text: str,
+        business_id: str,
+        location_id: Optional[str] = None,
+        limit: int = 5,
+        similarity_threshold: float = 0.6
+    ) -> List[Dict]:
+        """
+        🎯 ПРАВИЛЬНИЙ ПІДХІД: Знаходить схожі inquiry chunks, потім їх парні response chunks
+        
+        Args:
+            query_text: Новий inquiry від клієнта
+            business_id: ID бізнесу
+            location_id: Опціональний фільтр локації
+            limit: Максимальна кількість inquiry→response пар
+            similarity_threshold: Мінімальний рівень схожості
+            
+        Returns:
+            Список inquiry→response пар з оцінками схожості
+        """
+        
+        logger.info(f"[VECTOR-SEARCH] ========== INQUIRY→RESPONSE PAIR MATCHING ==========")
+        logger.info(f"[VECTOR-SEARCH] Query: {query_text[:200]}...")
+        logger.info(f"[VECTOR-SEARCH] Business ID: {business_id}")
+        logger.info(f"[VECTOR-SEARCH] Limit: {limit}")
+        logger.info(f"[VECTOR-SEARCH] Similarity threshold: {similarity_threshold}")
+        
+        try:
+            # ЕТАП 1: Знайти схожі inquiry chunks
+            logger.info(f"[VECTOR-SEARCH] 🔍 ЕТАП 1: Пошук схожих inquiry chunks...")
+            
+            similar_inquiries = self.search_similar_chunks(
+                query_text=query_text,
+                business_id=business_id,
+                location_id=location_id,
+                limit=limit * 2,  # Шукаємо більше inquiry для кращого вибору
+                similarity_threshold=similarity_threshold,
+                chunk_types=['inquiry']  # ✅ ТІЛЬКИ INQUIRY CHUNKS
+            )
+            
+            if not similar_inquiries:
+                logger.warning("[VECTOR-SEARCH] No similar inquiry chunks found")
+                return []
+            
+            logger.info(f"[VECTOR-SEARCH] Found {len(similar_inquiries)} similar inquiry chunks")
+            
+            # ЕТАП 2: Знайти парні response chunks
+            logger.info(f"[VECTOR-SEARCH] 🔗 ЕТАП 2: Пошук парних response chunks...")
+            
+            from .vector_models import VectorChunk
+            inquiry_response_pairs = []
+            
+            for inquiry_chunk in similar_inquiries[:limit]:
+                try:
+                    # Знайти наступний response chunk після цього inquiry
+                    inquiry_chunk_obj = VectorChunk.objects.get(id=inquiry_chunk['chunk_id'])
+                    
+                    # Пошук наступного response chunk в тому ж документі
+                    next_response = VectorChunk.objects.filter(
+                        document=inquiry_chunk_obj.document,
+                        chunk_index__gt=inquiry_chunk_obj.chunk_index,  # Після inquiry
+                        chunk_type='response'  # Тільки response
+                    ).order_by('chunk_index').first()
+                    
+                    if next_response:
+                        logger.info(f"[VECTOR-SEARCH] ✅ Found pair: inquiry#{inquiry_chunk_obj.chunk_index} → response#{next_response.chunk_index}")
+                        
+                        pair = {
+                            'inquiry': {
+                                'similarity_score': inquiry_chunk['similarity_score'],
+                                'content': inquiry_chunk['content'],
+                                'chunk_index': inquiry_chunk_obj.chunk_index,
+                                'chunk_type': 'inquiry'
+                            },
+                            'response': {
+                                'content': next_response.content,
+                                'chunk_index': next_response.chunk_index,
+                                'chunk_type': 'response',
+                                'quality': next_response.metadata.get('chunk_quality', 'basic') if next_response.metadata else 'basic'
+                            },
+                            'pair_similarity': inquiry_chunk['similarity_score'],  # Базується на inquiry similarity
+                            'pair_quality': self._assess_pair_quality(inquiry_chunk['content'], next_response.content)
+                        }
+                        
+                        inquiry_response_pairs.append(pair)
+                        
+                    else:
+                        logger.warning(f"[VECTOR-SEARCH] ⚠️ No response chunk found for inquiry#{inquiry_chunk_obj.chunk_index}")
+                        
+                except Exception as pair_error:
+                    logger.error(f"[VECTOR-SEARCH] Error finding response pair: {pair_error}")
+                    continue
+            
+            logger.info(f"[VECTOR-SEARCH] 🎯 Found {len(inquiry_response_pairs)} complete inquiry→response pairs")
+            
+            # Сортування за similarity і якістю
+            inquiry_response_pairs.sort(key=lambda x: (x['pair_similarity'], x['pair_quality'] == 'excellent'), reverse=True)
+            
+            # ЕТАП 3: Логування результатів
+            logger.info(f"[VECTOR-SEARCH] 📊 INQUIRY→RESPONSE PAIRS RESULTS:")
+            for i, pair in enumerate(inquiry_response_pairs[:3]):
+                logger.info(f"[VECTOR-SEARCH] Pair {i+1}: similarity={pair['pair_similarity']:.3f}, quality={pair['pair_quality']}")
+                logger.info(f"[VECTOR-SEARCH]   Inquiry: {pair['inquiry']['content'][:100]}...")
+                logger.info(f"[VECTOR-SEARCH]   Response: {pair['response']['content'][:100]}...")
+            
+            logger.info(f"[VECTOR-SEARCH] =================================")
+            return inquiry_response_pairs
+            
+        except Exception as e:
+            logger.error(f"[VECTOR-SEARCH] Error in inquiry→response pair matching: {e}")
+            logger.exception("Pair matching error details")
+            return []
+    
+    def _assess_pair_quality(self, inquiry_content: str, response_content: str) -> str:
+        """🎯 Оцінює якість inquiry→response пари"""
+        
+        # Перевіряємо чи response відповідає inquiry
+        inquiry_lower = inquiry_content.lower()
+        response_lower = response_content.lower()
+        
+        # Ключові слова з inquiry мають бути згадані в response
+        service_keywords = ['roof', 'foundation', 'remodel', 'deck', 'bathroom', 'kitchen', 'addition']
+        inquiry_services = [kw for kw in service_keywords if kw in inquiry_lower]
+        response_mentions = [kw for kw in inquiry_services if kw in response_lower]
+        
+        service_match_ratio = len(response_mentions) / len(inquiry_services) if inquiry_services else 0
+        
+        # Оцінка якості response
+        has_professional_greeting = any(x in response_lower for x in ['good afternoon', 'good morning', 'hello', 'hi'])
+        has_business_info = any(x in response_lower for x in ['available', 'hours', 'monday', 'friday'])
+        has_personal_touch = any(x in response_lower for x in ['talk soon', 'norma', 'best', 'glad'])
+        
+        quality_score = service_match_ratio + sum([has_professional_greeting, has_business_info, has_personal_touch])
+        
+        if quality_score >= 3:
+            return 'excellent'
+        elif quality_score >= 2:
+            return 'good'
+        else:
+            return 'basic'
+    
+    def generate_contextual_response_from_pairs(
+        self,
+        lead_inquiry: str,
+        customer_name: str,
+        inquiry_response_pairs: List[Dict],
+        business_name: str = "",
+        max_response_length: int = 160
+    ) -> str:
+        """
+        🎯 Генерує відповідь на основі inquiry→response пар (ПРАВИЛЬНИЙ ПІДХІД)
+        
+        Args:
+            lead_inquiry: Оригінальний запит клієнта
+            customer_name: Ім'я клієнта
+            inquiry_response_pairs: Результати inquiry→response pair matching
+            business_name: Назва бізнесу
+            max_response_length: Максимальна довжина відповіді
+            
+        Returns:
+            Згенерована відповідь у стилі найкращих inquiry→response пар
+        """
+        
+        if not self.openai_client or not inquiry_response_pairs:
+            logger.warning("[VECTOR-SEARCH] No OpenAI client or inquiry→response pairs for generation")
+            return ""
+        
+        logger.info(f"[VECTOR-SEARCH] ========== CONTEXTUAL RESPONSE FROM PAIRS ==========")
+        logger.info(f"[VECTOR-SEARCH] Lead inquiry: {lead_inquiry[:100]}...")
+        logger.info(f"[VECTOR-SEARCH] Customer: {customer_name}")
+        logger.info(f"[VECTOR-SEARCH] Business: {business_name}")
+        logger.info(f"[VECTOR-SEARCH] Inquiry→Response pairs: {len(inquiry_response_pairs)}")
+        logger.info(f"[VECTOR-SEARCH] Max length: {max_response_length}")
+        
+        try:
+            # Збирання контексту зі inquiry→response пар
+            context_parts = []
+            for i, pair in enumerate(inquiry_response_pairs[:3]):  # Топ 3 пари
+                similarity_score = pair['pair_similarity']
+                pair_quality = pair['pair_quality']
+                inquiry_content = pair['inquiry']['content']
+                response_content = pair['response']['content']
+                
+                context_parts.append(
+                    f"""EXAMPLE {i+1} (similarity: {similarity_score:.2f}, quality: {pair_quality}):
+CUSTOMER INQUIRY: {inquiry_content}
+BUSINESS RESPONSE: {response_content}
+---"""
+                )
+            
+            context = "\n".join(context_parts)
+            
+            # Системний промпт для генерації з пар
+            system_prompt = f"""You are a professional business communication assistant for {business_name}.
+
+TASK: Generate a personalized response using INQUIRY→RESPONSE pairs as training examples.
+
+METHODOLOGY: You will receive examples showing how the business responds to specific customer inquiries. Study these inquiry→response patterns to understand:
+1. How the business addresses different service types
+2. The professional tone and communication style used
+3. The structure and elements of good responses
+4. How to personalize responses while maintaining consistency
+
+TRAINING EXAMPLES (ranked by similarity to current inquiry):
+{context}
+
+INSTRUCTIONS:
+1. Analyze the new customer inquiry and find the most similar training inquiry
+2. Study how the business responded to that similar inquiry
+3. Generate a NEW response following the same pattern, tone, and structure
+4. Personalize with the customer's name and specific details
+5. Keep under {max_response_length} characters
+6. Maintain the professional, helpful tone shown in examples
+
+CRITICAL: Use the inquiry→response patterns as your guide. The response should feel natural and personal while following the learned communication style."""
+            
+            user_prompt = f"""NEW CUSTOMER INQUIRY:
+Customer Name: {customer_name}
+Inquiry Text: "{lead_inquiry}"
+Business: {business_name}
+
+Based on the training examples above, generate a professional response that:
+1. Addresses this specific customer inquiry
+2. Follows the communication patterns learned from similar inquiries
+3. Matches the tone and style of the most similar business responses
+4. Is personalized for {customer_name} and their specific needs"""
+            
+            logger.info(f"[VECTOR-SEARCH] Generating response from {len(inquiry_response_pairs)} inquiry→response pairs...")
+            logger.info(f"[VECTOR-SEARCH] Top pair similarities: {[p['pair_similarity'] for p in inquiry_response_pairs[:3]]}")
+            
+            response = self.openai_client.chat.completions.create(
+                model="gpt-4o-mini",  # Ефективна модель для цього завдання
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                max_tokens=max_response_length // 3,  # Приблизна оцінка токенів
+                temperature=0.7
+            )
+            
+            generated_response = response.choices[0].message.content.strip()
+            
+            logger.info(f"[VECTOR-SEARCH] ✅ Generated response from inquiry→response pairs:")
+            logger.info(f"[VECTOR-SEARCH] - Length: {len(generated_response)} chars")
+            logger.info(f"[VECTOR-SEARCH] - Response: {generated_response}")
+            logger.info(f"[VECTOR-SEARCH] - Used {len(inquiry_response_pairs)} pairs")
+            logger.info(f"[VECTOR-SEARCH] ========================================")
+            
+            return generated_response
+            
+        except Exception as e:
+            logger.error(f"[VECTOR-SEARCH] Error generating response from pairs: {e}")
+            logger.exception("Pair-based response generation error")
+            return ""
+    
     def generate_contextual_response(
         self,
         lead_inquiry: str,
