@@ -137,9 +137,13 @@ class VectorSearchService:
             # Форматування ембедінгу для pgvector
             query_embedding_str = '[' + ','.join(map(str, query_embedding)) + ']'
             
-            # Побудова SQL запиту з векторною схожістю
+            # Побудова SQL запиту з векторною схожістю (FIXED)
             # Використовуємо pgvector cosine similarity operator (<=>)
-            base_query = """
+            
+            logger.info(f"[VECTOR-SEARCH] 🔧 Building SQL query with embedding string length: {len(query_embedding_str)}")
+            
+            # ВИПРАВЛЕННЯ: Вставляємо embedding напряму в query для pgvector
+            base_query = f"""
                 SELECT 
                     vc.id,
                     vc.content,
@@ -151,14 +155,14 @@ class VectorSearchService:
                     vd.filename,
                     vd.business_id,
                     vd.location_id,
-                    (1 - (vc.embedding <=> %s::vector)) as similarity_score
+                    (1 - (vc.embedding <=> '{query_embedding_str}'::vector)) as similarity_score
                 FROM webhooks_vectorchunk vc
                 JOIN webhooks_vectordocument vd ON vc.document_id = vd.id
                 WHERE vd.business_id = %s
                   AND vd.processing_status = 'completed'
             """
             
-            params = [query_embedding_str, business_id]
+            params = [business_id]  # Тільки business_id як параметр
             
             # Додаємо фільтр локації якщо вказано
             if location_id:
@@ -171,14 +175,14 @@ class VectorSearchService:
                 base_query += f" AND vc.chunk_type IN ({placeholders})"
                 params.extend(chunk_types)
             
-            # Додаємо similarity threshold та ordering
-            base_query += """
-                AND (1 - (vc.embedding <=> %s::vector)) >= %s
-                ORDER BY vc.embedding <=> %s::vector
+            # Додаємо similarity threshold та ordering (FIXED)
+            base_query += f"""
+                AND (1 - (vc.embedding <=> '{query_embedding_str}'::vector)) >= %s
+                ORDER BY vc.embedding <=> '{query_embedding_str}'::vector
                 LIMIT %s
             """
             
-            params.extend([query_embedding_str, similarity_threshold, query_embedding_str, limit])
+            params.extend([similarity_threshold, limit])  # Тільки threshold та limit як параметри
             
             logger.info(f"[VECTOR-SEARCH] Executing vector similarity search...")
             
