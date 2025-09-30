@@ -40,7 +40,7 @@ class VectorSearchService:
                 logger.error("[VECTOR-SEARCH] No OpenAI API key found")
                 
         except Exception as e:
-            logger.error(f"[VECTOR-SEARCH] Failed to initialize OpenAI client: {e}")
+            logger.error(f"[VECTOR-SEARCH] Error in vector search: {e}")
     
     def generate_query_embedding(self, query_text: str) -> List[float]:
         """Генерує ембедінг для пошукового запиту"""
@@ -61,7 +61,7 @@ class VectorSearchService:
             return embedding
             
         except Exception as e:
-            logger.error(f"[VECTOR-SEARCH] Error generating query embedding: {e}")
+            logger.error(f"[VECTOR-SEARCH] Error in vector search: {e}")
             raise
     
     def _get_vector_search_settings(self, business_id: str, phone_available: bool = False) -> Dict:
@@ -219,7 +219,7 @@ class VectorSearchService:
             
             return results
                 
-                except Exception as e:
+        except Exception as e:
             logger.error(f"[VECTOR-SEARCH] Error in vector search: {e}")
             logger.exception("Vector search error details")
             return []
@@ -323,7 +323,7 @@ Based on the similar sample replies ranked above (especially the highest similar
             return generated_response
             
         except Exception as e:
-            logger.error(f"[VECTOR-SEARCH] Error generating contextual response: {e}")
+            logger.error(f"[VECTOR-SEARCH] Error in vector search: {e}")
             logger.exception("Response generation error details")
             return ""
     
@@ -377,7 +377,7 @@ Based on the similar sample replies ranked above (especially the highest similar
             }
             
         except Exception as e:
-            logger.error(f"[VECTOR-SEARCH] Error getting chunk statistics: {e}")
+            logger.error(f"[VECTOR-SEARCH] Error in vector search: {e}")
             return {
                 'total_documents': 0,
                 'total_chunks': 0,
@@ -456,7 +456,7 @@ Based on the similar sample replies ranked above (especially the highest similar
             }
             
         except Exception as e:
-            logger.error(f"[VECTOR-SEARCH] Test vector search failed: {e}")
+            logger.error(f"[VECTOR-SEARCH] Error in vector search: {e}")
             return {
                 'success': False,
                 'message': f'Test failed: {str(e)}',
