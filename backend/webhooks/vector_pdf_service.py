@@ -67,7 +67,7 @@ class VectorPDFService:
                 return
                 
             self.encoding = tiktoken.encoding_for_model("text-embedding-3-small")
-                logger.info("[VECTOR-PDF] Tiktoken encoder initialized")
+            logger.info("[VECTOR-PDF] Tiktoken encoder initialized")
             
         except Exception as e:
             logger.error(f"[VECTOR-PDF] Failed to initialize tokenizer: {e}")
