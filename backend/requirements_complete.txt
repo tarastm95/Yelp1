@@ -1,0 +1,71 @@
+# 🎯 Complete Requirements - All Missing Dependencies Added
+
+# Core Django Framework
+Django>=4.2.0,<5.0.0
+djangorestframework>=3.14.0,<4.0.0
+django-cors-headers>=4.0.0
+django-filter>=24.0.0      # For DRF filtering (django_filters)
+
+# Configuration & Environment
+python-dotenv>=0.19.0      # .env file loading
+python-decouple>=3.8       # Configuration management
+
+# Logging & Monitoring  
+python-json-logger>=2.0.0  # JSON logging support
+sentry-sdk>=2.0.0          # Error tracking and monitoring
+
+# Task Queue & Caching
+celery>=5.3.0,<6.0.0
+redis>=4.5.0,<5.0.0
+django-rq>=2.10.0,<3.0.0     # Redis queue integration
+
+# External API Integrations
+twilio>=8.0.0,<9.0.0       # SMS notifications
+
+# Google Sheets Integration  
+google-auth>=2.18.0,<3.0.0
+google-auth-oauthlib>=1.0.0,<2.0.0
+google-auth-httplib2>=0.1.0,<1.0.0
+google-api-python-client>=2.88.0,<3.0.0
+gspread>=6.0.0,<7.0.0      # Google Sheets API wrapper
+
+# HTTP & Network
+requests>=2.31.0,<3.0.0
+httpx>=0.24.0,<1.0.0
+urllib3>=2.0.0,<3.0.0
+
+# Text Processing & Utilities
+unidecode>=1.3.0,<2.0.0    # Unicode to ASCII conversion
+
+# Security & Cryptography
+cryptography>=41.0.0,<42.0.0
+
+# Database
+psycopg2-binary>=2.9.6,<3.0.0
+
+# OpenAI API
+openai>=1.10.0,<2.0.0
+
+# PDF Processing & Vector Database
+PyMuPDF>=1.23.0,<2.0.0     # PDF parsing and text extraction
+pgvector>=0.2.4,<1.0.0     # PostgreSQL vector support
+tiktoken>=0.5.0,<1.0.0     # OpenAI tokenizer
+numpy>=1.24.0,<2.0.0       # Vector operations
+
+# 🤖 Machine Learning & NLP dependencies  
+scikit-learn>=1.3.0,<2.0.0 # ML algorithms for chunk classification
+pandas>=2.0.0,<3.0.0       # Data manipulation for ML training
+nltk>=3.8.0,<4.0.0         # Natural language processing utilities
+
+# 🔍 Advanced PDF & NLP processing (enterprise-grade)
+pdfminer.six>=20231228     # Advanced PDF parsing with structure preservation
+pdfplumber>=0.10.0,<1.0.0  # Enhanced PDF text extraction with layout info
+spacy>=3.7.0,<4.0.0        # Professional NLP with Matcher/PhraseMatcher
+transformers>=4.35.0,<5.0.0 # Zero-shot classification for edge cases
+
+# 🎯 Data Validation (lightweight)
+pydantic>=2.0.0,<3.0.0     # Data validation and contracts
+
+# 🚀 Production Server (optional)
+gunicorn>=21.0.0,<22.0.0   # WSGI HTTP server
+whitenoise>=6.0.0,<7.0.0   # Static file serving
