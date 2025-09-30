@@ -574,10 +574,11 @@ class VectorChunkListView(APIView):
         business_id = request.GET.get('business_id')
         location_id = request.GET.get('location_id', None)
         chunk_type = request.GET.get('chunk_type', None)
-        limit = min(int(request.GET.get('limit', 10)), 50)
+        limit = min(int(request.GET.get('limit', 20)), 100)  # Increased for infinite scroll
+        offset = int(request.GET.get('offset', 0))
         
         logger.info(f"[VECTOR-CHUNKS-API] Business: {business_id}")
-        logger.info(f"[VECTOR-CHUNKS-API] Limit: {limit}")
+        logger.info(f"[VECTOR-CHUNKS-API] Limit: {limit}, Offset: {offset}")
         logger.info(f"[VECTOR-CHUNKS-API] Filters: location={location_id}, type={chunk_type}")
         
         if not business_id:
@@ -610,8 +611,12 @@ class VectorChunkListView(APIView):
             if chunk_type:
                 chunk_filter &= Q(chunk_type=chunk_type)
             
-            chunks = VectorChunk.objects.filter(chunk_filter).select_related('document')[:limit]
-            logger.info(f"[VECTOR-CHUNKS-API] Found {chunks.count()} chunks to process")
+            # Get total count for pagination
+            total_chunks = VectorChunk.objects.filter(chunk_filter).count()
+            
+            # Apply offset and limit for pagination
+            chunks = VectorChunk.objects.filter(chunk_filter).select_related('document').order_by('id')[offset:offset+limit]
+            logger.info(f"[VECTOR-CHUNKS-API] Found {chunks.count()}/{total_chunks} chunks (offset={offset}, limit={limit})")
             
             chunks_data = []
             for chunk in chunks:
@@ -666,8 +671,11 @@ class VectorChunkListView(APIView):
             
             return Response({
                 'chunks': chunks_data,
-                'total': len(chunks_data),
+                'total': total_chunks,  # Total available chunks for pagination
+                'count': len(chunks_data),  # Current page count
                 'limit': limit,
+                'offset': offset,
+                'has_more': offset + len(chunks_data) < total_chunks,
                 'statistics': stats,
                 'filters': {
                     'business_id': business_id,

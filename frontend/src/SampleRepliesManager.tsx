@@ -129,6 +129,11 @@ const SampleRepliesManager: React.FC<Props> = ({
   const [vectorTesting, setVectorTesting] = useState(false);
   const [chunksDialogOpen, setChunksDialogOpen] = useState(false);
   const [chunks, setChunks] = useState<any[]>([]);
+  const [chunksLoading, setChunksLoading] = useState(false);
+  const [chunksLoadingMore, setChunksLoadingMore] = useState(false);
+  const [chunksOffset, setChunksOffset] = useState(0);
+  const [chunksTotalCount, setChunksTotalCount] = useState(0);
+  const [chunksHasMore, setChunksHasMore] = useState(true);
   
   // Document management state
   const [documentMenuAnchor, setDocumentMenuAnchor] = useState<null | HTMLElement>(null);
@@ -298,24 +303,61 @@ const SampleRepliesManager: React.FC<Props> = ({
     }
   };
 
-  const loadChunks = async () => {
+  const loadChunks = async (resetData: boolean = true) => {
     if (!selectedBusiness) return;
 
+    if (resetData) {
+      setChunksLoading(true);
+      setChunks([]);
+      setChunksOffset(0);
+      setChunksHasMore(true);
+    } else {
+      setChunksLoadingMore(true);
+    }
+
     try {
+      const currentOffset = resetData ? 0 : chunksOffset;
       const response = await axios.get('/sample-replies/chunks/', {
         params: {
           business_id: selectedBusiness.business_id,
-          limit: 20
+          limit: 20,
+          offset: currentOffset
         }
       });
 
-      setChunks(response.data.chunks || []);
-      setVectorStats(response.data.statistics);
-      setChunksDialogOpen(true);
+      const newChunks = response.data.chunks || [];
+      
+      if (resetData) {
+        setChunks(newChunks);
+        setVectorStats(response.data.statistics);
+        setChunksDialogOpen(true);
+      } else {
+        setChunks(prev => [...prev, ...newChunks]);
+      }
+      
+      setChunksTotalCount(response.data.total || 0);
+      setChunksHasMore(response.data.has_more || false);
+      setChunksOffset(currentOffset + newChunks.length);
+      
+      console.log('[CHUNKS] Loaded chunks:', {
+        newCount: newChunks.length,
+        totalLoaded: resetData ? newChunks.length : chunks.length + newChunks.length,
+        totalAvailable: response.data.total,
+        hasMore: response.data.has_more
+      });
 
     } catch (error: any) {
       console.error('[CHUNKS] Load error:', error);
       showMessage('Failed to load chunks', 'error');
+    } finally {
+      setChunksLoading(false);
+      setChunksLoadingMore(false);
+    }
+  };
+
+  const loadMoreChunks = () => {
+    if (!chunksLoadingMore && chunksHasMore) {
+      loadChunks(false);
     }
   };
 
@@ -1083,11 +1125,22 @@ Thanks for reaching out about roofing repair..."
       {/* Vector Chunks View Dialog */}
       <Dialog open={chunksDialogOpen} onClose={() => setChunksDialogOpen(false)} maxWidth="lg" fullWidth>
         <DialogTitle>
-          📋 Vector Chunks Analysis (MODE 2: AI Generated)
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            📋 Vector Chunks Analysis (MODE 2: AI Generated)
+            {chunksTotalCount > 0 && (
+              <Chip 
+                label={`${chunks.length} / ${chunksTotalCount} chunks loaded`}
+                size="small"
+                color="info"
+                variant="outlined"
+              />
+            )}
+          </Box>
         </DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" paragraph>
             View the semantic chunks created from your Sample Replies with their types and metadata.
+            Scroll down to load more chunks automatically.
           </Typography>
 
           {vectorStats && (
@@ -1101,33 +1154,72 @@ Thanks for reaching out about roofing repair..."
             </Box>
           )}
 
-          {chunks.length > 0 ? (
-            <Stack spacing={2} sx={{ maxHeight: 400, overflow: 'auto' }}>
-              {chunks.map((chunk, index) => (
-                <Box key={chunk.id} sx={{ p: 2, border: '1px solid', borderColor: 'grey.300', borderRadius: 1 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                    <Typography variant="caption" sx={{ fontWeight: 600 }}>
-                      Chunk #{chunk.chunk_index} • Page {chunk.page_number} • {chunk.token_count} tokens
-                    </Typography>
-                    <Chip 
-                      label={chunk.chunk_type} 
-                      size="small" 
-                      color={chunk.chunk_type === 'example' ? 'primary' : chunk.chunk_type === 'response' ? 'success' : 'default'} 
-                    />
-                  </Box>
-                  <Typography variant="body2" sx={{ fontSize: '0.9rem' }}>
-                    {chunk.content}
-                  </Typography>
-                  {chunk.metadata && Object.keys(chunk.metadata).length > 0 && (
-                    <Box sx={{ mt: 1 }}>
-                      <Typography variant="caption" color="text.secondary">
-                        Metadata: {JSON.stringify(chunk.metadata)}
+          {chunksLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : chunks.length > 0 ? (
+            <Box
+              sx={{ 
+                maxHeight: 500, 
+                overflow: 'auto',
+                border: '1px solid',
+                borderColor: 'grey.200',
+                borderRadius: 1,
+                p: 1
+              }}
+              onScroll={(e) => {
+                const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+                if (scrollHeight - scrollTop <= clientHeight + 50 && chunksHasMore && !chunksLoadingMore) {
+                  loadMoreChunks();
+                }
+              }}
+            >
+              <Stack spacing={2}>
+                {chunks.map((chunk, index) => (
+                  <Box key={chunk.id} sx={{ p: 2, border: '1px solid', borderColor: 'grey.300', borderRadius: 1 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                      <Typography variant="caption" sx={{ fontWeight: 600 }}>
+                        Chunk #{chunk.chunk_index} • Page {chunk.page_number} • {chunk.token_count} tokens
                       </Typography>
+                      <Chip 
+                        label={chunk.chunk_type} 
+                        size="small" 
+                        color={chunk.chunk_type === 'example' ? 'primary' : chunk.chunk_type === 'response' ? 'success' : 'default'} 
+                      />
                     </Box>
-                  )}
-                </Box>
-              ))}
-            </Stack>
+                    <Typography variant="body2" sx={{ fontSize: '0.9rem' }}>
+                      {chunk.content}
+                    </Typography>
+                    {chunk.metadata && Object.keys(chunk.metadata).length > 0 && (
+                      <Box sx={{ mt: 1 }}>
+                        <Typography variant="caption" color="text.secondary">
+                          Metadata: {JSON.stringify(chunk.metadata)}
+                        </Typography>
+                      </Box>
+                    )}
+                  </Box>
+                ))}
+                
+                {/* Load More Indicator */}
+                {chunksLoadingMore && (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
+                    <CircularProgress size={24} />
+                    <Typography variant="body2" sx={{ ml: 1 }}>
+                      Loading more chunks...
+                    </Typography>
+                  </Box>
+                )}
+                
+                {!chunksHasMore && chunks.length > 0 && (
+                  <Box sx={{ textAlign: 'center', p: 2 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      ✅ All {chunksTotalCount} chunks loaded
+                    </Typography>
+                  </Box>
+                )}
+              </Stack>
+            </Box>
           ) : (
             <Alert severity="info">
               No chunks found. Upload Sample Replies first to see semantic chunks.
