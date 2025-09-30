@@ -1113,8 +1113,8 @@ Generate a personalized, professional response to the customer using the style g
                         query_text=lead_inquiry,
                         business_id=business.business_id,
                         location_id=None,  # TODO: Add location support if needed
-                        limit=5,
-                        similarity_threshold=0.6,
+                        limit=business_ai_settings.vector_search_limit if business_ai_settings else 5,
+                        similarity_threshold=business_ai_settings.vector_similarity_threshold if business_ai_settings else 0.6,
                         chunk_types=['response', 'example']  # Тільки business responses, не customer inquiries
                     )
                     
