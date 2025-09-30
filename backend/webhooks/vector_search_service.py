@@ -134,124 +134,92 @@ class VectorSearchService:
             # Генерація ембедінгу для запиту
             query_embedding = self.generate_query_embedding(query_text)
             
-            # Форматування ембедінгу для pgvector
-            query_embedding_str = '[' + ','.join(map(str, query_embedding)) + ']'
+            logger.info(f"[VECTOR-SEARCH] 🧠 Using Python-based similarity calculation (no giant SQL!)")
             
-            # Побудова SQL запиту з векторною схожістю (FIXED)
-            # Використовуємо pgvector cosine similarity operator (<=>)
+            # PYTHON-BASED approach: отримуємо chunks і рахуємо similarity
+            from .vector_models import VectorChunk
+            import numpy as np
             
-            logger.info(f"[VECTOR-SEARCH] 🔧 Building SQL query with embedding string length: {len(query_embedding_str)}")
+            # Отримуємо кандидатів для similarity calculation
+            chunks_queryset = VectorChunk.objects.select_related('document').filter(
+                document__business_id=business_id,
+                document__processing_status='completed'
+            ).exclude(embedding__isnull=True)
             
-            # ВИПРАВЛЕННЯ: Вставляємо embedding напряму в query для pgvector
-            base_query = f"""
-                SELECT 
-                    vc.id,
-                    vc.content,
-                    vc.page_number,
-                    vc.chunk_index,
-                    vc.token_count,
-                    vc.chunk_type,
-                    vc.metadata,
-                    vd.filename,
-                    vd.business_id,
-                    vd.location_id,
-                    (1 - (vc.embedding <=> '{query_embedding_str}'::vector)) as similarity_score
-                FROM webhooks_vectorchunk vc
-                JOIN webhooks_vectordocument vd ON vc.document_id = vd.id
-                WHERE vd.business_id = %s
-                  AND vd.processing_status = 'completed'
-            """
-            
-            params = [business_id]  # Тільки business_id як параметр
-            
-            # Додаємо фільтр локації якщо вказано
             if location_id:
-                base_query += " AND vd.location_id = %s"
-                params.append(location_id)
+                chunks_queryset = chunks_queryset.filter(document__location_id=location_id)
             
-            # Додаємо фільтр типів чанків якщо вказано
             if chunk_types:
-                placeholders = ','.join(['%s'] * len(chunk_types))
-                base_query += f" AND vc.chunk_type IN ({placeholders})"
-                params.extend(chunk_types)
+                chunks_queryset = chunks_queryset.filter(chunk_type__in=chunk_types)
+                logger.info(f"[VECTOR-SEARCH] Filtering by chunk types: {chunk_types}")
             
-            # Додаємо similarity threshold та ordering (FIXED)
-            base_query += f"""
-                AND (1 - (vc.embedding <=> '{query_embedding_str}'::vector)) >= %s
-                ORDER BY vc.embedding <=> '{query_embedding_str}'::vector
-                LIMIT %s
-            """
+            logger.info(f"[VECTOR-SEARCH] 📊 Candidate chunks: {chunks_queryset.count()}")
             
-            params.extend([similarity_threshold, limit])  # Тільки threshold та limit як параметри
+            # Обчислюємо similarity для кожного chunk в Python
+            results = []
+            query_embedding_np = np.array(query_embedding)
+            processed_count = 0
             
-            logger.info(f"[VECTOR-SEARCH] 🔍 EXECUTING SQL DEBUG:")
-            logger.info(f"[VECTOR-SEARCH] Query length: {len(base_query)} chars")
-            logger.info(f"[VECTOR-SEARCH] Params count: {len(params)}")
-            logger.info(f"[VECTOR-SEARCH] Params: {[type(p).__name__ for p in params]}")
-            logger.info(f"[VECTOR-SEARCH] SQL preview: {base_query[:500]}...")
-            
-            with connection.cursor() as cursor:
+            for chunk in chunks_queryset:
                 try:
-                    cursor.execute(base_query, params)
-                    rows = cursor.fetchall()
-                    
-                    logger.info(f"[VECTOR-SEARCH] ✅ SQL executed successfully, fetched {len(rows)} rows")
-                    
-                    # Debug: показати raw results
-                    if len(rows) > 0:
-                        logger.info(f"[VECTOR-SEARCH] 📊 Raw SQL results:")
-                        for i, row in enumerate(rows[:2]):
-                            logger.info(f"[VECTOR-SEARCH]   Row {i+1}: ID={row[0]}, Type={row[5]}, Similarity={row[10]:.4f}")
-                    else:
-                        logger.warning(f"[VECTOR-SEARCH] ⚠️ SQL returned 0 rows")
+                    if chunk.embedding and len(chunk.embedding) == 1536:
+                        # Cosine similarity в Python (надійний метод)
+                        chunk_embedding_np = np.array(chunk.embedding)
                         
-                        # Debug query без similarity filter
-                        debug_query = base_query.split('AND (1 - (vc.embedding')[0] + " LIMIT 3"
-                        debug_params = params[:-2]  # Видаляємо similarity та limit
+                        # Обчислення cosine similarity
+                        dot_product = np.dot(chunk_embedding_np, query_embedding_np)
+                        norm_chunk = np.linalg.norm(chunk_embedding_np)
+                        norm_query = np.linalg.norm(query_embedding_np)
                         
-                        logger.info(f"[VECTOR-SEARCH] 🔍 DEBUG: Testing query without similarity filter...")
-                        cursor.execute(debug_query, debug_params)
-                        debug_rows = cursor.fetchall()
-                        logger.info(f"[VECTOR-SEARCH] 🔍 DEBUG: Query without similarity found {len(debug_rows)} rows")
-                        
-                except Exception as sql_error:
-                    logger.error(f"[VECTOR-SEARCH] ❌ SQL execution error: {sql_error}")
-                    raise
+                        if norm_chunk > 0 and norm_query > 0:
+                            similarity = float(dot_product / (norm_chunk * norm_query))
+                            processed_count += 1
+                            
+                            if similarity >= similarity_threshold:
+                                results.append({
+                                    'chunk_id': chunk.id,
+                                    'content': chunk.content,
+                                    'page_number': chunk.page_number,
+                                    'chunk_index': chunk.chunk_index,
+                                    'token_count': chunk.token_count,
+                                    'chunk_type': chunk.chunk_type,
+                                    'metadata': chunk.metadata,
+                                    'filename': chunk.document.filename,
+                                    'business_id': chunk.document.business_id,
+                                    'location_id': chunk.document.location_id,
+                                    'similarity_score': similarity
+                                })
+                                
+                                logger.info(f"[VECTOR-SEARCH] ✅ Chunk {chunk.id}: similarity={similarity:.4f} >= {similarity_threshold}")
+                        else:
+                            logger.warning(f"[VECTOR-SEARCH] ⚠️ Chunk {chunk.id}: zero norm vectors")
+                            
+                except Exception as chunk_error:
+                    logger.warning(f"[VECTOR-SEARCH] ⚠️ Error processing chunk {chunk.id}: {chunk_error}")
+                    continue
+            
+            logger.info(f"[VECTOR-SEARCH] 📊 Processed {processed_count} chunks with embeddings")
+            logger.info(f"[VECTOR-SEARCH] 🎯 Found {len(results)} chunks above threshold {similarity_threshold}")
+            
+            # Сортуємо за similarity score (найкращі спочатку)
+            results.sort(key=lambda x: x['similarity_score'], reverse=True)
+            results = results[:limit]
+            
+            logger.info(f"[VECTOR-SEARCH] 🏆 Returning top {len(results)} results")
+            
+            # Логування топ результатів
+            for i, result in enumerate(results[:3]):
+                logger.info(f"[VECTOR-SEARCH] Result {i+1}:")
+                logger.info(f"[VECTOR-SEARCH] - Similarity: {result['similarity_score']:.3f}")
+                logger.info(f"[VECTOR-SEARCH] - Type: {result['chunk_type']}")
+                logger.info(f"[VECTOR-SEARCH] - Content: {result['content'][:100]}...")
+                logger.info(f"[VECTOR-SEARCH] - Page: {result['page_number']}")
+            
+            logger.info(f"[VECTOR-SEARCH] =================================")
+            
+            return results
                 
-                columns = [desc[0] for desc in cursor.description]
-                results = []
-                
-                for row in rows:
-                    row_dict = dict(zip(columns, row))
-                    results.append({
-                        'chunk_id': row_dict['id'],
-                        'content': row_dict['content'],
-                        'page_number': row_dict['page_number'],
-                        'chunk_index': row_dict['chunk_index'],
-                        'token_count': row_dict['token_count'],
-                        'chunk_type': row_dict['chunk_type'],
-                        'metadata': row_dict['metadata'],
-                        'filename': row_dict['filename'],
-                        'business_id': row_dict['business_id'],
-                        'location_id': row_dict['location_id'],
-                        'similarity_score': float(row_dict['similarity_score'])
-                    })
-                
-                logger.info(f"[VECTOR-SEARCH] Found {len(results)} similar chunks")
-                
-                # Логування топ результатів
-                for i, result in enumerate(results[:3]):
-                    logger.info(f"[VECTOR-SEARCH] Result {i+1}:")
-                    logger.info(f"[VECTOR-SEARCH] - Similarity: {result['similarity_score']:.3f}")
-                    logger.info(f"[VECTOR-SEARCH] - Type: {result['chunk_type']}")
-                    logger.info(f"[VECTOR-SEARCH] - Content: {result['content'][:100]}...")
-                    logger.info(f"[VECTOR-SEARCH] - Page: {result['page_number']}")
-                
-                logger.info(f"[VECTOR-SEARCH] =================================")
-                
-                return results
-                
-        except Exception as e:
+                except Exception as e:
             logger.error(f"[VECTOR-SEARCH] Error in vector search: {e}")
             logger.exception("Vector search error details")
             return []
