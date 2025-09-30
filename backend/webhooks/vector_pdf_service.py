@@ -161,15 +161,15 @@ class VectorPDFService:
             logger.info(f"[VECTOR-PDF]   Preview: {section[:100]}...")
             logger.info(f"[VECTOR-PDF]   Metadata: has_inquiry={metadata['has_inquiry']}, has_response={metadata['has_response']}, has_name={metadata['has_customer_name']}, quality={metadata['chunk_quality']}")
             
-                    chunks.append(DocumentChunk(
+            chunks.append(DocumentChunk(
                 content=section.strip(),
                 page_number=1,
-                        chunk_index=chunk_index,
-                        token_count=token_count,
+                chunk_index=chunk_index,
+                token_count=token_count,
                 chunk_type=chunk_type,
                 metadata=metadata
-                    ))
-                    chunk_index += 1
+            ))
+            chunk_index += 1
         
         logger.info(f"[VECTOR-PDF] Created {len(chunks)} chunks")
         return chunks
@@ -294,15 +294,15 @@ class VectorPDFService:
         try:
             texts = [chunk.content for chunk in chunks]
             
-                response = self.openai_client.embeddings.create(
-                    model="text-embedding-3-small",
-                    input=texts,
+            response = self.openai_client.embeddings.create(
+                model="text-embedding-3-small",
+                input=texts,
                 dimensions=1536
-                )
-                
+            )
+            
             embeddings_data = []
             for chunk, embedding_obj in zip(chunks, response.data):
-                    embeddings_data.append((chunk, embedding_obj.embedding))
+                embeddings_data.append((chunk, embedding_obj.embedding))
             
             logger.info(f"[VECTOR-PDF] Generated {len(embeddings_data)} embeddings")
             return embeddings_data
