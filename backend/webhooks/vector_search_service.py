@@ -162,7 +162,7 @@ class VectorSearchService:
             
             for chunk in chunks_queryset:
                 try:
-                    if chunk.embedding and len(chunk.embedding) == 1536:
+                    if chunk.embedding is not None and len(chunk.embedding) == 1536:
                         # Cosine similarity в Python (надійний метод)
                         chunk_embedding_np = np.array(chunk.embedding)
                         
@@ -171,7 +171,7 @@ class VectorSearchService:
                         norm_chunk = np.linalg.norm(chunk_embedding_np)
                         norm_query = np.linalg.norm(query_embedding_np)
                         
-                        if norm_chunk > 0 and norm_query > 0:
+                        if float(norm_chunk) > 0.0 and float(norm_query) > 0.0:
                             similarity = float(dot_product / (norm_chunk * norm_query))
                             processed_count += 1
                             
