@@ -512,7 +512,7 @@ class AIPreviewView(APIView):
             ).first()
             
             # Параметри з запиту
-            response_style = request.data.get('ai_response_style', 'auto')
+            # response_style removed - AI learns style from PDF examples
             include_location = request.data.get('ai_include_location', False)
             mention_response_time = request.data.get('ai_mention_response_time', False)
             custom_prompt = request.data.get('ai_custom_prompt', None)
@@ -544,7 +544,7 @@ class AIPreviewView(APIView):
             # Генерація preview повідомлення з реальними даними бізнесу
             preview_message = ai_service.generate_preview_message(
                 business=business,
-                response_style=response_style,
+                # response_style removed - AI learns style from PDF examples
                 include_location=include_location,
                 mention_response_time=mention_response_time,
                 custom_prompt=custom_prompt,
@@ -560,7 +560,7 @@ class AIPreviewView(APIView):
                     'business_name': business.name,
                     'customer_name': '{CLIENT_NAME}',
                     'services': '{SERVICES}',
-                    'ai_response_style': response_style,
+                    # 'ai_response_style' removed - AI learns style from PDF examples
                     'ai_include_location': include_location,
                     'ai_mention_response_time': mention_response_time,
                     'has_custom_prompt': bool(custom_prompt)
@@ -706,7 +706,7 @@ class AITestPreviewView(APIView):
             # Створюємо тестове повідомлення
             preview_message = ai_service.generate_preview_message(
                 business=mock_business,
-                response_style='auto',
+                # response_style removed - AI learns style from PDF examples
                 include_location=True,
                 mention_response_time=True,
                 custom_prompt=base_system_prompt if base_system_prompt else None,
