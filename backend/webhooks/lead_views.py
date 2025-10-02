@@ -519,18 +519,7 @@ class AIPreviewView(APIView):
             custom_preview_text = request.data.get('custom_preview_text', None)  # 🎯 Додаємо custom preview text
             max_length = request.data.get('ai_max_message_length', None)
             
-            # Отримання налаштувань бізнес-даних
-            business_data_settings = {
-                "include_rating": request.data.get('ai_include_rating', True),
-                "include_categories": request.data.get('ai_include_categories', True),
-                "include_phone": request.data.get('ai_include_phone', True),
-                "include_website": request.data.get('ai_include_website', False),
-                "include_price_range": request.data.get('ai_include_price_range', True),
-                "include_hours": request.data.get('ai_include_hours', True),
-                "include_reviews_count": request.data.get('ai_include_reviews_count', True),
-                "include_address": request.data.get('ai_include_address', False),
-                "include_transactions": request.data.get('ai_include_transactions', False)
-            }
+            # Business data controlled via Custom Instructions (individual settings removed)
             
             # Ініціалізація AI сервісу
             ai_service = OpenAIService()
@@ -548,7 +537,7 @@ class AIPreviewView(APIView):
                 include_location=include_location,
                 mention_response_time=mention_response_time,
                 custom_prompt=custom_prompt,
-                business_data_settings=business_data_settings,
+                # business_data_settings removed - controlled via Custom Instructions
                 max_length=max_length,
                 custom_preview_text=custom_preview_text,  # 🎯 Додаємо параметр
                 business_ai_settings=business_ai_settings  # 🤖 Додаємо business AI налаштування

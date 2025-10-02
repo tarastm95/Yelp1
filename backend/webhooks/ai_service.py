@@ -244,7 +244,7 @@ class OpenAIService:
         include_location: bool = False,
         mention_response_time: bool = False,
         custom_prompt: Optional[str] = None,
-        business_data_settings: Optional[Dict[str, bool]] = None,
+        # business_data_settings removed - controlled via Custom Instructions
         max_length: Optional[int] = None,
         custom_preview_text: Optional[str] = None,  # 🎯 Додаємо новий параметр
         business_ai_settings: Optional['AutoResponseSettings'] = None
@@ -254,41 +254,67 @@ class OpenAIService:
         if not self.is_available():
             return "AI service not available. Please check your settings."
         
-        # Логування отриманих налаштувань
-        logger.info(f"[AI-SERVICE] 📊 Received business_data_settings: {business_data_settings}")
-        
-        # Налаштування за замовчуванням для превʼю
-        if not business_data_settings:
-            logger.info(f"[AI-SERVICE] ⚠️ No business_data_settings provided, using defaults")
-            business_data_settings = {
-                "include_rating": True,
-                "include_categories": True,
-                "include_phone": True,
-                "include_website": False,
-                "include_price_range": True,
-                "include_hours": True,
-                "include_reviews_count": True,
-                "include_address": False,
-                "include_transactions": False
-            }
-        else:
-            logger.info(f"[AI-SERVICE] ✅ Using provided business_data_settings")
+        # 🎯 НОВА СПРОЩЕНА АРХІТЕКТУРА AI СИСТЕМИ
+        logger.info(f"[AI-SERVICE] 🎯 SIMPLIFIED AI: Vector Search → Custom Instructions")
+        logger.info(f"[AI-SERVICE] Business: {business.name}")
+        logger.info(f"[AI-SERVICE] Has custom_prompt: {bool(custom_prompt)}")
+        logger.info(f"[AI-SERVICE] Has custom_preview_text: {bool(custom_preview_text)}")
         
         try:
-            # Використовуємо РЕАЛЬНІ дані бізнесу
-            real_business_data = {
+            # 🎯 STEP 1: СПРОБУЄМО VECTOR SEARCH (якщо є Sample Replies + custom preview text)
+            if custom_preview_text and business_ai_settings and business_ai_settings.use_sample_replies:
+                logger.info(f"[AI-SERVICE] 🔍 STEP 1: Trying Vector Search (Sample Replies)")
+                logger.info(f"[AI-SERVICE] Custom preview text: {custom_preview_text[:100]}...")
+                
+                try:
+                    # Використовуємо Vector Search approach
+                    from .models import LeadDetail
+                    mock_lead = LeadDetail(
+                        lead_id="preview_test",
+                        user_display_name="Test Customer",
+                        business_id=business.business_id
+                    )
+                    mock_lead.project = {"additional_info": custom_preview_text}
+                    
+                    vector_response = self.generate_sample_replies_response(
+                        lead_detail=mock_lead,
+                        business=business,
+                        max_length=max_length or 160,
+                        business_ai_settings=business_ai_settings,
+                        use_vector_search=True
+                    )
+                    
+                    if vector_response:
+                        logger.info(f"[AI-SERVICE] 🎉 STEP 1 SUCCESS: Vector Search generated response")
+                        return vector_response
+                    else:
+                        logger.info(f"[AI-SERVICE] 📋 STEP 1 FAILED: Vector Search found no results, trying Custom Instructions")
+                        
+                except Exception as vector_error:
+                    logger.warning(f"[AI-SERVICE] ❌ STEP 1 ERROR: Vector Search failed: {vector_error}")
+                    logger.info(f"[AI-SERVICE] 🔄 STEP 1 FALLBACK: Using Custom Instructions")
+            
+            # 🎯 STEP 2: CUSTOM INSTRUCTIONS (Primary prompt approach)
+            if not custom_prompt:
+                logger.warning(f"[AI-SERVICE] ⚠️ STEP 2: No Custom Instructions provided - using minimal prompt")
+                return "Please provide Custom Instructions to generate personalized responses. Custom Instructions should specify what business information to include and how to respond to customers."
+            
+            logger.info(f"[AI-SERVICE] 📝 STEP 2: Using Custom Instructions as primary prompt")
+            logger.info(f"[AI-SERVICE] Custom prompt length: {len(custom_prompt)} characters")
+            
+            # 🏢 ПІДГОТОВКА BUSINESS CONTEXT (всі доступні дані для Custom Instructions)
+            business_context = {
                 "name": business.name,
-                "location": business.location if (include_location and business.location) else "",
+                "location": business.location or "",
                 "time_zone": business.time_zone or "",
                 "open_days": business.open_days or "",
                 "open_hours": business.open_hours or ""
             }
             
-            # Додаємо реальні дані з business.details JSON якщо вони є
+            # Додаємо всі доступні business.details (Custom Instructions сам вибере що використовувати)
             if business.details and isinstance(business.details, dict):
-                logger.info(f"[AI-SERVICE] 📋 Business details available, extracting data...")
-                # Отримуємо реальні дані з Yelp API
-                details_data = {
+                logger.info(f"[AI-SERVICE] 📋 Business details available for Custom Instructions")
+                business_context.update({
                     "rating": business.details.get("rating"),
                     "review_count": business.details.get("review_count"),
                     "categories": business.details.get("categories", []),
@@ -300,162 +326,84 @@ class OpenAIService:
                     "state": business.details.get("location", {}).get("state"),
                     "zip_code": business.details.get("location", {}).get("zip_code"),
                     "transactions": business.details.get("transactions", [])
-                }
+                })
                 
-                # Логування наявних даних
-                for key, value in details_data.items():
-                    if value:
-                        logger.info(f"[AI-SERVICE] 📊 {key}: {value if isinstance(value, (str, int, float)) else f'{type(value).__name__} with {len(value)} items' if hasattr(value, '__len__') else type(value).__name__}")
-                
-                real_business_data.update(details_data)
+                # Логування доступних даних для Custom Instructions
+                available_data = []
+                for key, value in business_context.items():
+                    if value and key != "name":
+                        available_data.append(key)
+                logger.info(f"[AI-SERVICE] 📊 Available business data for Custom Instructions: {', '.join(available_data)}")
             else:
-                logger.warning(f"[AI-SERVICE] ⚠️ No business details available or invalid format")
+                logger.warning(f"[AI-SERVICE] ⚠️ No business details available")
             
-            # Фільтруємо тільки ті реальні дані, які увімкнені
-            filtered_business_data = {"name": real_business_data["name"]}
-            logger.info(f"[AI-SERVICE] 🔍 FILTERING: Starting with base business name: {real_business_data['name']}")
+            # 🎯 СПРОЩЕНИЙ CONTEXT ДЛЯ CUSTOM INSTRUCTIONS
+            customer_text = custom_preview_text or "I need help with your services"
+            customer_name = "[Client Name]" 
+            business_name = business.name
             
-            # Додаємо тільки ті дані, які є і увімкнені
-            if business_data_settings.get("include_rating"):
-                logger.info(f"[AI-SERVICE] 🔍 RATING CHECK: include_rating={business_data_settings.get('include_rating')}, rating_data={real_business_data.get('rating')}")
-                if real_business_data.get("rating"):
-                    filtered_business_data["rating"] = real_business_data["rating"]
-                    logger.info(f"[AI-SERVICE] ✅ RATING ADDED: {real_business_data['rating']}")
-                    if business_data_settings.get("include_reviews_count") and real_business_data.get("review_count"):
-                        filtered_business_data["review_count"] = real_business_data["review_count"]
-                        logger.info(f"[AI-SERVICE] ✅ REVIEW COUNT ADDED: {real_business_data['review_count']}")
+            # Форматуємо всі доступні business data для Custom Instructions
+            business_info_parts = []
+            
+            if business_context.get("location"):
+                business_info_parts.append(f"Location: {business_context['location']}")
+            
+            if business_context.get("rating"):
+                rating_str = f"Rating: {business_context['rating']}/5 stars"
+                if business_context.get("review_count"):
+                    rating_str += f" ({business_context['review_count']} reviews)"
+                business_info_parts.append(rating_str)
+            
+            if business_context.get("categories"):
+                categories = business_context["categories"]
+                if categories:
+                    category_titles = [cat.get('title', str(cat)) if isinstance(cat, dict) else str(cat) for cat in categories[:3]]
+                    business_info_parts.append(f"Specializes in: {', '.join(category_titles)}")
+            
+            if business_context.get("phone"):
+                business_info_parts.append(f"Phone: {business_context['phone']}")
+            
+            if business_context.get("price"):
+                business_info_parts.append(f"Price range: {business_context['price']}")
+            
+            if business_context.get("website"):
+                business_info_parts.append(f"Website: {business_context['website']}")
+            
+            business_info = "\n".join(business_info_parts) if business_info_parts else "Basic business information available."
+            
+            logger.info(f"[AI-SERVICE] 📋 Formatted business info: {len(business_info_parts)} items")
+            logger.info(f"[AI-SERVICE] 💬 Customer text: {customer_text[:50]}...")
+            
+            # 🎯 СТВОРЮЄМО СПРОЩЕНИЙ PROMPT З CUSTOM INSTRUCTIONS + BUSINESS DATA
+            # Length instruction
+            length_instruction = ""
+            if max_length and max_length > 0:
+                if max_length <= 160:
+                    length_instruction = f"\n\nIMPORTANT: Keep response under {max_length} characters. Be concise but complete."
+                elif max_length <= 250:
+                    length_instruction = f"\n\nIMPORTANT: Keep response under {max_length} characters."
                 else:
-                    logger.warning(f"[AI-SERVICE] ⚠️ RATING: Enabled but no rating data available")
-            else:
-                logger.info(f"[AI-SERVICE] ⏭️ RATING: Skipped (disabled in settings)")
+                    length_instruction = f"\n\nKeep response under {max_length} characters."
             
-            if business_data_settings.get("include_categories"):
-                logger.info(f"[AI-SERVICE] 🔍 CATEGORIES CHECK: include_categories={business_data_settings.get('include_categories')}, categories_data={real_business_data.get('categories')}")
-                if real_business_data.get("categories"):
-                    filtered_business_data["categories"] = real_business_data["categories"]
-                    logger.info(f"[AI-SERVICE] ✅ CATEGORIES ADDED: {real_business_data['categories']}")
-                else:
-                    logger.warning(f"[AI-SERVICE] ⚠️ CATEGORIES: Enabled but no categories data available")
-            else:
-                logger.info(f"[AI-SERVICE] ⏭️ CATEGORIES: Skipped (disabled in settings)")
+            # 🎯 СПРОЩЕНИЙ PROMPT ГЕНЕРАЦІЯ З CUSTOM INSTRUCTIONS
+            simplified_prompt = f"""Customer message:
+"{customer_text}"
+
+Customer name: {customer_name}
+Business name: {business_name}
+
+Available Business Information:
+{business_info}{length_instruction}
+
+SYSTEM INSTRUCTIONS:
+{custom_prompt}
+
+Based on your system instructions above, generate a personalized response to the customer. Use any relevant business information that fits your instructions. Be helpful and professional."""
             
-            if business_data_settings.get("include_phone"):
-                logger.info(f"[AI-SERVICE] 🔍 PHONE CHECK: include_phone={business_data_settings.get('include_phone')}, phone_data={real_business_data.get('phone')}")
-                if real_business_data.get("phone"):
-                    filtered_business_data["phone"] = real_business_data["phone"]
-                    logger.info(f"[AI-SERVICE] ✅ PHONE ADDED: {real_business_data['phone']}")
-                else:
-                    logger.warning(f"[AI-SERVICE] ⚠️ PHONE: Enabled but no phone data available")
-            else:
-                logger.info(f"[AI-SERVICE] ⏭️ PHONE: Skipped (disabled in settings)")
+            logger.info(f"[AI-SERVICE] 📝 Generated simplified prompt (length: {len(simplified_prompt)} chars)")
             
-            if business_data_settings.get("include_website") and real_business_data.get("website"):
-                filtered_business_data["website"] = real_business_data["website"]
-            
-            if business_data_settings.get("include_price_range") and real_business_data.get("price"):
-                filtered_business_data["price"] = real_business_data["price"]
-            
-            if business_data_settings.get("include_address") and real_business_data.get("address"):
-                filtered_business_data["address"] = real_business_data["address"]
-                if real_business_data.get("city"):
-                    filtered_business_data["city"] = real_business_data["city"]
-                if real_business_data.get("state"):
-                    filtered_business_data["state"] = real_business_data["state"]
-                if real_business_data.get("zip_code"):
-                    filtered_business_data["zip_code"] = real_business_data["zip_code"]
-            
-            if business_data_settings.get("include_hours"):
-                if real_business_data.get("open_hours"):
-                    filtered_business_data["open_hours"] = real_business_data["open_hours"]
-                if real_business_data.get("open_days"):
-                    filtered_business_data["open_days"] = real_business_data["open_days"]
-            
-            if business_data_settings.get("include_transactions") and real_business_data.get("transactions"):
-                filtered_business_data["transactions"] = real_business_data["transactions"]
-            
-            # Додаємо location якщо потрібно
-            if include_location and real_business_data.get("location"):
-                filtered_business_data["location"] = real_business_data["location"]
-            
-            # Логування фільтрованих даних
-            logger.info(f"[AI-SERVICE] 🔍 Filtered business_data keys: {list(filtered_business_data.keys())}")
-            logger.info(f"[AI-SERVICE] 📊 Business data includes:")
-            for key, value in filtered_business_data.items():
-                if key != "name":  # Не логуємо ім'я бізнесу
-                    logger.info(f"[AI-SERVICE] - {key}: {'✅ included' if value else '❌ empty'}")
-            
-            # 🎯 Використовуємо custom preview text якщо надано, інакше мокові дані
-            if custom_preview_text:
-                original_customer_text = custom_preview_text
-                logger.info(f"[AI-SERVICE] 🎯 Using custom preview text: {original_customer_text[:100]}...")
-            else:
-                original_customer_text = "[Customer Message]"
-                logger.info(f"[AI-SERVICE] Using default placeholder customer text for preview")
-            
-            context = {
-                "customer_name": "[Client Name]",  # Плейсхолдер замість мокових даних
-                "services": "[Services Requested]",  # Плейсхолдер замість мокових даних
-                "additional_info": "[Additional Information]",  # Плейсхолдер замість мокових даних
-                "phone_number": "[Phone Number]",  # Плейсхолдер замість мокових даних
-                "business_name": filtered_business_data["name"],  # РЕАЛЬНЕ ім'я бізнесу
-                "business_location": filtered_business_data.get("location", ""),  # Реальна локація
-                "is_off_hours": False,
-                "mention_response_time": mention_response_time,
-                "business_data": filtered_business_data,  # Тільки реальні дані бізнесу
-                "business_data_settings": business_data_settings,
-                "original_customer_text": original_customer_text  # 🎯 Використовуємо custom або мокові дані
-            }
-            
-            # 🔍 НОВИЙ VECTOR SEARCH INTEGRATION for Custom Preview Text
-            if custom_preview_text and business_ai_settings and business_ai_settings.use_sample_replies:
-                logger.info(f"[AI-SERVICE] 🔍 PREVIEW: Using NEW inquiry→response pair matching")
-                logger.info(f"[AI-SERVICE] Custom text: {custom_preview_text[:100]}...")
-                
-                try:
-                    # 🎯 ВИКОРИСТОВУЄМО НОВИЙ ПІДХІД - Sample Replies Response
-                    logger.info(f"[AI-SERVICE] 🚀 PREVIEW: Calling generate_sample_replies_response with new pair matching...")
-                    
-                    # Створюємо мок LeadDetail для preview
-                    from .models import LeadDetail
-                    mock_lead = LeadDetail(
-                        lead_id="preview_test",
-                        user_display_name="Test Customer",
-                        business_id=business.business_id
-                    )
-                    
-                    # Додаємо custom text як project additional_info для _get_lead_text()
-                    mock_lead.project = {"additional_info": custom_preview_text}
-                    
-                    # Використовуємо новий Sample Replies підхід
-                    vector_response = self.generate_sample_replies_response(
-                        lead_detail=mock_lead,
-                        business=business,
-                        max_length=max_length or 160,
-                        business_ai_settings=business_ai_settings,
-                        use_vector_search=True
-                    )
-                    
-                    if vector_response:
-                        logger.info(f"[AI-SERVICE] 🎉 PREVIEW: Generated with NEW inquiry→response pairs!")
-                        logger.info(f"[AI-SERVICE] Preview response: {vector_response}")
-                        return vector_response  # ✅ ПОВЕРТАЄМО ОДРАЗУ - використовуємо новий підхід
-                    else:
-                        logger.warning(f"[AI-SERVICE] ⚠️ PREVIEW: New approach failed, using fallback...")
-                        
-                except Exception as vector_error:
-                    logger.error(f"[AI-SERVICE] ❌ PREVIEW: New vector approach failed: {vector_error}")
-                    logger.info(f"[AI-SERVICE] 🔄 PREVIEW: Falling back to old approach...")
-            
-            # 🔄 FALLBACK: Старий підхід якщо новий не працює або Sample Replies вимкнені
-            context["vector_search_enabled"] = False
-            if not business_ai_settings:
-                logger.info(f"[AI-SERVICE] PREVIEW: No business AI settings - using fallback")
-            elif not business_ai_settings.use_sample_replies:
-                logger.info(f"[AI-SERVICE] PREVIEW: Sample Replies disabled - using Custom Instructions")
-            elif not custom_preview_text:
-                logger.info(f"[AI-SERVICE] PREVIEW: No custom preview text - using mock data")
-            
-            prompt = self._create_greeting_prompt(context, custom_prompt, max_length)
+            # Використовуємо simplified prompt замість складного _create_greeting_prompt
+            prompt = simplified_prompt
             
             # Отримання AI налаштувань з business-specific fallback для preview
             ai_config = self._get_ai_settings(business_ai_settings)

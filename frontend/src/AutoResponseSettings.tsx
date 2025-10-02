@@ -159,16 +159,7 @@ interface AutoResponseSettingsData {
   sample_replies_content?: string;
   sample_replies_filename?: string;
   sample_replies_priority?: boolean;
-  // AI Business Data Settings
-  ai_include_rating: boolean;
-  ai_include_categories: boolean;
-  ai_include_phone: boolean;
-  ai_include_website: boolean;
-  ai_include_price_range: boolean;
-  ai_include_hours: boolean;
-  ai_include_reviews_count: boolean;
-  ai_include_address: boolean;
-  ai_include_transactions: boolean;
+  // AI Business Data Settings removed - controlled via Custom Instructions
   ai_max_message_length: number;
   // Business-specific AI Model Settings
   ai_model?: string;
@@ -219,16 +210,7 @@ const AutoResponseSettings: FC = () => {
   const [sampleRepliesFilename, setSampleRepliesFilename] = useState('');
   const [sampleRepliesPriority, setSampleRepliesPriority] = useState(true);
 
-  // AI Business Data Settings
-  const [aiIncludeRating, setAiIncludeRating] = useState(true);
-  const [aiIncludeCategories, setAiIncludeCategories] = useState(true);
-  const [aiIncludePhone, setAiIncludePhone] = useState(true);
-  const [aiIncludeWebsite, setAiIncludeWebsite] = useState(false);
-  const [aiIncludePriceRange, setAiIncludePriceRange] = useState(true);
-  const [aiIncludeHours, setAiIncludeHours] = useState(true);
-  const [aiIncludeReviewsCount, setAiIncludeReviewsCount] = useState(true);
-  const [aiIncludeAddress, setAiIncludeAddress] = useState(false);
-  const [aiIncludeTransactions, setAiIncludeTransactions] = useState(false);
+  // AI Business Data Settings removed - now controlled via Custom Instructions
   const [aiMaxMessageLength, setAiMaxMessageLength] = useState(160);
   
   // 🤖 Business-specific AI Model Settings
@@ -434,16 +416,7 @@ const AutoResponseSettings: FC = () => {
           setSampleRepliesFilename(d.sample_replies_filename || '');
           setSampleRepliesPriority(d.sample_replies_priority ?? true);
           
-          // Set AI Business Data Settings
-          setAiIncludeRating(d.ai_include_rating ?? true);
-          setAiIncludeCategories(d.ai_include_categories ?? true);
-          setAiIncludePhone(d.ai_include_phone ?? true);
-          setAiIncludeWebsite(d.ai_include_website ?? false);
-          setAiIncludePriceRange(d.ai_include_price_range ?? true);
-          setAiIncludeHours(d.ai_include_hours ?? true);
-          setAiIncludeReviewsCount(d.ai_include_reviews_count ?? true);
-          setAiIncludeAddress(d.ai_include_address ?? false);
-          setAiIncludeTransactions(d.ai_include_transactions ?? false);
+          // Business data settings removed - controlled via Custom Instructions
           setAiMaxMessageLength(d.ai_max_message_length ?? 160);
           
           // Set Business-specific AI Model Settings
@@ -477,15 +450,7 @@ const AutoResponseSettings: FC = () => {
             ai_mention_response_time: d.ai_mention_response_time,
             ai_custom_prompt: d.ai_custom_prompt,
             // AI Business Data Settings
-            ai_include_rating: true,
-            ai_include_categories: true,
-            ai_include_phone: true,
-            ai_include_website: false,
-            ai_include_price_range: true,
-            ai_include_hours: true,
-            ai_include_reviews_count: true,
-            ai_include_address: false,
-            ai_include_transactions: false,
+            // Business data controlled via Custom Instructions
             ai_max_message_length: 0,
             // AI Model Settings
             ai_model: d.ai_model ?? '',
@@ -565,15 +530,7 @@ const AutoResponseSettings: FC = () => {
             ai_mention_response_time: true,
             ai_custom_prompt: undefined,
             // AI Business Data Settings
-            ai_include_rating: true,
-            ai_include_categories: true,
-            ai_include_phone: true,
-            ai_include_website: false,
-            ai_include_price_range: true,
-            ai_include_hours: true,
-            ai_include_reviews_count: true,
-            ai_include_address: false,
-            ai_include_transactions: false,
+            // Business data controlled via Custom Instructions
             ai_max_message_length: 0,
           };
         } else {
@@ -590,15 +547,7 @@ const AutoResponseSettings: FC = () => {
             ai_mention_response_time: initialSettings.current?.ai_mention_response_time || true,
             ai_custom_prompt: initialSettings.current?.ai_custom_prompt,
             // AI Business Data Settings
-            ai_include_rating: true,
-            ai_include_categories: true,
-            ai_include_phone: true,
-            ai_include_website: false,
-            ai_include_price_range: true,
-            ai_include_hours: true,
-            ai_include_reviews_count: true,
-            ai_include_address: false,
-            ai_include_transactions: false,
+            // Business data controlled via Custom Instructions
             ai_max_message_length: 0,
           };
         }
@@ -789,15 +738,7 @@ const AutoResponseSettings: FC = () => {
         sample_replies_filename: sampleRepliesFilename,
         sample_replies_priority: sampleRepliesPriority,
         // AI Business Data Settings
-        ai_include_rating: aiIncludeRating,
-        ai_include_categories: aiIncludeCategories,
-        ai_include_phone: aiIncludePhone,
-        ai_include_website: aiIncludeWebsite,
-        ai_include_price_range: aiIncludePriceRange,
-        ai_include_hours: aiIncludeHours,
-        ai_include_reviews_count: aiIncludeReviewsCount,
-        ai_include_address: aiIncludeAddress,
-        ai_include_transactions: aiIncludeTransactions,
+        // Business data settings removed - controlled via Custom Instructions
         ai_max_message_length: aiMaxMessageLength,
         // Business-specific AI Model Settings
         ai_model: aiModel,
@@ -826,15 +767,7 @@ const AutoResponseSettings: FC = () => {
         ai_mention_response_time: aiMentionResponseTime,
         ai_custom_prompt: aiCustomPrompt,
         // AI Business Data Settings
-        ai_include_rating: aiIncludeRating,
-        ai_include_categories: aiIncludeCategories,
-        ai_include_phone: aiIncludePhone,
-        ai_include_website: aiIncludeWebsite,
-        ai_include_price_range: aiIncludePriceRange,
-        ai_include_hours: aiIncludeHours,
-        ai_include_reviews_count: aiIncludeReviewsCount,
-        ai_include_address: aiIncludeAddress,
-        ai_include_transactions: aiIncludeTransactions,
+        // Business data settings removed - controlled via Custom Instructions
         ai_max_message_length: aiMaxMessageLength,
         // SMS Notification Settings
         sms_on_phone_found: smsOnPhoneFound,
@@ -934,15 +867,7 @@ const AutoResponseSettings: FC = () => {
         ai_mention_response_time: aiMentionResponseTime,
         ai_custom_prompt: aiCustomPrompt,
         // AI Business Data Settings
-        ai_include_rating: aiIncludeRating,
-        ai_include_categories: aiIncludeCategories,
-        ai_include_phone: aiIncludePhone,
-        ai_include_website: aiIncludeWebsite,
-        ai_include_price_range: aiIncludePriceRange,
-        ai_include_hours: aiIncludeHours,
-        ai_include_reviews_count: aiIncludeReviewsCount,
-        ai_include_address: aiIncludeAddress,
-        ai_include_transactions: aiIncludeTransactions,
+        // Business data settings removed - controlled via Custom Instructions
         ai_max_message_length: aiMaxMessageLength,
         // Business-specific AI Model Settings (use new values if provided, otherwise current state)
         ai_model: newAiModel !== undefined ? newAiModel : aiModel,
@@ -1004,15 +929,7 @@ const AutoResponseSettings: FC = () => {
         sample_replies_filename: sampleRepliesFilename,
         sample_replies_priority: sampleRepliesPriority,
         // AI Business Data Settings
-        ai_include_rating: aiIncludeRating,
-        ai_include_categories: aiIncludeCategories,
-        ai_include_phone: aiIncludePhone,
-        ai_include_website: aiIncludeWebsite,
-        ai_include_price_range: aiIncludePriceRange,
-        ai_include_hours: aiIncludeHours,
-        ai_include_reviews_count: aiIncludeReviewsCount,
-        ai_include_address: aiIncludeAddress,
-        ai_include_transactions: aiIncludeTransactions,
+        // Business data settings removed - controlled via Custom Instructions
         ai_max_message_length: aiMaxMessageLength,
         // Business-specific AI Model Settings
         ai_model: aiModel,
@@ -1214,18 +1131,9 @@ AVOID: Generic responses, overly formal language, sales pressure`;
         // ai_response_style removed - AI learns style from PDF examples
         ai_include_location: aiIncludeLocation,
         ai_mention_response_time: aiMentionResponseTime,
-        ai_custom_prompt: aiCustomPrompt || "You are a helpful business assistant. Use the provided business information when responding to customers.",  // ✅ Завжди передаємо custom_prompt для business data settings
+        ai_custom_prompt: aiCustomPrompt || undefined,  // Custom Instructions is now the primary prompt (no fallback needed)
         custom_preview_text: aiCustomPreviewText || undefined, // 🎯 Додаємо custom preview text
-        // AI Business Data Settings
-        ai_include_rating: aiIncludeRating,
-        ai_include_categories: aiIncludeCategories,
-        ai_include_phone: aiIncludePhone,
-        ai_include_website: aiIncludeWebsite,
-        ai_include_price_range: aiIncludePriceRange,
-        ai_include_hours: aiIncludeHours,
-        ai_include_reviews_count: aiIncludeReviewsCount,
-        ai_include_address: aiIncludeAddress,
-        ai_include_transactions: aiIncludeTransactions,
+        // Business data controlled via Custom Instructions (individual checkboxes removed)
         ai_max_message_length: aiMaxMessageLength,
         // Business-specific AI Model Settings
         ai_model: aiModel,
@@ -1935,7 +1843,7 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                               }}>
                                 <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', fontWeight: 600 }}>
                                   <PersonIcon sx={{ mr: 1 }} />
-                                  AI Settings & Business Information
+                                  AI Settings
                                 </Typography>
                               </Box>
                               <CardContent sx={{ p: 3 }}>
@@ -1972,136 +1880,7 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                 </FormGroup>
                               </Box>
 
-                              {/* Business Information Section (moved from separate card) */}
-                              <Divider sx={{ my: 3 }} />
-                              <Box>
-                                <Typography variant="caption" sx={{ mb: 1, display: 'block', fontWeight: 600 }}>
-                                  📊 Business Information to Include
-                                </Typography>
-                                <Typography variant="caption" sx={{ mb: 2, display: 'block', color: 'text.secondary', fontStyle: 'italic' }}>
-                                  Select which business data to include in AI-generated messages
-                                </Typography>
-                                
-                                {/* High Priority Data */}
-                                <Box sx={{ mb: 2 }}>
-                                  <Typography variant="caption" sx={{ mb: 1, display: 'block', fontWeight: 600, color: 'success.main' }}>
-                                    ⭐ Recommended (High Impact)
-                                  </Typography>
-                                  <FormGroup>
-                                    <FormControlLabel
-                                      control={
-                                        <Checkbox
-                                          checked={aiIncludeRating}
-                                          onChange={e => setAiIncludeRating(e.target.checked)}
-                                          size="small"
-                                          color="success"
-                                        />
-                                      }
-                                      label="Include rating & review count (e.g., '4.8★, 200+ reviews')"
-                                    />
-                                    <FormControlLabel
-                                      control={
-                                        <Checkbox
-                                          checked={aiIncludeCategories}
-                                          onChange={e => setAiIncludeCategories(e.target.checked)}
-                                          size="small"
-                                          color="success"
-                                        />
-                                      }
-                                      label="Include business specialization (e.g., 'General Contractors')"
-                                    />
-                                    <FormControlLabel
-                                      control={
-                                        <Checkbox
-                                          checked={aiIncludePhone}
-                                          onChange={e => setAiIncludePhone(e.target.checked)}
-                                          size="small"
-                                          color="success"
-                                        />
-                                      }
-                                      label="Include phone number for direct contact"
-                                    />
-                                  </FormGroup>
-                                </Box>
-
-                                {/* Medium Priority Data */}
-                                <Box sx={{ mb: 2 }}>
-                                  <Typography variant="caption" sx={{ mb: 1, display: 'block', fontWeight: 600, color: 'primary.main' }}>
-                                    📈 Additional Information
-                                  </Typography>
-                                  <FormGroup>
-                                    <FormControlLabel
-                                      control={
-                                        <Checkbox
-                                          checked={aiIncludePriceRange}
-                                          onChange={e => setAiIncludePriceRange(e.target.checked)}
-                                          size="small"
-                                        />
-                                      }
-                                      label="Include price range ($, $$, $$$, $$$$)"
-                                    />
-                                    <FormControlLabel
-                                      control={
-                                        <Checkbox
-                                          checked={aiIncludeHours}
-                                          onChange={e => setAiIncludeHours(e.target.checked)}
-                                          size="small"
-                                        />
-                                      }
-                                      label="Include business hours & current status"
-                                    />
-                                    <FormControlLabel
-                                      control={
-                                        <Checkbox
-                                          checked={aiIncludeReviewsCount}
-                                          onChange={e => setAiIncludeReviewsCount(e.target.checked)}
-                                          size="small"
-                                        />
-                                      }
-                                      label="Include detailed review count"
-                                    />
-                                  </FormGroup>
-                                </Box>
-
-                                {/* Optional Data */}
-                                <Box>
-                                  <Typography variant="caption" sx={{ mb: 1, display: 'block', fontWeight: 600, color: 'text.secondary' }}>
-                                    📍 Optional Details
-                                  </Typography>
-                                  <FormGroup>
-                                    <FormControlLabel
-                                      control={
-                                        <Checkbox
-                                          checked={aiIncludeWebsite}
-                                          onChange={e => setAiIncludeWebsite(e.target.checked)}
-                                          size="small"
-                                        />
-                                      }
-                                      label="Include website URL"
-                                    />
-                                    <FormControlLabel
-                                      control={
-                                        <Checkbox
-                                          checked={aiIncludeAddress}
-                                          onChange={e => setAiIncludeAddress(e.target.checked)}
-                                          size="small"
-                                        />
-                                      }
-                                      label="Include full business address"
-                                    />
-                                    <FormControlLabel
-                                      control={
-                                        <Checkbox
-                                          checked={aiIncludeTransactions}
-                                          onChange={e => setAiIncludeTransactions(e.target.checked)}
-                                          size="small"
-                                        />
-                                      }
-                                      label="Include available services/transactions"
-                                    />
-                                  </FormGroup>
-                                </Box>
-                              </Box>
+                              {/* Business Information checkboxes removed - now controlled via Custom Instructions */}
                             </Stack>
                               </CardContent>
                             </Card>
