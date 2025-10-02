@@ -472,13 +472,21 @@ class OpenAIService:
                 logger.warning(f"[AI-SERVICE] ⚠️ Note: GPT-5 models may not be available in all OpenAI accounts yet")
             
             # Використовуємо параметр max_length якщо наданий, інакше business/global
-            # 🔧 КОНВЕРТАЦІЯ СИМВОЛІВ → ТОКЕНИ (перед API викликом)
+            # 🔧 ПОКРАЩЕНА КОНВЕРТАЦІЯ СИМВОЛІВ → ТОКЕНИ
             if max_length is not None and max_length > 0:
-                # Конвертуємо символи в токени для OpenAI API
-                # Приблизно: 1 токен = 4 символи для англійської мови
-                estimated_tokens = max(1, max_length // 4)  # Мінімум 1 токен
+                # Покращена конвертація для різних довжин:
+                if max_length <= 160:
+                    # Короткі повідомлення: більш консервативна конвертація
+                    estimated_tokens = max(1, max_length // 5)  # 1 token ≈ 5 chars
+                elif max_length <= 320:
+                    # Середні повідомлення: стандартна конвертація
+                    estimated_tokens = max(1, max_length // 4)  # 1 token ≈ 4 chars  
+                else:
+                    # Довгі повідомлення: менш консервативна конвертація
+                    estimated_tokens = max(1, max_length // 3)  # 1 token ≈ 3 chars
+                    
                 message_length = estimated_tokens
-                logger.info(f"[AI-SERVICE] Preview max length: {max_length} chars → {estimated_tokens} tokens")
+                logger.info(f"[AI-SERVICE] Smart conversion: {max_length} chars → {estimated_tokens} tokens (ratio: 1:{max_length/estimated_tokens:.1f})")
             else:
                 message_length = ai_config['max_length']
                 logger.info(f"[AI-SERVICE] Preview using configured max length: {message_length} tokens")
@@ -851,10 +859,17 @@ STYLE GUIDANCE: Use the tone, approach, and communication style from the similar
 """
                 logger.info(f"[AI-SERVICE] 📝 Added {len(similar_chunks)} vector chunks to preview context")
             
-            # 🔧 Додаємо інструкції про довжину якщо задано
+            # 🔧 ПОКРАЩЕНІ ІНСТРУКЦІЇ ПРО ДОВЖИНУ (контекстуальний prompt)
             length_instruction = ""
             if max_length and max_length > 0:
-                length_instruction = f"\n\nIMPORTANT: Keep your response under {max_length} characters total. Write a complete, concise message that fits within this limit."
+                if max_length <= 160:
+                    length_instruction = f"\n\nCRITICAL: Response MUST be under {max_length} characters (1-2 sentences). Be extremely concise but complete."
+                elif max_length <= 250:
+                    length_instruction = f"\n\nIMPORTANT: Keep under {max_length} characters (2-3 sentences). Concise but informative."
+                elif max_length <= 320:
+                    length_instruction = f"\n\nINSTRUCTION: Under {max_length} characters (3-4 sentences). Balanced detail."
+                else:
+                    length_instruction = f"\n\nGUIDANCE: Under {max_length} characters. Detailed but within limit."
             
             contextual_prompt = f"""Customer message:
 "{customer_text}"
@@ -902,10 +917,17 @@ RELEVANT SAMPLE REPLIES:
 INSTRUCTIONS: Generate a professional response in the style of the examples above. Use the tone, approach, and communication patterns shown in the similar examples.
 """
             
-            # 🔧 Додаємо інструкції про довжину якщо задано
+            # 🔧 ПОКРАЩЕНІ ІНСТРУКЦІЇ ПРО ДОВЖИНУ (vector context prompt)
             length_instruction = ""
             if max_length and max_length > 0:
-                length_instruction = f"\n\nIMPORTANT: Keep your response under {max_length} characters total. Write a complete, concise message that fits within this limit."
+                if max_length <= 160:
+                    length_instruction = f"\n\nCRITICAL: Response MUST be under {max_length} characters (1-2 sentences). Be extremely concise."
+                elif max_length <= 250:
+                    length_instruction = f"\n\nIMPORTANT: Keep under {max_length} characters (2-3 sentences). Concise but informative."
+                elif max_length <= 320:
+                    length_instruction = f"\n\nINSTRUCTION: Under {max_length} characters (3-4 sentences). Balanced detail."
+                else:
+                    length_instruction = f"\n\nGUIDANCE: Under {max_length} characters. Detailed but within limit."
             
             basic_prompt = f"""Customer message:
 "{customer_text}"
@@ -962,10 +984,17 @@ Generate a personalized, professional response to the customer using the style g
         
         business_info = "\n".join(business_info_parts) if business_info_parts else "No additional business information configured."
         
-        # Додаємо інструкції про довжину якщо задано
+        # 🔧 ПОКРАЩЕНІ ІНСТРУКЦІЇ ПРО ДОВЖИНУ (основний prompt)
         length_instruction = ""
         if max_length and max_length > 0:
-            length_instruction = f"\n\nIMPORTANT: Keep your response under {max_length} characters total. Write a complete, concise message that fits within this limit."
+            if max_length <= 160:
+                length_instruction = f"\n\nCRITICAL: Response MUST be under {max_length} characters (1-2 sentences max). Be extremely concise but complete. Every word counts."
+            elif max_length <= 250:
+                length_instruction = f"\n\nIMPORTANT: Keep under {max_length} characters (2-3 sentences). Concise but informative."
+            elif max_length <= 320:
+                length_instruction = f"\n\nINSTRUCTION: Under {max_length} characters (3-4 sentences). Balanced detail."
+            else:
+                length_instruction = f"\n\nGUIDANCE: Under {max_length} characters. Detailed information within limit."
         
         basic_prompt = f"""Customer message:
 "{customer_text}"
