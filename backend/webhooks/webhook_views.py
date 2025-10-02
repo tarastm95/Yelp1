@@ -2408,7 +2408,7 @@ class WebhookView(APIView):
                     }
                     
                     logger.info(f"[AUTO-RESPONSE] AI generation parameters:")
-                    logger.info(f"[AUTO-RESPONSE] - response_style: {getattr(auto_settings, 'ai_response_style', 'auto')}")
+                    # response_style removed - AI learns style from PDF examples via inquiry→response pairs
                     logger.info(f"[AUTO-RESPONSE] - include_location: {getattr(auto_settings, 'ai_include_location', False)}")
                     logger.info(f"[AUTO-RESPONSE] - mention_response_time: {getattr(auto_settings, 'ai_mention_response_time', False)}")
                     logger.info(f"[AUTO-RESPONSE] - is_off_hours: {not within_hours}")
@@ -2466,7 +2466,7 @@ class WebhookView(APIView):
                             lead_detail=ld,
                             business=business,
                             is_off_hours=not within_hours,
-                            response_style=getattr(auto_settings, 'ai_response_style', 'auto'),
+                            # response_style removed - AI learns style from PDF examples
                             include_location=getattr(auto_settings, 'ai_include_location', False),
                             mention_response_time=getattr(auto_settings, 'ai_mention_response_time', False),
                             custom_prompt=getattr(auto_settings, 'ai_custom_prompt', None),

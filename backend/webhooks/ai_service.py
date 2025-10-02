@@ -106,7 +106,7 @@ class OpenAIService:
         lead_detail: LeadDetail, 
         business: Optional[YelpBusiness] = None,
         is_off_hours: bool = False,
-        response_style: str = 'auto',
+        # response_style removed - AI learns style from PDF examples
         include_location: bool = False,
         mention_response_time: bool = False,
         custom_prompt: Optional[str] = None,
@@ -123,7 +123,7 @@ class OpenAIService:
         logger.info(f"[AI-SERVICE] - Customer name: {lead_detail.user_display_name}")
         logger.info(f"[AI-SERVICE] - Business: {business.name if business else 'None'}")
         logger.info(f"[AI-SERVICE] - is_off_hours: {is_off_hours}")
-        logger.info(f"[AI-SERVICE] - response_style: {response_style}")
+        # logger response_style removed - AI learns style from PDF examples
         logger.info(f"[AI-SERVICE] - include_location: {include_location}")
         logger.info(f"[AI-SERVICE] - mention_response_time: {mention_response_time}")
         logger.info(f"[AI-SERVICE] - custom_prompt provided: {custom_prompt is not None}")
@@ -161,7 +161,7 @@ class OpenAIService:
             
             # Створення промпта
             prompt = self._create_greeting_prompt(
-                context, response_style, custom_prompt
+                context, custom_prompt
             )
             
             logger.info(f"[AI-SERVICE] ✅ Prompt created (length: {len(prompt)} characters)")
@@ -240,7 +240,7 @@ class OpenAIService:
     def generate_preview_message(
         self,
         business,  # YelpBusiness object
-        response_style: str = 'auto',
+        # response_style removed - AI learns style from PDF examples
         include_location: bool = False,
         mention_response_time: bool = False,
         custom_prompt: Optional[str] = None,
@@ -432,7 +432,7 @@ class OpenAIService:
             elif not custom_preview_text:
                 logger.info(f"[AI-SERVICE] PREVIEW: No custom preview text - using mock data")
             
-            prompt = self._create_greeting_prompt(context, response_style, custom_prompt)
+            prompt = self._create_greeting_prompt(context, custom_prompt)
             
             # Отримання AI налаштувань з business-specific fallback для preview
             ai_config = self._get_ai_settings(business_ai_settings)
@@ -707,7 +707,7 @@ class OpenAIService:
     def _create_greeting_prompt(
         self, 
         context: Dict[str, Any], 
-        response_style: str,
+        # response_style removed - AI learns style from PDF examples
         custom_prompt: Optional[str] = None
     ) -> str:
         """Створює промпт для генерації вітального повідомлення з повними бізнес-даними"""

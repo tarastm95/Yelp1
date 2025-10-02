@@ -114,7 +114,7 @@ interface AutoResponse {
   export_to_sheets: boolean;
   // AI fields
   use_ai_greeting: boolean;
-  ai_response_style: 'formal' | 'casual' | 'auto';
+  // ai_response_style removed - AI learns style from PDF examples via inquiry→response pairs
   ai_include_location: boolean;
   ai_mention_response_time: boolean;
   ai_custom_prompt?: string;
@@ -149,7 +149,7 @@ interface AutoResponseSettingsData {
   follow_up_templates: FollowUpTplData[];
   // AI fields
   use_ai_greeting: boolean;
-  ai_response_style: 'formal' | 'casual' | 'auto';
+  // ai_response_style removed - AI learns style from PDF examples via inquiry→response pairs
   ai_include_location: boolean;
   ai_mention_response_time: boolean;
   ai_custom_prompt?: string;
@@ -204,7 +204,7 @@ const AutoResponseSettings: FC = () => {
 
   // AI settings state
   const [useAiGreeting, setUseAiGreeting] = useState(false);
-  const [aiResponseStyle, setAiResponseStyle] = useState<'formal' | 'casual' | 'auto'>('auto');
+  // aiResponseStyle removed - AI learns style from PDF examples via inquiry→response pairs
   const [aiIncludeLocation, setAiIncludeLocation] = useState(false);
   const [aiMentionResponseTime, setAiMentionResponseTime] = useState(false);
   const [aiCustomPrompt, setAiCustomPrompt] = useState('');
@@ -630,7 +630,7 @@ const AutoResponseSettings: FC = () => {
 
     // Apply AI settings
     setUseAiGreeting(d.use_ai_greeting || false);
-    setAiResponseStyle(d.ai_response_style || 'auto');
+    // setAiResponseStyle removed - AI learns style from PDF examples
     setAiIncludeLocation(d.ai_include_location || false);
     setAiMentionResponseTime(d.ai_mention_response_time || false);
     setAiCustomPrompt(d.ai_custom_prompt || '');
@@ -778,7 +778,7 @@ const AutoResponseSettings: FC = () => {
         export_to_sheets: exportToSheets,
         // AI fields
         use_ai_greeting: useAiGreeting,
-        ai_response_style: aiResponseStyle,
+        // ai_response_style removed - AI learns style from PDF examples
         ai_include_location: aiIncludeLocation,
         ai_mention_response_time: aiMentionResponseTime,
         ai_custom_prompt: aiCustomPrompt,
@@ -820,7 +820,7 @@ const AutoResponseSettings: FC = () => {
         follow_up_templates: initialSettings.current?.follow_up_templates || [],
         // AI fields
         use_ai_greeting: useAiGreeting,
-        ai_response_style: aiResponseStyle,
+        // ai_response_style removed - AI learns style from PDF examples
         ai_include_location: aiIncludeLocation,
         ai_mention_response_time: aiMentionResponseTime,
         ai_custom_prompt: aiCustomPrompt,
@@ -928,7 +928,7 @@ const AutoResponseSettings: FC = () => {
         export_to_sheets: exportToSheets,
         // AI fields
         use_ai_greeting: useAiGreeting,
-        ai_response_style: aiResponseStyle,
+        // ai_response_style removed - AI learns style from PDF examples
         ai_include_location: aiIncludeLocation,
         ai_mention_response_time: aiMentionResponseTime,
         ai_custom_prompt: aiCustomPrompt,
@@ -993,7 +993,7 @@ const AutoResponseSettings: FC = () => {
         export_to_sheets: exportToSheets,
         // AI fields
         use_ai_greeting: useAiGreeting,
-        ai_response_style: aiResponseStyle,
+        // ai_response_style removed - AI learns style from PDF examples
         ai_include_location: aiIncludeLocation,
         ai_mention_response_time: aiMentionResponseTime,
         ai_custom_prompt: aiCustomPrompt,
@@ -1210,7 +1210,7 @@ AVOID: Generic responses, overly formal language, sales pressure`;
     try {
       const response = await axios.post('/ai/preview/', {
         business_id: selectedBusiness,  // Передаємо business_id для отримання реальних даних
-        ai_response_style: aiResponseStyle,
+        // ai_response_style removed - AI learns style from PDF examples
         ai_include_location: aiIncludeLocation,
         ai_mention_response_time: aiMentionResponseTime,
         ai_custom_prompt: aiCustomPrompt || undefined,
@@ -1940,23 +1940,7 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                               <CardContent sx={{ p: 3 }}>
                             
                             <Stack spacing={2}>
-                              {/* Response Style */}
-                              <Box>
-                                <Typography variant="caption" sx={{ mb: 1, display: 'block', fontWeight: 600 }}>
-                                  Response Style
-                                </Typography>
-                                <Select
-                                  value={aiResponseStyle}
-                                  onChange={e => setAiResponseStyle(e.target.value as 'formal' | 'casual' | 'auto')}
-                                  size="small"
-                                  fullWidth
-                                  sx={{ backgroundColor: 'white' }}
-                                >
-                                  <MenuItem value="auto">Auto (Adaptive)</MenuItem>
-                                  <MenuItem value="formal">Formal & Professional</MenuItem>
-                                  <MenuItem value="casual">Casual & Friendly</MenuItem>
-                                </Select>
-                              </Box>
+                              {/* Response Style removed - AI learns style from PDF examples via inquiry→response pairs */}
 
                               {/* AI Options */}
                               <Box>

@@ -111,16 +111,7 @@ class AutoResponseSettings(models.Model):
         default=False,
         help_text="Використовувати AI для генерації вітальних повідомлень"
     )
-    ai_response_style = models.CharField(
-        max_length=20,
-        choices=[
-            ('formal', 'Formal'),
-            ('casual', 'Casual'),
-            ('auto', 'Auto'),
-        ],
-        default='auto',
-        help_text="Стиль AI відповіді"
-    )
+    # ai_response_style removed - AI learns style from PDF examples via inquiry→response pairs
     ai_include_location = models.BooleanField(
         default=False,
         help_text="Включати локацію бізнесу в AI повідомлення"

@@ -46,7 +46,7 @@ class AutoResponseSettingsSerializer(serializers.ModelSerializer):
             "export_to_sheets",
             # AI fields
             "use_ai_greeting",
-            "ai_response_style",
+            # "ai_response_style" removed - AI learns style from PDF examples
             "ai_include_location",
             "ai_mention_response_time",
             "ai_custom_prompt",
