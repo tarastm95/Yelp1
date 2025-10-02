@@ -749,6 +749,14 @@ const AutoResponseSettings: FC = () => {
   // save settings
   const handleSaveSettings = async () => {
     setLoading(true);
+    
+    // ✅ ВАЛІДАЦІЯ: Custom Instructions обов'язкові для AI режиму
+    if (useAiGreeting && !aiCustomPrompt.trim()) {
+      setError('Custom Instructions are required when AI Generation is enabled. Please provide fallback instructions to ensure quality responses.');
+      setLoading(false);
+      return;
+    }
+    
     const params = new URLSearchParams();
     params.append('phone_opt_in', 'false');  // Always false - merged with No Phone
     params.append('phone_available', phoneAvailable ? 'true' : 'false');
@@ -877,8 +885,17 @@ const AutoResponseSettings: FC = () => {
 
       setSaved(true);
       setError('');
-    } catch {
-      setError('Failed to save settings.');
+    } catch (error: any) {
+      console.error('Save settings error:', error);
+      
+      // Handle validation errors from backend
+      if (error.response?.status === 400 && error.response?.data?.ai_custom_prompt) {
+        setError(error.response.data.ai_custom_prompt[0]);
+      } else if (error.response?.data?.message) {
+        setError(error.response.data.message);
+      } else {
+        setError('Failed to save settings.');
+      }
     } finally {
       setLoading(false);
     }
@@ -1141,6 +1158,31 @@ const AutoResponseSettings: FC = () => {
     
     // Simple time comparison (works for same-day hours)
     return currentTime >= openTime && currentTime <= closeTime;
+  };
+
+  // Handle AI mode change with auto-fill Custom Instructions
+  const handleAiModeChange = (enableAi: boolean) => {
+    setUseAiGreeting(enableAi);
+    
+    // ✅ AUTO-FILL Custom Instructions when enabling AI mode
+    if (enableAi && !aiCustomPrompt.trim()) {
+      const defaultPrompt = `You are a professional business communication assistant for our business.
+
+TONE: Be friendly, professional, and helpful
+STYLE: Use a conversational but business-appropriate tone
+STRUCTURE: Include greeting, address the specific service request, offer next steps
+
+KEY ELEMENTS TO ALWAYS INCLUDE:
+- Personalized greeting with customer name
+- Acknowledge their specific service request  
+- Offer to schedule an estimate or consultation
+- Include business availability/hours
+- End with a professional closing
+
+AVOID: Generic responses, overly formal language, sales pressure`;
+      
+      setAiCustomPrompt(defaultPrompt);
+    }
   };
 
   // Generate AI preview
@@ -1683,7 +1725,7 @@ const AutoResponseSettings: FC = () => {
                               '25%, 75%': { opacity: 0.5 }
                             }
                           }}
-                          onClick={() => setUseAiGreeting(false)}
+                          onClick={() => handleAiModeChange(false)}
                         >
                           <Box sx={{ textAlign: 'center' }}>
                             <MessageIcon sx={{ fontSize: 40, color: useAiGreeting === false ? 'primary.main' : 'grey.500', mb: 1 }} />
@@ -1722,7 +1764,7 @@ const AutoResponseSettings: FC = () => {
                               transform: 'scale(1.02)'
                             }
                           }}
-                          onClick={() => setUseAiGreeting(true)}
+                          onClick={() => handleAiModeChange(true)}
                         >
                           <Box sx={{ textAlign: 'center' }}>
                             <PersonIcon sx={{ fontSize: 40, color: useAiGreeting === true ? 'info.main' : 'grey.500', mb: 1 }} />
@@ -2665,17 +2707,19 @@ const AutoResponseSettings: FC = () => {
 
                               {/* Custom Prompt */}
                               <Box>
-                                <Typography variant="caption" sx={{ mb: 1, display: 'block', fontWeight: 600 }}>
-                                  Custom Instructions (Optional)
+                                <Typography variant="caption" sx={{ mb: 1, display: 'block', fontWeight: 600, color: useAiGreeting && !aiCustomPrompt.trim() ? 'error.main' : 'text.primary' }}>
+                                  Custom Instructions (Required) *
                                 </Typography>
                                 <TextField
                                   multiline
                                   rows={8}
                                   fullWidth
+                                  required
                                   value={aiCustomPrompt}
                                   onChange={e => setAiCustomPrompt(e.target.value)}
                                   placeholder="Add specific instructions for AI message generation (e.g., 'Always mention our 24/7 availability', 'Use a casual tone', 'Include our special discount offer')..."
                                   variant="outlined"
+                                  error={useAiGreeting && !aiCustomPrompt.trim()}
                                   sx={{ 
                                     backgroundColor: 'white',
                                     '& .MuiInputBase-root': {
@@ -2685,9 +2729,19 @@ const AutoResponseSettings: FC = () => {
                                     },
                                     '& .MuiInputBase-input': {
                                       resize: 'vertical'
+                                    },
+                                    '& .MuiOutlinedInput-root': {
+                                      '&.Mui-error': {
+                                        borderColor: 'error.main',
+                                        backgroundColor: 'error.50'
+                                      }
                                     }
                                   }}
-                                  helperText={`${aiCustomPrompt.length} characters. Be specific about tone, key information to include, or special instructions.`}
+                                  helperText={
+                                    useAiGreeting && !aiCustomPrompt.trim() 
+                                      ? '⚠️ Required when AI Generation is enabled. Prevents generic AI responses.' 
+                                      : `${aiCustomPrompt.length} characters. Be specific about tone, key information to include, or special instructions.`
+                                  }
                                 />
                               </Box>
 

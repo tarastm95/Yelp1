@@ -92,6 +92,19 @@ class AutoResponseSettingsSerializer(serializers.ModelSerializer):
         validated_data["business"] = business
         return super().create(validated_data)
 
+    def validate(self, data):
+        """✅ Валідація: Custom Instructions обов'язкові для AI режиму"""
+        
+        use_ai_greeting = data.get('use_ai_greeting', False)
+        ai_custom_prompt = data.get('ai_custom_prompt', '')
+        
+        if use_ai_greeting and not ai_custom_prompt.strip():
+            raise serializers.ValidationError({
+                'ai_custom_prompt': 'Custom Instructions are required when AI Generation is enabled. Please provide fallback instructions to ensure quality responses.'
+            })
+        
+        return data
+    
     def update(self, instance, validated_data):
         biz_info = validated_data.pop("business", None)
         if biz_info is not None:
