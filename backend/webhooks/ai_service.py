@@ -383,66 +383,54 @@ class OpenAIService:
                 "original_customer_text": original_customer_text  # 🎯 Використовуємо custom або мокові дані
             }
             
-            # 🔍 VECTOR SEARCH INTEGRATION for Custom Preview Text
+            # 🔍 НОВИЙ VECTOR SEARCH INTEGRATION for Custom Preview Text
             if custom_preview_text and business_ai_settings and business_ai_settings.use_sample_replies:
-                logger.info(f"[AI-SERVICE] 🔍 PREVIEW: Integrating Vector Search with Custom Preview Text")
+                logger.info(f"[AI-SERVICE] 🔍 PREVIEW: Using NEW inquiry→response pair matching")
                 logger.info(f"[AI-SERVICE] Custom text: {custom_preview_text[:100]}...")
                 
                 try:
-                    from .vector_search_service import vector_search_service
+                    # 🎯 ВИКОРИСТОВУЄМО НОВИЙ ПІДХІД - Sample Replies Response
+                    logger.info(f"[AI-SERVICE] 🚀 PREVIEW: Calling generate_sample_replies_response with new pair matching...")
                     
-                    # Використовуємо налаштування vector search з business settings
-                    similarity_threshold = getattr(business_ai_settings, 'vector_similarity_threshold', 0.6)
-                    search_limit = getattr(business_ai_settings, 'vector_search_limit', 5)
-                    chunk_types = getattr(business_ai_settings, 'vector_chunk_types', None)
-                    
-                    logger.info(f"[AI-SERVICE] Vector search settings: threshold={similarity_threshold}, limit={search_limit}")
-                    
-                    logger.info(f"[AI-SERVICE] 🔍 CALLING VECTOR SEARCH:")
-                    logger.info(f"[AI-SERVICE] Query text: {custom_preview_text[:100]}...")
-                    logger.info(f"[AI-SERVICE] Business: {business.business_id}")
-                    logger.info(f"[AI-SERVICE] Similarity threshold: {similarity_threshold}")
-                    logger.info(f"[AI-SERVICE] Search limit: {search_limit}")
-                    logger.info(f"[AI-SERVICE] Chunk types filter: {['response', 'example'] if not chunk_types else chunk_types}")
-                    
-                    similar_chunks = vector_search_service.search_similar_chunks(
-                        query_text=custom_preview_text,
-                        business_id=business.business_id,
-                        location_id=None,
-                        limit=search_limit,
-                        similarity_threshold=similarity_threshold,
-                        chunk_types=['response', 'example'] if not chunk_types else chunk_types  # Приоритет response chunks
+                    # Створюємо мок LeadDetail для preview
+                    from .models import LeadDetail
+                    mock_lead = LeadDetail(
+                        lead_id="preview_test",
+                        user_display_name="Test Customer",
+                        business_id=business.business_id
                     )
                     
-                    logger.info(f"[AI-SERVICE] 📊 VECTOR SEARCH RESULTS:")
-                    logger.info(f"[AI-SERVICE] Found chunks: {len(similar_chunks) if similar_chunks else 0}")
+                    # Додаємо custom text як project additional_info для _get_lead_text()
+                    mock_lead.project = {"additional_info": custom_preview_text}
                     
-                    if similar_chunks:
-                        logger.info(f"[AI-SERVICE] 🎉 PREVIEW: Found {len(similar_chunks)} similar chunks via vector search")
-                        for i, chunk in enumerate(similar_chunks[:3]):
-                            logger.info(f"[AI-SERVICE] Preview Chunk {i+1}: similarity={chunk['similarity_score']:.3f}, type={chunk['chunk_type']}")
-                        
-                        # Додаємо vector context до prompt
-                        context["sample_replies_context"] = similar_chunks
-                        context["vector_search_enabled"] = True
-                        context["vector_results_count"] = len(similar_chunks)
-                        
-                        logger.info(f"[AI-SERVICE] ✅ PREVIEW: Vector context added to AI prompt")
+                    # Використовуємо новий Sample Replies підхід
+                    vector_response = self.generate_sample_replies_response(
+                        lead_detail=mock_lead,
+                        business=business,
+                        max_length=max_length or 160,
+                        business_ai_settings=business_ai_settings,
+                        use_vector_search=True
+                    )
+                    
+                    if vector_response:
+                        logger.info(f"[AI-SERVICE] 🎉 PREVIEW: Generated with NEW inquiry→response pairs!")
+                        logger.info(f"[AI-SERVICE] Preview response: {vector_response}")
+                        return vector_response  # ✅ ПОВЕРТАЄМО ОДРАЗУ - використовуємо новий підхід
                     else:
-                        logger.warning(f"[AI-SERVICE] ⚠️ PREVIEW: No similar chunks found for custom text")
-                        context["vector_search_enabled"] = False
+                        logger.warning(f"[AI-SERVICE] ⚠️ PREVIEW: New approach failed, using fallback...")
                         
                 except Exception as vector_error:
-                    logger.error(f"[AI-SERVICE] ❌ PREVIEW: Vector search failed: {vector_error}")
-                    context["vector_search_enabled"] = False
-            else:
-                context["vector_search_enabled"] = False
-                if not business_ai_settings:
-                    logger.info(f"[AI-SERVICE] PREVIEW: No business AI settings for vector search")
-                elif not business_ai_settings.use_sample_replies:
-                    logger.info(f"[AI-SERVICE] PREVIEW: Sample Replies not enabled for this business")
-                elif not custom_preview_text:
-                    logger.info(f"[AI-SERVICE] PREVIEW: No custom preview text provided")
+                    logger.error(f"[AI-SERVICE] ❌ PREVIEW: New vector approach failed: {vector_error}")
+                    logger.info(f"[AI-SERVICE] 🔄 PREVIEW: Falling back to old approach...")
+            
+            # 🔄 FALLBACK: Старий підхід якщо новий не працює або Sample Replies вимкнені
+            context["vector_search_enabled"] = False
+            if not business_ai_settings:
+                logger.info(f"[AI-SERVICE] PREVIEW: No business AI settings - using fallback")
+            elif not business_ai_settings.use_sample_replies:
+                logger.info(f"[AI-SERVICE] PREVIEW: Sample Replies disabled - using Custom Instructions")
+            elif not custom_preview_text:
+                logger.info(f"[AI-SERVICE] PREVIEW: No custom preview text - using mock data")
             
             prompt = self._create_greeting_prompt(context, response_style, custom_prompt)
             
