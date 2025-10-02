@@ -161,7 +161,7 @@ class OpenAIService:
             
             # Створення промпта
             prompt = self._create_greeting_prompt(
-                context, custom_prompt
+                context, custom_prompt, max_length
             )
             
             logger.info(f"[AI-SERVICE] ✅ Prompt created (length: {len(prompt)} characters)")
@@ -455,7 +455,7 @@ class OpenAIService:
             elif not custom_preview_text:
                 logger.info(f"[AI-SERVICE] PREVIEW: No custom preview text - using mock data")
             
-            prompt = self._create_greeting_prompt(context, custom_prompt)
+            prompt = self._create_greeting_prompt(context, custom_prompt, max_length)
             
             # Отримання AI налаштувань з business-specific fallback для preview
             ai_config = self._get_ai_settings(business_ai_settings)
@@ -735,7 +735,8 @@ class OpenAIService:
         self, 
         context: Dict[str, Any], 
         # response_style removed - AI learns style from PDF examples
-        custom_prompt: Optional[str] = None
+        custom_prompt: Optional[str] = None,
+        max_length: Optional[int] = None  # 🔧 Додаємо max_length для інструкцій про довжину
     ) -> str:
         """Створює промпт для генерації вітального повідомлення з повними бізнес-даними"""
         
@@ -850,6 +851,11 @@ STYLE GUIDANCE: Use the tone, approach, and communication style from the similar
 """
                 logger.info(f"[AI-SERVICE] 📝 Added {len(similar_chunks)} vector chunks to preview context")
             
+            # 🔧 Додаємо інструкції про довжину якщо задано
+            length_instruction = ""
+            if max_length and max_length > 0:
+                length_instruction = f"\n\nIMPORTANT: Keep your response under {max_length} characters total. Write a complete, concise message that fits within this limit."
+            
             contextual_prompt = f"""Customer message:
 "{customer_text}"
 
@@ -857,9 +863,9 @@ Customer name: {customer_name}
 Business name: {business_name}
 
 Business Information:
-{business_info}{vector_context}
+{business_info}{vector_context}{length_instruction}
 
-Please analyze the customer's request and respond according to the instructions provided in the system prompt. Use the business information provided above when generating your response. Generate a complete, personalized response."""
+Please analyze the customer's request and respond according to the instructions provided in the system prompt. Use the business information provided above when generating your response. Generate a complete, personalized response that fits the length requirement."""
             
             logger.info(f"[AI-SERVICE] 🎯 Using contextual AI analysis with custom prompt")
             logger.info(f"[AI-SERVICE] Customer text length: {len(customer_text)} characters")
@@ -896,21 +902,84 @@ RELEVANT SAMPLE REPLIES:
 INSTRUCTIONS: Generate a professional response in the style of the examples above. Use the tone, approach, and communication patterns shown in the similar examples.
 """
             
+            # 🔧 Додаємо інструкції про довжину якщо задано
+            length_instruction = ""
+            if max_length and max_length > 0:
+                length_instruction = f"\n\nIMPORTANT: Keep your response under {max_length} characters total. Write a complete, concise message that fits within this limit."
+            
             basic_prompt = f"""Customer message:
 "{customer_text}"
 
 Customer name: {customer_name}
 Business name: {business_name}
-{vector_context}
+{vector_context}{length_instruction}
 
-Generate a personalized, professional response to the customer using the style guidance from the examples above."""
+Generate a personalized, professional response to the customer using the style guidance from the examples above. Make sure your response is complete and fits the length requirement."""
             
             logger.info(f"[AI-SERVICE] ✅ Using Vector Search context without custom prompt")
             return basic_prompt
         
-        # Якщо немає ні custom prompt, ні vector context
-        logger.warning(f"[AI-SERVICE] ⚠️ No custom instructions and no vector context - returning empty prompt")
-        return ""
+        # 🔧 Якщо немає ні custom prompt, ні vector context - використовуємо базовий prompt з business data
+        logger.info(f"[AI-SERVICE] 💼 No custom instructions/vector context - using basic prompt with business data")
+        
+        # Формуємо базовий prompt з business data
+        customer_text = context.get('original_customer_text', '')
+        customer_name = context.get('customer_name', 'there')
+        business_name = context.get('business_name', 'our business')
+        business_data = context.get('business_data', {})
+        business_data_settings = context.get('business_data_settings', {})
+        
+        # Формуємо business information для базового prompt
+        business_info_parts = []
+        
+        # Rating and reviews
+        if business_data_settings.get('include_rating') and business_data.get('rating'):
+            rating = business_data['rating']
+            review_count = business_data.get('review_count', 0)
+            if business_data_settings.get('include_reviews_count') and review_count > 0:
+                business_info_parts.append(f"Rating: {rating}/5 stars ({review_count} reviews)")
+            else:
+                business_info_parts.append(f"Rating: {rating}/5 stars")
+        
+        # Categories
+        if business_data_settings.get('include_categories') and business_data.get('categories'):
+            category_titles = []
+            for cat in business_data['categories'][:3]:
+                if isinstance(cat, dict):
+                    category_titles.append(cat.get('title', cat.get('alias', str(cat))))
+                else:
+                    category_titles.append(str(cat))
+            if category_titles:
+                business_info_parts.append(f"Specializes in: {', '.join(category_titles)}")
+        
+        # Phone
+        if business_data_settings.get('include_phone') and business_data.get('phone'):
+            business_info_parts.append(f"Phone: {business_data['phone']}")
+        
+        # Price range
+        if business_data_settings.get('include_price_range') and business_data.get('price'):
+            business_info_parts.append(f"Price range: {business_data['price']}")
+        
+        business_info = "\n".join(business_info_parts) if business_info_parts else "No additional business information configured."
+        
+        # Додаємо інструкції про довжину якщо задано
+        length_instruction = ""
+        if max_length and max_length > 0:
+            length_instruction = f"\n\nIMPORTANT: Keep your response under {max_length} characters total. Write a complete, concise message that fits within this limit."
+        
+        basic_prompt = f"""Customer message:
+"{customer_text}"
+
+Customer name: {customer_name}
+Business name: {business_name}
+
+Business Information:
+{business_info}{length_instruction}
+
+Generate a personalized, professional response to the customer. Use the business information provided above. Make sure your response is complete and fits the length requirement."""
+        
+        logger.info(f"[AI-SERVICE] ✅ Generated basic prompt with business data (length instructions: {bool(max_length)})")
+        return basic_prompt
     
     def _fallback_message(self, context: Dict[str, Any]) -> str:
         """Fallback повідомлення якщо AI не працює"""
