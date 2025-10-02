@@ -343,20 +343,11 @@ const AutoResponseSettings: FC = () => {
     follow_up_templates: [],
     // AI fields
     use_ai_greeting: false,
-    ai_response_style: 'auto',
+    // ai_response_style removed - AI learns style from PDF examples
     ai_include_location: true,
     ai_mention_response_time: true,
     ai_custom_prompt: undefined,
-    // AI Business Data Settings
-    ai_include_rating: true,
-    ai_include_categories: true,
-    ai_include_phone: true,
-    ai_include_website: false,
-    ai_include_price_range: true,
-    ai_include_hours: true,
-    ai_include_reviews_count: true,
-    ai_include_address: false,
-    ai_include_transactions: false,
+    // Business data controlled via Custom Instructions (individual settings removed)
     ai_max_message_length: 0,
   };
 
@@ -443,12 +434,12 @@ const AutoResponseSettings: FC = () => {
             greeting_open_days: d.greeting_open_days || 'Mon, Tue, Wed, Thu, Fri',
             export_to_sheets: d.export_to_sheets,
             follow_up_templates: initialSettings.current?.follow_up_templates || [],
-            // AI fields
-            use_ai_greeting: d.use_ai_greeting,
-            ai_response_style: d.ai_response_style,
-            ai_include_location: d.ai_include_location,
-            ai_mention_response_time: d.ai_mention_response_time,
-            ai_custom_prompt: d.ai_custom_prompt,
+                        // AI fields
+                        use_ai_greeting: d.use_ai_greeting,
+                        // ai_response_style removed - AI learns style from PDF examples
+                        ai_include_location: d.ai_include_location,
+                        ai_mention_response_time: d.ai_mention_response_time,
+                        ai_custom_prompt: d.ai_custom_prompt,
             // AI Business Data Settings
             // Business data controlled via Custom Instructions
             ai_max_message_length: 0,
@@ -542,7 +533,7 @@ const AutoResponseSettings: FC = () => {
             follow_up_templates: mapped,
             // AI fields
             use_ai_greeting: initialSettings.current?.use_ai_greeting || false,
-            ai_response_style: initialSettings.current?.ai_response_style || 'auto',
+            // ai_response_style removed - AI learns style from PDF examples
             ai_include_location: initialSettings.current?.ai_include_location || true,
             ai_mention_response_time: initialSettings.current?.ai_mention_response_time || true,
             ai_custom_prompt: initialSettings.current?.ai_custom_prompt,
@@ -585,16 +576,8 @@ const AutoResponseSettings: FC = () => {
     setAiMentionResponseTime(d.ai_mention_response_time || false);
     setAiCustomPrompt(d.ai_custom_prompt || '');
 
-    // Apply AI Business Data Settings
-    setAiIncludeRating(d.ai_include_rating ?? true);
-    setAiIncludeCategories(d.ai_include_categories ?? true);
-    setAiIncludePhone(d.ai_include_phone ?? true);
-    setAiIncludeWebsite(d.ai_include_website ?? false);
-    setAiIncludePriceRange(d.ai_include_price_range ?? true);
-    setAiIncludeHours(d.ai_include_hours ?? true);
-    setAiIncludeReviewsCount(d.ai_include_reviews_count ?? true);
-    setAiIncludeAddress(d.ai_include_address ?? false);
-    setAiIncludeTransactions(d.ai_include_transactions ?? false);
+    // Business data settings removed - controlled via Custom Instructions  
+    setAiMaxMessageLength(d.ai_max_message_length ?? 160);
 
     if (Array.isArray(d.follow_up_templates)) {
       const mapped = d.follow_up_templates.map((t: any, idx: number) => ({
@@ -1084,18 +1067,22 @@ const AutoResponseSettings: FC = () => {
     
     // ✅ AUTO-FILL Custom Instructions when enabling AI mode
     if (enableAi && !aiCustomPrompt.trim()) {
-      const defaultPrompt = `You are a professional business communication assistant for our business.
+      const defaultPrompt = `You are a professional business communication assistant.
 
-TONE: Be friendly, professional, and helpful
-STYLE: Use a conversational but business-appropriate tone
-STRUCTURE: Include greeting, address the specific service request, offer next steps
+BUSINESS DATA USAGE:
+- Always mention our business rating and review count when available
+- Include our phone number for direct contact  
+- Mention our specialization/categories
+- Use business location if relevant to customer request
 
-KEY ELEMENTS TO ALWAYS INCLUDE:
-- Personalized greeting with customer name
-- Acknowledge their specific service request  
-- Offer to schedule an estimate or consultation
-- Include business availability/hours
-- End with a professional closing
+COMMUNICATION STYLE:
+- Be friendly, professional, and helpful
+- Use conversational but business-appropriate tone
+- Address customer's specific service request
+- Offer next steps (estimate, consultation, etc)
+- End with professional closing
+
+EXAMPLE: "Hi [Name]! [Business] (4.0★, 12 reviews) specializes in [category]. We'd love to help with [request]. Call [phone] to discuss!"
 
 AVOID: Generic responses, overly formal language, sales pressure`;
       
@@ -1804,29 +1791,34 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                             fontSize: '0.85rem'
                           }}>
                             <Typography variant="body2" sx={{ fontWeight: 600, mb: 1, color: '#fff' }}>
-                              💡 How AI + Checkboxes Work Together:
+                              🎯 How Simplified AI System Works:
                             </Typography>
                             
                             <Typography variant="caption" sx={{ display: 'block', mb: 1, color: 'rgba(255,255,255,0.95)' }}>
-                              <strong>Checkboxes control WHAT data AI sees</strong> → <strong>Custom Prompt controls HOW AI uses that data</strong>
+                              <strong>2-Step AI Generation:</strong> <strong>Vector Search</strong> → <strong>Custom Instructions</strong>
                             </Typography>
                             
                             <Box sx={{ mt: 1 }}>
                               <Typography variant="caption" sx={{ display: 'block', color: 'rgba(255,255,255,0.9)' }}>
-                                ✅ <strong>Example (Good):</strong><br/>
-                                Checkboxes: ✓ Rating, ✓ Phone | Custom Prompt: "If rating available, highlight trust. If phone available, encourage direct contact."<br/>
-                                <em>→ Result: "ABC Contractors (4.8★) can help! Call (555) 123-4567 to discuss."</em>
+                                <strong>🔍 Step 1 - Vector Search (Sample Replies):</strong><br/>
+                                If Sample Replies PDF uploaded + custom preview text provided → AI searches for similar inquiry→response pairs and uses authentic style from your examples.<br/>
+                                <em>→ Result: Natural responses matching your business voice</em>
                               </Typography>
                               
                               <Typography variant="caption" sx={{ display: 'block', mt: 1, color: 'rgba(255,255,255,0.9)' }}>
-                                ❌ <strong>Example (Bad):</strong><br/>
-                                Checkboxes: ✗ Phone | Custom Prompt: "Always mention call (555) 123-4567"<br/>
-                                <em>→ Result: AI might hallucinate or use wrong numbers!</em>
+                                <strong>📝 Step 2 - Custom Instructions (Primary):</strong><br/>
+                                AI sees ALL available business data (rating: 4.0★, phone: (213) 816-1560, specialization: General Contractors) + your Custom Instructions.<br/>
+                                <em>→ Example: "Always mention our 4.0★ rating and phone. We specialize in contractors. Be friendly and offer free estimates."</em><br/>
+                                <em>→ Result: "Hi! Priority Remodeling (4.0★, 12 reviews) specializes in General Contractors. Call (213) 816-1560 for a free estimate!"</em>
                               </Typography>
                             </Box>
                             
                             <Typography variant="caption" sx={{ display: 'block', mt: 1.5, fontWeight: 600, color: '#fff' }}>
-                              💡 <strong>Best Practice:</strong> Enable checkboxes for data you want, then use Custom Prompt to describe the communication style.
+                              💡 <strong>Best Practice:</strong> Write specific instructions about what business information to mention and how to communicate with customers.
+                            </Typography>
+                            
+                            <Typography variant="caption" sx={{ display: 'block', mt: 1.5, fontWeight: 600, color: 'rgba(255,200,200,1)' }}>
+                              ⚠️ <strong>If AI fails:</strong> System uses template fallback: "Hello [Customer Name]! Thank you for your inquiry about [services]. We'll get back to you soon!"
                             </Typography>
                           </Box>
                         </Box>
@@ -2467,7 +2459,7 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                   required
                                   value={aiCustomPrompt}
                                   onChange={e => setAiCustomPrompt(e.target.value)}
-                                  placeholder="Add specific instructions for AI message generation (e.g., 'Always mention our 24/7 availability', 'Use a casual tone', 'Include our special discount offer')..."
+                                  placeholder="Write specific instructions for AI responses. AI automatically sees ALL your business data (rating, phone, specialization, location, etc). Example: 'Always mention our 4.0★ rating and phone (213) 816-1560. We specialize in General Contractors. Be friendly and offer free estimates.'"
                                   variant="outlined"
                                   error={useAiGreeting && !aiCustomPrompt.trim()}
                                   sx={{ 
