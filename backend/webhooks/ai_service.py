@@ -313,18 +313,41 @@ class OpenAIService:
             
             # Фільтруємо тільки ті реальні дані, які увімкнені
             filtered_business_data = {"name": real_business_data["name"]}
+            logger.info(f"[AI-SERVICE] 🔍 FILTERING: Starting with base business name: {real_business_data['name']}")
             
             # Додаємо тільки ті дані, які є і увімкнені
-            if business_data_settings.get("include_rating") and real_business_data.get("rating"):
-                filtered_business_data["rating"] = real_business_data["rating"]
-                if business_data_settings.get("include_reviews_count") and real_business_data.get("review_count"):
-                    filtered_business_data["review_count"] = real_business_data["review_count"]
+            if business_data_settings.get("include_rating"):
+                logger.info(f"[AI-SERVICE] 🔍 RATING CHECK: include_rating={business_data_settings.get('include_rating')}, rating_data={real_business_data.get('rating')}")
+                if real_business_data.get("rating"):
+                    filtered_business_data["rating"] = real_business_data["rating"]
+                    logger.info(f"[AI-SERVICE] ✅ RATING ADDED: {real_business_data['rating']}")
+                    if business_data_settings.get("include_reviews_count") and real_business_data.get("review_count"):
+                        filtered_business_data["review_count"] = real_business_data["review_count"]
+                        logger.info(f"[AI-SERVICE] ✅ REVIEW COUNT ADDED: {real_business_data['review_count']}")
+                else:
+                    logger.warning(f"[AI-SERVICE] ⚠️ RATING: Enabled but no rating data available")
+            else:
+                logger.info(f"[AI-SERVICE] ⏭️ RATING: Skipped (disabled in settings)")
             
-            if business_data_settings.get("include_categories") and real_business_data.get("categories"):
-                filtered_business_data["categories"] = real_business_data["categories"]
+            if business_data_settings.get("include_categories"):
+                logger.info(f"[AI-SERVICE] 🔍 CATEGORIES CHECK: include_categories={business_data_settings.get('include_categories')}, categories_data={real_business_data.get('categories')}")
+                if real_business_data.get("categories"):
+                    filtered_business_data["categories"] = real_business_data["categories"]
+                    logger.info(f"[AI-SERVICE] ✅ CATEGORIES ADDED: {real_business_data['categories']}")
+                else:
+                    logger.warning(f"[AI-SERVICE] ⚠️ CATEGORIES: Enabled but no categories data available")
+            else:
+                logger.info(f"[AI-SERVICE] ⏭️ CATEGORIES: Skipped (disabled in settings)")
             
-            if business_data_settings.get("include_phone") and real_business_data.get("phone"):
-                filtered_business_data["phone"] = real_business_data["phone"]
+            if business_data_settings.get("include_phone"):
+                logger.info(f"[AI-SERVICE] 🔍 PHONE CHECK: include_phone={business_data_settings.get('include_phone')}, phone_data={real_business_data.get('phone')}")
+                if real_business_data.get("phone"):
+                    filtered_business_data["phone"] = real_business_data["phone"]
+                    logger.info(f"[AI-SERVICE] ✅ PHONE ADDED: {real_business_data['phone']}")
+                else:
+                    logger.warning(f"[AI-SERVICE] ⚠️ PHONE: Enabled but no phone data available")
+            else:
+                logger.info(f"[AI-SERVICE] ⏭️ PHONE: Skipped (disabled in settings)")
             
             if business_data_settings.get("include_website") and real_business_data.get("website"):
                 filtered_business_data["website"] = real_business_data["website"]

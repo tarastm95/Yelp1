@@ -1934,7 +1934,7 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                               }}>
                                 <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', fontWeight: 600 }}>
                                   <PersonIcon sx={{ mr: 1 }} />
-                                  Basic AI Settings
+                                  AI Settings & Business Information
                                 </Typography>
                               </Box>
                               <CardContent sx={{ p: 3 }}>
@@ -1970,25 +1970,9 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                   />
                                 </FormGroup>
                               </Box>
-                            </Stack>
-                              </CardContent>
-                            </Card>
-                          </Grid>
 
-                          {/* Business Information Card */}
-                          <Grid item xs={12} md={6}>
-                            <Card elevation={2} sx={{ borderRadius: 3, height: '100%' }}>
-                              <Box sx={{ 
-                                background: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-                                p: 2,
-                                color: 'white'
-                              }}>
-                                <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', fontWeight: 600 }}>
-                                  <BusinessCenterIcon sx={{ mr: 1 }} />
-                                  Business Information
-                                </Typography>
-                              </Box>
-                              <CardContent sx={{ p: 3 }}>
+                              {/* Business Information Section (moved from separate card) */}
+                              <Divider sx={{ my: 3 }} />
                               <Box>
                                 <Typography variant="caption" sx={{ mb: 1, display: 'block', fontWeight: 600 }}>
                                   📊 Business Information to Include
@@ -2117,9 +2101,11 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                   </FormGroup>
                                 </Box>
                               </Box>
+                            </Stack>
                               </CardContent>
                             </Card>
                           </Grid>
+
 
                           {/* Additional Settings Card */}
                           <Grid item xs={12}>
