@@ -422,7 +422,7 @@ const AutoResponseSettings: FC = () => {
           
           // Set AI settings
           setUseAiGreeting(d.use_ai_greeting || false);
-          setAiResponseStyle(d.ai_response_style || 'auto');
+          // setAiResponseStyle removed - AI learns style from PDF examples
           setAiIncludeLocation(d.ai_include_location || false);
           setAiMentionResponseTime(d.ai_mention_response_time || false);
           setAiCustomPrompt(d.ai_custom_prompt || '');
