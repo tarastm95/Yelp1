@@ -1214,7 +1214,7 @@ AVOID: Generic responses, overly formal language, sales pressure`;
         // ai_response_style removed - AI learns style from PDF examples
         ai_include_location: aiIncludeLocation,
         ai_mention_response_time: aiMentionResponseTime,
-        ai_custom_prompt: aiCustomPrompt || undefined,
+        ai_custom_prompt: aiCustomPrompt || "You are a helpful business assistant. Use the provided business information when responding to customers.",  // ✅ Завжди передаємо custom_prompt для business data settings
         custom_preview_text: aiCustomPreviewText || undefined, // 🎯 Додаємо custom preview text
         // AI Business Data Settings
         ai_include_rating: aiIncludeRating,

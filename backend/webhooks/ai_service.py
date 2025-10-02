@@ -472,12 +472,16 @@ class OpenAIService:
                 logger.warning(f"[AI-SERVICE] ⚠️ Note: GPT-5 models may not be available in all OpenAI accounts yet")
             
             # Використовуємо параметр max_length якщо наданий, інакше business/global
+            # 🔧 КОНВЕРТАЦІЯ СИМВОЛІВ → ТОКЕНИ (перед API викликом)
             if max_length is not None and max_length > 0:
-                message_length = max_length
-                logger.info(f"[AI-SERVICE] Preview using parameter max length: {message_length}")
+                # Конвертуємо символи в токени для OpenAI API
+                # Приблизно: 1 токен = 4 символи для англійської мови
+                estimated_tokens = max(1, max_length // 4)  # Мінімум 1 токен
+                message_length = estimated_tokens
+                logger.info(f"[AI-SERVICE] Preview max length: {max_length} chars → {estimated_tokens} tokens")
             else:
                 message_length = ai_config['max_length']
-                logger.info(f"[AI-SERVICE] Preview using configured max length: {message_length}")
+                logger.info(f"[AI-SERVICE] Preview using configured max length: {message_length} tokens")
             
             # 🎯 Для contextual AI analysis використовуємо custom prompt як system prompt
             system_prompt = self._get_system_prompt(custom_prompt)
