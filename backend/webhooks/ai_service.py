@@ -290,7 +290,7 @@ class OpenAIService:
             # 🎯 STEP 2: CUSTOM INSTRUCTIONS (Primary prompt approach)
             if not custom_prompt:
                 logger.warning(f"[AI-SERVICE] ⚠️ STEP 2: No Custom Instructions provided - using minimal prompt")
-                return "Please provide Custom Instructions to generate personalized responses. Custom Instructions should specify what business information to include and how to respond to customers."
+                return "Custom Instructions required for AI response generation."
             
             logger.info(f"[AI-SERVICE] 📝 STEP 2: Using Custom Instructions as primary prompt")
             logger.info(f"[AI-SERVICE] Custom prompt length: {len(custom_prompt)} characters")
@@ -388,10 +388,9 @@ Business name: {business_name}
 Available Business Information:
 {business_info}{length_instruction}
 
-SYSTEM INSTRUCTIONS:
 {custom_prompt}
 
-Based on your system instructions above, generate a personalized response to the customer. Use any relevant business information that fits your instructions. Be helpful and professional."""
+Respond to the customer."""
             
             logger.info(f"[AI-SERVICE] 📝 Generated simplified prompt (length: {len(simplified_prompt)} chars)")
             
@@ -820,7 +819,7 @@ Business name: {business_name}
 Business Information:
 {business_info}{vector_context}{length_instruction}
 
-Please analyze the customer's request and respond according to the instructions provided in the system prompt. Use the business information provided above when generating your response. Generate a complete, personalized response that fits the length requirement."""
+Customer inquiry requires response based on the information above."""
             
             logger.info(f"[AI-SERVICE] 🎯 Using contextual AI analysis with custom prompt")
             logger.info(f"[AI-SERVICE] Customer text length: {len(customer_text)} characters")
@@ -853,8 +852,6 @@ Please analyze the customer's request and respond according to the instructions 
             vector_context = f"""
 RELEVANT SAMPLE REPLIES:
 {chr(10).join(vector_parts)}
-
-INSTRUCTIONS: Generate a professional response in the style of the examples above. Use the tone, approach, and communication patterns shown in the similar examples.
 """
             
             # 🔧 ПОКРАЩЕНІ ІНСТРУКЦІЇ ПРО ДОВЖИНУ (vector context prompt)
@@ -876,7 +873,7 @@ Customer name: {customer_name}
 Business name: {business_name}
 {vector_context}{length_instruction}
 
-Generate a personalized, professional response to the customer using the style guidance from the examples above. Make sure your response is complete and fits the length requirement."""
+Respond to the customer using the examples above as style reference."""
             
             logger.info(f"[AI-SERVICE] ✅ Using Vector Search context without custom prompt")
             return basic_prompt
@@ -945,21 +942,24 @@ Business name: {business_name}
 Business Information:
 {business_info}{length_instruction}
 
-Generate a personalized, professional response to the customer. Use the business information provided above. Make sure your response is complete and fits the length requirement."""
+Respond to the customer using the business information above."""
         
         logger.info(f"[AI-SERVICE] ✅ Generated basic prompt with business data (length instructions: {bool(max_length)})")
         return basic_prompt
     
     def _fallback_message(self, context: Dict[str, Any]) -> str:
-        """Fallback повідомлення якщо AI не працює"""
+        """Fallback повідомлення якщо AI не працює - мінімальне без захардкоджених даних"""
+        # Повертаємо мінімальне повідомлення без захардкоджених шаблонів
         name = context.get('customer_name', '')
-        services = context.get('services', 'our services')
-        business = context.get('business_name', 'our business')
+        business_name = context.get('business_name', '')
         
-        if name and name != 'there':
-            return f"Hello {name}! Thank you for your inquiry about {services}. We'll get back to you soon!"
+        # Мінімальне повідомлення що не заважає custom prompt логіці
+        if name and name != 'there' and business_name:
+            return f"Hi {name}! Thank you for contacting {business_name}."
+        elif business_name:
+            return f"Thank you for contacting {business_name}."
         else:
-            return f"Hello! Thank you for your inquiry about {services}. We'll get back to you soon!"
+            return "Thank you for your message."
     
     def _parse_lead_data(self, lead_detail: LeadDetail, custom_prompt: Optional[str] = None) -> Dict[str, str]:
         """🤖 AI-powered парсинг що автоматично витягує будь-які плейсхолдери з custom prompt"""
@@ -1243,26 +1243,23 @@ Generate a personalized, professional response to the customer. Use the business
             model = ai_config['model']
             temperature = ai_config['temperature']
             
-            # Системний промпт для legacy режиму
-            system_prompt = f"""You are a professional business communication assistant for {business.name}.
+            # Використовуємо business custom prompt замість захардкодженого
+            system_prompt = custom_prompt if custom_prompt else ""
+            
+            # Додаємо sample replies як контекст без захардкоджених інструкцій
+            if system_prompt:
+                system_prompt += f"""
 
-MODE 2: AI GENERATED - LEGACY SAMPLE REPLIES METHOD
-
-TASK: Generate a personalized response using the full sample replies content as training data.
-
-SAMPLE REPLIES TRAINING DATA:
-{sample_replies_content}
-
-INSTRUCTIONS:
-1. Study the sample replies to understand communication style and approach
-2. Generate a NEW response matching this learned style for the current inquiry
-3. Keep under {max_length} characters
-4. Be professional and personalized"""
+SAMPLE REPLIES FOR REFERENCE:
+{sample_replies_content}"""
+            else:
+                system_prompt = f"""SAMPLE REPLIES FOR REFERENCE:
+{sample_replies_content}"""
             
             user_prompt = f"""Customer: {customer_name}
 Inquiry: "{lead_inquiry}"
 
-Generate a response in the style of the sample replies provided."""
+Respond based on the sample replies context provided."""
             
             # Підготовка та виклик API
             messages = self._prepare_messages_for_model(model, system_prompt, user_prompt)
