@@ -34,7 +34,6 @@ from .serializers import (
     LeadEventSerializer,
     NotificationSettingSerializer,
     AISettingsSerializer,
-    AIGlobalSettingsSerializer,
     TimeBasedGreetingSerializer,
 )
 from .ai_service import OpenAIService
@@ -554,74 +553,6 @@ class AIPreviewView(APIView):
             return Response({
                 'error': f'Error generating preview: {str(e)}',
                 'preview': 'Error occurred - would fallback to template message.'
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-class AIGlobalSettingsView(APIView):
-    """
-    Global AI Settings management endpoint
-    Allows viewing and updating global AI configuration
-    """
-    
-    def get(self, request, *args, **kwargs):
-        """Отримати глобальні AI налаштування"""
-        try:
-            ai_settings = AISettings.objects.first()
-            if not ai_settings:
-                # Створити з default значеннями якщо не існує
-                ai_settings = AISettings.objects.create()
-            
-            serializer = AIGlobalSettingsSerializer(ai_settings)
-            return Response({
-                'success': True,
-                'data': serializer.data
-            }, status=status.HTTP_200_OK)
-            
-        except Exception as e:
-            logger.error(f"Error fetching global AI settings: {str(e)}")
-            return Response({
-                'success': False,
-                'error': 'Failed to fetch global AI settings'
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    
-    def put(self, request, *args, **kwargs):
-        """Оновити глобальні AI налаштування"""
-        try:
-            ai_settings = AISettings.objects.first()
-            if not ai_settings:
-                # Створити новий запис якщо не існує
-                serializer = AIGlobalSettingsSerializer(data=request.data)
-                serializer.is_valid(raise_exception=True)
-                ai_settings = serializer.save()
-                
-                return Response({
-                    'success': True,
-                    'message': 'Global AI settings created successfully',
-                    'data': AIGlobalSettingsSerializer(ai_settings).data
-                }, status=status.HTTP_201_CREATED)
-            else:
-                # Оновити існуючий запис
-                serializer = AIGlobalSettingsSerializer(ai_settings, data=request.data, partial=True)
-                serializer.is_valid(raise_exception=True)
-                ai_settings = serializer.save()
-                
-                return Response({
-                    'success': True,
-                    'message': 'Global AI settings updated successfully',
-                    'data': AIGlobalSettingsSerializer(ai_settings).data
-                }, status=status.HTTP_200_OK)
-                
-        except ValidationError as e:
-            return Response({
-                'success': False,
-                'error': 'Validation error',
-                'details': e.detail
-            }, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            logger.error(f"Error updating global AI settings: {str(e)}")
-            return Response({
-                'success': False,
-                'error': 'Failed to update global AI settings'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

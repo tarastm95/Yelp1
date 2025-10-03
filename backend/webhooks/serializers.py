@@ -432,30 +432,6 @@ class AISettingsSerializer(serializers.ModelSerializer):
         # Note: openai_api_key is intentionally excluded from serialization for security
 
 
-class AIGlobalSettingsSerializer(serializers.ModelSerializer):
-    """Спрощений serializer для Global AI Settings UI - тільки системні налаштування"""
-
-    class Meta:
-        model = AISettings
-        fields = [
-            "id",
-            # 🔑 Критичні системні налаштування
-            "base_system_prompt",          # Fallback промпт
-            "always_include_business_name", # Глобальне правило
-            "always_use_customer_name",     # Глобальне правило
-            "fallback_to_template",         # Fallback поведінка
-            "requests_per_minute",          # Rate limiting
-            "created_at",
-            "updated_at",
-            # 🚫 Приховані поля (тепер доступні per-business):
-            # "openai_model",           # → Business AI Settings
-            # "max_message_length",     # → Business AI Settings  
-            # "default_temperature",    # → Business AI Settings
-        ]
-        read_only_fields = ["id", "created_at", "updated_at"]
-        # Note: openai_api_key налаштовується через admin або .env
-
-
 class TimeBasedGreetingSerializer(serializers.ModelSerializer):
     class Meta:
         model = TimeBasedGreeting

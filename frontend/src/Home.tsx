@@ -79,14 +79,6 @@ const serviceCategories = {
 
       },
       {
-        title: 'AI Global Settings',
-        description: 'Manage artificial intelligence configuration and behavior',
-        icon: <Psychology />,
-        href: '/ai-settings',
-        color: '#8b5cf6'
-
-      },
-      {
         title: 'Time-Based Greetings',
         description: 'Set up time-sensitive automated greetings',
         icon: <AccessTimeIcon />,
@@ -146,13 +138,6 @@ const quickActions = [
     icon: <EventIcon />,
     href: '/events',
     color: '#8b5cf6'
-  },
-  {
-    title: 'Configure AI',
-    description: 'Adjust AI response settings',
-    icon: <Psychology />,
-    href: '/ai-settings',
-    color: '#6366f1'
   },
   {
     title: 'Check System Status',

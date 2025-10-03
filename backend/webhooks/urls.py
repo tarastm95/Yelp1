@@ -14,7 +14,7 @@ from .views import (
     NotificationSettingDetailView,
 )
 from .oauth_views import OAuthProcessingStatusView
-from .lead_views import BusinessSMSSettingsView, AIPreviewView, AIGlobalSettingsView, AITestPreviewView, TimeBasedGreetingView, JobMappingListCreateView, JobMappingDetailView, LeadTimeSeriesView
+from .lead_views import BusinessSMSSettingsView, AIPreviewView, AITestPreviewView, TimeBasedGreetingView, JobMappingListCreateView, JobMappingDetailView, LeadTimeSeriesView
 from .task_views import TaskLogListView, TaskStatsView, TaskRevokeView, MessageTaskListView, TaskTimeSeriesView
 from .sms_views import SendSMSAPIView, SMSLogListView, SMSStatsView, SMSTimeSeriesView, SMSUpdatePricesView
 from .lead_logs_views import lead_activity_history, lead_complete_timeline, lead_logs_search
@@ -82,11 +82,6 @@ urlpatterns = [
         'ai/preview/',
         AIPreviewView.as_view(),
         name='ai-preview'
-    ),
-    path(
-        'ai/global-settings/',
-        AIGlobalSettingsView.as_view(),
-        name='ai-global-settings'
     ),
     path(
         'ai/test-preview/',

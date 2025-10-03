@@ -67,7 +67,6 @@ const menuGroups = {
     color: '#43e97b',
     items: [
       { text: 'Auto-response Settings', icon: <SettingsIcon />, href: '/settings', color: '#764ba2' },
-      { text: 'Global AI Settings', icon: <AIIcon />, href: '/ai-settings', color: '#667eea' },
       { text: 'Time-based Greetings', icon: <AccessTimeIcon />, href: '/time-greetings', color: '#43e97b' },
       { text: 'Job Name Settings', icon: <WorkIcon />, href: '/job-mappings', color: '#f093fb' },
     ]
