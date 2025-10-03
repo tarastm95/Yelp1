@@ -1805,33 +1805,6 @@ AVOID: Generic responses, overly formal language, sales pressure`;
 
                         {/* AI Settings Grid */}
                         <Grid container spacing={3}>
-                          {/* Basic Settings Card */}
-                          <Grid item xs={12} md={6}>
-                            <Card elevation={2} sx={{ borderRadius: 3, height: '100%' }}>
-                              <Box sx={{ 
-                                background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-                                p: 2,
-                                color: 'white'
-                              }}>
-                                <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', fontWeight: 600 }}>
-                                  <PersonIcon sx={{ mr: 1 }} />
-                                  AI Settings
-                                </Typography>
-                              </Box>
-                              <CardContent sx={{ p: 3 }}>
-                            
-                            <Stack spacing={2}>
-                              {/* Response Style removed - AI learns style from PDF examples via inquiry→response pairs */}
-
-                              {/* All AI behavior controlled via Custom Instructions - no individual checkboxes */}
-
-                              {/* Business Information checkboxes removed - now controlled via Custom Instructions */}
-                            </Stack>
-                              </CardContent>
-                            </Card>
-                          </Grid>
-
-
                           {/* Additional Settings Card */}
                           <Grid item xs={12}>
                             <Card elevation={2} sx={{ borderRadius: 3 }}>
