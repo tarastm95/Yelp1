@@ -40,6 +40,9 @@ import {
   ListItemIcon,
   Grid,
   Divider,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
@@ -56,6 +59,7 @@ import BusinessCenterIcon from '@mui/icons-material/BusinessCenter';
 import InfoIcon from '@mui/icons-material/Info';
 import TuneIcon from '@mui/icons-material/Tune';
 import PhoneIcon from '@mui/icons-material/Phone';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import PhoneDisabledIcon from '@mui/icons-material/PhoneDisabled';
 import ContactPhoneIcon from '@mui/icons-material/ContactPhone';
 import BusinessInfoCard from './BusinessInfoCard';
@@ -2221,116 +2225,302 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                 </Box>
                               </Box>
 
-                              {/* 🔍 Vector Search Settings (for Sample Replies) */}
+                              {/* 🔍 Vector Search & MODE 2 Settings (for Sample Replies) */}
                               {useSampleReplies && (
                                 <Box sx={{ 
-                                  p: 2, 
-                                  borderRadius: 1, 
+                                  borderRadius: 2, 
                                   border: '1px solid', 
                                   borderColor: 'info.300',
-                                  backgroundColor: 'info.50'
+                                  backgroundColor: 'info.50',
+                                  overflow: 'hidden'
                                 }}>
-                                  <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600, color: 'info.main' }}>
-                                    🔍 Vector Search Settings
-                                  </Typography>
-                                  <Typography variant="caption" sx={{ mb: 2, color: 'text.secondary', display: 'block' }}>
-                                    Configure semantic similarity search for your Sample Replies documents
-                                  </Typography>
-                                  
-                                  <Stack spacing={2}>
-                                    {/* Similarity Threshold */}
-                                    <Box>
-                                      <FormControl size="small" sx={{ width: 300, backgroundColor: 'white' }}>
-                                        <InputLabel>Similarity Threshold</InputLabel>
-                                        <Select
-                                          value={vectorSimilarityThreshold.toString()}
-                                          onChange={e => {
-                                            const newValue = Number(e.target.value);
-                                            setVectorSimilarityThreshold(newValue);
-                                            handleSaveVectorSettings();
+                                  {/* Header */}
+                                  <Box sx={{ 
+                                    p: 2, 
+                                    backgroundColor: 'info.100', 
+                                    borderBottom: '1px solid',
+                                    borderBottomColor: 'info.200'
+                                  }}>
+                                    <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'info.main', display: 'flex', alignItems: 'center' }}>
+                                      🔍 Vector Search Configuration
+                                    </Typography>
+                                    <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.5 }}>
+                                      Advanced semantic search settings for Sample Replies
+                                    </Typography>
+                                  </Box>
+
+                                  {/* Accordion 1: Basic Vector Search Settings */}
+                                  <Accordion defaultExpanded sx={{ 
+                                    backgroundColor: 'transparent', 
+                                    boxShadow: 'none',
+                                    '&:before': { display: 'none' }
+                                  }}>
+                                    <AccordionSummary
+                                      expandIcon={<ExpandMoreIcon />}
+                                      sx={{ 
+                                        backgroundColor: 'white',
+                                        borderBottom: '1px solid',
+                                        borderBottomColor: 'divider',
+                                        '&.Mui-expanded': {
+                                          minHeight: 48,
+                                        },
+                                        '& .MuiAccordionSummary-content.Mui-expanded': {
+                                          margin: '12px 0',
+                                        }
+                                      }}
+                                    >
+                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                        <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                                          🔧 Basic Search Settings
+                                        </Typography>
+                                        <Chip
+                                          label={`${vectorSimilarityThreshold} threshold, ${vectorSearchLimit} results`}
+                                          size="small"
+                                          color="info"
+                                          variant="outlined"
+                                        />
+                                      </Box>
+                                    </AccordionSummary>
+                                    <AccordionDetails sx={{ backgroundColor: 'grey.50', p: 3 }}>
+                                      <Stack spacing={3}>
+                                        {/* Similarity Threshold */}
+                                        <Box>
+                                          <FormControl size="small" sx={{ width: 300, backgroundColor: 'white' }}>
+                                            <InputLabel>Similarity Threshold</InputLabel>
+                                            <Select
+                                              value={vectorSimilarityThreshold.toString()}
+                                              onChange={e => {
+                                                const newValue = Number(e.target.value);
+                                                setVectorSimilarityThreshold(newValue);
+                                                handleSaveVectorSettings();
+                                              }}
+                                              label="Similarity Threshold"
+                                            >
+                                              <MenuItem value="0.4">
+                                                <Box>
+                                                  <Typography variant="body2">0.4 - Very Loose <Chip label="More Results" size="small" color="success" sx={{ ml: 1 }} /></Typography>
+                                                  <Typography variant="caption" color="text.secondary">Finds many results, including loosely related content</Typography>
+                                                </Box>
+                                              </MenuItem>
+                                              <MenuItem value="0.5">
+                                                <Box>
+                                                  <Typography variant="body2">0.5 - Loose</Typography>
+                                                  <Typography variant="caption" color="text.secondary">Good balance for diverse content matching</Typography>
+                                                </Box>
+                                              </MenuItem>
+                                              <MenuItem value="0.6">
+                                                <Box>
+                                                  <Typography variant="body2">0.6 - Balanced <Chip label="Recommended" size="small" color="primary" sx={{ ml: 1 }} /></Typography>
+                                                  <Typography variant="caption" color="text.secondary">Good balance of quality and quantity of results</Typography>
+                                                </Box>
+                                              </MenuItem>
+                                              <MenuItem value="0.7">
+                                                <Box>
+                                                  <Typography variant="body2">0.7 - Focused</Typography>
+                                                  <Typography variant="caption" color="text.secondary">More precise matching, fewer but higher quality results</Typography>
+                                                </Box>
+                                              </MenuItem>
+                                              <MenuItem value="0.8">
+                                                <Box>
+                                                  <Typography variant="body2">0.8 - Very Focused</Typography>
+                                                  <Typography variant="caption" color="text.secondary">Very precise matching, only highly similar content</Typography>
+                                                </Box>
+                                              </MenuItem>
+                                            </Select>
+                                            <FormHelperText>
+                                              Lower values = more results (less strict). Higher values = fewer results (more strict).
+                                            </FormHelperText>
+                                          </FormControl>
+                                        </Box>
+                                        
+                                        {/* Search Results Limit */}
+                                        <Box>
+                                          <FormControl size="small" sx={{ width: 200, backgroundColor: 'white' }}>
+                                            <InputLabel>Max Results</InputLabel>
+                                            <Select
+                                              value={vectorSearchLimit.toString()}
+                                              onChange={e => {
+                                                const newValue = Number(e.target.value);
+                                                setVectorSearchLimit(newValue);
+                                                handleSaveVectorSettings();
+                                              }}
+                                              label="Max Results"
+                                            >
+                                              <MenuItem value="3">3 Results</MenuItem>
+                                              <MenuItem value="5">5 Results (Default)</MenuItem>
+                                              <MenuItem value="10">10 Results</MenuItem>
+                                              <MenuItem value="15">15 Results</MenuItem>
+                                            </Select>
+                                            <FormHelperText>
+                                              Maximum number of similar chunks to return in searches
+                                            </FormHelperText>
+                                          </FormControl>
+                                        </Box>
+                                        
+                                        {/* Auto-save Notice */}
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 2, backgroundColor: 'info.50', borderRadius: 1 }}>
+                                          <Typography variant="caption" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
+                                            🔄 Settings auto-save when changed
+                                          </Typography>
+                                        </Box>
+                                      </Stack>
+                                    </AccordionDetails>
+                                  </Accordion>
+
+                                  {/* Accordion 2: MODE 2 Vector-Enhanced Sample Replies */}
+                                  <Accordion sx={{ 
+                                    backgroundColor: 'transparent', 
+                                    boxShadow: 'none',
+                                    '&:before': { display: 'none' }
+                                  }}>
+                                    <AccordionSummary
+                                      expandIcon={<ExpandMoreIcon />}
+                                      sx={{ 
+                                        backgroundColor: 'gradient.main',
+                                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                        color: 'white',
+                                        borderBottom: '1px solid',
+                                        borderBottomColor: 'divider',
+                                        '&.Mui-expanded': {
+                                          minHeight: 48,
+                                        },
+                                        '& .MuiAccordionSummary-content.Mui-expanded': {
+                                          margin: '12px 0',
+                                        },
+                                        '& .MuiSvgIcon-root': {
+                                          color: 'white'
+                                        }
+                                      }}
+                                    >
+                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                        <VectorIcon sx={{ fontSize: 20 }} />
+                                        <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                                          🔍 MODE 2: Vector-Enhanced Sample Replies
+                                        </Typography>
+                                        <Chip
+                                          label="Advanced"
+                                          size="small"
+                                          sx={{ 
+                                            backgroundColor: 'rgba(255,255,255,0.2)',
+                                            color: 'white',
+                                            border: '1px solid rgba(255,255,255,0.3)'
                                           }}
-                                          label="Similarity Threshold"
-                                        >
-                                          <MenuItem value="0.4">
-                                            <Box>
-                                              <Typography variant="body2">0.4 - Very Loose <Chip label="More Results" size="small" color="success" sx={{ ml: 1 }} /></Typography>
-                                              <Typography variant="caption" color="text.secondary">Finds many results, including loosely related content</Typography>
-                                            </Box>
-                                          </MenuItem>
-                                          <MenuItem value="0.5">
-                                            <Box>
-                                              <Typography variant="body2">0.5 - Loose</Typography>
-                                              <Typography variant="caption" color="text.secondary">Good balance for diverse content matching</Typography>
-                                            </Box>
-                                          </MenuItem>
-                                          <MenuItem value="0.6">
-                                            <Box>
-                                              <Typography variant="body2">0.6 - Balanced <Chip label="Recommended" size="small" color="primary" sx={{ ml: 1 }} /></Typography>
-                                              <Typography variant="caption" color="text.secondary">Good balance of quality and quantity of results</Typography>
-                                            </Box>
-                                          </MenuItem>
-                                          <MenuItem value="0.7">
-                                            <Box>
-                                              <Typography variant="body2">0.7 - Focused</Typography>
-                                              <Typography variant="caption" color="text.secondary">More precise matching, fewer but higher quality results</Typography>
-                                            </Box>
-                                          </MenuItem>
-                                          <MenuItem value="0.8">
-                                            <Box>
-                                              <Typography variant="body2">0.8 - Very Focused</Typography>
-                                              <Typography variant="caption" color="text.secondary">Very precise matching, only highly similar content</Typography>
-                                            </Box>
-                                          </MenuItem>
-                                        </Select>
-                                        <FormHelperText>
-                                          Lower values = more results (less strict). Higher values = fewer results (more strict).
-                                        </FormHelperText>
-                                      </FormControl>
-                                    </Box>
-                                    
-                                    {/* Search Results Limit */}
-                                    <Box>
-                                      <FormControl size="small" sx={{ width: 200, backgroundColor: 'white' }}>
-                                        <InputLabel>Max Results</InputLabel>
-                                        <Select
-                                          value={vectorSearchLimit.toString()}
-                                          onChange={e => {
-                                            const newValue = Number(e.target.value);
-                                            setVectorSearchLimit(newValue);
-                                            handleSaveVectorSettings();
-                                          }}
-                                          label="Max Results"
-                                        >
-                                          <MenuItem value="3">3 Results</MenuItem>
-                                          <MenuItem value="5">5 Results (Default)</MenuItem>
-                                          <MenuItem value="10">10 Results</MenuItem>
-                                          <MenuItem value="15">15 Results</MenuItem>
-                                        </Select>
-                                        <FormHelperText>
-                                          Maximum number of similar chunks to return in searches
-                                        </FormHelperText>
-                                      </FormControl>
-                                    </Box>
-                                    
-                                    {/* Current Settings Display */}
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                                      <Chip
-                                        label={`Threshold: ${vectorSimilarityThreshold}`}
-                                        size="small"
-                                        color="info"
-                                        variant="outlined"
-                                      />
-                                      <Chip
-                                        label={`Limit: ${vectorSearchLimit}`}
-                                        size="small"
-                                        color="info" 
-                                        variant="outlined"
-                                      />
-                                      <Typography variant="caption" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
-                                        🔄 Settings auto-save when changed
-                                      </Typography>
-                                    </Box>
-                                  </Stack>
+                                        />
+                                      </Box>
+                                    </AccordionSummary>
+                                    <AccordionDetails sx={{ backgroundColor: 'gradient.light', p: 3 }}>
+                                      <Stack spacing={3}>
+                                        {/* Feature Description */}
+                                        <Box sx={{ 
+                                          p: 2.5, 
+                                          backgroundColor: 'white', 
+                                          borderRadius: 2,
+                                          border: '1px solid',
+                                          borderColor: 'primary.200'
+                                        }}>
+                                          <Typography variant="h6" sx={{ mb: 1.5, fontWeight: 600, color: 'primary.dark', display: 'flex', alignItems: 'center' }}>
+                                            <VectorIcon sx={{ mr: 1, fontSize: 24 }} />
+                                            Intelligent Sample Replies Processing
+                                          </Typography>
+                                          <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary', lineHeight: 1.6 }}>
+                                            MODE 2 uses advanced vector embeddings to intelligently match customer inquiries with your most relevant sample replies. 
+                                            Instead of using all sample data, it finds the most contextually similar examples to generate highly targeted responses.
+                                          </Typography>
+                                          
+                                          <Grid container spacing={2} sx={{ mt: 1 }}>
+                                            <Grid item xs={12} md={6}>
+                                              <Box sx={{ p: 1.5, backgroundColor: 'success.50', borderRadius: 1 }}>
+                                                <Typography variant="caption" sx={{ fontWeight: 600, color: 'success.dark' }}>
+                                                  ✅ Benefits:
+                                                </Typography>
+                                                <Box component="ul" sx={{ mt: 1, pl: 2, mb: 0 }}>
+                                                  <Typography component="li" variant="caption" sx={{ color: 'success.dark' }}>
+                                                    More accurate responses
+                                                  </Typography>
+                                                  <Typography component="li" variant="caption" sx={{ color: 'success.dark' }}>
+                                                    Context-aware matching
+                                                  </Typography>
+                                                  <Typography component="li" variant="caption" sx={{ color: 'success.dark' }}>
+                                                    Better style consistency
+                                                  </Typography>
+                                                </Box>
+                                              </Box>
+                                            </Grid>
+                                            <Grid item xs={12} md={6}>
+                                              <Box sx={{ p: 1.5, backgroundColor: 'info.50', borderRadius: 1 }}>
+                                                <Typography variant="caption" sx={{ fontWeight: 600, color: 'info.dark' }}>
+                                                  🔧 How it works:
+                                                </Typography>
+                                                <Box component="ol" sx={{ mt: 1, pl: 2, mb: 0 }}>
+                                                  <Typography component="li" variant="caption" sx={{ color: 'info.dark' }}>
+                                                    Analyzes customer inquiry
+                                                  </Typography>
+                                                  <Typography component="li" variant="caption" sx={{ color: 'info.dark' }}>
+                                                    Searches vector database
+                                                  </Typography>
+                                                  <Typography component="li" variant="caption" sx={{ color: 'info.dark' }}>
+                                                    Applies Custom Instructions
+                                                  </Typography>
+                                                </Box>
+                                              </Box>
+                                            </Grid>
+                                          </Grid>
+                                        </Box>
+
+                                        {/* Configuration Status */}
+                                        <Box sx={{ 
+                                          p: 2, 
+                                          backgroundColor: 'info.50', 
+                                          borderRadius: 1,
+                                          border: '1px solid',
+                                          borderColor: 'info.200'
+                                        }}>
+                                          <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600, color: 'info.main' }}>
+                                            📊 Current Vector Configuration
+                                          </Typography>
+                                          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                                            <Chip
+                                              label={`Similarity: ${vectorSimilarityThreshold}`}
+                                              size="small"
+                                              color="info"
+                                              variant="outlined"
+                                            />
+                                            <Chip
+                                              label={`Max Results: ${vectorSearchLimit}`}
+                                              size="small"
+                                              color="info"
+                                              variant="outlined"
+                                            />
+                                            <Chip
+                                              label="Auto-optimized for MODE 2"
+                                              size="small"
+                                              color="success"
+                                              variant="filled"
+                                            />
+                                          </Box>
+                                          <Typography variant="caption" sx={{ display: 'block', mt: 1, color: 'text.secondary', fontStyle: 'italic' }}>
+                                            💡 These settings from "Basic Search Settings" above are automatically applied to MODE 2 processing
+                                          </Typography>
+                                        </Box>
+
+                                        {/* Call to Action */}
+                                        <Box sx={{ 
+                                          p: 2, 
+                                          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                          borderRadius: 2,
+                                          color: 'white'
+                                        }}>
+                                          <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                                            🚀 Ready to use MODE 2?
+                                          </Typography>
+                                          <Typography variant="caption" sx={{ opacity: 0.9 }}>
+                                            MODE 2 is automatically activated when you upload Sample Replies and configure Custom Instructions. 
+                                            The system will intelligently choose between vector search and full-text analysis based on your content.
+                                          </Typography>
+                                        </Box>
+                                      </Stack>
+                                    </AccordionDetails>
+                                  </Accordion>
                                 </Box>
                               )}
 
