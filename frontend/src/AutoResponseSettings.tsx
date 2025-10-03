@@ -386,11 +386,9 @@ const AutoResponseSettings: FC = () => {
           setGreetingOpenDays(d.greeting_open_days || 'Mon, Tue, Wed, Thu, Fri');
           setExportToSheets(d.export_to_sheets);
           
-          // Set AI settings
+          // Set AI settings - maximally simplified
           setUseAiGreeting(d.use_ai_greeting || false);
-          // setAiResponseStyle removed - AI learns style from PDF examples
-          setAiIncludeLocation(d.ai_include_location || false);
-          setAiMentionResponseTime(d.ai_mention_response_time || false);
+          // All AI behavior controlled via Custom Instructions (location, response time, business data, style)
           setAiCustomPrompt(d.ai_custom_prompt || '');
           
           // Set Sample Replies settings (MODE 2: AI Generated)
@@ -2436,8 +2434,8 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                   }}
                                   helperText={
                                     useAiGreeting && !aiCustomPrompt.trim() 
-                                      ? '⚠️ Required when AI Generation is enabled. Prevents generic AI responses.' 
-                                      : `${aiCustomPrompt.length} characters. Be specific about tone, key information to include, or special instructions.`
+                                      ? '⚠️ Required when AI Generation is enabled. Custom Instructions control ALL AI behavior (business data usage, tone, location, response time, etc).' 
+                                      : `${aiCustomPrompt.length} characters. AI sees ALL business data automatically - tell AI what to include and how to communicate. Example: "Always mention our rating and phone number."`
                                   }
                                 />
                               </Box>
