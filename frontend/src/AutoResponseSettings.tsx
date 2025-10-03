@@ -2236,16 +2236,26 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                 }}>
                                   {/* Header */}
                                   <Box sx={{ 
-                                    p: 2, 
-                                    backgroundColor: 'info.100', 
-                                    borderBottom: '1px solid',
-                                    borderBottomColor: 'info.200'
+                                    p: 2.5, 
+                                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                    color: 'white'
                                   }}>
-                                    <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'info.main', display: 'flex', alignItems: 'center' }}>
-                                      🔍 Vector Search Configuration
+                                    <Typography variant="h6" sx={{ 
+                                      fontWeight: 600, 
+                                      display: 'flex', 
+                                      alignItems: 'center', 
+                                      gap: 1
+                                    }}>
+                                      <VectorIcon sx={{ fontSize: 24 }} />
+                                      🔍 MODE 2: Vector Search & Sample Replies
                                     </Typography>
-                                    <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.5 }}>
-                                      Advanced semantic search settings for Sample Replies
+                                    <Typography variant="body2" sx={{ 
+                                      opacity: 0.9, 
+                                      display: 'block', 
+                                      mt: 0.5,
+                                      fontWeight: 500
+                                    }}>
+                                      Advanced semantic search configuration and intelligent reply processing
                                     </Typography>
                                   </Box>
 
@@ -2271,7 +2281,7 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                     >
                                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                         <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                                          🔧 Basic Search Settings
+                                          ⚙️ Vector Search Parameters
                                         </Typography>
                                         <Chip
                                           label={`${vectorSimilarityThreshold} threshold, ${vectorSearchLimit} results`}
@@ -2393,9 +2403,8 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                       }}
                                     >
                                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                        <VectorIcon sx={{ fontSize: 20 }} />
                                         <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                                          🔍 MODE 2: Vector-Enhanced Sample Replies
+                                          🤖 Intelligent Processing Features
                                         </Typography>
                                         <Chip
                                           label="Advanced"
