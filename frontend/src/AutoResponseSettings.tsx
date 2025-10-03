@@ -113,11 +113,9 @@ interface AutoResponse {
   greeting_open_to: string;
   greeting_open_days: string;
   export_to_sheets: boolean;
-  // AI fields
+  // AI fields - maximally simplified
   use_ai_greeting: boolean;
-  // ai_response_style removed - AI learns style from PDF examples via inquiry→response pairs
-  ai_include_location: boolean;
-  ai_mention_response_time: boolean;
+  // All AI behavior (location, response time, business data, style) controlled via Custom Instructions
   ai_custom_prompt?: string;
 }
 
@@ -148,11 +146,9 @@ interface AutoResponseSettingsData {
   greeting_open_days: string;
   export_to_sheets: boolean;
   follow_up_templates: FollowUpTplData[];
-  // AI fields
+  // AI fields - maximally simplified
   use_ai_greeting: boolean;
-  // ai_response_style removed - AI learns style from PDF examples via inquiry→response pairs
-  ai_include_location: boolean;
-  ai_mention_response_time: boolean;
+  // All AI behavior (location, response time, business data, style) controlled via Custom Instructions
   ai_custom_prompt?: string;
   // Sample Replies fields (MODE 2: AI Generated)
   use_sample_replies?: boolean;
@@ -194,11 +190,9 @@ const AutoResponseSettings: FC = () => {
   const [greetingOpenDays, setGreetingOpenDays] = useState('Mon, Tue, Wed, Thu, Fri');
   const [exportToSheets, setExportToSheets] = useState(false);
 
-  // AI settings state
+  // AI settings state - simplified to just Custom Instructions
   const [useAiGreeting, setUseAiGreeting] = useState(false);
-  // aiResponseStyle removed - AI learns style from PDF examples via inquiry→response pairs
-  const [aiIncludeLocation, setAiIncludeLocation] = useState(false);
-  const [aiMentionResponseTime, setAiMentionResponseTime] = useState(false);
+  // All AI behavior controlled via Custom Instructions (no individual checkboxes)
   const [aiCustomPrompt, setAiCustomPrompt] = useState('');
   const [aiPreview, setAiPreview] = useState('');
   const [aiPreviewLoading, setAiPreviewLoading] = useState(false);
@@ -341,11 +335,9 @@ const AutoResponseSettings: FC = () => {
     greeting_open_days: 'Mon, Tue, Wed, Thu, Fri',
     export_to_sheets: false,
     follow_up_templates: [],
-    // AI fields
+    // AI fields - maximally simplified 
     use_ai_greeting: false,
-    // ai_response_style removed - AI learns style from PDF examples
-    ai_include_location: true,
-    ai_mention_response_time: true,
+    // All AI behavior controlled via Custom Instructions (no individual checkboxes)
     ai_custom_prompt: undefined,
     // Business data controlled via Custom Instructions (individual settings removed)
     ai_max_message_length: 0,
@@ -434,11 +426,9 @@ const AutoResponseSettings: FC = () => {
             greeting_open_days: d.greeting_open_days || 'Mon, Tue, Wed, Thu, Fri',
             export_to_sheets: d.export_to_sheets,
             follow_up_templates: initialSettings.current?.follow_up_templates || [],
-                        // AI fields
+                        // AI fields - maximally simplified
                         use_ai_greeting: d.use_ai_greeting,
-                        // ai_response_style removed - AI learns style from PDF examples
-                        ai_include_location: d.ai_include_location,
-                        ai_mention_response_time: d.ai_mention_response_time,
+                        // All AI behavior controlled via Custom Instructions
                         ai_custom_prompt: d.ai_custom_prompt,
             // AI Business Data Settings
             // Business data controlled via Custom Instructions
@@ -531,11 +521,9 @@ const AutoResponseSettings: FC = () => {
               initialSettings.current?.greeting_off_hours_template || '',
             greeting_open_days: initialSettings.current?.greeting_open_days || 'Mon, Tue, Wed, Thu, Fri',
             follow_up_templates: mapped,
-            // AI fields
+            // AI fields - maximally simplified
             use_ai_greeting: initialSettings.current?.use_ai_greeting || false,
-            // ai_response_style removed - AI learns style from PDF examples
-            ai_include_location: initialSettings.current?.ai_include_location || true,
-            ai_mention_response_time: initialSettings.current?.ai_mention_response_time || true,
+            // All AI behavior controlled via Custom Instructions  
             ai_custom_prompt: initialSettings.current?.ai_custom_prompt,
             // AI Business Data Settings
             // Business data controlled via Custom Instructions
@@ -569,11 +557,9 @@ const AutoResponseSettings: FC = () => {
     setGreetingOpenDays(d.greeting_open_days || 'Mon, Tue, Wed, Thu, Fri');
     setExportToSheets(d.export_to_sheets);
 
-    // Apply AI settings
+    // Apply AI settings - simplified to just Custom Instructions  
     setUseAiGreeting(d.use_ai_greeting || false);
-    // setAiResponseStyle removed - AI learns style from PDF examples
-    setAiIncludeLocation(d.ai_include_location || false);
-    setAiMentionResponseTime(d.ai_mention_response_time || false);
+    // All AI behavior controlled via Custom Instructions (location, response time, business data, etc)
     setAiCustomPrompt(d.ai_custom_prompt || '');
 
     // Business data settings removed - controlled via Custom Instructions  
@@ -712,8 +698,7 @@ const AutoResponseSettings: FC = () => {
         // AI fields
         use_ai_greeting: useAiGreeting,
         // ai_response_style removed - AI learns style from PDF examples
-        ai_include_location: aiIncludeLocation,
-        ai_mention_response_time: aiMentionResponseTime,
+        // All AI behavior controlled via Custom Instructions
         ai_custom_prompt: aiCustomPrompt,
         // Sample Replies fields (MODE 2: AI Generated)
         use_sample_replies: useSampleReplies,
@@ -746,8 +731,7 @@ const AutoResponseSettings: FC = () => {
         // AI fields
         use_ai_greeting: useAiGreeting,
         // ai_response_style removed - AI learns style from PDF examples
-        ai_include_location: aiIncludeLocation,
-        ai_mention_response_time: aiMentionResponseTime,
+        // All AI behavior controlled via Custom Instructions
         ai_custom_prompt: aiCustomPrompt,
         // AI Business Data Settings
         // Business data settings removed - controlled via Custom Instructions
@@ -846,8 +830,7 @@ const AutoResponseSettings: FC = () => {
         // AI fields
         use_ai_greeting: useAiGreeting,
         // ai_response_style removed - AI learns style from PDF examples
-        ai_include_location: aiIncludeLocation,
-        ai_mention_response_time: aiMentionResponseTime,
+        // All AI behavior controlled via Custom Instructions
         ai_custom_prompt: aiCustomPrompt,
         // AI Business Data Settings
         // Business data settings removed - controlled via Custom Instructions
@@ -903,8 +886,7 @@ const AutoResponseSettings: FC = () => {
         // AI fields
         use_ai_greeting: useAiGreeting,
         // ai_response_style removed - AI learns style from PDF examples
-        ai_include_location: aiIncludeLocation,
-        ai_mention_response_time: aiMentionResponseTime,
+        // All AI behavior controlled via Custom Instructions
         ai_custom_prompt: aiCustomPrompt,
         // Sample Replies fields (MODE 2: AI Generated)
         use_sample_replies: useSampleReplies,
@@ -1069,11 +1051,12 @@ const AutoResponseSettings: FC = () => {
     if (enableAi && !aiCustomPrompt.trim()) {
       const defaultPrompt = `You are a professional business communication assistant.
 
-BUSINESS DATA USAGE:
-- Always mention our business rating and review count when available
-- Include our phone number for direct contact  
-- Mention our specialization/categories
-- Use business location if relevant to customer request
+BUSINESS INFORMATION USAGE:
+- Always mention our business rating and review count when available  
+- Include our phone number for direct contact
+- Mention our specialization/service categories
+- Include business location when relevant to customer request
+- Mention estimated response time if needed (e.g., "within 24 hours")
 
 COMMUNICATION STYLE:
 - Be friendly, professional, and helpful
@@ -1082,7 +1065,7 @@ COMMUNICATION STYLE:
 - Offer next steps (estimate, consultation, etc)
 - End with professional closing
 
-EXAMPLE: "Hi [Name]! [Business] (4.0★, 12 reviews) specializes in [category]. We'd love to help with [request]. Call [phone] to discuss!"
+EXAMPLE: "Hi [Name]! [Business] (4.0★, 12 reviews) in [Location] specializes in [category]. We'd love to help with [request]. Call [phone] - we typically respond within 2 hours!"
 
 AVOID: Generic responses, overly formal language, sales pressure`;
       
@@ -1116,8 +1099,7 @@ AVOID: Generic responses, overly formal language, sales pressure`;
       const response = await axios.post('/ai/preview/', {
         business_id: selectedBusiness,  // Передаємо business_id для отримання реальних даних
         // ai_response_style removed - AI learns style from PDF examples
-        ai_include_location: aiIncludeLocation,
-        ai_mention_response_time: aiMentionResponseTime,
+        // All AI behavior controlled via Custom Instructions
         ai_custom_prompt: aiCustomPrompt || undefined,  // Custom Instructions is now the primary prompt (no fallback needed)
         custom_preview_text: aiCustomPreviewText || undefined, // 🎯 Додаємо custom preview text
         // Business data controlled via Custom Instructions (individual checkboxes removed)
@@ -1843,34 +1825,7 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                             <Stack spacing={2}>
                               {/* Response Style removed - AI learns style from PDF examples via inquiry→response pairs */}
 
-                              {/* AI Options */}
-                              <Box>
-                                <Typography variant="caption" sx={{ mb: 1, display: 'block', fontWeight: 600 }}>
-                                  AI Options
-                                </Typography>
-                                <FormGroup>
-                                  <FormControlLabel
-                                    control={
-                                      <Checkbox
-                                        checked={aiIncludeLocation}
-                                        onChange={e => setAiIncludeLocation(e.target.checked)}
-                                        size="small"
-                                      />
-                                    }
-                                    label="Include business location in message"
-                                  />
-                                  <FormControlLabel
-                                    control={
-                                      <Checkbox
-                                        checked={aiMentionResponseTime}
-                                        onChange={e => setAiMentionResponseTime(e.target.checked)}
-                                        size="small"
-                                      />
-                                    }
-                                    label="Mention estimated response time"
-                                  />
-                                </FormGroup>
-                              </Box>
+                              {/* All AI behavior controlled via Custom Instructions - no individual checkboxes */}
 
                               {/* Business Information checkboxes removed - now controlled via Custom Instructions */}
                             </Stack>

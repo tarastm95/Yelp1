@@ -512,9 +512,7 @@ class AIPreviewView(APIView):
             ).first()
             
             # Параметри з запиту
-            # response_style removed - AI learns style from PDF examples
-            include_location = request.data.get('ai_include_location', False)
-            mention_response_time = request.data.get('ai_mention_response_time', False)
+            # All AI behavior controlled via Custom Instructions (location, response time, business data, style)
             custom_prompt = request.data.get('ai_custom_prompt', None)
             custom_preview_text = request.data.get('custom_preview_text', None)  # 🎯 Додаємо custom preview text
             max_length = request.data.get('ai_max_message_length', None)
@@ -533,11 +531,8 @@ class AIPreviewView(APIView):
             # Генерація preview повідомлення з реальними даними бізнесу
             preview_message = ai_service.generate_preview_message(
                 business=business,
-                # response_style removed - AI learns style from PDF examples
-                include_location=include_location,
-                mention_response_time=mention_response_time,
+                # All AI behavior controlled via Custom Instructions
                 custom_prompt=custom_prompt,
-                # business_data_settings removed - controlled via Custom Instructions
                 max_length=max_length,
                 custom_preview_text=custom_preview_text,  # 🎯 Додаємо параметр
                 business_ai_settings=business_ai_settings  # 🤖 Додаємо business AI налаштування
@@ -549,9 +544,7 @@ class AIPreviewView(APIView):
                     'business_name': business.name,
                     'customer_name': '{CLIENT_NAME}',
                     'services': '{SERVICES}',
-                    # 'ai_response_style' removed - AI learns style from PDF examples
-                    'ai_include_location': include_location,
-                    'ai_mention_response_time': mention_response_time,
+                    # All AI behavior controlled via Custom Instructions
                     'has_custom_prompt': bool(custom_prompt)
                 }
             }, status=status.HTTP_200_OK)
@@ -695,21 +688,9 @@ class AITestPreviewView(APIView):
             # Створюємо тестове повідомлення
             preview_message = ai_service.generate_preview_message(
                 business=mock_business,
-                # response_style removed - AI learns style from PDF examples
-                include_location=True,
-                mention_response_time=True,
+                # All AI behavior controlled via Custom Instructions
                 custom_prompt=base_system_prompt if base_system_prompt else None,
-                business_data_settings={
-                    "include_rating": True,
-                    "include_categories": True,
-                    "include_phone": True,
-                    "include_website": False,
-                    "include_price_range": True,
-                    "include_hours": True,
-                    "include_reviews_count": True,
-                    "include_address": False,
-                    "include_transactions": False
-                },
+                # Business data automatically available - Custom Instructions controls what to use
                 max_length=max_message_length,
                 business_ai_settings=None  # 🧪 Mock test - використовуємо global fallback
             )

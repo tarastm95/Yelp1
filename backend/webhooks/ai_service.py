@@ -106,9 +106,7 @@ class OpenAIService:
         lead_detail: LeadDetail, 
         business: Optional[YelpBusiness] = None,
         is_off_hours: bool = False,
-        # response_style removed - AI learns style from PDF examples
-        include_location: bool = False,
-        mention_response_time: bool = False,
+        # All AI behavior controlled via Custom Instructions (location, response time, business data, style)
         custom_prompt: Optional[str] = None,
         business_data_settings: Optional[Dict[str, bool]] = None,
         max_length: Optional[int] = None,
@@ -123,9 +121,7 @@ class OpenAIService:
         logger.info(f"[AI-SERVICE] - Customer name: {lead_detail.user_display_name}")
         logger.info(f"[AI-SERVICE] - Business: {business.name if business else 'None'}")
         logger.info(f"[AI-SERVICE] - is_off_hours: {is_off_hours}")
-        # logger response_style removed - AI learns style from PDF examples
-        logger.info(f"[AI-SERVICE] - include_location: {include_location}")
-        logger.info(f"[AI-SERVICE] - mention_response_time: {mention_response_time}")
+        # All AI behavior controlled via Custom Instructions
         logger.info(f"[AI-SERVICE] - custom_prompt provided: {custom_prompt is not None}")
         logger.info(f"[AI-SERVICE] - business_data_settings: {business_data_settings}")
         
@@ -147,7 +143,7 @@ class OpenAIService:
             # Підготовка контексту для AI
             context = self._prepare_lead_context(
                 lead_detail, business, is_off_hours, 
-                include_location, mention_response_time, business_data_settings, custom_prompt
+                business_data_settings, custom_prompt
             )
             
             logger.info(f"[AI-SERVICE] ✅ Lead context prepared:")
@@ -240,11 +236,8 @@ class OpenAIService:
     def generate_preview_message(
         self,
         business,  # YelpBusiness object
-        # response_style removed - AI learns style from PDF examples
-        include_location: bool = False,
-        mention_response_time: bool = False,
+        # All AI behavior controlled via Custom Instructions (location, response time, business data, style)
         custom_prompt: Optional[str] = None,
-        # business_data_settings removed - controlled via Custom Instructions
         max_length: Optional[int] = None,
         custom_preview_text: Optional[str] = None,  # 🎯 Додаємо новий параметр
         business_ai_settings: Optional['AutoResponseSettings'] = None
@@ -557,8 +550,7 @@ Based on your system instructions above, generate a personalized response to the
         lead_detail: LeadDetail, 
         business: Optional[YelpBusiness],
         is_off_hours: bool,
-        include_location: bool,
-        mention_response_time: bool,
+        # All AI behavior controlled via Custom Instructions (location, response time, business data, style)
         business_data_settings: Optional[Dict[str, bool]] = None,
         custom_prompt: Optional[str] = None
     ) -> Dict[str, Any]:
@@ -589,7 +581,7 @@ Based on your system instructions above, generate a personalized response to the
             "additional_info": getattr(lead_detail, 'additional_notes', '') or '',
             "created_at": lead_detail.created_at if hasattr(lead_detail, 'created_at') else timezone.now(),
             "is_off_hours": is_off_hours,
-            "mention_response_time": mention_response_time,
+            # mention_response_time removed - controlled via Custom Instructions
             "original_customer_text": original_customer_text  # 🎯 Для contextual AI analysis
         }
         

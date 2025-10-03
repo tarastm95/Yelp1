@@ -112,14 +112,7 @@ class AutoResponseSettings(models.Model):
         help_text="Використовувати AI для генерації вітальних повідомлень"
     )
     # ai_response_style removed - AI learns style from PDF examples via inquiry→response pairs
-    ai_include_location = models.BooleanField(
-        default=False,
-        help_text="Включати локацію бізнесу в AI повідомлення"
-    )
-    ai_mention_response_time = models.BooleanField(
-        default=False,
-        help_text="Згадувати очікуваний час відповіді в AI повідомленнях"
-    )
+    # ai_include_location and ai_mention_response_time removed - controlled via Custom Instructions
     ai_custom_prompt = models.TextField(
         blank=True,
         null=True,

@@ -2408,12 +2408,10 @@ class WebhookView(APIView):
                     }
                     
                     logger.info(f"[AUTO-RESPONSE] AI generation parameters:")
-                    # response_style removed - AI learns style from PDF examples via inquiry→response pairs
-                    logger.info(f"[AUTO-RESPONSE] - include_location: {getattr(auto_settings, 'ai_include_location', False)}")
-                    logger.info(f"[AUTO-RESPONSE] - mention_response_time: {getattr(auto_settings, 'ai_mention_response_time', False)}")
+                    # All AI behavior controlled via Custom Instructions
                     logger.info(f"[AUTO-RESPONSE] - is_off_hours: {not within_hours}")
                     logger.info(f"[AUTO-RESPONSE] - custom_prompt available: {getattr(auto_settings, 'ai_custom_prompt', None) is not None}")
-                    logger.info(f"[AUTO-RESPONSE] - business_data_settings: {business_data_settings}")
+                    logger.info(f"[AUTO-RESPONSE] - business data: automatically available for Custom Instructions")
                     
                     logger.info(f"[AUTO-RESPONSE] Calling AI service...")
                     
@@ -2466,9 +2464,7 @@ class WebhookView(APIView):
                             lead_detail=ld,
                             business=business,
                             is_off_hours=not within_hours,
-                            # response_style removed - AI learns style from PDF examples
-                            include_location=getattr(auto_settings, 'ai_include_location', False),
-                            mention_response_time=getattr(auto_settings, 'ai_mention_response_time', False),
+                            # All AI behavior controlled via Custom Instructions
                             custom_prompt=getattr(auto_settings, 'ai_custom_prompt', None),
                             business_data_settings=business_data_settings,
                             max_length=getattr(auto_settings, 'ai_max_message_length', None),

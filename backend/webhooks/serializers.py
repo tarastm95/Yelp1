@@ -44,22 +44,11 @@ class AutoResponseSettingsSerializer(serializers.ModelSerializer):
             "greeting_open_to",
             "greeting_open_days",
             "export_to_sheets",
-            # AI fields
-            "use_ai_greeting",
-            # "ai_response_style" removed - AI learns style from PDF examples
-            "ai_include_location",
-            "ai_mention_response_time",
+            # AI fields - maximally simplified
+            "use_ai_greeting", 
+            # All AI behavior controlled via Custom Instructions (location, response time, business data, style)
             "ai_custom_prompt",
-            # AI Business Data Settings
-            "ai_include_rating",
-            "ai_include_categories",
-            "ai_include_phone",
-            "ai_include_website",
-            "ai_include_price_range",
-            "ai_include_hours",
-            "ai_include_reviews_count",
-            "ai_include_address",
-            "ai_include_transactions",
+            # Business data controlled via Custom Instructions (individual fields removed)
             "ai_max_message_length",
             # Business-specific AI Model Settings
             "ai_model",
