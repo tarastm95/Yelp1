@@ -2785,7 +2785,6 @@ In what location do you need the service?
                               </Box>
                             </Card>
                           </Grid>
-                        </Grid>
                         {/* End of AI Configuration Grid */}
                         
                         {/* Sample Replies Manager - только для MODE 2: AI Generated */}
