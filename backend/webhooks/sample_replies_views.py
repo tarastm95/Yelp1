@@ -31,7 +31,12 @@ class SampleRepliesFileUploadView(APIView):
         try:
             # Валідація обов'язкових полів
             business_id = request.data.get('business_id')
-            phone_available = request.data.get('phone_available', 'false').lower() == 'true'
+            # Handle both boolean and string values for phone_available
+            phone_val = request.data.get('phone_available', 'false')
+            if isinstance(phone_val, bool):
+                phone_available = phone_val
+            else:
+                phone_available = str(phone_val).lower() == 'true'
             uploaded_file = request.FILES.get('file')
             
             if not business_id:
@@ -262,7 +267,12 @@ class SampleRepliesTextSaveView(APIView):
         
         try:
             business_id = request.data.get('business_id')
-            phone_available = request.data.get('phone_available', 'false').lower() == 'true'
+            # Handle both boolean and string values for phone_available
+            phone_val = request.data.get('phone_available', 'false')
+            if isinstance(phone_val, bool):
+                phone_available = phone_val
+            else:
+                phone_available = str(phone_val).lower() == 'true'
             sample_text = request.data.get('sample_text', '').strip()
             
             logger.info(f"[SAMPLE-REPLIES-API] Business: {business_id}")
@@ -393,7 +403,12 @@ class SampleRepliesStatusView(APIView):
         logger.info(f"[SAMPLE-REPLIES-STATUS] ========== STATUS CHECK REQUEST ==========")
         
         business_id = request.GET.get('business_id')
-        phone_available = request.GET.get('phone_available', 'false').lower() == 'true'
+        # Handle both boolean and string values for phone_available
+        phone_val = request.GET.get('phone_available', 'false')
+        if isinstance(phone_val, bool):
+            phone_available = phone_val
+        else:
+            phone_available = str(phone_val).lower() == 'true'
         
         logger.info(f"[SAMPLE-REPLIES-STATUS] Business ID: {business_id}")
         logger.info(f"[SAMPLE-REPLIES-STATUS] Phone Available: {phone_available}")
