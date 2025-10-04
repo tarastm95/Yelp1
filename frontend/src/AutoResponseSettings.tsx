@@ -1809,421 +1809,481 @@ AVOID: Generic responses, overly formal language, sales pressure`;
 
                         {/* AI Settings Grid */}
                         <Grid container spacing={3}>
-                          {/* Additional Settings Card */}
+                          {/* Additional Configuration - Compact Accordion Design */}
                           <Grid item xs={12}>
-                            <Card elevation={2} sx={{ borderRadius: 3 }}>
+                            <Card elevation={2} sx={{ borderRadius: 3, overflow: 'hidden' }}>
+                              {/* Compact Header */}
                               <Box sx={{ 
-                                background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+                                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                                 p: 2,
                                 color: 'white'
                               }}>
-                                <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', fontWeight: 600 }}>
-                                  <InfoIcon sx={{ mr: 1 }} />
-                                  Additional Configuration
-                                </Typography>
-                              </Box>
-                              <CardContent sx={{ p: 3 }}>
-                              
-                              {/* Informational Section - Always Included Data */}
-                              <Box>
-                                <Typography variant="caption" sx={{ mb: 1, display: 'block', fontWeight: 600, color: 'info.main' }}>
-                                  ℹ️ Always Included Customer Data
-                                </Typography>
-                                <Typography variant="caption" sx={{ mb: 2, display: 'block', color: 'text.secondary', fontStyle: 'italic' }}>
-                                  The following customer information is automatically analyzed and included in every AI message (cannot be disabled):
-                                </Typography>
-                                
-                                <Box sx={{ 
-                                  p: 2, 
-                                  backgroundColor: 'info.50', 
-                                  borderRadius: 1, 
-                                  border: '1px solid', 
-                                  borderColor: 'info.200' 
-                                }}>
-                                  <Grid container spacing={1}>
-                                    <Grid item xs={12} sm={6}>
-                                      <Typography variant="caption" sx={{ fontWeight: 600, color: 'info.dark' }}>
-                                        Customer Information:
-                                      </Typography>
-                                      <List dense sx={{ pt: 0.5 }}>
-                                        <ListItem sx={{ py: 0, px: 0 }}>
-                                          <ListItemIcon sx={{ minWidth: 20 }}>
-                                            <PersonIcon sx={{ fontSize: 14, color: 'info.main' }} />
-                                          </ListItemIcon>
-                                          <ListItemText 
-                                            primary="Customer name (if available)"
-                                            primaryTypographyProps={{ variant: 'caption' }}
-                                          />
-                                        </ListItem>
-                                        <ListItem sx={{ py: 0, px: 0 }}>
-                                          <ListItemIcon sx={{ minWidth: 20 }}>
-                                            <PersonIcon sx={{ fontSize: 14, color: 'info.main' }} />
-                                          </ListItemIcon>
-                                          <ListItemText 
-                                            primary="Services of interest (job types)"
-                                            primaryTypographyProps={{ variant: 'caption' }}
-                                          />
-                                        </ListItem>
-                                      </List>
-                                    </Grid>
-                                    <Grid item xs={12} sm={6}>
-                                      <Typography variant="caption" sx={{ fontWeight: 600, color: 'info.dark' }}>
-                                        Context Information:
-                                      </Typography>
-                                      <List dense sx={{ pt: 0.5 }}>
-                                        <ListItem sx={{ py: 0, px: 0 }}>
-                                          <ListItemIcon sx={{ minWidth: 20 }}>
-                                            <InfoIcon sx={{ fontSize: 14, color: 'info.main' }} />
-                                          </ListItemIcon>
-                                          <ListItemText 
-                                            primary="Additional info from customer"
-                                            primaryTypographyProps={{ variant: 'caption' }}
-                                          />
-                                        </ListItem>
-                                        <ListItem sx={{ py: 0, px: 0 }}>
-                                          <ListItemIcon sx={{ minWidth: 20 }}>
-                                            <InfoIcon sx={{ fontSize: 14, color: 'info.main' }} />
-                                          </ListItemIcon>
-                                          <ListItemText 
-                                            primary="Inquiry timing (business hours)"
-                                            primaryTypographyProps={{ variant: 'caption' }}
-                                          />
-                                        </ListItem>
-                                      </List>
-                                    </Grid>
-                                  </Grid>
-                                </Box>
-                              </Box>
-
-                              {/* Message Length Settings */}
-                              <Box>
-                                <Typography variant="caption" sx={{ mb: 1, display: 'block', fontWeight: 600 }}>
-                                  📏 Message Length Settings
-                                </Typography>
-                                <Typography variant="caption" sx={{ mb: 2, display: 'block', color: 'text.secondary', fontStyle: 'italic' }}>
-                                  Control the maximum length of AI-generated auto-response messages
-                                </Typography>
-                                
-                                <Box sx={{ 
-                                  p: 2, 
-                                  backgroundColor: 'grey.50', 
-                                  borderRadius: 1, 
-                                  border: '1px solid', 
-                                  borderColor: 'grey.300' 
-                                }}>
-                                  <Stack spacing={2}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                    <TuneIcon sx={{ mr: 1.5, fontSize: 24 }} />
                                     <Box>
-                                      <FormControl size="small" sx={{ width: 280, backgroundColor: 'white' }}>
-                                        <InputLabel>Max Message Length (characters)</InputLabel>
-                                        <Select
-                                          value={[0, 160, 250, 320, 500].includes(aiMaxMessageLength) ? aiMaxMessageLength.toString() : 'custom'}
-                                          onChange={e => {
-                                            if (e.target.value === 'custom') {
-                                              // Якщо вибрано Custom, залишаємо поточне значення або встановлюємо 300
-                                              if ([0, 160, 250, 320, 500].includes(aiMaxMessageLength)) {
-                                                setAiMaxMessageLength(300);
-                                              }
-                                            } else {
-                                              setAiMaxMessageLength(Number(e.target.value));
-                                            }
-                                          }}
-                                          label="Max Message Length (characters)"
-                                          disabled={aiModel?.startsWith('o1')}
-                                        >
-                                          <MenuItem value="0">
-                                            <Box>
-                                              <Typography variant="body2">Use Global Setting <Chip label="Default" size="small" color="default" sx={{ ml: 1 }} /></Typography>
-                                              <Typography variant="caption" color="text.secondary">Uses the length configured in Global AI Settings (160 chars)</Typography>
-                                            </Box>
-                                          </MenuItem>
-                                          <MenuItem value="160">
-                                            <Box>
-                                              <Typography variant="body2">160 characters <Chip label="Message Standard" size="small" color="success" sx={{ ml: 1 }} /></Typography>
-                                              <Typography variant="caption" color="text.secondary">Perfect for messages. Concise and direct communication.</Typography>
-                                            </Box>
-                                          </MenuItem>
-                                          <MenuItem value="250">
-                                            <Box>
-                                              <Typography variant="body2">250 characters <Chip label="Balanced" size="small" color="primary" sx={{ ml: 1 }} /></Typography>
-                                              <Typography variant="caption" color="text.secondary">Good balance between detail and brevity.</Typography>
-                                            </Box>
-                                          </MenuItem>
-                                          <MenuItem value="320">
-                                            <Box>
-                                              <Typography variant="body2">320 characters <Chip label="Extended Message" size="small" color="info" sx={{ ml: 1 }} /></Typography>
-                                              <Typography variant="caption" color="text.secondary">Extended message length. More detailed responses.</Typography>
-                                            </Box>
-                                          </MenuItem>
-                                          <MenuItem value="500">
-                                            <Box>
-                                              <Typography variant="body2">500 characters <Chip label="Detailed" size="small" color="warning" sx={{ ml: 1 }} /></Typography>
-                                              <Typography variant="caption" color="text.secondary">Long messages with comprehensive information.</Typography>
-                                            </Box>
-                                          </MenuItem>
-                                          <MenuItem value="custom">
-                                            <Box>
-                                              <Typography variant="body2">Custom Length <Chip label="Advanced" size="small" color="secondary" sx={{ ml: 1 }} /></Typography>
-                                              <Typography variant="caption" color="text.secondary">Set your own character limit</Typography>
-                                            </Box>
-                                          </MenuItem>
-                                        </Select>
-                                        <FormHelperText>
-                                          {aiModel?.startsWith('o1') 
-                                            ? `🔒 o1 models ignore max length (generate unlimited text)` 
-                                            : aiMaxMessageLength === 0 
-                                              ? "Using global setting (160 characters)" 
-                                              : `✅ ${aiMaxMessageLength} characters ${aiMaxMessageLength <= 160 ? '(concise)' : aiMaxMessageLength <= 320 ? '(moderate)' : '(detailed)'} - Supported by current model`}
-                                        </FormHelperText>
-                                      </FormControl>
-                                      
-                                      {/* Custom Length Input - показується тільки якщо вибрано нестандартне значення */}
-                                      {![0, 160, 250, 320, 500].includes(aiMaxMessageLength) && (
-                                        <Box sx={{ mt: 2 }}>
-                                          <TextField
-                                            label="Custom Length"
-                                            type="number"
-                                            value={aiMaxMessageLength}
-                                            onChange={e => setAiMaxMessageLength(Number(e.target.value))}
-                                            size="small"
-                                            inputProps={{ 
-                                              min: 50, 
-                                              max: 1000,
-                                              step: 10
-                                            }}
-                                            sx={{ 
-                                              width: 200,
-                                              backgroundColor: 'white'
-                                            }}
-                                            helperText="Enter custom length (50-1000 characters)"
-                                          />
-                                        </Box>
-                                      )}
+                                      <Typography variant="h6" sx={{ fontWeight: 600, lineHeight: 1.2 }}>
+                                        Additional Configuration
+                                      </Typography>
+                                      <Typography variant="caption" sx={{ opacity: 0.9, display: 'block' }}>
+                                        Advanced settings and AI model configuration
+                                      </Typography>
                                     </Box>
-                                    
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                      <Chip
-                                        label={
-                                          aiModel?.startsWith('o1') 
-                                            ? `❌ ${aiMaxMessageLength || 160} chars (Ignored)` 
-                                            : `✅ ${aiMaxMessageLength || 160} chars`
-                                        }
-                                        size="small"
-                                        color={
-                                          aiModel?.startsWith('o1') ? 'error' 
-                                          : (aiMaxMessageLength || 160) <= 160 ? 'success' 
-                                          : (aiMaxMessageLength || 160) <= 300 ? 'warning' 
-                                          : 'info'
-                                        }
-                                        variant="outlined"
-                                      />
-                                      {(aiMaxMessageLength || 160) <= 160 && (
-                                        <Typography variant="caption" sx={{ color: 'success.main', fontWeight: 600 }}>
-                                          Concise & effective ✓
-                                        </Typography>
-                                      )}
-                                      {(aiMaxMessageLength || 160) > 160 && (aiMaxMessageLength || 160) <= 300 && (
-                                        <Typography variant="caption" sx={{ color: 'warning.main', fontWeight: 600 }}>
-                                          Longer message (still acceptable)
-                                        </Typography>
-                                      )}
-                                      {(aiMaxMessageLength || 160) > 300 && (
-                                        <Typography variant="caption" sx={{ color: 'error.main', fontWeight: 600 }}>
-                                          Too long for effective communication
-                                        </Typography>
-                                      )}
-                                    </Box>
-                                  </Stack>
-                                </Box>
-                                
-                                {/* 🤖 Business-specific AI Model Settings */}
-                                <Box sx={{ 
-                                  p: 2, 
-                                  borderRadius: 1, 
-                                  border: '1px solid', 
-                                  borderColor: 'primary.300',
-                                  backgroundColor: 'primary.50'
-                                }}>
-                                  <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600, color: 'primary.main' }}>
-                                    🤖 Advanced AI Model Settings
-                                  </Typography>
-                                  <Typography variant="caption" sx={{ mb: 2, color: 'text.secondary', display: 'block' }}>
-                                    Override global AI settings for this business (leave empty to use global defaults)
-                                  </Typography>
+                                  </Box>
                                   
-                                  <Stack spacing={2}>
-                                    {/* AI Model Selection */}
-                                    <Box>
-                                      <FormControl size="small" sx={{ width: 320, backgroundColor: 'white' }}>
-                                        <InputLabel>OpenAI Model (optional)</InputLabel>
-                                        <Select
-                                          value={aiModel}
-                                          onChange={e => {
-                                            const newValue = e.target.value;
-                                            setAiModel(newValue);
-                                            handleSaveAiModelSettings(newValue, undefined);
-                                          }}
-                                          label="OpenAI Model (optional)"
-                                        >
-                                          <MenuItem value="">
-                                            <Box>
-                                              <Typography variant="body2">Use Global Setting</Typography>
-                                              <Typography variant="caption" color="text.secondary">Uses the model configured in Global AI Settings</Typography>
-                                            </Box>
-                                          </MenuItem>
-
-                                          <MenuItem value="gpt-5">
-                                            <Box>
-                                              <Typography variant="body2">GPT-5 <Chip label="SMARTEST" size="small" color="secondary" sx={{ ml: 1, fontWeight: 'bold' }} /></Typography>
-                                              <Typography variant="caption" color="text.secondary">🧠 Most intelligent and accurate. Best for complex tasks: programming, analytics, long texts.</Typography>
-                                            </Box>
-                                          </MenuItem>
-                                          <MenuItem value="gpt-5-mini">
-                                            <Box>
-                                              <Typography variant="body2">GPT-5 Mini <Chip label="BALANCED" size="small" color="primary" sx={{ ml: 1 }} /></Typography>
-                                              <Typography variant="caption" color="text.secondary">⚡ Simpler, cheaper, but faster. Perfect for clear tasks and quick code assistance.</Typography>
-                                            </Box>
-                                          </MenuItem>
-                                          <MenuItem value="gpt-5-nano">
-                                            <Box>
-                                              <Typography variant="body2">GPT-5 Nano <Chip label="ULTRA FAST" size="small" color="warning" sx={{ ml: 1 }} /></Typography>
-                                              <Typography variant="caption" color="text.secondary">🚀 Fastest and cheapest. Great for simple tasks: extract facts, quick answers, data classification.</Typography>
-                                            </Box>
-                                          </MenuItem>
-                                          <MenuItem value="gpt-4o">
-                                            <Box>
-                                              <Typography variant="body2">GPT-4o <Chip label="STABLE" size="small" color="success" sx={{ ml: 1, fontWeight: 'bold' }} /></Typography>
-                                              <Typography variant="caption" color="text.secondary">🏆 Proven powerful model from 2024. Excellent for all tasks.</Typography>
-                                            </Box>
-                                          </MenuItem>
-                                          <MenuItem value="gpt-4o-mini">
-                                            <Box>
-                                              <Typography variant="body2">GPT-4o Mini <Chip label="Recommended" size="small" color="success" sx={{ ml: 1 }} /></Typography>
-                                              <Typography variant="caption" color="text.secondary">⚡ Fastest & most cost-effective. Perfect for customer support.</Typography>
-                                            </Box>
-                                          </MenuItem>
-                                          <MenuItem value="gpt-4-turbo">
-                                            <Box>
-                                              <Typography variant="body2">GPT-4 Turbo</Typography>
-                                              <Typography variant="caption" color="text.secondary">High-quality responses, good for detailed messages.</Typography>
-                                            </Box>
-                                          </MenuItem>
-
-                                          <MenuItem value="o1-mini">
-                                            <Box>
-                                              <Typography variant="body2">o1-mini <Chip label="Smart" size="small" color="info" sx={{ ml: 1 }} /></Typography>
-                                              <Typography variant="caption" color="text.secondary">⚡ Faster reasoning model. Good for coding and math.</Typography>
-                                            </Box>
-                                          </MenuItem>
-                                          <MenuItem value="gpt-3.5-turbo">
-                                            <Box>
-                                              <Typography variant="body2">GPT-3.5 Turbo <Chip label="Budget" size="small" color="warning" sx={{ ml: 1 }} /></Typography>
-                                              <Typography variant="caption" color="text.secondary">Most affordable option. Good for simple responses.</Typography>
-                                            </Box>
-                                          </MenuItem>
-                                        </Select>
-                                        <FormHelperText>
-                                          {aiModel 
-                                            ? `Currently using: ${aiModel}` 
-                                            : "Leave empty to use global model setting"}
-                                        </FormHelperText>
-                                      </FormControl>
-                                    </Box>
-                                    
-                                    {/* AI Temperature */}
-                                    <Box>
-                                      <FormControl size="small" sx={{ width: 280, backgroundColor: 'white' }}>
-                                        <InputLabel>AI Temperature (optional)</InputLabel>
-                                        <Select
-                                          value={aiTemperature === '' ? '' : aiTemperature.toString()}
-                                          onChange={e => {
-                                            const newValue = e.target.value === '' ? '' : Number(e.target.value);
-                                            setAiTemperature(newValue);
-                                            handleSaveAiModelSettings(undefined, newValue);
-                                          }}
-                                          label="AI Temperature (optional)"
-                                          disabled={aiModel?.startsWith('gpt-5') || aiModel?.startsWith('o1')}
-                                        >
-                                          <MenuItem value="">
-                                            <Box>
-                                              <Typography variant="body2">Use Global Setting</Typography>
-                                              <Typography variant="caption" color="text.secondary">Uses temperature configured in Global AI Settings</Typography>
-                                            </Box>
-                                          </MenuItem>
-                                          <MenuItem value="0.1">
-                                            <Box>
-                                              <Typography variant="body2">0.1 - Very Focused <Chip label="Consistent" size="small" color="info" sx={{ ml: 1 }} /></Typography>
-                                              <Typography variant="caption" color="text.secondary">Very consistent, predictable responses. Best for formal business.</Typography>
-                                            </Box>
-                                          </MenuItem>
-                                          <MenuItem value="0.3">
-                                            <Box>
-                                              <Typography variant="body2">0.3 - Focused <Chip label="Recommended" size="small" color="primary" sx={{ ml: 1 }} /></Typography>
-                                              <Typography variant="caption" color="text.secondary">Reliable yet natural responses. Great for customer support.</Typography>
-                                            </Box>
-                                          </MenuItem>
-                                          <MenuItem value="0.7">
-                                            <Box>
-                                              <Typography variant="body2">0.7 - Balanced</Typography>
-                                              <Typography variant="caption" color="text.secondary">Good balance of consistency and creativity.</Typography>
-                                            </Box>
-                                          </MenuItem>
-                                          <MenuItem value="1.0">
-                                            <Box>
-                                              <Typography variant="body2">1.0 - Creative</Typography>
-                                              <Typography variant="caption" color="text.secondary">More varied, creative responses. Use with caution.</Typography>
-                                            </Box>
-                                          </MenuItem>
-                                          <MenuItem value="1.5">
-                                            <Box>
-                                              <Typography variant="body2">1.5 - Very Creative <Chip label="Experimental" size="small" color="warning" sx={{ ml: 1 }} /></Typography>
-                                              <Typography variant="caption" color="text.secondary">Highly creative but less predictable responses.</Typography>
-                                            </Box>
-                                          </MenuItem>
-                                        </Select>
-                                        <FormHelperText>
-                                          {aiModel?.startsWith('gpt-5') 
-                                            ? "🔒 GPT-5 models use fixed temperature = 1.0 (cannot be changed)" 
-                                            : aiModel?.startsWith('o1')
-                                              ? "🔒 o1 models don't support temperature control (optimized internally)"
-                                              : aiTemperature !== '' 
-                                                ? `Creativity level: ${aiTemperature <= 0.3 ? 'Very focused' : aiTemperature <= 0.7 ? 'Balanced' : aiTemperature <= 1.0 ? 'Creative' : 'Very creative'}` 
-                                                : "Leave empty to use global temperature setting"}
-                                        </FormHelperText>
-                                      </FormControl>
-                                    </Box>
-                                    
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                                      <Chip
-                                        label={aiModel || 'Global Model'}
-                                        size="small"
-                                        color={aiModel ? 'primary' : 'default'}
-                                        variant="outlined"
-                                      />
-                                      <Chip
-                                        label={
-                                          aiModel?.startsWith('gpt-5') ? 'Fixed T=1' 
-                                          : aiModel?.startsWith('o1') ? 'No Temperature' 
-                                          : aiTemperature !== '' ? `T=${aiTemperature}` 
-                                          : 'Global Temp'
-                                        }
-                                        size="small"
-                                        color={
-                                          aiModel?.startsWith('gpt-5') ? 'warning' 
-                                          : aiModel?.startsWith('o1') ? 'error' 
-                                          : aiTemperature !== '' ? 'primary' 
-                                          : 'default'
-                                        }
-                                        variant="outlined"
-                                      />
-                                      {(!aiModel && aiTemperature === '') && (
-                                        <Typography variant="caption" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
-                                          Using global AI settings
-                                        </Typography>
-                                      )}
-                                    </Box>
-                                  </Stack>
+                                  {/* Quick Status Indicators */}
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <Chip
+                                      size="small"
+                                      label={`${aiMaxMessageLength || 160} chars`}
+                                      sx={{ 
+                                        backgroundColor: 'rgba(255,255,255,0.2)',
+                                        color: 'white',
+                                        border: '1px solid rgba(255,255,255,0.3)',
+                                        fontWeight: 600
+                                      }}
+                                    />
+                                    <Chip
+                                      size="small"
+                                      label={aiModel || 'Global Model'}
+                                      sx={{ 
+                                        backgroundColor: 'rgba(255,255,255,0.2)',
+                                        color: 'white',
+                                        border: '1px solid rgba(255,255,255,0.3)',
+                                        fontWeight: 600
+                                      }}
+                                    />
+                                  </Box>
                                 </Box>
                               </Box>
+
+                              {/* Accordion Sections */}
+                              <Box sx={{ backgroundColor: 'grey.50' }}>
+                                {/* 1. Customer Data Info - Collapsed by default */}
+                                <Accordion sx={{ 
+                                  backgroundColor: 'transparent', 
+                                  boxShadow: 'none',
+                                  '&:before': { display: 'none' }
+                                }}>
+                                  <AccordionSummary
+                                    expandIcon={<ExpandMoreIcon />}
+                                    sx={{ 
+                                      backgroundColor: 'white',
+                                      borderBottom: '1px solid',
+                                      borderBottomColor: 'divider',
+                                      minHeight: 56,
+                                      '&.Mui-expanded': { minHeight: 56 }
+                                    }}
+                                  >
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                      <InfoIcon sx={{ color: 'info.main', fontSize: 20 }} />
+                                      <Box>
+                                        <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'info.main' }}>
+                                          Customer Data Information
+                                        </Typography>
+                                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                                          What information is automatically included in AI responses
+                                        </Typography>
+                                      </Box>
+                                    </Box>
+                                  </AccordionSummary>
+                                  <AccordionDetails sx={{ backgroundColor: 'info.50', p: 3 }}>
+                                    <Typography variant="caption" sx={{ mb: 2, display: 'block', color: 'text.secondary', fontStyle: 'italic' }}>
+                                      The following customer information is automatically analyzed and included in every AI message (cannot be disabled):
+                                    </Typography>
+                                    
+                                    <Box sx={{ 
+                                      p: 2, 
+                                      backgroundColor: 'white', 
+                                      borderRadius: 1, 
+                                      border: '1px solid', 
+                                      borderColor: 'info.200' 
+                                    }}>
+                                      <Grid container spacing={2}>
+                                        <Grid item xs={12} sm={6}>
+                                          <Typography variant="caption" sx={{ fontWeight: 600, color: 'info.dark', mb: 1, display: 'block' }}>
+                                            Customer Information:
+                                          </Typography>
+                                          <Box sx={{ pl: 1 }}>
+                                            <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+                                              <PersonIcon sx={{ fontSize: 14, color: 'info.main', mr: 1 }} />
+                                              Customer name (if available)
+                                            </Typography>
+                                            <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center' }}>
+                                              <WorkIcon sx={{ fontSize: 14, color: 'info.main', mr: 1 }} />
+                                              Services of interest (job types)
+                                            </Typography>
+                                          </Box>
+                                        </Grid>
+                                        <Grid item xs={12} sm={6}>
+                                          <Typography variant="caption" sx={{ fontWeight: 600, color: 'info.dark', mb: 1, display: 'block' }}>
+                                            Context Information:
+                                          </Typography>
+                                          <Box sx={{ pl: 1 }}>
+                                            <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+                                              <InfoIcon sx={{ fontSize: 14, color: 'info.main', mr: 1 }} />
+                                              Additional info from customer
+                                            </Typography>
+                                            <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center' }}>
+                                              <AccessTimeIcon sx={{ fontSize: 14, color: 'info.main', mr: 1 }} />
+                                              Inquiry timing (business hours)
+                                            </Typography>
+                                          </Box>
+                                        </Grid>
+                                      </Grid>
+                                    </Box>
+                                  </AccordionDetails>
+                                </Accordion>
+
+                                {/* 2. Message Length Settings */}
+                                <Accordion sx={{ 
+                                  backgroundColor: 'transparent', 
+                                  boxShadow: 'none',
+                                  '&:before': { display: 'none' }
+                                }}>
+                                  <AccordionSummary
+                                    expandIcon={<ExpandMoreIcon />}
+                                    sx={{ 
+                                      backgroundColor: 'white',
+                                      borderBottom: '1px solid',
+                                      borderBottomColor: 'divider',
+                                      minHeight: 56,
+                                      '&.Mui-expanded': { minHeight: 56 }
+                                    }}
+                                  >
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                      <MessageIcon sx={{ color: 'primary.main', fontSize: 20 }} />
+                                      <Box>
+                                        <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'primary.main' }}>
+                                          Message Length Settings
+                                        </Typography>
+                                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                                          Current: {aiMaxMessageLength || 160} characters
+                                        </Typography>
+                                      </Box>
+                                      <Chip
+                                        size="small"
+                                        label={
+                                          (aiMaxMessageLength || 160) <= 160 ? 'Concise' :
+                                          (aiMaxMessageLength || 160) <= 300 ? 'Balanced' : 'Detailed'
+                                        }
+                                        color={
+                                          (aiMaxMessageLength || 160) <= 160 ? 'success' :
+                                          (aiMaxMessageLength || 160) <= 300 ? 'primary' : 'warning'
+                                        }
+                                        variant="outlined"
+                                      />
+                                    </Box>
+                                  </AccordionSummary>
+                                  <AccordionDetails sx={{ backgroundColor: 'grey.50', p: 3 }}>
+                                    <Box sx={{ 
+                                      p: 2, 
+                                      backgroundColor: 'white', 
+                                      borderRadius: 1, 
+                                      border: '1px solid', 
+                                      borderColor: 'grey.300' 
+                                    }}>
+                                      <Stack spacing={2}>
+                                        <Box>
+                                          <FormControl size="small" sx={{ width: 280, backgroundColor: 'grey.50' }}>
+                                            <InputLabel>Max Message Length (characters)</InputLabel>
+                                            <Select
+                                              value={[0, 160, 250, 320, 500].includes(aiMaxMessageLength) ? aiMaxMessageLength.toString() : 'custom'}
+                                              onChange={e => {
+                                                if (e.target.value === 'custom') {
+                                                  if ([0, 160, 250, 320, 500].includes(aiMaxMessageLength)) {
+                                                    setAiMaxMessageLength(300);
+                                                  }
+                                                } else {
+                                                  setAiMaxMessageLength(Number(e.target.value));
+                                                }
+                                              }}
+                                              label="Max Message Length (characters)"
+                                              disabled={aiModel?.startsWith('o1')}
+                                            >
+                                              <MenuItem value="0">
+                                                <Box>
+                                                  <Typography variant="body2">Use Global Setting <Chip label="Default" size="small" color="default" sx={{ ml: 1 }} /></Typography>
+                                                  <Typography variant="caption" color="text.secondary">Uses the length configured in Global AI Settings (160 chars)</Typography>
+                                                </Box>
+                                              </MenuItem>
+                                              <MenuItem value="160">
+                                                <Box>
+                                                  <Typography variant="body2">160 characters <Chip label="Message Standard" size="small" color="success" sx={{ ml: 1 }} /></Typography>
+                                                  <Typography variant="caption" color="text.secondary">Perfect for messages. Concise and direct communication.</Typography>
+                                                </Box>
+                                              </MenuItem>
+                                              <MenuItem value="250">
+                                                <Box>
+                                                  <Typography variant="body2">250 characters <Chip label="Balanced" size="small" color="primary" sx={{ ml: 1 }} /></Typography>
+                                                  <Typography variant="caption" color="text.secondary">Good balance between detail and brevity.</Typography>
+                                                </Box>
+                                              </MenuItem>
+                                              <MenuItem value="320">
+                                                <Box>
+                                                  <Typography variant="body2">320 characters <Chip label="Extended Message" size="small" color="info" sx={{ ml: 1 }} /></Typography>
+                                                  <Typography variant="caption" color="text.secondary">Extended message length. More detailed responses.</Typography>
+                                                </Box>
+                                              </MenuItem>
+                                              <MenuItem value="500">
+                                                <Box>
+                                                  <Typography variant="body2">500 characters <Chip label="Detailed" size="small" color="warning" sx={{ ml: 1 }} /></Typography>
+                                                  <Typography variant="caption" color="text.secondary">Long messages with comprehensive information.</Typography>
+                                                </Box>
+                                              </MenuItem>
+                                              <MenuItem value="custom">
+                                                <Box>
+                                                  <Typography variant="body2">Custom Length <Chip label="Advanced" size="small" color="secondary" sx={{ ml: 1 }} /></Typography>
+                                                  <Typography variant="caption" color="text.secondary">Set your own character limit</Typography>
+                                                </Box>
+                                              </MenuItem>
+                                            </Select>
+                                            <FormHelperText>
+                                              {aiModel?.startsWith('o1') 
+                                                ? `🔒 o1 models ignore max length (generate unlimited text)` 
+                                                : aiMaxMessageLength === 0 
+                                                  ? "Using global setting (160 characters)" 
+                                                  : `✅ ${aiMaxMessageLength} characters ${aiMaxMessageLength <= 160 ? '(concise)' : aiMaxMessageLength <= 320 ? '(moderate)' : '(detailed)'} - Supported by current model`}
+                                            </FormHelperText>
+                                          </FormControl>
+                                          
+                                          {/* Custom Length Input */}
+                                          {![0, 160, 250, 320, 500].includes(aiMaxMessageLength) && (
+                                            <Box sx={{ mt: 2 }}>
+                                              <TextField
+                                                label="Custom Length"
+                                                type="number"
+                                                value={aiMaxMessageLength}
+                                                onChange={e => setAiMaxMessageLength(Number(e.target.value))}
+                                                size="small"
+                                                inputProps={{ 
+                                                  min: 50, 
+                                                  max: 1000,
+                                                  step: 10
+                                                }}
+                                                sx={{ 
+                                                  width: 200,
+                                                  backgroundColor: 'grey.50'
+                                                }}
+                                                helperText="Enter custom length (50-1000 characters)"
+                                              />
+                                            </Box>
+                                          )}
+                                        </Box>
+                                        
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                                          <Chip
+                                            label={
+                                              aiModel?.startsWith('o1') 
+                                                ? `❌ ${aiMaxMessageLength || 160} chars (Ignored)` 
+                                                : `✅ ${aiMaxMessageLength || 160} chars`
+                                            }
+                                            size="small"
+                                            color={
+                                              aiModel?.startsWith('o1') ? 'error' 
+                                              : (aiMaxMessageLength || 160) <= 160 ? 'success' 
+                                              : (aiMaxMessageLength || 160) <= 300 ? 'warning' 
+                                              : 'info'
+                                            }
+                                            variant="outlined"
+                                          />
+                                          {(aiMaxMessageLength || 160) <= 160 && (
+                                            <Typography variant="caption" sx={{ color: 'success.main', fontWeight: 600 }}>
+                                              Concise & effective ✓
+                                            </Typography>
+                                          )}
+                                          {(aiMaxMessageLength || 160) > 160 && (aiMaxMessageLength || 160) <= 300 && (
+                                            <Typography variant="caption" sx={{ color: 'warning.main', fontWeight: 600 }}>
+                                              Longer message (still acceptable)
+                                            </Typography>
+                                          )}
+                                          {(aiMaxMessageLength || 160) > 300 && (
+                                            <Typography variant="caption" sx={{ color: 'error.main', fontWeight: 600 }}>
+                                              Too long for effective communication
+                                            </Typography>
+                                          )}
+                                        </Box>
+                                      </Stack>
+                                    </Box>
+                                  </AccordionDetails>
+                                </Accordion>
+
+                                {/* 3. Advanced AI Model Settings */}
+                                <Accordion sx={{ 
+                                  backgroundColor: 'transparent', 
+                                  boxShadow: 'none',
+                                  '&:before': { display: 'none' }
+                                }}>
+                                  <AccordionSummary
+                                    expandIcon={<ExpandMoreIcon />}
+                                    sx={{ 
+                                      backgroundColor: 'white',
+                                      borderBottom: '1px solid',
+                                      borderBottomColor: 'divider',
+                                      minHeight: 56,
+                                      '&.Mui-expanded': { minHeight: 56 }
+                                    }}
+                                  >
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                      <SettingsIcon sx={{ color: 'secondary.main', fontSize: 20 }} />
+                                      <Box>
+                                        <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'secondary.main' }}>
+                                          Advanced AI Model Settings
+                                        </Typography>
+                                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                                          Override global AI settings for this business
+                                        </Typography>
+                                      </Box>
+                                      <Box sx={{ ml: 'auto', display: 'flex', gap: 1 }}>
+                                        <Chip
+                                          size="small"
+                                          label={aiModel || 'Global'}
+                                          color={aiModel ? 'secondary' : 'default'}
+                                          variant="outlined"
+                                        />
+                                        {aiTemperature !== '' && (
+                                          <Chip
+                                            size="small"
+                                            label={`T=${aiTemperature}`}
+                                            color="secondary"
+                                            variant="outlined"
+                                          />
+                                        )}
+                                      </Box>
+                                    </Box>
+                                  </AccordionSummary>
+                                  <AccordionDetails sx={{ backgroundColor: 'secondary.50', p: 3 }}>
+                                    
+                                    <Box sx={{ 
+                                      p: 2, 
+                                      backgroundColor: 'white', 
+                                      borderRadius: 1, 
+                                      border: '1px solid', 
+                                      borderColor: 'secondary.200' 
+                                    }}>
+                                      <Stack spacing={2}>
+                                        {/* AI Model Selection */}
+                                        <Box>
+                                          <FormControl size="small" sx={{ width: 320, backgroundColor: 'grey.50' }}>
+                                            <InputLabel>OpenAI Model (optional)</InputLabel>
+                                            <Select
+                                              value={aiModel}
+                                              onChange={e => {
+                                                const newValue = e.target.value;
+                                                setAiModel(newValue);
+                                                handleSaveAiModelSettings(newValue, undefined);
+                                              }}
+                                              label="OpenAI Model (optional)"
+                                            >
+                                              <MenuItem value="">
+                                                <Box>
+                                                  <Typography variant="body2">Use Global Setting</Typography>
+                                                  <Typography variant="caption" color="text.secondary">Uses the model configured in Global AI Settings</Typography>
+                                                </Box>
+                                              </MenuItem>
+
+                                              <MenuItem value="gpt-4o-mini">
+                                                <Box>
+                                                  <Typography variant="body2">GPT-4o Mini <Chip label="Recommended" size="small" color="success" sx={{ ml: 1 }} /></Typography>
+                                                  <Typography variant="caption" color="text.secondary">⚡ Fastest & most cost-effective. Perfect for customer support.</Typography>
+                                                </Box>
+                                              </MenuItem>
+                                              <MenuItem value="gpt-4o">
+                                                <Box>
+                                                  <Typography variant="body2">GPT-4o <Chip label="STABLE" size="small" color="success" sx={{ ml: 1 }} /></Typography>
+                                                  <Typography variant="caption" color="text.secondary">🏆 Proven powerful model from 2024. Excellent for all tasks.</Typography>
+                                                </Box>
+                                              </MenuItem>
+                                              <MenuItem value="gpt-5-nano">
+                                                <Box>
+                                                  <Typography variant="body2">GPT-5 Nano <Chip label="ULTRA FAST" size="small" color="warning" sx={{ ml: 1 }} /></Typography>
+                                                  <Typography variant="caption" color="text.secondary">🚀 Fastest and cheapest. Great for simple tasks: extract facts, quick answers.</Typography>
+                                                </Box>
+                                              </MenuItem>
+                                              <MenuItem value="gpt-5-mini">
+                                                <Box>
+                                                  <Typography variant="body2">GPT-5 Mini <Chip label="BALANCED" size="small" color="primary" sx={{ ml: 1 }} /></Typography>
+                                                  <Typography variant="caption" color="text.secondary">⚡ Simpler, cheaper, but faster. Perfect for clear tasks.</Typography>
+                                                </Box>
+                                              </MenuItem>
+                                              <MenuItem value="gpt-5">
+                                                <Box>
+                                                  <Typography variant="body2">GPT-5 <Chip label="SMARTEST" size="small" color="secondary" sx={{ ml: 1, fontWeight: 'bold' }} /></Typography>
+                                                  <Typography variant="caption" color="text.secondary">🧠 Most intelligent and accurate. Best for complex tasks.</Typography>
+                                                </Box>
+                                              </MenuItem>
+                                            </Select>
+                                            <FormHelperText>
+                                              {aiModel 
+                                                ? `Currently using: ${aiModel}` 
+                                                : "Leave empty to use global model setting"}
+                                            </FormHelperText>
+                                          </FormControl>
+                                        </Box>
+                                        
+                                        {/* AI Temperature */}
+                                        <Box>
+                                          <FormControl size="small" sx={{ width: 280, backgroundColor: 'grey.50' }}>
+                                            <InputLabel>AI Temperature (optional)</InputLabel>
+                                            <Select
+                                              value={aiTemperature === '' ? '' : aiTemperature.toString()}
+                                              onChange={e => {
+                                                const newValue = e.target.value === '' ? '' : Number(e.target.value);
+                                                setAiTemperature(newValue);
+                                                handleSaveAiModelSettings(undefined, newValue);
+                                              }}
+                                              label="AI Temperature (optional)"
+                                              disabled={aiModel?.startsWith('gpt-5') || aiModel?.startsWith('o1')}
+                                            >
+                                              <MenuItem value="">
+                                                <Box>
+                                                  <Typography variant="body2">Use Global Setting</Typography>
+                                                  <Typography variant="caption" color="text.secondary">Uses temperature configured in Global AI Settings</Typography>
+                                                </Box>
+                                              </MenuItem>
+                                              <MenuItem value="0.1">
+                                                <Box>
+                                                  <Typography variant="body2">0.1 - Very Focused <Chip label="Consistent" size="small" color="info" sx={{ ml: 1 }} /></Typography>
+                                                  <Typography variant="caption" color="text.secondary">Very consistent, predictable responses. Best for formal business.</Typography>
+                                                </Box>
+                                              </MenuItem>
+                                              <MenuItem value="0.3">
+                                                <Box>
+                                                  <Typography variant="body2">0.3 - Focused <Chip label="Recommended" size="small" color="primary" sx={{ ml: 1 }} /></Typography>
+                                                  <Typography variant="caption" color="text.secondary">Reliable yet natural responses. Great for customer support.</Typography>
+                                                </Box>
+                                              </MenuItem>
+                                              <MenuItem value="0.7">
+                                                <Box>
+                                                  <Typography variant="body2">0.7 - Balanced</Typography>
+                                                  <Typography variant="caption" color="text.secondary">Good balance of consistency and creativity.</Typography>
+                                                </Box>
+                                              </MenuItem>
+                                              <MenuItem value="1.0">
+                                                <Box>
+                                                  <Typography variant="body2">1.0 - Creative</Typography>
+                                                  <Typography variant="caption" color="text.secondary">More varied, creative responses. Use with caution.</Typography>
+                                                </Box>
+                                              </MenuItem>
+                                            </Select>
+                                            <FormHelperText>
+                                              {aiModel?.startsWith('gpt-5') 
+                                                ? "🔒 GPT-5 models use fixed temperature = 1.0 (cannot be changed)" 
+                                                : aiModel?.startsWith('o1')
+                                                  ? "🔒 o1 models don't support temperature control (optimized internally)"
+                                                  : aiTemperature !== '' 
+                                                    ? `Creativity level: ${aiTemperature <= 0.3 ? 'Very focused' : aiTemperature <= 0.7 ? 'Balanced' : 'Creative'}` 
+                                                    : "Leave empty to use global temperature setting"}
+                                            </FormHelperText>
+                                          </FormControl>
+                                        </Box>
+                                      </Stack>
+                                    </Box>
+                                  </AccordionDetails>
+                                </Accordion>
+                              </Box>
+                            </Card>
+                          </Grid>
 
                               {/* 🔍 Vector Search & MODE 2 Settings (for Sample Replies) */}
                               {useSampleReplies && (
