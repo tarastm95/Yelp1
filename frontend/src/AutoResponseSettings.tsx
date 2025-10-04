@@ -2784,7 +2784,6 @@ In what location do you need the service?
                                   </Typography>
                                 </Paper>
                               </Box>
-                              </CardContent>
                             </Card>
                           </Grid>
                         </Grid>
