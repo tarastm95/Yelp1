@@ -2283,7 +2283,6 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                 </Accordion>
                               </Box>
                             </Card>
-                          </Grid>
 
                               {/* 🔍 Vector Search & MODE 2 Settings (for Sample Replies) */}
                               {useSampleReplies && (
