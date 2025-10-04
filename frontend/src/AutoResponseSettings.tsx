@@ -1823,12 +1823,12 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                     <TuneIcon sx={{ mr: 1.5, fontSize: 24 }} />
                                     <Box>
                                       <Typography variant="h6" sx={{ fontWeight: 600, lineHeight: 1.2 }}>
-                                        Additional Configuration
-                                      </Typography>
+                                  Additional Configuration
+                                </Typography>
                                       <Typography variant="caption" sx={{ opacity: 0.9, display: 'block' }}>
                                         Advanced settings and AI model configuration
                                       </Typography>
-                                    </Box>
+                              </Box>
                                   </Box>
                                   
                                   {/* Quick Status Indicators */}
@@ -1877,10 +1877,10 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                   >
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                                       <InfoIcon sx={{ color: 'info.main', fontSize: 20 }} />
-                                      <Box>
+                              <Box>
                                         <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'info.main' }}>
                                           Customer Data Information
-                                        </Typography>
+                                </Typography>
                                         <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                                           What information is automatically included in AI responses
                                         </Typography>
@@ -1888,22 +1888,22 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                     </Box>
                                   </AccordionSummary>
                                   <AccordionDetails sx={{ backgroundColor: 'info.50', p: 3 }}>
-                                    <Typography variant="caption" sx={{ mb: 2, display: 'block', color: 'text.secondary', fontStyle: 'italic' }}>
-                                      The following customer information is automatically analyzed and included in every AI message (cannot be disabled):
-                                    </Typography>
-                                    
-                                    <Box sx={{ 
-                                      p: 2, 
+                                <Typography variant="caption" sx={{ mb: 2, display: 'block', color: 'text.secondary', fontStyle: 'italic' }}>
+                                  The following customer information is automatically analyzed and included in every AI message (cannot be disabled):
+                                </Typography>
+                                
+                                <Box sx={{ 
+                                  p: 2, 
                                       backgroundColor: 'white', 
-                                      borderRadius: 1, 
-                                      border: '1px solid', 
-                                      borderColor: 'info.200' 
-                                    }}>
+                                  borderRadius: 1, 
+                                  border: '1px solid', 
+                                  borderColor: 'info.200' 
+                                }}>
                                       <Grid container spacing={2}>
-                                        <Grid item xs={12} sm={6}>
+                                    <Grid item xs={12} sm={6}>
                                           <Typography variant="caption" sx={{ fontWeight: 600, color: 'info.dark', mb: 1, display: 'block' }}>
-                                            Customer Information:
-                                          </Typography>
+                                        Customer Information:
+                                      </Typography>
                                           <Box sx={{ pl: 1 }}>
                                             <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
                                               <PersonIcon sx={{ fontSize: 14, color: 'info.main', mr: 1 }} />
@@ -1914,11 +1914,11 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                               Services of interest (job types)
                                             </Typography>
                                           </Box>
-                                        </Grid>
-                                        <Grid item xs={12} sm={6}>
+                                    </Grid>
+                                    <Grid item xs={12} sm={6}>
                                           <Typography variant="caption" sx={{ fontWeight: 600, color: 'info.dark', mb: 1, display: 'block' }}>
-                                            Context Information:
-                                          </Typography>
+                                        Context Information:
+                                      </Typography>
                                           <Box sx={{ pl: 1 }}>
                                             <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
                                               <InfoIcon sx={{ fontSize: 14, color: 'info.main', mr: 1 }} />
@@ -1929,9 +1929,9 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                               Inquiry timing (business hours)
                                             </Typography>
                                           </Box>
-                                        </Grid>
-                                      </Grid>
-                                    </Box>
+                                    </Grid>
+                                  </Grid>
+                                </Box>
                                   </AccordionDetails>
                                 </Accordion>
 
@@ -1953,13 +1953,13 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                   >
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                                       <MessageIcon sx={{ color: 'primary.main', fontSize: 20 }} />
-                                      <Box>
+                              <Box>
                                         <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'primary.main' }}>
                                           Message Length Settings
-                                        </Typography>
+                                </Typography>
                                         <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                                           Current: {aiMaxMessageLength || 160} characters
-                                        </Typography>
+                                </Typography>
                                       </Box>
                                       <Chip
                                         size="small"
@@ -1976,135 +1976,135 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                     </Box>
                                   </AccordionSummary>
                                   <AccordionDetails sx={{ backgroundColor: 'grey.50', p: 3 }}>
-                                    <Box sx={{ 
-                                      p: 2, 
+                                <Box sx={{ 
+                                  p: 2, 
                                       backgroundColor: 'white', 
-                                      borderRadius: 1, 
-                                      border: '1px solid', 
-                                      borderColor: 'grey.300' 
-                                    }}>
-                                      <Stack spacing={2}>
-                                        <Box>
+                                  borderRadius: 1, 
+                                  border: '1px solid', 
+                                  borderColor: 'grey.300' 
+                                }}>
+                                  <Stack spacing={2}>
+                                    <Box>
                                           <FormControl size="small" sx={{ width: 280, backgroundColor: 'grey.50' }}>
-                                            <InputLabel>Max Message Length (characters)</InputLabel>
-                                            <Select
-                                              value={[0, 160, 250, 320, 500].includes(aiMaxMessageLength) ? aiMaxMessageLength.toString() : 'custom'}
-                                              onChange={e => {
-                                                if (e.target.value === 'custom') {
-                                                  if ([0, 160, 250, 320, 500].includes(aiMaxMessageLength)) {
-                                                    setAiMaxMessageLength(300);
-                                                  }
-                                                } else {
-                                                  setAiMaxMessageLength(Number(e.target.value));
-                                                }
-                                              }}
-                                              label="Max Message Length (characters)"
-                                              disabled={aiModel?.startsWith('o1')}
-                                            >
-                                              <MenuItem value="0">
-                                                <Box>
-                                                  <Typography variant="body2">Use Global Setting <Chip label="Default" size="small" color="default" sx={{ ml: 1 }} /></Typography>
-                                                  <Typography variant="caption" color="text.secondary">Uses the length configured in Global AI Settings (160 chars)</Typography>
-                                                </Box>
-                                              </MenuItem>
-                                              <MenuItem value="160">
-                                                <Box>
-                                                  <Typography variant="body2">160 characters <Chip label="Message Standard" size="small" color="success" sx={{ ml: 1 }} /></Typography>
-                                                  <Typography variant="caption" color="text.secondary">Perfect for messages. Concise and direct communication.</Typography>
-                                                </Box>
-                                              </MenuItem>
-                                              <MenuItem value="250">
-                                                <Box>
-                                                  <Typography variant="body2">250 characters <Chip label="Balanced" size="small" color="primary" sx={{ ml: 1 }} /></Typography>
-                                                  <Typography variant="caption" color="text.secondary">Good balance between detail and brevity.</Typography>
-                                                </Box>
-                                              </MenuItem>
-                                              <MenuItem value="320">
-                                                <Box>
-                                                  <Typography variant="body2">320 characters <Chip label="Extended Message" size="small" color="info" sx={{ ml: 1 }} /></Typography>
-                                                  <Typography variant="caption" color="text.secondary">Extended message length. More detailed responses.</Typography>
-                                                </Box>
-                                              </MenuItem>
-                                              <MenuItem value="500">
-                                                <Box>
-                                                  <Typography variant="body2">500 characters <Chip label="Detailed" size="small" color="warning" sx={{ ml: 1 }} /></Typography>
-                                                  <Typography variant="caption" color="text.secondary">Long messages with comprehensive information.</Typography>
-                                                </Box>
-                                              </MenuItem>
-                                              <MenuItem value="custom">
-                                                <Box>
-                                                  <Typography variant="body2">Custom Length <Chip label="Advanced" size="small" color="secondary" sx={{ ml: 1 }} /></Typography>
-                                                  <Typography variant="caption" color="text.secondary">Set your own character limit</Typography>
-                                                </Box>
-                                              </MenuItem>
-                                            </Select>
-                                            <FormHelperText>
-                                              {aiModel?.startsWith('o1') 
-                                                ? `🔒 o1 models ignore max length (generate unlimited text)` 
-                                                : aiMaxMessageLength === 0 
-                                                  ? "Using global setting (160 characters)" 
-                                                  : `✅ ${aiMaxMessageLength} characters ${aiMaxMessageLength <= 160 ? '(concise)' : aiMaxMessageLength <= 320 ? '(moderate)' : '(detailed)'} - Supported by current model`}
-                                            </FormHelperText>
-                                          </FormControl>
-                                          
-                                          {/* Custom Length Input */}
-                                          {![0, 160, 250, 320, 500].includes(aiMaxMessageLength) && (
-                                            <Box sx={{ mt: 2 }}>
-                                              <TextField
-                                                label="Custom Length"
-                                                type="number"
-                                                value={aiMaxMessageLength}
-                                                onChange={e => setAiMaxMessageLength(Number(e.target.value))}
-                                                size="small"
-                                                inputProps={{ 
-                                                  min: 50, 
-                                                  max: 1000,
-                                                  step: 10
-                                                }}
-                                                sx={{ 
-                                                  width: 200,
-                                                  backgroundColor: 'grey.50'
-                                                }}
-                                                helperText="Enter custom length (50-1000 characters)"
-                                              />
+                                        <InputLabel>Max Message Length (characters)</InputLabel>
+                                        <Select
+                                          value={[0, 160, 250, 320, 500].includes(aiMaxMessageLength) ? aiMaxMessageLength.toString() : 'custom'}
+                                          onChange={e => {
+                                            if (e.target.value === 'custom') {
+                                              if ([0, 160, 250, 320, 500].includes(aiMaxMessageLength)) {
+                                                setAiMaxMessageLength(300);
+                                              }
+                                            } else {
+                                              setAiMaxMessageLength(Number(e.target.value));
+                                            }
+                                          }}
+                                          label="Max Message Length (characters)"
+                                          disabled={aiModel?.startsWith('o1')}
+                                        >
+                                          <MenuItem value="0">
+                                            <Box>
+                                              <Typography variant="body2">Use Global Setting <Chip label="Default" size="small" color="default" sx={{ ml: 1 }} /></Typography>
+                                              <Typography variant="caption" color="text.secondary">Uses the length configured in Global AI Settings (160 chars)</Typography>
                                             </Box>
-                                          )}
-                                        </Box>
-                                        
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                                          <Chip
-                                            label={
-                                              aiModel?.startsWith('o1') 
-                                                ? `❌ ${aiMaxMessageLength || 160} chars (Ignored)` 
-                                                : `✅ ${aiMaxMessageLength || 160} chars`
-                                            }
+                                          </MenuItem>
+                                          <MenuItem value="160">
+                                            <Box>
+                                              <Typography variant="body2">160 characters <Chip label="Message Standard" size="small" color="success" sx={{ ml: 1 }} /></Typography>
+                                              <Typography variant="caption" color="text.secondary">Perfect for messages. Concise and direct communication.</Typography>
+                                            </Box>
+                                          </MenuItem>
+                                          <MenuItem value="250">
+                                            <Box>
+                                              <Typography variant="body2">250 characters <Chip label="Balanced" size="small" color="primary" sx={{ ml: 1 }} /></Typography>
+                                              <Typography variant="caption" color="text.secondary">Good balance between detail and brevity.</Typography>
+                                            </Box>
+                                          </MenuItem>
+                                          <MenuItem value="320">
+                                            <Box>
+                                              <Typography variant="body2">320 characters <Chip label="Extended Message" size="small" color="info" sx={{ ml: 1 }} /></Typography>
+                                              <Typography variant="caption" color="text.secondary">Extended message length. More detailed responses.</Typography>
+                                            </Box>
+                                          </MenuItem>
+                                          <MenuItem value="500">
+                                            <Box>
+                                              <Typography variant="body2">500 characters <Chip label="Detailed" size="small" color="warning" sx={{ ml: 1 }} /></Typography>
+                                              <Typography variant="caption" color="text.secondary">Long messages with comprehensive information.</Typography>
+                                            </Box>
+                                          </MenuItem>
+                                          <MenuItem value="custom">
+                                            <Box>
+                                              <Typography variant="body2">Custom Length <Chip label="Advanced" size="small" color="secondary" sx={{ ml: 1 }} /></Typography>
+                                              <Typography variant="caption" color="text.secondary">Set your own character limit</Typography>
+                                            </Box>
+                                          </MenuItem>
+                                        </Select>
+                                        <FormHelperText>
+                                          {aiModel?.startsWith('o1') 
+                                            ? `🔒 o1 models ignore max length (generate unlimited text)` 
+                                            : aiMaxMessageLength === 0 
+                                              ? "Using global setting (160 characters)" 
+                                              : `✅ ${aiMaxMessageLength} characters ${aiMaxMessageLength <= 160 ? '(concise)' : aiMaxMessageLength <= 320 ? '(moderate)' : '(detailed)'} - Supported by current model`}
+                                        </FormHelperText>
+                                      </FormControl>
+                                      
+                                          {/* Custom Length Input */}
+                                      {![0, 160, 250, 320, 500].includes(aiMaxMessageLength) && (
+                                        <Box sx={{ mt: 2 }}>
+                                          <TextField
+                                            label="Custom Length"
+                                            type="number"
+                                            value={aiMaxMessageLength}
+                                            onChange={e => setAiMaxMessageLength(Number(e.target.value))}
                                             size="small"
-                                            color={
-                                              aiModel?.startsWith('o1') ? 'error' 
-                                              : (aiMaxMessageLength || 160) <= 160 ? 'success' 
-                                              : (aiMaxMessageLength || 160) <= 300 ? 'warning' 
-                                              : 'info'
-                                            }
-                                            variant="outlined"
+                                            inputProps={{ 
+                                              min: 50, 
+                                              max: 1000,
+                                              step: 10
+                                            }}
+                                            sx={{ 
+                                              width: 200,
+                                                  backgroundColor: 'grey.50'
+                                            }}
+                                            helperText="Enter custom length (50-1000 characters)"
                                           />
-                                          {(aiMaxMessageLength || 160) <= 160 && (
-                                            <Typography variant="caption" sx={{ color: 'success.main', fontWeight: 600 }}>
-                                              Concise & effective ✓
-                                            </Typography>
-                                          )}
-                                          {(aiMaxMessageLength || 160) > 160 && (aiMaxMessageLength || 160) <= 300 && (
-                                            <Typography variant="caption" sx={{ color: 'warning.main', fontWeight: 600 }}>
-                                              Longer message (still acceptable)
-                                            </Typography>
-                                          )}
-                                          {(aiMaxMessageLength || 160) > 300 && (
-                                            <Typography variant="caption" sx={{ color: 'error.main', fontWeight: 600 }}>
-                                              Too long for effective communication
-                                            </Typography>
-                                          )}
                                         </Box>
-                                      </Stack>
+                                      )}
                                     </Box>
+                                    
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                                      <Chip
+                                        label={
+                                          aiModel?.startsWith('o1') 
+                                            ? `❌ ${aiMaxMessageLength || 160} chars (Ignored)` 
+                                            : `✅ ${aiMaxMessageLength || 160} chars`
+                                        }
+                                        size="small"
+                                        color={
+                                          aiModel?.startsWith('o1') ? 'error' 
+                                          : (aiMaxMessageLength || 160) <= 160 ? 'success' 
+                                          : (aiMaxMessageLength || 160) <= 300 ? 'warning' 
+                                          : 'info'
+                                        }
+                                        variant="outlined"
+                                      />
+                                      {(aiMaxMessageLength || 160) <= 160 && (
+                                        <Typography variant="caption" sx={{ color: 'success.main', fontWeight: 600 }}>
+                                          Concise & effective ✓
+                                        </Typography>
+                                      )}
+                                      {(aiMaxMessageLength || 160) > 160 && (aiMaxMessageLength || 160) <= 300 && (
+                                        <Typography variant="caption" sx={{ color: 'warning.main', fontWeight: 600 }}>
+                                          Longer message (still acceptable)
+                                        </Typography>
+                                      )}
+                                      {(aiMaxMessageLength || 160) > 300 && (
+                                        <Typography variant="caption" sx={{ color: 'error.main', fontWeight: 600 }}>
+                                          Too long for effective communication
+                                        </Typography>
+                                      )}
+                                    </Box>
+                                  </Stack>
+                                </Box>
                                   </AccordionDetails>
                                 </Accordion>
 
@@ -2154,131 +2154,131 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                   </AccordionSummary>
                                   <AccordionDetails sx={{ backgroundColor: 'secondary.50', p: 3 }}>
                                     
-                                    <Box sx={{ 
-                                      p: 2, 
+                                <Box sx={{ 
+                                  p: 2, 
                                       backgroundColor: 'white', 
-                                      borderRadius: 1, 
-                                      border: '1px solid', 
+                                  borderRadius: 1, 
+                                  border: '1px solid', 
                                       borderColor: 'secondary.200' 
                                     }}>
-                                      <Stack spacing={2}>
-                                        {/* AI Model Selection */}
-                                        <Box>
+                                  <Stack spacing={2}>
+                                    {/* AI Model Selection */}
+                                    <Box>
                                           <FormControl size="small" sx={{ width: 320, backgroundColor: 'grey.50' }}>
-                                            <InputLabel>OpenAI Model (optional)</InputLabel>
-                                            <Select
-                                              value={aiModel}
-                                              onChange={e => {
-                                                const newValue = e.target.value;
-                                                setAiModel(newValue);
-                                                handleSaveAiModelSettings(newValue, undefined);
-                                              }}
-                                              label="OpenAI Model (optional)"
-                                            >
-                                              <MenuItem value="">
-                                                <Box>
-                                                  <Typography variant="body2">Use Global Setting</Typography>
-                                                  <Typography variant="caption" color="text.secondary">Uses the model configured in Global AI Settings</Typography>
-                                                </Box>
-                                              </MenuItem>
+                                        <InputLabel>OpenAI Model (optional)</InputLabel>
+                                        <Select
+                                          value={aiModel}
+                                          onChange={e => {
+                                            const newValue = e.target.value;
+                                            setAiModel(newValue);
+                                            handleSaveAiModelSettings(newValue, undefined);
+                                          }}
+                                          label="OpenAI Model (optional)"
+                                        >
+                                          <MenuItem value="">
+                                            <Box>
+                                              <Typography variant="body2">Use Global Setting</Typography>
+                                              <Typography variant="caption" color="text.secondary">Uses the model configured in Global AI Settings</Typography>
+                                            </Box>
+                                          </MenuItem>
 
                                               <MenuItem value="gpt-4o-mini">
-                                                <Box>
+                                            <Box>
                                                   <Typography variant="body2">GPT-4o Mini <Chip label="Recommended" size="small" color="success" sx={{ ml: 1 }} /></Typography>
                                                   <Typography variant="caption" color="text.secondary">⚡ Fastest & most cost-effective. Perfect for customer support.</Typography>
-                                                </Box>
-                                              </MenuItem>
+                                            </Box>
+                                          </MenuItem>
                                               <MenuItem value="gpt-4o">
-                                                <Box>
+                                            <Box>
                                                   <Typography variant="body2">GPT-4o <Chip label="STABLE" size="small" color="success" sx={{ ml: 1 }} /></Typography>
                                                   <Typography variant="caption" color="text.secondary">🏆 Proven powerful model from 2024. Excellent for all tasks.</Typography>
-                                                </Box>
-                                              </MenuItem>
-                                              <MenuItem value="gpt-5-nano">
-                                                <Box>
-                                                  <Typography variant="body2">GPT-5 Nano <Chip label="ULTRA FAST" size="small" color="warning" sx={{ ml: 1 }} /></Typography>
+                                            </Box>
+                                          </MenuItem>
+                                          <MenuItem value="gpt-5-nano">
+                                            <Box>
+                                              <Typography variant="body2">GPT-5 Nano <Chip label="ULTRA FAST" size="small" color="warning" sx={{ ml: 1 }} /></Typography>
                                                   <Typography variant="caption" color="text.secondary">🚀 Fastest and cheapest. Great for simple tasks: extract facts, quick answers.</Typography>
-                                                </Box>
-                                              </MenuItem>
+                                            </Box>
+                                          </MenuItem>
                                               <MenuItem value="gpt-5-mini">
-                                                <Box>
+                                            <Box>
                                                   <Typography variant="body2">GPT-5 Mini <Chip label="BALANCED" size="small" color="primary" sx={{ ml: 1 }} /></Typography>
                                                   <Typography variant="caption" color="text.secondary">⚡ Simpler, cheaper, but faster. Perfect for clear tasks.</Typography>
-                                                </Box>
-                                              </MenuItem>
+                                            </Box>
+                                          </MenuItem>
                                               <MenuItem value="gpt-5">
-                                                <Box>
+                                            <Box>
                                                   <Typography variant="body2">GPT-5 <Chip label="SMARTEST" size="small" color="secondary" sx={{ ml: 1, fontWeight: 'bold' }} /></Typography>
                                                   <Typography variant="caption" color="text.secondary">🧠 Most intelligent and accurate. Best for complex tasks.</Typography>
-                                                </Box>
-                                              </MenuItem>
-                                            </Select>
-                                            <FormHelperText>
-                                              {aiModel 
-                                                ? `Currently using: ${aiModel}` 
-                                                : "Leave empty to use global model setting"}
-                                            </FormHelperText>
-                                          </FormControl>
-                                        </Box>
-                                        
-                                        {/* AI Temperature */}
-                                        <Box>
-                                          <FormControl size="small" sx={{ width: 280, backgroundColor: 'grey.50' }}>
-                                            <InputLabel>AI Temperature (optional)</InputLabel>
-                                            <Select
-                                              value={aiTemperature === '' ? '' : aiTemperature.toString()}
-                                              onChange={e => {
-                                                const newValue = e.target.value === '' ? '' : Number(e.target.value);
-                                                setAiTemperature(newValue);
-                                                handleSaveAiModelSettings(undefined, newValue);
-                                              }}
-                                              label="AI Temperature (optional)"
-                                              disabled={aiModel?.startsWith('gpt-5') || aiModel?.startsWith('o1')}
-                                            >
-                                              <MenuItem value="">
-                                                <Box>
-                                                  <Typography variant="body2">Use Global Setting</Typography>
-                                                  <Typography variant="caption" color="text.secondary">Uses temperature configured in Global AI Settings</Typography>
-                                                </Box>
-                                              </MenuItem>
-                                              <MenuItem value="0.1">
-                                                <Box>
-                                                  <Typography variant="body2">0.1 - Very Focused <Chip label="Consistent" size="small" color="info" sx={{ ml: 1 }} /></Typography>
-                                                  <Typography variant="caption" color="text.secondary">Very consistent, predictable responses. Best for formal business.</Typography>
-                                                </Box>
-                                              </MenuItem>
-                                              <MenuItem value="0.3">
-                                                <Box>
-                                                  <Typography variant="body2">0.3 - Focused <Chip label="Recommended" size="small" color="primary" sx={{ ml: 1 }} /></Typography>
-                                                  <Typography variant="caption" color="text.secondary">Reliable yet natural responses. Great for customer support.</Typography>
-                                                </Box>
-                                              </MenuItem>
-                                              <MenuItem value="0.7">
-                                                <Box>
-                                                  <Typography variant="body2">0.7 - Balanced</Typography>
-                                                  <Typography variant="caption" color="text.secondary">Good balance of consistency and creativity.</Typography>
-                                                </Box>
-                                              </MenuItem>
-                                              <MenuItem value="1.0">
-                                                <Box>
-                                                  <Typography variant="body2">1.0 - Creative</Typography>
-                                                  <Typography variant="caption" color="text.secondary">More varied, creative responses. Use with caution.</Typography>
-                                                </Box>
-                                              </MenuItem>
-                                            </Select>
-                                            <FormHelperText>
-                                              {aiModel?.startsWith('gpt-5') 
-                                                ? "🔒 GPT-5 models use fixed temperature = 1.0 (cannot be changed)" 
-                                                : aiModel?.startsWith('o1')
-                                                  ? "🔒 o1 models don't support temperature control (optimized internally)"
-                                                  : aiTemperature !== '' 
-                                                    ? `Creativity level: ${aiTemperature <= 0.3 ? 'Very focused' : aiTemperature <= 0.7 ? 'Balanced' : 'Creative'}` 
-                                                    : "Leave empty to use global temperature setting"}
-                                            </FormHelperText>
-                                          </FormControl>
-                                        </Box>
-                                      </Stack>
+                                            </Box>
+                                          </MenuItem>
+                                        </Select>
+                                        <FormHelperText>
+                                          {aiModel 
+                                            ? `Currently using: ${aiModel}` 
+                                            : "Leave empty to use global model setting"}
+                                        </FormHelperText>
+                                      </FormControl>
                                     </Box>
+                                    
+                                    {/* AI Temperature */}
+                                    <Box>
+                                          <FormControl size="small" sx={{ width: 280, backgroundColor: 'grey.50' }}>
+                                        <InputLabel>AI Temperature (optional)</InputLabel>
+                                        <Select
+                                          value={aiTemperature === '' ? '' : aiTemperature.toString()}
+                                          onChange={e => {
+                                            const newValue = e.target.value === '' ? '' : Number(e.target.value);
+                                            setAiTemperature(newValue);
+                                            handleSaveAiModelSettings(undefined, newValue);
+                                          }}
+                                          label="AI Temperature (optional)"
+                                          disabled={aiModel?.startsWith('gpt-5') || aiModel?.startsWith('o1')}
+                                        >
+                                          <MenuItem value="">
+                                            <Box>
+                                              <Typography variant="body2">Use Global Setting</Typography>
+                                              <Typography variant="caption" color="text.secondary">Uses temperature configured in Global AI Settings</Typography>
+                                            </Box>
+                                          </MenuItem>
+                                          <MenuItem value="0.1">
+                                            <Box>
+                                              <Typography variant="body2">0.1 - Very Focused <Chip label="Consistent" size="small" color="info" sx={{ ml: 1 }} /></Typography>
+                                              <Typography variant="caption" color="text.secondary">Very consistent, predictable responses. Best for formal business.</Typography>
+                                            </Box>
+                                          </MenuItem>
+                                          <MenuItem value="0.3">
+                                            <Box>
+                                              <Typography variant="body2">0.3 - Focused <Chip label="Recommended" size="small" color="primary" sx={{ ml: 1 }} /></Typography>
+                                              <Typography variant="caption" color="text.secondary">Reliable yet natural responses. Great for customer support.</Typography>
+                                            </Box>
+                                          </MenuItem>
+                                          <MenuItem value="0.7">
+                                            <Box>
+                                              <Typography variant="body2">0.7 - Balanced</Typography>
+                                              <Typography variant="caption" color="text.secondary">Good balance of consistency and creativity.</Typography>
+                                            </Box>
+                                          </MenuItem>
+                                          <MenuItem value="1.0">
+                                            <Box>
+                                              <Typography variant="body2">1.0 - Creative</Typography>
+                                              <Typography variant="caption" color="text.secondary">More varied, creative responses. Use with caution.</Typography>
+                                            </Box>
+                                          </MenuItem>
+                                        </Select>
+                                        <FormHelperText>
+                                          {aiModel?.startsWith('gpt-5') 
+                                            ? "🔒 GPT-5 models use fixed temperature = 1.0 (cannot be changed)" 
+                                            : aiModel?.startsWith('o1')
+                                              ? "🔒 o1 models don't support temperature control (optimized internally)"
+                                              : aiTemperature !== '' 
+                                                    ? `Creativity level: ${aiTemperature <= 0.3 ? 'Very focused' : aiTemperature <= 0.7 ? 'Balanced' : 'Creative'}` 
+                                                : "Leave empty to use global temperature setting"}
+                                        </FormHelperText>
+                                      </FormControl>
+                                    </Box>
+                                  </Stack>
+                                </Box>
                                   </AccordionDetails>
                                 </Accordion>
                               </Box>
@@ -2437,87 +2437,87 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                           </Typography>
                                           
                                           <Grid container spacing={3}>
-                                            {/* Similarity Threshold */}
+                                        {/* Similarity Threshold */}
                                             <Grid item xs={12} md={6}>
                                               <FormControl size="small" fullWidth sx={{ backgroundColor: 'grey.50' }}>
-                                                <InputLabel>Similarity Threshold</InputLabel>
-                                                <Select
-                                                  value={vectorSimilarityThreshold.toString()}
-                                                  onChange={e => {
-                                                    const newValue = Number(e.target.value);
-                                                    setVectorSimilarityThreshold(newValue);
-                                                    handleSaveVectorSettings();
-                                                  }}
-                                                  label="Similarity Threshold"
-                                                >
-                                                  <MenuItem value="0.4">
-                                                    <Box>
-                                                      <Typography variant="body2">0.4 - Very Loose <Chip label="More Results" size="small" color="success" sx={{ ml: 1 }} /></Typography>
-                                                      <Typography variant="caption" color="text.secondary">Finds many results, including loosely related content</Typography>
-                                                    </Box>
-                                                  </MenuItem>
-                                                  <MenuItem value="0.5">
-                                                    <Box>
-                                                      <Typography variant="body2">0.5 - Loose</Typography>
-                                                      <Typography variant="caption" color="text.secondary">Good balance for diverse content matching</Typography>
-                                                    </Box>
-                                                  </MenuItem>
-                                                  <MenuItem value="0.6">
-                                                    <Box>
-                                                      <Typography variant="body2">0.6 - Balanced <Chip label="Recommended" size="small" color="primary" sx={{ ml: 1 }} /></Typography>
-                                                      <Typography variant="caption" color="text.secondary">Good balance of quality and quantity of results</Typography>
-                                                    </Box>
-                                                  </MenuItem>
-                                                  <MenuItem value="0.7">
-                                                    <Box>
-                                                      <Typography variant="body2">0.7 - Focused</Typography>
-                                                      <Typography variant="caption" color="text.secondary">More precise matching, fewer but higher quality results</Typography>
-                                                    </Box>
-                                                  </MenuItem>
-                                                  <MenuItem value="0.8">
-                                                    <Box>
-                                                      <Typography variant="body2">0.8 - Very Focused</Typography>
-                                                      <Typography variant="caption" color="text.secondary">Very precise matching, only highly similar content</Typography>
-                                                    </Box>
-                                                  </MenuItem>
-                                                </Select>
-                                                <FormHelperText>
-                                                  Lower values = more results (less strict). Higher values = fewer results (more strict).
-                                                </FormHelperText>
-                                              </FormControl>
+                                            <InputLabel>Similarity Threshold</InputLabel>
+                                            <Select
+                                              value={vectorSimilarityThreshold.toString()}
+                                              onChange={e => {
+                                                const newValue = Number(e.target.value);
+                                                setVectorSimilarityThreshold(newValue);
+                                                handleSaveVectorSettings();
+                                              }}
+                                              label="Similarity Threshold"
+                                            >
+                                              <MenuItem value="0.4">
+                                                <Box>
+                                                  <Typography variant="body2">0.4 - Very Loose <Chip label="More Results" size="small" color="success" sx={{ ml: 1 }} /></Typography>
+                                                  <Typography variant="caption" color="text.secondary">Finds many results, including loosely related content</Typography>
+                                                </Box>
+                                              </MenuItem>
+                                              <MenuItem value="0.5">
+                                                <Box>
+                                                  <Typography variant="body2">0.5 - Loose</Typography>
+                                                  <Typography variant="caption" color="text.secondary">Good balance for diverse content matching</Typography>
+                                                </Box>
+                                              </MenuItem>
+                                              <MenuItem value="0.6">
+                                                <Box>
+                                                  <Typography variant="body2">0.6 - Balanced <Chip label="Recommended" size="small" color="primary" sx={{ ml: 1 }} /></Typography>
+                                                  <Typography variant="caption" color="text.secondary">Good balance of quality and quantity of results</Typography>
+                                                </Box>
+                                              </MenuItem>
+                                              <MenuItem value="0.7">
+                                                <Box>
+                                                  <Typography variant="body2">0.7 - Focused</Typography>
+                                                  <Typography variant="caption" color="text.secondary">More precise matching, fewer but higher quality results</Typography>
+                                                </Box>
+                                              </MenuItem>
+                                              <MenuItem value="0.8">
+                                                <Box>
+                                                  <Typography variant="body2">0.8 - Very Focused</Typography>
+                                                  <Typography variant="caption" color="text.secondary">Very precise matching, only highly similar content</Typography>
+                                                </Box>
+                                              </MenuItem>
+                                            </Select>
+                                            <FormHelperText>
+                                              Lower values = more results (less strict). Higher values = fewer results (more strict).
+                                            </FormHelperText>
+                                          </FormControl>
                                             </Grid>
-                                            
-                                            {/* Search Results Limit */}
+                                        
+                                        {/* Search Results Limit */}
                                             <Grid item xs={12} md={6}>
                                               <FormControl size="small" fullWidth sx={{ backgroundColor: 'grey.50' }}>
-                                                <InputLabel>Max Results</InputLabel>
-                                                <Select
-                                                  value={vectorSearchLimit.toString()}
-                                                  onChange={e => {
-                                                    const newValue = Number(e.target.value);
-                                                    setVectorSearchLimit(newValue);
-                                                    handleSaveVectorSettings();
-                                                  }}
-                                                  label="Max Results"
-                                                >
-                                                  <MenuItem value="3">3 Results</MenuItem>
-                                                  <MenuItem value="5">5 Results (Default)</MenuItem>
-                                                  <MenuItem value="10">10 Results</MenuItem>
-                                                  <MenuItem value="15">15 Results</MenuItem>
-                                                </Select>
-                                                <FormHelperText>
-                                                  Maximum number of similar chunks to return in searches
-                                                </FormHelperText>
-                                              </FormControl>
+                                            <InputLabel>Max Results</InputLabel>
+                                            <Select
+                                              value={vectorSearchLimit.toString()}
+                                              onChange={e => {
+                                                const newValue = Number(e.target.value);
+                                                setVectorSearchLimit(newValue);
+                                                handleSaveVectorSettings();
+                                              }}
+                                              label="Max Results"
+                                            >
+                                              <MenuItem value="3">3 Results</MenuItem>
+                                              <MenuItem value="5">5 Results (Default)</MenuItem>
+                                              <MenuItem value="10">10 Results</MenuItem>
+                                              <MenuItem value="15">15 Results</MenuItem>
+                                            </Select>
+                                            <FormHelperText>
+                                              Maximum number of similar chunks to return in searches
+                                            </FormHelperText>
+                                          </FormControl>
                                             </Grid>
                                           </Grid>
-                                          
-                                          {/* Auto-save Notice */}
+                                        
+                                        {/* Auto-save Notice */}
                                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, backgroundColor: 'info.50', borderRadius: 1, mt: 2 }}>
-                                            <Typography variant="caption" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
-                                              🔄 Settings auto-save when changed
-                                            </Typography>
-                                          </Box>
+                                          <Typography variant="caption" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
+                                            🔄 Settings auto-save when changed
+                                          </Typography>
+                                        </Box>
                                         </Box>
 
                                         {/* Configuration Status */}
@@ -2785,6 +2785,7 @@ In what location do you need the service?
                               </Box>
                             </Card>
                           </Grid>
+                        </Grid>
                         {/* End of AI Configuration Grid */}
                         
                         {/* Sample Replies Manager - только для MODE 2: AI Generated */}
