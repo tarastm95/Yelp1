@@ -2283,8 +2283,10 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                 </Accordion>
                               </Box>
                             </Card>
+                          </Grid>
 
-                              {/* 🔍 Vector Search & MODE 2 Settings (for Sample Replies) */}
+                          {/* 🔍 Vector Search & MODE 2 Settings (for Sample Replies) */}
+                          <Grid item xs={12}>
                               {useSampleReplies && (
                                 <Box sx={{ 
                                   borderRadius: 2, 
@@ -2576,8 +2578,10 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                   </Accordion>
                                 </Box>
                               )}
+                          </Grid>
 
-                              {/* 📊 Model Support Information */}
+                          {/* 📊 Model Support Information */}
+                          <Grid item xs={12}>
                               {aiModel && (
                                 <Box sx={{ 
                                   p: 2, 
@@ -2615,8 +2619,10 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                   </Stack>
                                 </Box>
                               )}
+                          </Grid>
 
-                              {/* Custom Prompt */}
+                          {/* Custom Prompt */}
+                          <Grid item xs={12}>
                               <Box>
                                 <Typography variant="caption" sx={{ mb: 1, display: 'block', fontWeight: 600, color: useAiGreeting && !aiCustomPrompt.trim() ? 'error.main' : 'text.primary' }}>
                                   Custom Instructions (Required) *
@@ -2783,7 +2789,6 @@ In what location do you need the service?
                                   </Typography>
                                 </Paper>
                               </Box>
-                            </Card>
                           </Grid>
                         </Grid>
                         {/* End of AI Configuration Grid */}
