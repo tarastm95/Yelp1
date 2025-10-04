@@ -2247,7 +2247,7 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                       gap: 1
                                     }}>
                                       <VectorIcon sx={{ fontSize: 24 }} />
-                                      🔍 MODE 2: Vector Search & Sample Replies
+                                      🔍 MODE 2: Vector-Enhanced Sample Replies
                                     </Typography>
                                     <Typography variant="body2" sx={{ 
                                       opacity: 0.9, 
@@ -2255,129 +2255,11 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                       mt: 0.5,
                                       fontWeight: 500
                                     }}>
-                                      Advanced semantic search configuration and intelligent reply processing
+                                      Advanced semantic chunking with OpenAI embeddings for intelligent contextual replies
                                     </Typography>
                                   </Box>
 
-                                  {/* Accordion 1: Basic Vector Search Settings */}
-                                  <Accordion defaultExpanded sx={{ 
-                                    backgroundColor: 'transparent', 
-                                    boxShadow: 'none',
-                                    '&:before': { display: 'none' }
-                                  }}>
-                                    <AccordionSummary
-                                      expandIcon={<ExpandMoreIcon />}
-                                      sx={{ 
-                                        backgroundColor: 'white',
-                                        borderBottom: '1px solid',
-                                        borderBottomColor: 'divider',
-                                        '&.Mui-expanded': {
-                                          minHeight: 48,
-                                        },
-                                        '& .MuiAccordionSummary-content.Mui-expanded': {
-                                          margin: '12px 0',
-                                        }
-                                      }}
-                                    >
-                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                                          ⚙️ Vector Search Parameters
-                                        </Typography>
-                                        <Chip
-                                          label={`${vectorSimilarityThreshold} threshold, ${vectorSearchLimit} results`}
-                                          size="small"
-                                          color="info"
-                                          variant="outlined"
-                                        />
-                                      </Box>
-                                    </AccordionSummary>
-                                    <AccordionDetails sx={{ backgroundColor: 'grey.50', p: 3 }}>
-                                      <Stack spacing={3}>
-                                        {/* Similarity Threshold */}
-                                        <Box>
-                                          <FormControl size="small" sx={{ width: 300, backgroundColor: 'white' }}>
-                                            <InputLabel>Similarity Threshold</InputLabel>
-                                            <Select
-                                              value={vectorSimilarityThreshold.toString()}
-                                              onChange={e => {
-                                                const newValue = Number(e.target.value);
-                                                setVectorSimilarityThreshold(newValue);
-                                                handleSaveVectorSettings();
-                                              }}
-                                              label="Similarity Threshold"
-                                            >
-                                              <MenuItem value="0.4">
-                                                <Box>
-                                                  <Typography variant="body2">0.4 - Very Loose <Chip label="More Results" size="small" color="success" sx={{ ml: 1 }} /></Typography>
-                                                  <Typography variant="caption" color="text.secondary">Finds many results, including loosely related content</Typography>
-                                                </Box>
-                                              </MenuItem>
-                                              <MenuItem value="0.5">
-                                                <Box>
-                                                  <Typography variant="body2">0.5 - Loose</Typography>
-                                                  <Typography variant="caption" color="text.secondary">Good balance for diverse content matching</Typography>
-                                                </Box>
-                                              </MenuItem>
-                                              <MenuItem value="0.6">
-                                                <Box>
-                                                  <Typography variant="body2">0.6 - Balanced <Chip label="Recommended" size="small" color="primary" sx={{ ml: 1 }} /></Typography>
-                                                  <Typography variant="caption" color="text.secondary">Good balance of quality and quantity of results</Typography>
-                                                </Box>
-                                              </MenuItem>
-                                              <MenuItem value="0.7">
-                                                <Box>
-                                                  <Typography variant="body2">0.7 - Focused</Typography>
-                                                  <Typography variant="caption" color="text.secondary">More precise matching, fewer but higher quality results</Typography>
-                                                </Box>
-                                              </MenuItem>
-                                              <MenuItem value="0.8">
-                                                <Box>
-                                                  <Typography variant="body2">0.8 - Very Focused</Typography>
-                                                  <Typography variant="caption" color="text.secondary">Very precise matching, only highly similar content</Typography>
-                                                </Box>
-                                              </MenuItem>
-                                            </Select>
-                                            <FormHelperText>
-                                              Lower values = more results (less strict). Higher values = fewer results (more strict).
-                                            </FormHelperText>
-                                          </FormControl>
-                                        </Box>
-                                        
-                                        {/* Search Results Limit */}
-                                        <Box>
-                                          <FormControl size="small" sx={{ width: 200, backgroundColor: 'white' }}>
-                                            <InputLabel>Max Results</InputLabel>
-                                            <Select
-                                              value={vectorSearchLimit.toString()}
-                                              onChange={e => {
-                                                const newValue = Number(e.target.value);
-                                                setVectorSearchLimit(newValue);
-                                                handleSaveVectorSettings();
-                                              }}
-                                              label="Max Results"
-                                            >
-                                              <MenuItem value="3">3 Results</MenuItem>
-                                              <MenuItem value="5">5 Results (Default)</MenuItem>
-                                              <MenuItem value="10">10 Results</MenuItem>
-                                              <MenuItem value="15">15 Results</MenuItem>
-                                            </Select>
-                                            <FormHelperText>
-                                              Maximum number of similar chunks to return in searches
-                                            </FormHelperText>
-                                          </FormControl>
-                                        </Box>
-                                        
-                                        {/* Auto-save Notice */}
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 2, backgroundColor: 'info.50', borderRadius: 1 }}>
-                                          <Typography variant="caption" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
-                                            🔄 Settings auto-save when changed
-                                          </Typography>
-                                        </Box>
-                                      </Stack>
-                                    </AccordionDetails>
-                                  </Accordion>
-
-                                  {/* Accordion 2: MODE 2 Vector-Enhanced Sample Replies */}
+                                  {/* Accordion: MODE 2 Vector-Enhanced Sample Replies */}
                                   <Accordion sx={{ 
                                     backgroundColor: 'transparent', 
                                     boxShadow: 'none',
@@ -2474,6 +2356,109 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                               </Box>
                                             </Grid>
                                           </Grid>
+                                        </Box>
+
+                                        {/* Vector Search Parameters */}
+                                        <Box sx={{ 
+                                          p: 2.5, 
+                                          backgroundColor: 'white', 
+                                          borderRadius: 2,
+                                          border: '1px solid',
+                                          borderColor: 'info.200'
+                                        }}>
+                                          <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: 'info.dark', display: 'flex', alignItems: 'center' }}>
+                                            ⚙️ Vector Search Parameters
+                                            <Chip
+                                              label={`${vectorSimilarityThreshold} threshold, ${vectorSearchLimit} results`}
+                                              size="small"
+                                              color="info"
+                                              variant="outlined"
+                                              sx={{ ml: 1 }}
+                                            />
+                                          </Typography>
+                                          
+                                          <Grid container spacing={3}>
+                                            {/* Similarity Threshold */}
+                                            <Grid item xs={12} md={6}>
+                                              <FormControl size="small" fullWidth sx={{ backgroundColor: 'grey.50' }}>
+                                                <InputLabel>Similarity Threshold</InputLabel>
+                                                <Select
+                                                  value={vectorSimilarityThreshold.toString()}
+                                                  onChange={e => {
+                                                    const newValue = Number(e.target.value);
+                                                    setVectorSimilarityThreshold(newValue);
+                                                    handleSaveVectorSettings();
+                                                  }}
+                                                  label="Similarity Threshold"
+                                                >
+                                                  <MenuItem value="0.4">
+                                                    <Box>
+                                                      <Typography variant="body2">0.4 - Very Loose <Chip label="More Results" size="small" color="success" sx={{ ml: 1 }} /></Typography>
+                                                      <Typography variant="caption" color="text.secondary">Finds many results, including loosely related content</Typography>
+                                                    </Box>
+                                                  </MenuItem>
+                                                  <MenuItem value="0.5">
+                                                    <Box>
+                                                      <Typography variant="body2">0.5 - Loose</Typography>
+                                                      <Typography variant="caption" color="text.secondary">Good balance for diverse content matching</Typography>
+                                                    </Box>
+                                                  </MenuItem>
+                                                  <MenuItem value="0.6">
+                                                    <Box>
+                                                      <Typography variant="body2">0.6 - Balanced <Chip label="Recommended" size="small" color="primary" sx={{ ml: 1 }} /></Typography>
+                                                      <Typography variant="caption" color="text.secondary">Good balance of quality and quantity of results</Typography>
+                                                    </Box>
+                                                  </MenuItem>
+                                                  <MenuItem value="0.7">
+                                                    <Box>
+                                                      <Typography variant="body2">0.7 - Focused</Typography>
+                                                      <Typography variant="caption" color="text.secondary">More precise matching, fewer but higher quality results</Typography>
+                                                    </Box>
+                                                  </MenuItem>
+                                                  <MenuItem value="0.8">
+                                                    <Box>
+                                                      <Typography variant="body2">0.8 - Very Focused</Typography>
+                                                      <Typography variant="caption" color="text.secondary">Very precise matching, only highly similar content</Typography>
+                                                    </Box>
+                                                  </MenuItem>
+                                                </Select>
+                                                <FormHelperText>
+                                                  Lower values = more results (less strict). Higher values = fewer results (more strict).
+                                                </FormHelperText>
+                                              </FormControl>
+                                            </Grid>
+                                            
+                                            {/* Search Results Limit */}
+                                            <Grid item xs={12} md={6}>
+                                              <FormControl size="small" fullWidth sx={{ backgroundColor: 'grey.50' }}>
+                                                <InputLabel>Max Results</InputLabel>
+                                                <Select
+                                                  value={vectorSearchLimit.toString()}
+                                                  onChange={e => {
+                                                    const newValue = Number(e.target.value);
+                                                    setVectorSearchLimit(newValue);
+                                                    handleSaveVectorSettings();
+                                                  }}
+                                                  label="Max Results"
+                                                >
+                                                  <MenuItem value="3">3 Results</MenuItem>
+                                                  <MenuItem value="5">5 Results (Default)</MenuItem>
+                                                  <MenuItem value="10">10 Results</MenuItem>
+                                                  <MenuItem value="15">15 Results</MenuItem>
+                                                </Select>
+                                                <FormHelperText>
+                                                  Maximum number of similar chunks to return in searches
+                                                </FormHelperText>
+                                              </FormControl>
+                                            </Grid>
+                                          </Grid>
+                                          
+                                          {/* Auto-save Notice */}
+                                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, backgroundColor: 'info.50', borderRadius: 1, mt: 2 }}>
+                                            <Typography variant="caption" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
+                                              🔄 Settings auto-save when changed
+                                            </Typography>
+                                          </Box>
                                         </Box>
 
                                         {/* Configuration Status */}
