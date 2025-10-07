@@ -519,6 +519,28 @@ Respond to the customer."""
                     
                     if not content:
                         logger.warning(f"[AI-SERVICE] Empty content received from {model}")
+                        
+                        # 🔄 Спеціальна обробка для GPT-5: reasoning tokens без text output
+                        if model.startswith('gpt-5'):
+                            logger.warning(f"[AI-SERVICE] ⚠️ GPT-5 ISSUE: Used reasoning tokens but returned no text")
+                            logger.info(f"[AI-SERVICE] GPT-5 моделі призначені для reasoning, не для text generation")
+                            logger.info(f"[AI-SERVICE] 🔄 Auto-fallback to gpt-4o for better results...")
+                            
+                            # Retry з gpt-4o
+                            try:
+                                fallback_params = self._get_api_params_for_model('gpt-4o', messages, message_length, 0.7)
+                                logger.info(f"[AI-SERVICE] Retrying with gpt-4o...")
+                                fallback_response = self.client.chat.completions.create(**fallback_params)
+                                fallback_content = fallback_response.choices[0].message.content
+                                
+                                if fallback_content:
+                                    logger.info(f"[AI-SERVICE] ✅ Fallback successful with gpt-4o")
+                                    logger.info(f"[AI-SERVICE] Fallback response length: {len(fallback_content)}")
+                                    return fallback_content.strip()
+                                    
+                            except Exception as fallback_error:
+                                logger.error(f"[AI-SERVICE] Fallback to gpt-4o also failed: {fallback_error}")
+                        
                         return "Empty response received from AI model."
                     
                     return content.strip()
