@@ -466,10 +466,10 @@ Respond to the customer."""
             logger.info(f"[AI-SERVICE] Selected model: {model}")
             logger.info(f"[AI-SERVICE] Temperature: {temperature}")
             
-            # Спеціальне повідомлення для GPT-5 моделей
+            # GPT-5 detection (not recommended for customer support)
             if model.startswith('gpt-5'):
-                logger.warning(f"[AI-SERVICE] ⚠️ Using GPT-5 model: {model}")
-                logger.warning(f"[AI-SERVICE] ⚠️ Note: GPT-5 models may not be available in all OpenAI accounts yet")
+                logger.warning(f"[AI-SERVICE] ⚠️ GPT-5 model detected: {model}")
+                logger.info(f"[AI-SERVICE] Note: GPT-5 may return empty responses, will auto-fallback to gpt-4o if needed")
             
             # 🎯 AUTO-DETECT LENGTH for preview (no manual restrictions)
             # Give generous token limit to allow natural response length
@@ -487,9 +487,8 @@ Respond to the customer."""
             # 🎯 Для contextual AI analysis використовуємо custom prompt як system prompt
             system_prompt = self._get_system_prompt(custom_prompt)
             
-            # Для GPT-5 моделей використовуємо повний кастомний промт без обмежень
-            if model.startswith('gpt-5'):
-                logger.info(f"[AI-SERVICE] GPT-5: Using full custom system prompt (length: {len(system_prompt)})")
+            # Log prompt info
+            logger.info(f"[AI-SERVICE] System prompt length: {len(system_prompt)} characters")
             
             # Підготовка повідомлень з урахуванням особливостей моделі
             messages = self._prepare_messages_for_model(model, system_prompt, prompt)

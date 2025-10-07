@@ -2015,24 +2015,6 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                                   <Typography variant="caption" color="text.secondary">⚡ Fastest & most cost-effective. May skip some instructions.</Typography>
                                             </Box>
                                           </MenuItem>
-                                          <MenuItem value="gpt-5-nano">
-                                            <Box>
-                                              <Typography variant="body2">GPT-5 Nano <Chip label="NOT RECOMMENDED" size="small" color="error" sx={{ ml: 1 }} /></Typography>
-                                                  <Typography variant="caption" color="text.secondary">⚠️ May return empty responses for customer messages. Use gpt-4o instead.</Typography>
-                                            </Box>
-                                          </MenuItem>
-                                              <MenuItem value="gpt-5-mini">
-                                            <Box>
-                                                  <Typography variant="body2">GPT-5 Mini <Chip label="EXPERIMENTAL" size="small" color="warning" sx={{ ml: 1 }} /></Typography>
-                                                  <Typography variant="caption" color="text.secondary">⚠️ May return empty responses. Not recommended for customer messages.</Typography>
-                                            </Box>
-                                          </MenuItem>
-                                              <MenuItem value="gpt-5">
-                                            <Box>
-                                                  <Typography variant="body2">GPT-5 <Chip label="EXPERIMENTAL" size="small" color="warning" sx={{ ml: 1, fontWeight: 'bold' }} /></Typography>
-                                                  <Typography variant="caption" color="text.secondary">⚠️ Uses reasoning tokens, may return empty content. Use gpt-4o instead.</Typography>
-                                            </Box>
-                                          </MenuItem>
                                         </Select>
                                         <FormHelperText>
                                           {aiModel 
@@ -2054,7 +2036,6 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                             handleSaveAiModelSettings(undefined, newValue);
                                           }}
                                           label="AI Temperature (optional)"
-                                          disabled={aiModel?.startsWith('gpt-5') || aiModel?.startsWith('o1')}
                                         >
                                           <MenuItem value={0.7}>
                                             <Box>
@@ -2088,11 +2069,7 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                           </MenuItem>
                                         </Select>
                                         <FormHelperText>
-                                          {aiModel?.startsWith('gpt-5') 
-                                            ? "🔒 GPT-5 models use fixed temperature = 1.0 (cannot be changed)" 
-                                            : aiModel?.startsWith('o1')
-                                              ? "🔒 o1 models don't support temperature control (optimized internally)"
-                                              : aiTemperature !== '' 
+                                          {aiTemperature !== '' 
                                                     ? `Creativity level: ${aiTemperature <= 0.3 ? 'Very focused' : aiTemperature <= 0.7 ? 'Balanced' : 'Creative'}` 
                                                 : "Using default: 0.7 (balanced)"}
                                         </FormHelperText>
