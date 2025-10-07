@@ -212,8 +212,8 @@ const AutoResponseSettings: FC = () => {
   const [aiMaxMessageLength, setAiMaxMessageLength] = useState(160);
   
   // 🤖 Business-specific AI Model Settings
-  const [aiModel, setAiModel] = useState('');
-  const [aiTemperature, setAiTemperature] = useState<number | ''>('');
+  const [aiModel, setAiModel] = useState('gpt-4o');  // ✅ Default to gpt-4o
+  const [aiTemperature, setAiTemperature] = useState<number | ''>(0.7);  // ✅ Default temperature
   
   // 🔍 Vector Search Settings  
   const [vectorSimilarityThreshold, setVectorSimilarityThreshold] = useState(0.4);
@@ -405,8 +405,8 @@ const AutoResponseSettings: FC = () => {
           setAiMaxMessageLength(d.ai_max_message_length ?? 160);
           
           // Set Business-specific AI Model Settings
-          setAiModel(d.ai_model ?? '');
-          setAiTemperature(d.ai_temperature ?? '');
+          setAiModel(d.ai_model ?? 'gpt-4o');  // ✅ Default to gpt-4o if not set
+          setAiTemperature(d.ai_temperature ?? 0.7);  // ✅ Default temperature
           
           // Set Vector Search Settings
           setVectorSimilarityThreshold(d.vector_similarity_threshold ?? 0.6);
@@ -2002,23 +2002,17 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                           }}
                                           label="OpenAI Model (optional)"
                                         >
-                                          <MenuItem value="">
+                                          <MenuItem value="gpt-4o">
                                             <Box>
-                                              <Typography variant="body2">Use Global Setting</Typography>
-                                              <Typography variant="caption" color="text.secondary">Uses the model configured in Global AI Settings</Typography>
+                                              <Typography variant="body2">gpt-4o <Chip label="Default" size="small" color="primary" sx={{ ml: 1 }} /></Typography>
+                                              <Typography variant="caption" color="text.secondary">Recommended - Best quality and compliance with instructions</Typography>
                                             </Box>
                                           </MenuItem>
 
                                               <MenuItem value="gpt-4o-mini">
                                             <Box>
-                                                  <Typography variant="body2">GPT-4o Mini <Chip label="Recommended" size="small" color="success" sx={{ ml: 1 }} /></Typography>
-                                                  <Typography variant="caption" color="text.secondary">⚡ Fastest & most cost-effective. Perfect for customer support.</Typography>
-                                            </Box>
-                                          </MenuItem>
-                                              <MenuItem value="gpt-4o">
-                                            <Box>
-                                                  <Typography variant="body2">GPT-4o <Chip label="STABLE" size="small" color="success" sx={{ ml: 1 }} /></Typography>
-                                                  <Typography variant="caption" color="text.secondary">🏆 Proven powerful model from 2024. Excellent for all tasks.</Typography>
+                                                  <Typography variant="body2">GPT-4o Mini <Chip label="Budget" size="small" color="success" sx={{ ml: 1 }} /></Typography>
+                                                  <Typography variant="caption" color="text.secondary">⚡ Fastest & most cost-effective. May skip some instructions.</Typography>
                                             </Box>
                                           </MenuItem>
                                           <MenuItem value="gpt-5-nano">
@@ -2043,7 +2037,7 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                         <FormHelperText>
                                           {aiModel 
                                             ? `Currently using: ${aiModel}` 
-                                            : "Leave empty to use global model setting"}
+                                            : "Using default: gpt-4o (recommended)"}
                                         </FormHelperText>
                                       </FormControl>
                                     </Box>
@@ -2062,10 +2056,10 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                           label="AI Temperature (optional)"
                                           disabled={aiModel?.startsWith('gpt-5') || aiModel?.startsWith('o1')}
                                         >
-                                          <MenuItem value="">
+                                          <MenuItem value={0.7}>
                                             <Box>
-                                              <Typography variant="body2">Use Global Setting</Typography>
-                                              <Typography variant="caption" color="text.secondary">Uses temperature configured in Global AI Settings</Typography>
+                                              <Typography variant="body2">0.7 <Chip label="Default" size="small" color="primary" sx={{ ml: 1 }} /></Typography>
+                                              <Typography variant="caption" color="text.secondary">Balanced creativity - Recommended for most use cases</Typography>
                                             </Box>
                                           </MenuItem>
                                           <MenuItem value="0.1">
@@ -2100,7 +2094,7 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                               ? "🔒 o1 models don't support temperature control (optimized internally)"
                                               : aiTemperature !== '' 
                                                     ? `Creativity level: ${aiTemperature <= 0.3 ? 'Very focused' : aiTemperature <= 0.7 ? 'Balanced' : 'Creative'}` 
-                                                : "Leave empty to use global temperature setting"}
+                                                : "Using default: 0.7 (balanced)"}
                                         </FormHelperText>
                                       </FormControl>
                                     </Box>

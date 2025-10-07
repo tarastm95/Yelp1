@@ -507,7 +507,7 @@ Based on the training examples above, generate a professional response that:
             logger.info(f"[VECTOR-SEARCH] Estimated tokens for {target_length} chars: {estimated_tokens}")
             
             response = self.openai_client.chat.completions.create(
-                model="gpt-4o-mini",  # Ефективна модель для цього завдання
+                model="gpt-4o",  # ✅ Default model for high-quality responses
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
@@ -723,7 +723,7 @@ Based on the similar sample replies ranked above (especially the highest similar
             logger.info(f"[VECTOR-SEARCH] Estimated tokens for {target_length} chars: {estimated_tokens}")
             
             response = self.openai_client.chat.completions.create(
-                model="gpt-4o-mini",  # Ефективна модель для цього завдання
+                model="gpt-4o",  # ✅ Default model for high-quality responses
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}

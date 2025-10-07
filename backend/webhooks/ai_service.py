@@ -1102,8 +1102,8 @@ Respond to the customer using the business information above."""
         logger.info(f"[AI-SERVICE] Sending extraction prompt to AI...")
         
         try:
-            # Використовуємо більш дешеву модель для extraction
-            extraction_model = "gpt-4o-mini"
+            # Використовуємо standard модель для extraction
+            extraction_model = "gpt-4o"
             system_prompt = ""  # Не використовуємо захардкоджені промпти
             
             # Підготовка повідомлень з урахуванням особливостей моделі
