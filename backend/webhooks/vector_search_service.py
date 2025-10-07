@@ -471,10 +471,27 @@ CRITICAL:
 - Match the natural response length from the examples (don't artificially shorten or extend)
 - The response should feel natural and personal while following the learned communication style"""
             
+            # 🕐 Get time-based greeting
+            from .utils import get_time_based_greeting
+            from .models import YelpBusiness
+            
+            time_greeting = "Good morning"  # default
+            try:
+                business_obj = YelpBusiness.objects.filter(name=business_name).first()
+                if business_obj:
+                    time_greeting = get_time_based_greeting(business_obj.business_id)
+            except Exception as e:
+                logger.warning(f"[VECTOR-SEARCH] Could not get time greeting: {e}")
+            
+            logger.info(f"[VECTOR-SEARCH] 🕐 Time-based greeting: '{time_greeting}'")
+            
             user_prompt = f"""NEW CUSTOMER INQUIRY:
 Customer Name: {customer_name}
 Inquiry Text: "{lead_inquiry}"
 Business: {business_name}
+Time-appropriate greeting: {time_greeting}
+
+IMPORTANT: Start your response with "{time_greeting} {customer_name}" followed by a casual personal touch (e.g., "hope your day's going well").
 
 Based on the training examples above, generate a professional response that:
 1. Addresses this specific customer inquiry
@@ -501,11 +518,53 @@ Based on the training examples above, generate a professional response that:
             
             generated_response = response.choices[0].message.content.strip()
             
-            logger.info(f"[VECTOR-SEARCH] ✅ Generated response from inquiry→response pairs:")
-            logger.info(f"[VECTOR-SEARCH] - Length: {len(generated_response)} chars")
-            logger.info(f"[VECTOR-SEARCH] - Response: {generated_response}")
-            logger.info(f"[VECTOR-SEARCH] - Used {len(inquiry_response_pairs)} pairs")
-            logger.info(f"[VECTOR-SEARCH] ========================================")
+            logger.info(f"[VECTOR-SEARCH] ==================== GENERATED RESPONSE ====================")
+            logger.info(f"[VECTOR-SEARCH] 📤 Response: {generated_response}")
+            logger.info(f"[VECTOR-SEARCH] " + "="*60)
+            logger.info(f"[VECTOR-SEARCH] 📊 Response length: {len(generated_response)} chars")
+            logger.info(f"[VECTOR-SEARCH] 📊 Used {len(inquiry_response_pairs)} pairs")
+            
+            # 🔍 АНАЛІЗ ДОТРИМАННЯ ПРАВИЛ
+            logger.info(f"[VECTOR-SEARCH] ==================== COMPLIANCE ANALYSIS ====================")
+            
+            # Check 1: Time-based greeting
+            has_correct_greeting = generated_response.lower().startswith(time_greeting.lower())
+            logger.info(f"[VECTOR-SEARCH] ✅ Rule 1 - Time-based Greeting:")
+            logger.info(f"[VECTOR-SEARCH]    Expected: '{time_greeting}'")
+            logger.info(f"[VECTOR-SEARCH]    Response starts with it: {has_correct_greeting}")
+            if not has_correct_greeting:
+                logger.warning(f"[VECTOR-SEARCH]    ⚠️ AI IGNORED time-based greeting!")
+                logger.warning(f"[VECTOR-SEARCH]    Response starts with: '{generated_response[:50]}'")
+            
+            # Check 2: Customer name
+            has_name = customer_name.lower() in generated_response.lower() if customer_name != 'there' else True
+            logger.info(f"[VECTOR-SEARCH] ✅ Rule 2 - Customer Name:")
+            logger.info(f"[VECTOR-SEARCH]    Name used: {has_name}")
+            if not has_name and customer_name != 'there':
+                logger.warning(f"[VECTOR-SEARCH]    ⚠️ AI FORGOT customer name!")
+            
+            # Check 3: Length comparison
+            logger.info(f"[VECTOR-SEARCH] ✅ Rule 3 - Length Matching:")
+            logger.info(f"[VECTOR-SEARCH]    Target length: {target_length} chars")
+            logger.info(f"[VECTOR-SEARCH]    Generated length: {len(generated_response)} chars")
+            logger.info(f"[VECTOR-SEARCH]    Difference: {abs(len(generated_response) - target_length)} chars")
+            
+            # Check 4: Signature
+            has_signature = '-Ben' in generated_response or '- Ben' in generated_response or generated_response.strip().endswith('Ben')
+            logger.info(f"[VECTOR-SEARCH] ✅ Rule 4 - Signature:")
+            logger.info(f"[VECTOR-SEARCH]    Signature present: {has_signature}")
+            if not has_signature:
+                logger.warning(f"[VECTOR-SEARCH]    ⚠️ AI FORGOT signature!")
+            
+            # Compliance score
+            compliance_score = sum([has_correct_greeting, has_name, has_signature])
+            logger.info(f"[VECTOR-SEARCH] 📊 COMPLIANCE SCORE: {compliance_score}/3")
+            if compliance_score < 3:
+                logger.warning(f"[VECTOR-SEARCH] ⚠️ LOW COMPLIANCE - AI not fully following examples!")
+            else:
+                logger.info(f"[VECTOR-SEARCH] ✅ GOOD COMPLIANCE")
+            
+            logger.info(f"[VECTOR-SEARCH] ========================================================")
             
             return generated_response
             
@@ -631,10 +690,27 @@ IMPORTANT:
 - Match the professionalism, helpfulness, AND TYPICAL LENGTH shown in the examples
 - Don't artificially shorten or extend - match the natural conversation length from examples"""
             
+            # 🕐 Get time-based greeting
+            from .utils import get_time_based_greeting
+            from .models import YelpBusiness
+            
+            time_greeting = "Good morning"  # default
+            try:
+                business_obj = YelpBusiness.objects.filter(name=business_name).first()
+                if business_obj:
+                    time_greeting = get_time_based_greeting(business_obj.business_id)
+            except Exception as e:
+                logger.warning(f"[VECTOR-SEARCH] Could not get time greeting: {e}")
+            
+            logger.info(f"[VECTOR-SEARCH] 🕐 Time-based greeting: '{time_greeting}'")
+            
             user_prompt = f"""Customer Information:
 - Name: {customer_name}
 - Inquiry: "{lead_inquiry}"
 - Business: {business_name}
+- Time-appropriate greeting: {time_greeting}
+
+IMPORTANT: Start your response with "{time_greeting} {customer_name}" followed by a casual personal touch.
 
 Based on the similar sample replies ranked above (especially the highest similarity ones), generate a personalized response that addresses this specific customer's inquiry while matching the learned communication style."""
             

@@ -198,8 +198,14 @@ class OpenAIService:
             logger.info(f"[AI-SERVICE] - System prompt length: {len(system_prompt)} characters")
             logger.info(f"[AI-SERVICE] - User prompt length: {len(prompt)} characters")
             
-            logger.info(f"[AI-SERVICE] System prompt preview: {system_prompt[:200]}..." + ("" if len(system_prompt) <= 200 else " (truncated)"))
-            logger.info(f"[AI-SERVICE] User prompt preview: {prompt[:200]}..." + ("" if len(prompt) <= 200 else " (truncated)"))
+            # 📋 FULL PROMPT LOGGING для діагностики
+            logger.info(f"[AI-SERVICE] ==================== FULL PROMPT DETAILS ====================")
+            logger.info(f"[AI-SERVICE] 📝 SYSTEM PROMPT (Custom Instructions):")
+            logger.info(f"[AI-SERVICE] {system_prompt}")
+            logger.info(f"[AI-SERVICE] " + "="*60)
+            logger.info(f"[AI-SERVICE] 💬 USER PROMPT (Customer + Business Data):")
+            logger.info(f"[AI-SERVICE] {prompt}")
+            logger.info(f"[AI-SERVICE] " + "="*60)
             logger.info(f"[AI-SERVICE] 🚀 Making OpenAI API request...")
             
             # Підготовка повідомлень з урахуванням особливостей моделі
@@ -216,18 +222,76 @@ class OpenAIService:
             ai_message = response.choices[0].message.content.strip()
             original_length = len(ai_message)
             
-            logger.info(f"[AI-SERVICE] Raw AI response:")
-            logger.info(f"[AI-SERVICE] - Original message: '{ai_message}'")
-            logger.info(f"[AI-SERVICE] - Original length: {original_length} characters")
+            logger.info(f"[AI-SERVICE] ==================== AI RESPONSE ====================")
+            logger.info(f"[AI-SERVICE] 📤 RAW AI RESPONSE:")
+            logger.info(f"[AI-SERVICE] {ai_message}")
+            logger.info(f"[AI-SERVICE] " + "="*60)
+            logger.info(f"[AI-SERVICE] 📊 Response length: {original_length} characters")
             
-            # OpenAI вже обмежив повідомлення через max_tokens, додаткове обрізання не потрібне
-            logger.info(f"[AI-SERVICE] ✅ Message generated within token limit")
+            # 🔍 АНАЛІЗ ДОТРИМАННЯ ПРАВИЛ З ПРОМПТУ
+            logger.info(f"[AI-SERVICE] ==================== PROMPT COMPLIANCE ANALYSIS ====================")
             
+            # Get expected time greeting from context
+            from .utils import get_time_based_greeting
+            business_id = context.get('business_id')
+            expected_greeting = get_time_based_greeting(business_id)
+            
+            # Check 1: Time-based greeting
+            has_correct_greeting = ai_message.lower().startswith(expected_greeting.lower())
+            logger.info(f"[AI-SERVICE] ✅ Rule 1 - Time-based Greeting:")
+            logger.info(f"[AI-SERVICE]    Expected: '{expected_greeting}'")
+            logger.info(f"[AI-SERVICE]    Response starts with it: {has_correct_greeting}")
+            if not has_correct_greeting:
+                logger.warning(f"[AI-SERVICE]    ⚠️ AI IGNORED time-based greeting rule!")
+                logger.warning(f"[AI-SERVICE]    Response starts with: '{ai_message[:50]}'")
+            
+            # Check 2: Customer name usage
+            customer_name = context.get('customer_name', '')
+            has_customer_name = customer_name.lower() in ai_message.lower() if customer_name != 'there' else True
+            logger.info(f"[AI-SERVICE] ✅ Rule 2 - Customer Name Usage:")
+            logger.info(f"[AI-SERVICE]    Customer name: '{customer_name}'")
+            logger.info(f"[AI-SERVICE]    Name used in response: {has_customer_name}")
+            if not has_customer_name and customer_name != 'there':
+                logger.warning(f"[AI-SERVICE]    ⚠️ AI FORGOT to use customer name!")
+            
+            # Check 3: Signature presence (-Ben)
+            has_signature = '-Ben' in ai_message or '- Ben' in ai_message or ai_message.strip().endswith('Ben')
+            logger.info(f"[AI-SERVICE] ✅ Rule 3 - Signature (-Ben):")
+            logger.info(f"[AI-SERVICE]    Signature present: {has_signature}")
+            if not has_signature:
+                logger.warning(f"[AI-SERVICE]    ⚠️ AI FORGOT signature!")
+            
+            # Check 4: Length appropriateness
+            is_too_short = original_length < 200
+            logger.info(f"[AI-SERVICE] ✅ Rule 4 - Response Length:")
+            logger.info(f"[AI-SERVICE]    Length: {original_length} characters")
+            logger.info(f"[AI-SERVICE]    Too short (< 200): {is_too_short}")
+            if is_too_short:
+                logger.warning(f"[AI-SERVICE]    ⚠️ Response seems TOO SHORT for natural conversation!")
+            
+            # Check 5: Forbidden phrases
+            forbidden_phrases = ['call me', 'please call', 'give us a call', 'tailored design options', 
+                               'structural considerations', 'just to confirm', 'scope and options']
+            found_forbidden = [phrase for phrase in forbidden_phrases if phrase in ai_message.lower()]
+            logger.info(f"[AI-SERVICE] ✅ Rule 5 - Forbidden Phrases:")
+            logger.info(f"[AI-SERVICE]    Found forbidden phrases: {found_forbidden if found_forbidden else 'None'}")
+            if found_forbidden:
+                logger.warning(f"[AI-SERVICE]    ⚠️ AI USED FORBIDDEN PHRASES: {found_forbidden}")
+            
+            # Summary
+            compliance_score = sum([has_correct_greeting, has_customer_name, has_signature, not is_too_short, len(found_forbidden) == 0])
+            logger.info(f"[AI-SERVICE] 📊 COMPLIANCE SCORE: {compliance_score}/5")
+            if compliance_score < 4:
+                logger.warning(f"[AI-SERVICE] ⚠️ LOW COMPLIANCE - AI may be ignoring parts of Custom Instructions!")
+            else:
+                logger.info(f"[AI-SERVICE] ✅ GOOD COMPLIANCE - AI following instructions well")
+            
+            logger.info(f"[AI-SERVICE] ============================================================")
             logger.info(f"[AI-SERVICE] 🎉 FINAL AI GREETING:")
             logger.info(f"[AI-SERVICE] - Final message: '{ai_message}'")
             logger.info(f"[AI-SERVICE] - Final length: {len(ai_message)} characters")
             logger.info(f"[AI-SERVICE] Generated greeting for lead {lead_detail.lead_id}: {ai_message[:50]}...")
-            logger.info(f"[AI-SERVICE] ==============================================")
+            logger.info(f"[AI-SERVICE] ==============================================" )
             
             return ai_message
             
@@ -572,7 +636,8 @@ Respond to the customer."""
             "created_at": lead_detail.created_at if hasattr(lead_detail, 'created_at') else timezone.now(),
             "is_off_hours": is_off_hours,
             # mention_response_time removed - controlled via Custom Instructions
-            "original_customer_text": original_customer_text  # 🎯 Для contextual AI analysis
+            "original_customer_text": original_customer_text,  # 🎯 Для contextual AI analysis
+            "business_id": business.business_id if business else None  # 🕐 Для time-based greeting
         }
         
         if not business:
@@ -684,6 +749,12 @@ Respond to the customer."""
             customer_text = context.get('original_customer_text', '')
             customer_name = context.get('customer_name', 'there')
             business_name = context.get('business_name', 'our business')
+            
+            # 🕐 TIME-BASED GREETING: Додаємо правильний greeting за часом доби
+            from .utils import get_time_based_greeting
+            business_id = context.get('business_id', None)
+            time_greeting = get_time_based_greeting(business_id)
+            logger.info(f"[AI-SERVICE] 🕐 Time-based greeting: '{time_greeting}' for business {business_id}")
             
             # Створюємо контекстуальний user prompt для AI аналізу з business data
             business_data = context.get('business_data', {})
@@ -806,15 +877,19 @@ STYLE GUIDANCE: Use the tone, approach, and communication style from the similar
 
 Customer name: {customer_name}
 Business name: {business_name}
+Time-appropriate greeting: {time_greeting}
 
 Business Information:
 {business_info}{vector_context}{length_instruction}
+
+IMPORTANT: Start your response with the time-appropriate greeting ({time_greeting}) followed by the customer's name.
 
 Customer inquiry requires response based on the information above."""
             
             logger.info(f"[AI-SERVICE] 🎯 Using contextual AI analysis with custom prompt")
             logger.info(f"[AI-SERVICE] Customer text length: {len(customer_text)} characters")
             logger.info(f"[AI-SERVICE] Business info parts: {len(business_info_parts)}")
+            logger.info(f"[AI-SERVICE] Time greeting included: {time_greeting}")
             
             return contextual_prompt
         
