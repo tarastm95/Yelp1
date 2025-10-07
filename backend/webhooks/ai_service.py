@@ -69,13 +69,11 @@ class OpenAIService:
             temperature = global_ai_settings.default_temperature if global_ai_settings else 0.7
             logger.info(f"[AI-SERVICE] Using fallback temperature: {temperature}")
         
-        # Max message length
-        if business_ai_settings and business_ai_settings.ai_max_message_length > 0:
-            max_length = business_ai_settings.ai_max_message_length
-            logger.info(f"[AI-SERVICE] Using business-specific max length: {max_length}")
-        else:
-            max_length = global_ai_settings.max_message_length if global_ai_settings else 160
-            logger.info(f"[AI-SERVICE] Using fallback max length: {max_length}")
+        # ✅ Max message length - DEPRECATED field, always use auto-detect from Sample Replies
+        # ai_max_message_length field is ignored - система автоматично визначає довжину
+        max_length = 500  # Generous default for auto-detect mode
+        logger.info(f"[AI-SERVICE] 🎯 Using AUTO-DETECT mode for message length (generous default: {max_length} tokens)")
+        logger.info(f"[AI-SERVICE] ai_max_message_length field is DEPRECATED and ignored")
         
         return {
             'model': model,
@@ -587,10 +585,10 @@ Respond to the customer."""
             # o1 моделі не підтримують temperature та max_tokens
             logger.info(f"[AI-SERVICE] o1 model: skipping temperature and max_tokens parameters")
         elif model.startswith("gpt-5"):
-            # GPT-5 моделі мають проблеми з temperature і max_completion_tokens
-            # Використовуємо стандартний max_tokens і не передаємо temperature
-            params["max_tokens"] = max_tokens
-            logger.info(f"[AI-SERVICE] GPT-5 model: using max_tokens without temperature")
+            # ✅ GPT-5 використовує max_completion_tokens замість max_tokens
+            params["max_completion_tokens"] = max_tokens
+            # GPT-5 має fixed temperature = 1.0 (не підтримує налаштування)
+            logger.info(f"[AI-SERVICE] GPT-5 model: using max_completion_tokens={max_tokens} (fixed temperature=1.0)")
         else:
             # Стандартні моделі підтримують max_tokens
             params["max_tokens"] = max_tokens
@@ -860,17 +858,9 @@ STYLE GUIDANCE: Use the tone, approach, and communication style from the similar
 """
                 logger.info(f"[AI-SERVICE] 📝 Added {len(similar_chunks)} vector chunks to preview context")
             
-            # 🔧 ПОКРАЩЕНІ ІНСТРУКЦІЇ ПРО ДОВЖИНУ (контекстуальний prompt)
+            # ✅ Length instruction - NO HARD LIMITS, let AI determine natural length
+            # System uses generous token limit to allow natural conversation length
             length_instruction = ""
-            if max_length and max_length > 0:
-                if max_length <= 160:
-                    length_instruction = f"\n\nCRITICAL: Response MUST be under {max_length} characters (1-2 sentences). Be extremely concise but complete."
-                elif max_length <= 250:
-                    length_instruction = f"\n\nIMPORTANT: Keep under {max_length} characters (2-3 sentences). Concise but informative."
-                elif max_length <= 320:
-                    length_instruction = f"\n\nINSTRUCTION: Under {max_length} characters (3-4 sentences). Balanced detail."
-                else:
-                    length_instruction = f"\n\nGUIDANCE: Under {max_length} characters. Detailed but within limit."
             
             contextual_prompt = f"""Customer message:
 "{customer_text}"
@@ -920,17 +910,8 @@ RELEVANT SAMPLE REPLIES:
 {chr(10).join(vector_parts)}
 """
             
-            # 🔧 ПОКРАЩЕНІ ІНСТРУКЦІЇ ПРО ДОВЖИНУ (vector context prompt)
+            # ✅ No hard length limits - AI determines natural length
             length_instruction = ""
-            if max_length and max_length > 0:
-                if max_length <= 160:
-                    length_instruction = f"\n\nCRITICAL: Response MUST be under {max_length} characters (1-2 sentences). Be extremely concise."
-                elif max_length <= 250:
-                    length_instruction = f"\n\nIMPORTANT: Keep under {max_length} characters (2-3 sentences). Concise but informative."
-                elif max_length <= 320:
-                    length_instruction = f"\n\nINSTRUCTION: Under {max_length} characters (3-4 sentences). Balanced detail."
-                else:
-                    length_instruction = f"\n\nGUIDANCE: Under {max_length} characters. Detailed but within limit."
             
             basic_prompt = f"""Customer message:
 "{customer_text}"
@@ -987,17 +968,8 @@ Respond to the customer using the examples above as style reference."""
         
         business_info = "\n".join(business_info_parts) if business_info_parts else "No additional business information configured."
         
-        # 🔧 ПОКРАЩЕНІ ІНСТРУКЦІЇ ПРО ДОВЖИНУ (основний prompt)
+        # ✅ No hard length limits - AI determines natural length
         length_instruction = ""
-        if max_length and max_length > 0:
-            if max_length <= 160:
-                length_instruction = f"\n\nCRITICAL: Response MUST be under {max_length} characters (1-2 sentences max). Be extremely concise but complete. Every word counts."
-            elif max_length <= 250:
-                length_instruction = f"\n\nIMPORTANT: Keep under {max_length} characters (2-3 sentences). Concise but informative."
-            elif max_length <= 320:
-                length_instruction = f"\n\nINSTRUCTION: Under {max_length} characters (3-4 sentences). Balanced detail."
-            else:
-                length_instruction = f"\n\nGUIDANCE: Under {max_length} characters. Detailed information within limit."
         
         basic_prompt = f"""Customer message:
 "{customer_text}"
