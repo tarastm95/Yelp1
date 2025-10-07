@@ -1188,7 +1188,21 @@ Thanks for reaching out about roofing repair..."
                         color={chunk.chunk_type === 'example' ? 'primary' : chunk.chunk_type === 'response' ? 'success' : 'default'} 
                       />
                     </Box>
-                    <Typography variant="body2" sx={{ fontSize: '0.9rem' }}>
+                    <Typography 
+                      variant="body2" 
+                      component="pre"
+                      sx={{ 
+                        fontSize: '0.9rem',
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-word',
+                        fontFamily: 'monospace',
+                        backgroundColor: 'grey.50',
+                        p: 1.5,
+                        borderRadius: 1,
+                        maxHeight: 'none',
+                        overflow: 'visible'
+                      }}
+                    >
                       {chunk.content}
                     </Typography>
                     {chunk.metadata && Object.keys(chunk.metadata).length > 0 && (

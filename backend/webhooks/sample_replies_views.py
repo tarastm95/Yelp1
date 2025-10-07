@@ -638,8 +638,8 @@ class VectorChunkListView(APIView):
                 try:
                     chunks_data.append({
                         'id': chunk.id,
-                        'content': chunk.get_preview(200),
-                        'full_content': chunk.content,
+                        'content': chunk.content,  # ✅ Повний текст замість превью
+                        'preview': chunk.get_preview(200),  # Превью для майбутнього використання
                         'page_number': chunk.page_number,
                         'chunk_index': chunk.chunk_index,
                         'token_count': chunk.token_count,
@@ -655,8 +655,8 @@ class VectorChunkListView(APIView):
                     # Додати chunk з мінімальною інформацією
                     chunks_data.append({
                         'id': chunk.id,
-                        'content': 'Error loading chunk content',
-                        'full_content': f'Error: {str(chunk_error)}',
+                        'content': f'Error loading chunk content: {str(chunk_error)}',
+                        'preview': 'Error loading chunk content',
                         'page_number': getattr(chunk, 'page_number', 0),
                         'chunk_index': getattr(chunk, 'chunk_index', 0),
                         'token_count': getattr(chunk, 'token_count', 0),
