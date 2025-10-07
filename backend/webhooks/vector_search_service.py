@@ -480,13 +480,49 @@ Based on the training examples above, generate a professional response that:
             logger.exception("Pair-based response generation error")
             return ""
     
+    def calculate_average_response_length(self, similar_chunks: List[Dict]) -> Tuple[int, int, int]:
+        """
+        🎯 Автоматично визначає оптимальну довжину відповіді на основі прикладів
+        
+        Returns:
+            (avg_length, min_length, max_length) - середня, мінімальна та максимальна довжина
+        """
+        response_lengths = []
+        
+        for chunk in similar_chunks:
+            # Беремо тільки response chunks
+            if chunk.get('chunk_type') == 'response':
+                content = chunk.get('content', '')
+                # Шукаємо секцію Reply:
+                if 'reply:' in content.lower():
+                    reply_start = content.lower().find('reply:')
+                    reply_text = content[reply_start:].replace('Reply:', '').replace('reply:', '').strip()
+                    response_lengths.append(len(reply_text))
+                else:
+                    # Якщо це чистий response chunk (без маркера)
+                    response_lengths.append(len(content))
+        
+        if not response_lengths:
+            logger.warning("[VECTOR-SEARCH] No response chunks found, using default length")
+            return (200, 150, 300)  # Розумні дефолти
+        
+        avg_length = sum(response_lengths) // len(response_lengths)
+        min_length = min(response_lengths)
+        max_length = max(response_lengths)
+        
+        logger.info(f"[VECTOR-SEARCH] 📏 Calculated response lengths from {len(response_lengths)} examples:")
+        logger.info(f"[VECTOR-SEARCH]   Average: {avg_length} chars")
+        logger.info(f"[VECTOR-SEARCH]   Range: {min_length} - {max_length} chars")
+        
+        return (avg_length, min_length, max_length)
+    
     def generate_contextual_response(
         self,
         lead_inquiry: str,
         customer_name: str,
         similar_chunks: List[Dict],
         business_name: str = "",
-        max_response_length: int = 160
+        max_response_length: int = None  # ✅ Зробимо опціональним
     ) -> str:
         """
         Генерує контекстуальну відповідь на основі схожих sample replies
@@ -511,9 +547,21 @@ Based on the training examples above, generate a professional response that:
         logger.info(f"[VECTOR-SEARCH] Customer: {customer_name}")
         logger.info(f"[VECTOR-SEARCH] Business: {business_name}")
         logger.info(f"[VECTOR-SEARCH] Similar chunks: {len(similar_chunks)}")
-        logger.info(f"[VECTOR-SEARCH] Max length: {max_response_length}")
         
         try:
+            # 🎯 Автоматичне визначення оптимальної довжини на основі прикладів
+            avg_length, min_length, max_length = self.calculate_average_response_length(similar_chunks)
+            
+            # Якщо max_response_length явно вказаний, використовуємо його як обмеження
+            if max_response_length:
+                # Обмежуємо середнє значення максимумом
+                target_length = min(avg_length, max_response_length)
+                logger.info(f"[VECTOR-SEARCH] 📏 Using capped length: {target_length} (max: {max_response_length})")
+            else:
+                # Інакше використовуємо автоматично розраховану довжину
+                target_length = avg_length
+                logger.info(f"[VECTOR-SEARCH] 🎯 Using AUTO-DETECTED length: {target_length} chars (from examples)")
+            
             # Збирання контексту зі схожих чанків
             context_parts = []
             for i, chunk in enumerate(similar_chunks[:5]):  # Використовуємо топ 5 чанків
@@ -537,16 +585,17 @@ MOST SIMILAR SAMPLE REPLIES (ranked by semantic similarity):
 
 INSTRUCTIONS:
 1. Analyze the customer inquiry and the similar examples above
-2. Generate a NEW response that matches the TONE, STYLE, and APPROACH of the most similar examples
+2. Generate a NEW response that matches the TONE, STYLE, LENGTH, and APPROACH of the most similar examples
 3. Personalize it with the customer's name and specific inquiry details
-4. Keep the response under {max_response_length} characters
+4. Match the NATURAL LENGTH of responses in the examples (approximately {avg_length} characters, ranging {min_length}-{max_length})
 5. Be professional, helpful, and follow the communication patterns learned from the examples
 6. Focus especially on the highest similarity examples for style guidance
 
 IMPORTANT: 
 - Use the examples as style guides, not templates to copy
 - Generate original content that sounds natural and personal
-- Match the professionalism and helpfulness shown in the examples"""
+- Match the professionalism, helpfulness, AND TYPICAL LENGTH shown in the examples
+- Don't artificially shorten or extend - match the natural conversation length from examples"""
             
             user_prompt = f"""Customer Information:
 - Name: {customer_name}
@@ -558,13 +607,18 @@ Based on the similar sample replies ranked above (especially the highest similar
             logger.info(f"[VECTOR-SEARCH] Generating contextual response with {len(similar_chunks)} similar examples...")
             logger.info(f"[VECTOR-SEARCH] Top similarity scores: {[c['similarity_score'] for c in similar_chunks[:3]]}")
             
+            # Розрахунок max_tokens на основі target_length
+            # Використовуємо консервативну конвертацію: 1 token ≈ 3-4 characters
+            estimated_tokens = max(50, target_length // 3)
+            logger.info(f"[VECTOR-SEARCH] Estimated tokens for {target_length} chars: {estimated_tokens}")
+            
             response = self.openai_client.chat.completions.create(
                 model="gpt-4o-mini",  # Ефективна модель для цього завдання
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                max_tokens=max_response_length // 3,  # Приблизна оцінка токенів
+                max_tokens=estimated_tokens,  # ✅ Використовуємо автоматично розрахований ліміт
                 temperature=0.7
             )
             
