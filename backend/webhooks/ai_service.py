@@ -1053,38 +1053,99 @@ Respond to the customer using the business information above."""
             return self._fallback_parsing(text)
     
     def _get_lead_text(self, lead_detail: LeadDetail) -> str:
-        """📝 Отримує текст з першого TEXT івенту від CONSUMER для парсингу"""
+        """
+        📝 Отримує ПОВНИЙ текст від клієнта для AI аналізу
+        
+        Працює так само як Custom Preview Text - повний, детальний контекст
+        """
         from .models import LeadEvent
         
-        # 🎯 ПРІОРИТЕТ: Шукаємо перший TEXT івент від CONSUMER
-        first_consumer_text = LeadEvent.objects.filter(
+        logger.info(f"[AI-SERVICE] 🔍 EXTRACTING CUSTOMER TEXT for lead {lead_detail.lead_id}")
+        
+        # 🎯 ПРІОРИТЕТ: Шукаємо TEXT івент від CONSUMER
+        all_consumer_texts = LeadEvent.objects.filter(
             lead_id=lead_detail.lead_id,
             event_type="TEXT",
             user_type="CONSUMER",
-            from_backend=False  # Не наша відповідь
-        ).order_by('time_created').first()
+            from_backend=False
+        ).order_by('time_created')
+        
+        logger.info(f"[AI-SERVICE] Found {all_consumer_texts.count()} CONSUMER TEXT events")
+        
+        # Детальне логування для діагностики
+        for i, event in enumerate(all_consumer_texts[:3]):
+            logger.info(f"[AI-SERVICE] Event {i+1}: ID={event.event_id}")
+            logger.info(f"[AI-SERVICE]   - Text length: {len(event.text)} chars")
+            logger.info(f"[AI-SERVICE]   - Text preview: {event.text[:100]}...")
+            logger.info(f"[AI-SERVICE]   - Time: {event.time_created}")
+        
+        first_consumer_text = all_consumer_texts.first()
         
         if first_consumer_text and first_consumer_text.text:
-            logger.info(f"[AI-SERVICE] 📝 Using TEXT event from CONSUMER: {first_consumer_text.text[:100]}...")
-            return first_consumer_text.text
+            customer_text = first_consumer_text.text
+            logger.info(f"[AI-SERVICE] ✅ SUCCESS: Using TEXT event from CONSUMER")
+            logger.info(f"[AI-SERVICE] - Full text length: {len(customer_text)} characters")
+            logger.info(f"[AI-SERVICE] - Preview: {customer_text[:200]}...")
+            return customer_text
         
-        # 🔄 FALLBACK 1: project.additional_info
+        # 🔄 FALLBACK: Формуємо структурований контекст з project data
+        # (як в Yelp TEXT event format)
+        logger.warning(f"[AI-SERVICE] ⚠️ No TEXT event found, building structured context")
+        
         project_data = lead_detail.project or {}
-        additional_info = project_data.get("additional_info", "")
+        context_parts = []
         
-        if additional_info:
-            logger.info(f"[AI-SERVICE] 🔄 Fallback to project.additional_info: {additional_info[:100]}...")
-            return additional_info
+        # Базова структура як у Yelp
+        context_parts.append("Hi there! Could you help me with my project? Here are my answers to Yelp's questions regarding my project:")
         
-        # 🔄 FALLBACK 2: project.job_names
+        # Job names
         job_names = project_data.get("job_names", [])
         if job_names:
-            text = " ".join(job_names)
-            logger.info(f"[AI-SERVICE] 🔄 Fallback to project.job_names: {text}")
-            return text
+            context_parts.append(f"\n\nWhat type of contracting service do you need?\n{', '.join(job_names)}")
         
-        logger.warning(f"[AI-SERVICE] ⚠️ No text found for lead {lead_detail.lead_id}")
-        return ""
+        # Survey answers
+        survey_answers = project_data.get("survey_answers", [])
+        for answer in survey_answers:
+            question = answer.get("question_text", "")
+            answer_text = answer.get("answer_text", [])
+            if question and answer_text:
+                if isinstance(answer_text, list):
+                    answer_str = ", ".join(str(a) for a in answer_text)
+                else:
+                    answer_str = str(answer_text)
+                context_parts.append(f"\n\n{question}\n{answer_str}")
+        
+        # Availability
+        availability = project_data.get("availability", {})
+        if availability:
+            status = availability.get("status", "")
+            if status:
+                context_parts.append(f"\n\nWhen do you require this service?\n{status}")
+        
+        # Location
+        location = project_data.get("location", {})
+        if location:
+            postal_code = location.get("postal_code", "")
+            if postal_code:
+                context_parts.append(f"\n\nIn what location do you need the service?\n{postal_code}")
+        
+        # Additional info
+        additional_info = project_data.get("additional_info", "")
+        if additional_info:
+            context_parts.append(f"\n\nAdditional details:\n{additional_info}")
+        
+        structured_text = "".join(context_parts)
+        
+        if structured_text and len(structured_text) > 50:
+            logger.info(f"[AI-SERVICE] ✅ Built structured context from project data")
+            logger.info(f"[AI-SERVICE] - Length: {len(structured_text)} characters")
+            logger.info(f"[AI-SERVICE] - Preview: {structured_text[:200]}...")
+            return structured_text
+        
+        # Останній fallback
+        logger.error(f"[AI-SERVICE] ❌ Could not build any useful context for lead {lead_detail.lead_id}")
+        logger.error(f"[AI-SERVICE] Project data: {project_data}")
+        return " ".join(job_names) if job_names else "customer inquiry"
     
     def _ai_extract_fields(self, text: str, placeholders: list) -> Dict[str, str]:
         """Використовує AI для витягування конкретних полів з тексту"""
