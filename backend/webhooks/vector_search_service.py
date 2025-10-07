@@ -266,7 +266,16 @@ class VectorSearchService:
             )
             
             if not similar_inquiries:
-                logger.warning("[VECTOR-SEARCH] No similar inquiry chunks found")
+                logger.warning("[VECTOR-SEARCH] ⚠️ No similar inquiry chunks found above threshold")
+                logger.info(f"[VECTOR-SEARCH] 📊 Search parameters:")
+                logger.info(f"[VECTOR-SEARCH]   - Query: {query_text[:100]}...")
+                logger.info(f"[VECTOR-SEARCH]   - Threshold: {similarity_threshold}")
+                logger.info(f"[VECTOR-SEARCH]   - Limit: {limit}")
+                logger.info(f"[VECTOR-SEARCH] 💡 Suggestions:")
+                logger.info(f"[VECTOR-SEARCH]   - Lower similarity_threshold (e.g., 0.4-0.5)")
+                logger.info(f"[VECTOR-SEARCH]   - Add more relevant examples to Sample Replies")
+                logger.info(f"[VECTOR-SEARCH]   - Check if Sample Replies cover this topic")
+                logger.info(f"[VECTOR-SEARCH] 🔄 System will fallback to Custom Instructions")
                 return []
             
             logger.info(f"[VECTOR-SEARCH] Found {len(similar_inquiries)} similar inquiry chunks")

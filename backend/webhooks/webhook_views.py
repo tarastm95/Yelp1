@@ -2454,10 +2454,15 @@ class WebhookView(APIView):
                             logger.info(f"[AUTO-RESPONSE] Sample Replies response: {ai_greeting[:100]}...")
                         else:
                             logger.warning(f"[AUTO-RESPONSE] ⚠️ MODE 2: Sample Replies AI failed, falling back...")
+                            logger.info(f"[AUTO-RESPONSE] 📋 Possible reasons:")
+                            logger.info(f"[AUTO-RESPONSE]   - No similar chunks found (similarity < threshold)")
+                            logger.info(f"[AUTO-RESPONSE]   - Vector search error")
+                            logger.info(f"[AUTO-RESPONSE]   - No Sample Replies examples match inquiry")
                     
                     # 🎯 MODE 2: Fallback to standard AI generation if Sample Replies didn't work
                     if not ai_greeting:
-                        logger.info(f"[AUTO-RESPONSE] MODE 2: Using standard AI generation (fallback or no Sample Replies)...")
+                        logger.info(f"[AUTO-RESPONSE] 🔄 FALLBACK: Using Custom Instructions (standard AI generation)...")
+                        logger.info(f"[AUTO-RESPONSE] This is NORMAL when no similar Sample Replies examples found")
                         
                         # Generate standard AI greeting 
                         ai_greeting = ai_service.generate_greeting_message(
@@ -2587,6 +2592,15 @@ class WebhookView(APIView):
             pending_tasks = LeadPendingTask.objects.filter(lead_id=lead_id, text=greet_text, active=True)[:3]
             for i, task in enumerate(pending_tasks):
                 logger.info(f"[AUTO-RESPONSE] Pending task {i+1}: ID={task.id}, task_id={task.task_id}, created_at={task.created_at}")
+
+        # ✅ VALIDATION: Don't send empty or invalid messages
+        if not greet_text or len(greet_text.strip()) < 10:
+            logger.error(f"[AUTO-RESPONSE] ❌ INVALID MESSAGE - Cannot send empty or too short greeting")
+            logger.error(f"[AUTO-RESPONSE] - Message length: {len(greet_text) if greet_text else 0} characters")
+            logger.error(f"[AUTO-RESPONSE] - Message content: '{greet_text}'")
+            logger.error(f"[AUTO-RESPONSE] 🛑 ABORTING MESSAGE SEND - fix AI generation issue")
+            logger.error(f"[AUTO-RESPONSE] Check Custom Instructions and AI service logs")
+            return
 
         with transaction.atomic():
             if (

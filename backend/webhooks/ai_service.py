@@ -114,8 +114,12 @@ class OpenAIService:
     ) -> Optional[str]:
         """Генерує AI-powered greeting повідомлення на основі контексту ліда"""
         
-        logger.info(f"[AI-SERVICE] ============= AI GREETING GENERATION =============")
-        logger.info(f"[AI-SERVICE] Starting AI greeting generation")
+        logger.info(f"[AI-SERVICE] ============= AI GREETING GENERATION (FALLBACK) =============")
+        logger.info(f"[AI-SERVICE] 📋 Using Custom Instructions for response generation")
+        logger.info(f"[AI-SERVICE] This path is used when:")
+        logger.info(f"[AI-SERVICE]   - No Sample Replies configured")
+        logger.info(f"[AI-SERVICE]   - Vector search found no similar examples")
+        logger.info(f"[AI-SERVICE]   - Similarity score below threshold")
         logger.info(f"[AI-SERVICE] Input parameters:")
         logger.info(f"[AI-SERVICE] - Lead ID: {lead_detail.lead_id}")
         logger.info(f"[AI-SERVICE] - Customer name: {lead_detail.user_display_name}")
@@ -643,7 +647,7 @@ Respond to the customer."""
         
         context.update({
             "business_name": business.name,
-            "business_location": business.location if include_location else "",
+            "business_location": business.location if business.location else "",
             "business_data": business_data,
             "business_data_settings": business_data_settings
         })
@@ -1161,7 +1165,9 @@ Respond to the customer using the business information above."""
                     )
                     
                     if not inquiry_response_pairs:
-                        logger.warning("[AI-SERVICE] No similar inquiry→response pairs found via vector search")
+                        logger.warning("[AI-SERVICE] ⚠️ No similar inquiry→response pairs found via vector search")
+                        logger.info("[AI-SERVICE] 🔄 Returning None to trigger fallback to Custom Instructions")
+                        logger.info("[AI-SERVICE] System will use standard AI generation with Custom Instructions")
                         return None
                     
                     logger.info(f"[AI-SERVICE] Found {len(inquiry_response_pairs)} inquiry→response pairs via vector search")
