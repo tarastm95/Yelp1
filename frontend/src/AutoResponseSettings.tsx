@@ -1105,7 +1105,7 @@ AVOID: Generic responses, overly formal language, sales pressure`;
         ai_custom_prompt: aiCustomPrompt || undefined,  // Custom Instructions is now the primary prompt (no fallback needed)
         custom_preview_text: aiCustomPreviewText || undefined, // 🎯 Додаємо custom preview text
         // Business data controlled via Custom Instructions (individual checkboxes removed)
-        ai_max_message_length: aiMaxMessageLength,
+        // ai_max_message_length removed - AI auto-detects length from Sample Replies examples
         // Business-specific AI Model Settings
         ai_model: aiModel,
         ai_temperature: aiTemperature === '' ? null : aiTemperature,

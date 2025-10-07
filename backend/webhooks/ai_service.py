@@ -272,7 +272,7 @@ class OpenAIService:
                     vector_response = self.generate_sample_replies_response(
                         lead_detail=mock_lead,
                         business=business,
-                        max_length=max_length or 160,
+                        max_length=None,  # ✅ Auto-detect from Sample Replies examples
                         business_ai_settings=business_ai_settings,
                         use_vector_search=True
                     )
@@ -368,15 +368,9 @@ class OpenAIService:
             logger.info(f"[AI-SERVICE] 💬 Customer text: {customer_text[:50]}...")
             
             # 🎯 СТВОРЮЄМО СПРОЩЕНИЙ PROMPT З CUSTOM INSTRUCTIONS + BUSINESS DATA
-            # Length instruction
+            # ✅ Length instruction removed - AI auto-detects natural length from Sample Replies examples
+            # No artificial length restrictions for preview
             length_instruction = ""
-            if max_length and max_length > 0:
-                if max_length <= 160:
-                    length_instruction = f"\n\nIMPORTANT: Keep response under {max_length} characters. Be concise but complete."
-                elif max_length <= 250:
-                    length_instruction = f"\n\nIMPORTANT: Keep response under {max_length} characters."
-                else:
-                    length_instruction = f"\n\nKeep response under {max_length} characters."
             
             # 🎯 СПРОЩЕНИЙ PROMPT ГЕНЕРАЦІЯ З CUSTOM INSTRUCTIONS
             simplified_prompt = f"""Customer message:
@@ -411,25 +405,18 @@ Respond to the customer."""
                 logger.warning(f"[AI-SERVICE] ⚠️ Using GPT-5 model: {model}")
                 logger.warning(f"[AI-SERVICE] ⚠️ Note: GPT-5 models may not be available in all OpenAI accounts yet")
             
-            # Використовуємо параметр max_length якщо наданий, інакше business/global
-            # 🔧 ПОКРАЩЕНА КОНВЕРТАЦІЯ СИМВОЛІВ → ТОКЕНИ
+            # 🎯 AUTO-DETECT LENGTH for preview (no manual restrictions)
+            # Give generous token limit to allow natural response length
+            # AI will determine natural length based on Sample Replies examples in the prompt
             if max_length is not None and max_length > 0:
-                # 🔧 ПОКРАЩЕНА конвертація (більше токенів):
-                if max_length <= 160:
-                    # Короткі повідомлення: даємо більше токенів для повного тексту
-                    estimated_tokens = max(1, max_length // 3)  # 1 token ≈ 3 chars (53 tokens для 160)
-                elif max_length <= 320:
-                    # Середні повідомлення: стандартна конвертація
-                    estimated_tokens = max(1, max_length // 4)  # 1 token ≈ 4 chars  
-                else:
-                    # Довгі повідомлення: менш консервативна конвертація
-                    estimated_tokens = max(1, max_length // 3)  # 1 token ≈ 3 chars
-                    
+                # User explicitly provided max_length - respect it
+                estimated_tokens = max(100, max_length // 3)
                 message_length = estimated_tokens
-                logger.info(f"[AI-SERVICE] Smart conversion: {max_length} chars → {estimated_tokens} tokens (ratio: 1:{max_length/estimated_tokens:.1f})")
+                logger.info(f"[AI-SERVICE] Using explicit max_length: {max_length} chars → {estimated_tokens} tokens")
             else:
-                message_length = ai_config['max_length']
-                logger.info(f"[AI-SERVICE] Preview using configured max length: {message_length} tokens")
+                # No explicit limit - allow natural length (generous token limit)
+                message_length = 500  # ~1500 characters, allows natural response length
+                logger.info(f"[AI-SERVICE] 🎯 AUTO-DETECT MODE: Using generous token limit ({message_length}) for natural length")
             
             # 🎯 Для contextual AI analysis використовуємо custom prompt як system prompt
             system_prompt = self._get_system_prompt(custom_prompt)
