@@ -1142,7 +1142,9 @@ Respond to the customer using the business information above."""
             logger.info(f"[AI-SERVICE] Lead inquiry: {lead_inquiry[:200]}...")
             
             customer_name = lead_detail.user_display_name or "there"
-            response_length = max_length or 160
+            # ✅ Auto-detect response length from Sample Replies examples (no default 160)
+            response_length = max_length  # None means auto-detect in vector_search_service
+            logger.info(f"[AI-SERVICE] Response length setting: {response_length if response_length else 'AUTO-DETECT from examples'}")
             
             if use_vector_search:
                 # 🔍 ВЕКТОРНИЙ ПОШУК: Знаходимо найбільш схожі чанки

@@ -372,7 +372,7 @@ class VectorSearchService:
         customer_name: str,
         inquiry_response_pairs: List[Dict],
         business_name: str = "",
-        max_response_length: int = 160
+        max_response_length: int = None  # ✅ Зробимо опціональним для auto-detect
     ) -> str:
         """
         🎯 Генерує відповідь на основі inquiry→response пар (ПРАВИЛЬНИЙ ПІДХІД)
@@ -382,7 +382,7 @@ class VectorSearchService:
             customer_name: Ім'я клієнта
             inquiry_response_pairs: Результати inquiry→response pair matching
             business_name: Назва бізнесу
-            max_response_length: Максимальна довжина відповіді
+            max_response_length: Максимальна довжина відповіді (None = auto-detect)
             
         Returns:
             Згенерована відповідь у стилі найкращих inquiry→response пар
@@ -397,7 +397,25 @@ class VectorSearchService:
         logger.info(f"[VECTOR-SEARCH] Customer: {customer_name}")
         logger.info(f"[VECTOR-SEARCH] Business: {business_name}")
         logger.info(f"[VECTOR-SEARCH] Inquiry→Response pairs: {len(inquiry_response_pairs)}")
-        logger.info(f"[VECTOR-SEARCH] Max length: {max_response_length}")
+        
+        # 🎯 Автоматичне визначення довжини на основі прикладів
+        # Використовуємо response chunks з inquiry_response_pairs
+        response_chunks_for_length = []
+        for pair in inquiry_response_pairs[:5]:
+            if pair.get('response'):
+                response_chunks_for_length.append({
+                    'chunk_type': 'response',
+                    'content': pair['response'].get('content', '')
+                })
+        
+        avg_length, min_length, max_length = self.calculate_average_response_length(response_chunks_for_length)
+        
+        if max_response_length:
+            target_length = min(avg_length, max_response_length)
+            logger.info(f"[VECTOR-SEARCH] 📏 Using capped length: {target_length} (max: {max_response_length})")
+        else:
+            target_length = avg_length
+            logger.info(f"[VECTOR-SEARCH] 🎯 Using AUTO-DETECTED length from pairs: {target_length} chars (range: {min_length}-{max_length})")
         
         try:
             # Збирання контексту зі inquiry→response пар
@@ -434,12 +452,15 @@ TRAINING EXAMPLES (ranked by similarity to current inquiry):
 INSTRUCTIONS:
 1. Analyze the new customer inquiry and find the most similar training inquiry
 2. Study how the business responded to that similar inquiry
-3. Generate a NEW response following the same pattern, tone, and structure
+3. Generate a NEW response following the same pattern, tone, LENGTH, and structure
 4. Personalize with the customer's name and specific details
-5. Keep under {max_response_length} characters
+5. Match the NATURAL LENGTH shown in examples (approximately {avg_length} characters, ranging {min_length}-{max_length})
 6. Maintain the professional, helpful tone shown in examples
 
-CRITICAL: Use the inquiry→response patterns as your guide. The response should feel natural and personal while following the learned communication style."""
+CRITICAL: 
+- Use the inquiry→response patterns as your guide
+- Match the natural response length from the examples (don't artificially shorten or extend)
+- The response should feel natural and personal while following the learned communication style"""
             
             user_prompt = f"""NEW CUSTOMER INQUIRY:
 Customer Name: {customer_name}
@@ -455,13 +476,17 @@ Based on the training examples above, generate a professional response that:
             logger.info(f"[VECTOR-SEARCH] Generating response from {len(inquiry_response_pairs)} inquiry→response pairs...")
             logger.info(f"[VECTOR-SEARCH] Top pair similarities: {[p['pair_similarity'] for p in inquiry_response_pairs[:3]]}")
             
+            # Розрахунок max_tokens на основі target_length
+            estimated_tokens = max(50, target_length // 3)
+            logger.info(f"[VECTOR-SEARCH] Estimated tokens for {target_length} chars: {estimated_tokens}")
+            
             response = self.openai_client.chat.completions.create(
                 model="gpt-4o-mini",  # Ефективна модель для цього завдання
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                max_tokens=max_response_length // 3,  # Приблизна оцінка токенів
+                max_tokens=estimated_tokens,  # ✅ Використовуємо автоматично розрахований ліміт
                 temperature=0.7
             )
             
