@@ -175,65 +175,91 @@ class VectorPDFService:
         return chunks
     
     def _split_by_sections(self, text: str) -> List[str]:
-        logger.info(f"[VECTOR-PDF] Splitting text into sections...")
+        """
+        🎯 Новий підхід: розділяє текст на чанки по маркерам Inquiry: та Reply:
         
-        patterns = [
-            r'Example\s*#\d+',
-            r'Inquiry information:',
-            r'Response:',
-            r'\n\n\n+',
-        ]
+        Логіка:
+        1. Inquiry: ... (до Reply:) -> перший чанк
+        2. Reply: ... (до наступного Inquiry:) -> другий чанк
+        3. І так далі...
+        """
+        logger.info(f"[VECTOR-PDF] 🎯 NEW CHUNKING: Splitting by Inquiry:/Reply: markers...")
         
-        sections = [text]
+        sections = []
         
-        for pattern in patterns:
-            new_sections = []
-            for section in sections:
-                parts = re.split(f'({pattern})', section, flags=re.IGNORECASE)
-                for part in parts:
-                    if part.strip():
-                        new_sections.append(part.strip())
-            sections = new_sections
+        # Знаходимо всі позиції Inquiry: та Reply:
+        inquiry_pattern = re.compile(r'\bInquiry:\s*', re.IGNORECASE)
+        reply_pattern = re.compile(r'\bReply:\s*', re.IGNORECASE)
         
-        return [s for s in sections if len(s.strip()) > 20]
+        inquiry_positions = [(m.start(), m.end(), 'inquiry') for m in inquiry_pattern.finditer(text)]
+        reply_positions = [(m.start(), m.end(), 'reply') for m in reply_pattern.finditer(text)]
+        
+        # Об'єднуємо та сортуємо всі позиції
+        all_markers = sorted(inquiry_positions + reply_positions, key=lambda x: x[0])
+        
+        logger.info(f"[VECTOR-PDF] Found {len(inquiry_positions)} Inquiry: markers")
+        logger.info(f"[VECTOR-PDF] Found {len(reply_positions)} Reply: markers")
+        logger.info(f"[VECTOR-PDF] Total markers: {len(all_markers)}")
+        
+        if not all_markers:
+            logger.warning(f"[VECTOR-PDF] ⚠️ No Inquiry:/Reply: markers found, using fallback")
+            # Fallback: повертаємо весь текст як один чанк
+            return [text.strip()] if text.strip() else []
+        
+        # Створюємо чанки між маркерами
+        for i in range(len(all_markers)):
+            marker_start, marker_end, marker_type = all_markers[i]
+            
+            # Визначаємо кінець чанка
+            if i + 1 < len(all_markers):
+                next_marker_start = all_markers[i + 1][0]
+                chunk_text = text[marker_start:next_marker_start].strip()
+            else:
+                # Останній чанк - до кінця тексту
+                chunk_text = text[marker_start:].strip()
+            
+            if chunk_text and len(chunk_text) > 20:
+                sections.append(chunk_text)
+                logger.info(f"[VECTOR-PDF]   Chunk {len(sections)}: {marker_type}, {len(chunk_text)} chars")
+                logger.info(f"[VECTOR-PDF]     Preview: {chunk_text[:80]}...")
+        
+        logger.info(f"[VECTOR-PDF] ✅ Created {len(sections)} chunks using Inquiry:/Reply: splitting")
+        return sections
     
     def _identify_chunk_type(self, text: str) -> str:
+        """
+        🎯 Спрощена класифікація: перевіряємо початок чанка
+        
+        Оскільки ми тепер ділимо по маркерам Inquiry:/Reply:,
+        класифікація стає тривіальною - просто дивимося на початок
+        """
         text_lower = text.lower().strip()
         
-        # Explicit markers
-        if 'inquiry information:' in text_lower:
+        # Перевіряємо початок чанка
+        if text_lower.startswith('inquiry:'):
+            logger.info(f"[VECTOR-PDF] ✅ INQUIRY (starts with 'Inquiry:')")
             return 'inquiry'
-        elif 'response:' in text_lower:
-            return 'response'  
-        
-        # Business response patterns (expanded for all business types)
-        business_patterns = [
-            'good afternoon', 'good morning', 'hello', 'hi ', 'thanks for reaching', 
-            'thanks so much', "we'd be glad", 'talk soon', 'norma', 'best regards',
-            'we can', "we'll", 'available', 'free estimate', 'call us', 'phone'
-        ]
-        business_matches = sum(1 for pattern in business_patterns if pattern in text_lower)
-        
-        # Customer inquiry patterns (expanded for all service types)
-        inquiry_patterns = [
-            'name:', 'name ', 'lead created:', 'what kind of', 'how many stories',
-            'when do you require', 'in what location', 'details:', 'remodeling',
-            'structural repair', 'additions', 'construction design'
-        ]
-        inquiry_matches = sum(1 for pattern in inquiry_patterns if pattern in text_lower)
-        
-        if business_matches >= 2:
-            logger.info(f"[VECTOR-PDF] ✅ BUSINESS RESPONSE ({business_matches} matches)")
+        elif text_lower.startswith('reply:'):
+            logger.info(f"[VECTOR-PDF] ✅ RESPONSE (starts with 'Reply:')")
             return 'response'
-        elif inquiry_matches >= 2:
-            logger.info(f"[VECTOR-PDF] ✅ CUSTOMER INQUIRY ({inquiry_matches} matches)")
+        
+        # Fallback для інших випадків (наприклад, якщо є вступний текст)
+        # Перевіряємо, чи є маркер десь в тексті
+        if 'inquiry:' in text_lower[:100]:
+            logger.info(f"[VECTOR-PDF] ✅ INQUIRY (contains 'Inquiry:' in first 100 chars)")
             return 'inquiry'
-        elif business_matches > 0:
+        elif 'reply:' in text_lower[:100]:
+            logger.info(f"[VECTOR-PDF] ✅ RESPONSE (contains 'Reply:' in first 100 chars)")
             return 'response'
-        elif inquiry_matches > 0:
-            return 'inquiry'
-        else:
-            return 'general'
+        
+        # Якщо це вступний текст (наприклад, "EXAMPLE FILE:")
+        if text_lower.startswith('example') or 'example file' in text_lower[:100]:
+            logger.info(f"[VECTOR-PDF] ✅ EXAMPLE (introductory text)")
+            return 'example'
+        
+        logger.warning(f"[VECTOR-PDF] ⚠️ GENERAL (no clear marker found)")
+        logger.warning(f"[VECTOR-PDF]   Text preview: {text[:100]}...")
+        return 'general'
     
     def _count_tokens(self, text: str) -> int:
         if not self.encoding:
@@ -258,30 +284,39 @@ class VectorPDFService:
         return False
 
     def _assess_chunk_quality(self, text: str, chunk_type: str) -> str:
-        """🎯 Assess quality of chunk for vector search"""
+        """
+        🎯 Оцінка якості чанка для векторного пошуку
+        
+        З новим підходом розділення, всі inquiry та response чанки
+        є повноцінними, тому якість завжди excellent
+        """
         
         if chunk_type == 'inquiry':
-            # Good inquiry має: name, service, location, timeline
+            # Inquiry чанк тепер завжди містить повну інформацію про клієнта
             has_name = self._detect_customer_name(text)
             has_service = any(x in text.lower() for x in [
                 'roof', 'repair', 'replace', 'remodel', 'construction', 'structural',
-                'foundation', 'bathroom', 'kitchen', 'addition', 'deck'
+                'foundation', 'bathroom', 'kitchen', 'addition', 'deck', 'patio'
             ])
             has_location = bool(re.search(r'\d{5}', text))  # ZIP code
-            has_timeline = any(x in text.lower() for x in ['soon as possible', 'flexible', 'specific date'])
+            has_timeline = any(x in text.lower() for x in ['soon as possible', 'flexible', 'specific date', 'require this service'])
             
             score = sum([has_name, has_service, has_location, has_timeline])
-            return 'excellent' if score >= 4 else 'good' if score >= 3 else 'basic'
+            return 'excellent' if score >= 3 else 'good' if score >= 2 else 'basic'
             
         elif chunk_type == 'response':
-            # Good response має: greeting, business info, call-to-action
-            has_greeting = any(x in text.lower() for x in ['good afternoon', 'good morning', 'thanks', 'hello'])
-            has_business_hours = any(x in text.lower() for x in ['monday', 'tuesday', 'wed', 'fri', '9am', '6pm', 'available'])
-            has_phone = bool(re.search(r'\(\d{3}\)', text))
-            has_signature = any(x in text.lower() for x in ['norma', 'talk soon', 'best regards'])
+            # Response чанк тепер завжди містить повну відповідь бізнесу
+            has_greeting = any(x in text.lower() for x in ['good afternoon', 'good morning', 'good evening', 'thanks', 'hello', 'hi'])
+            has_personalization = any(x in text.lower() for x in ['hope', 'looking forward', 'sounds like', 'understand'])
+            has_call_to_action = any(x in text.lower() for x in ['come by', 'walk', 'meet', 'stop by', 'let me know'])
+            has_signature = any(x in text.lower() for x in ['-ben', 'talk soon', 'best', 'looking forward'])
             
-            score = sum([has_greeting, has_business_hours, has_phone, has_signature])
-            return 'excellent' if score >= 4 else 'good' if score >= 3 else 'basic'
+            score = sum([has_greeting, has_personalization, has_call_to_action, has_signature])
+            return 'excellent' if score >= 3 else 'good' if score >= 2 else 'basic'
+        
+        elif chunk_type == 'example':
+            # Вступний текст або повний приклад
+            return 'excellent'
         
         return 'basic'
     
