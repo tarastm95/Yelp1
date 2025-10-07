@@ -157,10 +157,10 @@ class AutoResponseSettings(models.Model):
         help_text="Включати доступні послуги/транзакції в AI повідомлення"
     )
 
-    # AI Message Length Settings
+    # AI Message Length Settings - DEPRECATED (auto-detect from Sample Replies)
     ai_max_message_length = models.PositiveIntegerField(
-        default=160,
-        help_text="Максимальна довжина AI-згенерованого повідомлення (символів). Якщо 0 - використовується глобальне налаштування"
+        default=0,
+        help_text="DEPRECATED: Ігнорується системою. Довжина визначається автоматично з Sample Replies прикладів"
     )
     
     # 🤖 Business-specific AI Model Settings
@@ -267,8 +267,8 @@ class AISettings(models.Model):
         help_text="Fallback системний промпт для AI (коли не вказаний кастомний промпт для бізнесу)"
     )
     max_message_length = models.PositiveIntegerField(
-        default=160,
-        help_text="Fallback максимальна довжина повідомлення (коли не вказана для бізнесу)"
+        default=0,
+        help_text="DEPRECATED: Ігнорується. Система автоматично визначає довжину з Sample Replies"
     )
     default_temperature = models.FloatField(
         default=0.7,

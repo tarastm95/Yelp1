@@ -858,7 +858,7 @@ Based on the similar sample replies ranked above (especially the highest similar
                 customer_name="Test Customer",
                 similar_chunks=results,
                 business_name=business_id,
-                max_response_length=160
+                max_response_length=None  # ✅ Auto-detect from examples
             )
             
             logger.info(f"[VECTOR-SEARCH] ✅ Test completed successfully")

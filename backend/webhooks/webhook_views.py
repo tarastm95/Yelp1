@@ -2444,7 +2444,7 @@ class WebhookView(APIView):
                         ai_greeting = ai_service.generate_sample_replies_response(
                             lead_detail=ld,
                             business=business,
-                            max_length=getattr(auto_settings, 'ai_max_message_length', None),
+                            max_length=None,  # ✅ Auto-detect from Sample Replies examples
                             business_ai_settings=auto_settings,
                             use_vector_search=True  # Використовуємо векторний пошук
                         )
@@ -2472,7 +2472,7 @@ class WebhookView(APIView):
                             # All AI behavior controlled via Custom Instructions
                             custom_prompt=getattr(auto_settings, 'ai_custom_prompt', None),
                             business_data_settings=business_data_settings,
-                            max_length=getattr(auto_settings, 'ai_max_message_length', None),
+                            max_length=None,  # ✅ Auto-detect, ignore deprecated ai_max_message_length
                             business_ai_settings=auto_settings  # 🏢 Передаємо business AI налаштування
                         )
                     
