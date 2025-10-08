@@ -209,7 +209,7 @@ const AutoResponseSettings: FC = () => {
   const [sampleRepliesPriority, setSampleRepliesPriority] = useState(true);
 
   // AI Business Data Settings removed - now controlled via Custom Instructions
-  const [aiMaxMessageLength, setAiMaxMessageLength] = useState(160);
+  const [aiMaxMessageLength, setAiMaxMessageLength] = useState(0);  // ✅ Deprecated, always 0
   
   // 🤖 Business-specific AI Model Settings
   const [aiModel, setAiModel] = useState('gpt-4o');  // ✅ Default to gpt-4o
@@ -402,7 +402,7 @@ const AutoResponseSettings: FC = () => {
           setSampleRepliesPriority(d.sample_replies_priority ?? true);
           
           // Business data settings removed - controlled via Custom Instructions
-          setAiMaxMessageLength(d.ai_max_message_length ?? 160);
+          setAiMaxMessageLength(0);  // ✅ Always 0, deprecated field
           
           // Set Business-specific AI Model Settings
           setAiModel(d.ai_model ?? 'gpt-4o');  // ✅ Default to gpt-4o if not set
@@ -1835,7 +1835,7 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                     <Chip
                                       size="small"
-                                      label={`${aiMaxMessageLength || 160} chars`}
+                                      label={aiModel || 'gpt-4o'}
                                       sx={{ 
                                         backgroundColor: 'rgba(255,255,255,0.2)',
                                         color: 'white',
@@ -1845,9 +1845,9 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                     />
                                     <Chip
                                       size="small"
-                                      label={aiModel || 'Global Model'}
+                                      label="Auto-detect length"
                                       sx={{ 
-                                        backgroundColor: 'rgba(255,255,255,0.2)',
+                                        backgroundColor: 'rgba(76,175,80,0.3)',
                                         color: 'white',
                                         border: '1px solid rgba(255,255,255,0.3)',
                                         fontWeight: 600
