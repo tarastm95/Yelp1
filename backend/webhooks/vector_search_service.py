@@ -525,8 +525,15 @@ Based on the training examples above, generate a professional response that:
             logger.info(f"[VECTOR-SEARCH] Top pair similarities: {[p['pair_similarity'] for p in inquiry_response_pairs[:3]]}")
             
             # Розрахунок max_tokens на основі target_length
-            estimated_tokens = max(50, target_length // 3)
-            logger.info(f"[VECTOR-SEARCH] Estimated tokens for {target_length} chars: {estimated_tokens}")
+            # ✅ Generous buffer для Custom Instructions (можуть вимагати довші відповіді)
+            if custom_instructions:
+                # З Custom Instructions: ігноруємо короткі приклади, використовуємо generous limit
+                estimated_tokens = max(300, target_length // 2)  # Більш generous для довгих правил
+                logger.info(f"[VECTOR-SEARCH] With Custom Instructions: using generous tokens ({estimated_tokens}) for target {target_length} chars")
+            else:
+                # Без Custom Instructions: використовуємо target length з прикладів
+                estimated_tokens = max(100, target_length // 3)
+                logger.info(f"[VECTOR-SEARCH] Without Custom Instructions: estimated tokens for {target_length} chars: {estimated_tokens}")
             
             response = self.openai_client.chat.completions.create(
                 model="gpt-4o",  # ✅ Default model for high-quality responses
