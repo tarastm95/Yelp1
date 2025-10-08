@@ -142,12 +142,68 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
     logger.info(f"[FOLLOW-UP] Worker process: {os.getpid()}")
     logger.info(f"[FOLLOW-UP] ============================================")
     
-    # Step 1: Mark task as inactive
+    # Step 1: Check sequential queue - wait for previous message
+    logger.info(f"[FOLLOW-UP] 🔗 STEP 0: Checking message queue order")
+    logger.info(f"[FOLLOW-UP] ========== SEQUENTIAL QUEUE CHECK ==========")
+    
+    current_task = None
+    if job_id:
+        try:
+            current_task = LeadPendingTask.objects.get(task_id=job_id)
+            logger.info(f"[FOLLOW-UP] Current task found:")
+            logger.info(f"[FOLLOW-UP] - Sequence: #{current_task.sequence_number}")
+            logger.info(f"[FOLLOW-UP] - Previous task ID: {current_task.previous_task_id or 'None (first in queue)'}")
+            logger.info(f"[FOLLOW-UP] - Status: {current_task.status}")
+            
+            # Використовуємо метод моделі для перевірки
+            if not current_task.can_send():
+                logger.warning(f"[FOLLOW-UP] ⏸️ WAITING FOR PREVIOUS MESSAGE")
+                logger.info(f"[FOLLOW-UP] Cannot send sequence #{current_task.sequence_number} yet")
+                logger.info(f"[FOLLOW-UP] Previous task {current_task.previous_task_id} not sent yet")
+                
+                # Перевіряємо статус попереднього
+                try:
+                    prev_task = LeadPendingTask.objects.get(task_id=current_task.previous_task_id)
+                    logger.info(f"[FOLLOW-UP] Previous task status: {prev_task.status}")
+                    logger.info(f"[FOLLOW-UP] Previous task sequence: #{prev_task.sequence_number}")
+                    
+                    if prev_task.status in ['FAILED', 'CANCELLED']:
+                        logger.error(f"[FOLLOW-UP] ❌ Previous task FAILED/CANCELLED - cannot continue")
+                        current_task.status = 'CANCELLED'
+                        current_task.save()
+                        return "CANCELLED: Previous message failed"
+                    
+                except LeadPendingTask.DoesNotExist:
+                    logger.warning(f"[FOLLOW-UP] Previous task not found - will send anyway")
+                
+                # Retry через 30 секунд
+                logger.info(f"[FOLLOW-UP] 🔄 Retrying in 30 seconds...")
+                current_task.status = 'WAITING'
+                current_task.save()
+                
+                # Re-schedule цей task
+                send_follow_up.apply_async(
+                    args=[lead_id, text],
+                    headers={"business_id": business_id},
+                    countdown=30
+                )
+                return "WAITING: Previous message not sent yet, retry scheduled"
+            
+            logger.info(f"[FOLLOW-UP] ✅ Queue check passed - can send message")
+            current_task.status = 'SENDING'
+            current_task.save()
+            
+        except LeadPendingTask.DoesNotExist:
+            logger.warning(f"[FOLLOW-UP] Task {job_id} not found in DB - proceeding without queue check")
+    
+    logger.info(f"[FOLLOW-UP] =============================================")
+    
+    # Step 2: Mark task as inactive (moved from Step 1)
     if job_id:
         updated_count = LeadPendingTask.objects.filter(task_id=job_id).update(active=False)
         logger.info(f"[FOLLOW-UP] 📝 Marked {updated_count} LeadPendingTask(s) as inactive")
         
-    # Step 2: Check for duplicates
+    # Step 3: Check for duplicates
     logger.info(f"[FOLLOW-UP] 🔍 STEP 1: Checking for duplicate messages")
     logger.info(f"[FOLLOW-UP] ========== DUPLICATE DETECTION ==========")
     logger.info(f"[FOLLOW-UP] Message to check for duplicates:")
@@ -763,11 +819,29 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
                 component='FOLLOW_UP_SYSTEM',
                 business_id=business_id
             )
+            
+            # ✅ ПОЗНАЧИТИ TASK ЯК SENT (для черги повідомлень)
+            if current_task:
+                current_task.status = 'SENT'
+                current_task.sent_at = timezone.now()
+                current_task.save()
+                logger.info(f"[FOLLOW-UP] ✅ Task marked as SENT - next message in queue can proceed")
+                logger.info(f"[FOLLOW-UP] - Sequence #{current_task.sequence_number} completed")
+                logger.info(f"[FOLLOW-UP] - Sent at: {current_task.sent_at}")
+            
             return f"SUCCESS: Message sent to Yelp API (HTTP {resp.status_code if resp else 'N/A'}) in {task_duration:.2f}s"
                 
     except Exception as lock_exc:
         logger.error(f"[FOLLOW-UP] ❌ LOCK ERROR: {lock_exc}")
         logger.exception(f"[FOLLOW-UP] Lock acquisition or processing failed")
+        
+        # ❌ ПОЗНАЧИТИ TASK ЯК FAILED (для черги повідомлень)
+        if current_task:
+            current_task.status = 'FAILED'
+            current_task.save()
+            logger.error(f"[FOLLOW-UP] ❌ Task marked as FAILED - sequence #{current_task.sequence_number}")
+            logger.error(f"[FOLLOW-UP] ⚠️ Subsequent messages in queue may be cancelled")
+        
         return f"ERROR: Lock error - {str(lock_exc)}"
 
 

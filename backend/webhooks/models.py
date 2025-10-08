@@ -500,7 +500,14 @@ class SMSLog(models.Model):
 
 
 class LeadPendingTask(models.Model):
-    """Track Celery tasks scheduled for a lead."""
+    """
+    Track Celery tasks scheduled for a lead with sequential ordering.
+    
+    Забезпечує послідовну відправку повідомлень:
+    - sequence_number: порядковий номер (0=greeting, 1=first follow-up, ...)
+    - previous_task_id: ID попереднього task (для перевірки черги)
+    - status: поточний статус task
+    """
 
     lead_id = models.CharField(max_length=64, db_index=True)
     text = models.TextField()
@@ -508,6 +515,38 @@ class LeadPendingTask(models.Model):
     phone_available = models.BooleanField(default=False)
     active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    
+    # 🔄 Послідовна черга повідомлень
+    sequence_number = models.PositiveIntegerField(
+        default=0,
+        db_index=True,
+        help_text="Порядковий номер в черзі (0=greeting, 1=first follow-up, 2=second follow-up, ...)"
+    )
+    previous_task_id = models.CharField(
+        max_length=128,
+        null=True,
+        blank=True,
+        help_text="ID попереднього task в черзі (для перевірки послідовності)"
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ('PENDING', 'Pending'),      # Очікує відправки
+            ('WAITING', 'Waiting'),      # Чекає на попередній task
+            ('SENDING', 'Sending'),      # В процесі відправки
+            ('SENT', 'Sent'),            # Успішно відправлено
+            ('FAILED', 'Failed'),        # Помилка відправки
+            ('CANCELLED', 'Cancelled')   # Скасовано
+        ],
+        default='PENDING',
+        db_index=True,
+        help_text="Статус відправки повідомлення"
+    )
+    sent_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Коли повідомлення було відправлено"
+    )
 
     class Meta:
         constraints = [
@@ -515,11 +554,38 @@ class LeadPendingTask(models.Model):
                 fields=["lead_id", "text"],
                 name="uniq_lead_text_active",
                 condition=Q(active=True) & ~Q(text=""),
+            ),
+            models.UniqueConstraint(
+                fields=["lead_id", "sequence_number"],
+                name="uniq_lead_sequence",
+                condition=Q(active=True)
             )
         ]
+        ordering = ['lead_id', 'sequence_number']
 
     def __str__(self):
-        return f"{self.task_id} for {self.lead_id}: {self.text[:20]}"
+        return f"#{self.sequence_number} {self.task_id} for {self.lead_id}: {self.text[:20]}"
+    
+    def can_send(self) -> bool:
+        """
+        Перевіряє чи можна відправити це повідомлення
+        (чи відправлено попереднє в черзі)
+        """
+        if self.sequence_number == 0:
+            # Greeting завжди можна відправити
+            return True
+        
+        if not self.previous_task_id:
+            # Немає попереднього - можна відправити
+            return True
+        
+        # Перевіряємо статус попереднього
+        try:
+            previous_task = LeadPendingTask.objects.get(task_id=self.previous_task_id)
+            return previous_task.status == 'SENT'
+        except LeadPendingTask.DoesNotExist:
+            # Попередній task не знайдено - можна відправити
+            return True
 
 
 class NotificationSetting(models.Model):

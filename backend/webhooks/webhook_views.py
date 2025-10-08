@@ -2660,8 +2660,13 @@ class WebhookView(APIView):
                         task_id=res.id,
                         text=normalized_greet_text,  # Store in normalized format
                         phone_available=phone_available,
+                        sequence_number=0,  # ✅ Greeting завжди #0 в черзі
+                        previous_task_id=None,  # ✅ Greeting не має попереднього
+                        status='PENDING'  # ✅ Початковий статус
                     )
                     logger.info(f"[AUTO-RESPONSE] ✅ LeadPendingTask created with ID: {task_record.id}")
+                    logger.info(f"[AUTO-RESPONSE] - Sequence: #0 (Greeting)")
+                    logger.info(f"[AUTO-RESPONSE] - Previous task: None")
                 except IntegrityError:
                     logger.info(
                         "[AUTO-RESPONSE] ❌ Duplicate pending task already exists → skipping"
@@ -2708,6 +2713,24 @@ class WebhookView(APIView):
         
         # Track all planned messages for summary
         planned_messages = []
+        
+        # ✅ ПОСЛІДОВНА ЧЕРГА: Track sequence та previous task
+        current_sequence = 1  # Greeting = 0, follow-ups start from 1
+        previous_task_id = None
+        
+        # Знайти greeting task ID (якщо був створений)
+        try:
+            greeting_task = LeadPendingTask.objects.filter(
+                lead_id=lead_id,
+                sequence_number=0,
+                active=True
+            ).first()
+            if greeting_task:
+                previous_task_id = greeting_task.task_id
+                logger.info(f"[AUTO-RESPONSE] 🔗 Found greeting task: {previous_task_id}")
+                logger.info(f"[AUTO-RESPONSE] Follow-ups will wait for greeting to be sent")
+        except Exception as e:
+            logger.warning(f"[AUTO-RESPONSE] Could not find greeting task: {e}")
         
         for tmpl in tpls:
             # Keep exact seconds precision - don't use int() which truncates
@@ -2797,20 +2820,29 @@ class WebhookView(APIView):
                     )
                     try:
                         normalized_followup_text = normalize_text(text)
-                        LeadPendingTask.objects.create(
+                        task_record = LeadPendingTask.objects.create(
                             lead_id=lead_id,
                             task_id=res.id,
                             text=normalized_followup_text,  # Store in Yelp format
                             phone_available=phone_available,
+                            sequence_number=current_sequence,  # ✅ Послідовний номер
+                            previous_task_id=previous_task_id,  # ✅ Посилання на попередній
+                            status='PENDING'  # ✅ Початковий статус
                         )
+                        logger.info(f"[AUTO-RESPONSE] ✅ Custom follow-up '{tmpl.name}' scheduled at {due.isoformat()}")
+                        logger.info(f"[AUTO-RESPONSE] - Sequence: #{current_sequence}")
+                        logger.info(f"[AUTO-RESPONSE] - Previous task: {previous_task_id or 'None (will send immediately)'}")
+                        logger.info(f"[AUTO-RESPONSE] - Will wait for previous message before sending")
+                        
+                        # Оновити для наступного task
+                        previous_task_id = res.id
+                        current_sequence += 1
+                        
                     except IntegrityError:
                         logger.info(
                             "[AUTO-RESPONSE] Duplicate pending task already exists → skipping"
                         )
                     else:
-                        logger.info(
-                            f"[AUTO-RESPONSE] ✅ Custom follow-up '{tmpl.name}' scheduled at {due.isoformat()}"
-                        )
                         scheduled_texts.add(text)
         
         # =============== FOLLOW-UP PLANNING SUMMARY ===============
