@@ -216,7 +216,7 @@ const AutoResponseSettings: FC = () => {
   const [aiTemperature, setAiTemperature] = useState<number | ''>(0.7);  // ✅ Default temperature
   
   // 🔍 Vector Search Settings  
-  const [vectorSimilarityThreshold, setVectorSimilarityThreshold] = useState(0.4);
+  const [vectorSimilarityThreshold, setVectorSimilarityThreshold] = useState(0.4);  // ✅ Default 0.4 (найнижчий, найбільше результатів)
   const [vectorSearchLimit, setVectorSearchLimit] = useState(5);
   const [vectorChunkTypes, setVectorChunkTypes] = useState<string[]>([]);
 
@@ -409,7 +409,7 @@ const AutoResponseSettings: FC = () => {
           setAiTemperature(d.ai_temperature ?? 0.7);  // ✅ Default temperature
           
           // Set Vector Search Settings
-          setVectorSimilarityThreshold(d.vector_similarity_threshold ?? 0.6);
+          setVectorSimilarityThreshold(d.vector_similarity_threshold ?? 0.4);  // ✅ Default 0.4
           setVectorSearchLimit(d.vector_search_limit ?? 5);
           setVectorChunkTypes(d.vector_chunk_types ?? []);
           
@@ -439,7 +439,7 @@ const AutoResponseSettings: FC = () => {
             ai_model: d.ai_model ?? '',
             ai_temperature: d.ai_temperature ?? null,
             // Vector Search Settings
-            vector_similarity_threshold: d.vector_similarity_threshold ?? 0.6,
+            vector_similarity_threshold: d.vector_similarity_threshold ?? 0.4,  // ✅ Default 0.4
             vector_search_limit: d.vector_search_limit ?? 5,
             vector_chunk_types: d.vector_chunk_types ?? [],
           };
