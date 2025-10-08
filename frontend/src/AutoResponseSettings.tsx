@@ -1775,34 +1775,45 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                             fontSize: '0.85rem'
                           }}>
                             <Typography variant="body2" sx={{ fontWeight: 600, mb: 1, color: '#fff' }}>
-                              🎯 How Simplified AI System Works:
+                              🎯 How Smart AI System Works:
                             </Typography>
                             
                             <Typography variant="caption" sx={{ display: 'block', mb: 1, color: 'rgba(255,255,255,0.95)' }}>
-                              <strong>2-Step AI Generation:</strong> <strong>Vector Search</strong> → <strong>Custom Instructions</strong>
+                              <strong>Intelligent Response Generation:</strong> Sample Replies → Custom Instructions → gpt-4o
                             </Typography>
                             
                             <Box sx={{ mt: 1 }}>
                               <Typography variant="caption" sx={{ display: 'block', color: 'rgba(255,255,255,0.9)' }}>
-                                <strong>🔍 Step 1 - Vector Search (Sample Replies):</strong><br/>
-                                If Sample Replies PDF uploaded + custom preview text provided → AI searches for similar inquiry→response pairs and uses authentic style from your examples.<br/>
-                                <em>→ Result: Natural responses matching your business voice</em>
+                                <strong>🔍 Step 1 - Try Sample Replies (Vector Search):</strong><br/>
+                                • Searches for similar customer inquiries in your uploaded Sample Replies<br/>
+                                • If found (similarity &gt; threshold) → generates response matching your examples' style, tone, and length<br/>
+                                • Auto-detects natural response length from examples (~400-800 chars)<br/>
+                                <em>→ Best for: Requests similar to your Sample Replies examples</em>
                               </Typography>
                               
                               <Typography variant="caption" sx={{ display: 'block', mt: 1, color: 'rgba(255,255,255,0.9)' }}>
-                                <strong>📝 Step 2 - Custom Instructions (Primary):</strong><br/>
-                                AI sees ALL available business data (rating: 4.0★, phone: (213) 816-1560, specialization: General Contractors) + your Custom Instructions.<br/>
-                                <em>→ Example: "Always mention our 4.0★ rating and phone. We specialize in contractors. Be friendly and offer free estimates."</em><br/>
-                                <em>→ Result: "Hi! Priority Remodeling (4.0★, 12 reviews) specializes in General Contractors. Call (213) 816-1560 for a free estimate!"</em>
+                                <strong>📝 Step 2 - Fallback to Custom Instructions:</strong><br/>
+                                • If no similar examples found → uses your Custom Instructions<br/>
+                                • AI receives: customer inquiry, time-based greeting, business data<br/>
+                                • Follows your communication rules and brand voice<br/>
+                                <em>→ Best for: Unique requests or when Sample Replies don't match</em>
                               </Typography>
                             </Box>
                             
                             <Typography variant="caption" sx={{ display: 'block', mt: 1.5, fontWeight: 600, color: '#fff' }}>
-                              💡 <strong>Best Practice:</strong> Write specific instructions about what business information to mention and how to communicate with customers.
+                              🤖 <strong>Model:</strong> Uses gpt-4o by default for best instruction compliance and natural responses
+                            </Typography>
+                            
+                            <Typography variant="caption" sx={{ display: 'block', mt: 0.5, fontWeight: 600, color: '#fff' }}>
+                              📏 <strong>Length:</strong> Automatically detected from Sample Replies examples (no manual limits)
+                            </Typography>
+                            
+                            <Typography variant="caption" sx={{ display: 'block', mt: 0.5, fontWeight: 600, color: '#fff' }}>
+                              🕐 <strong>Greeting:</strong> Time-based (Good morning/afternoon/evening) based on business timezone
                             </Typography>
                             
                             <Typography variant="caption" sx={{ display: 'block', mt: 1.5, fontWeight: 600, color: 'rgba(255,200,200,1)' }}>
-                              ⚠️ <strong>If AI fails:</strong> System uses template fallback: "Hello [Customer Name]! Thank you for your inquiry about [services]. We'll get back to you soon!"
+                              ⚠️ <strong>If AI fails:</strong> System uses template fallback automatically
                             </Typography>
                           </Box>
                         </Box>
