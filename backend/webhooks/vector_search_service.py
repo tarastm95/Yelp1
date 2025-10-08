@@ -381,7 +381,8 @@ class VectorSearchService:
         customer_name: str,
         inquiry_response_pairs: List[Dict],
         business_name: str = "",
-        max_response_length: int = None  # ✅ Зробимо опціональним для auto-detect
+        max_response_length: int = None,  # ✅ Зробимо опціональним для auto-detect
+        custom_instructions: str = None  # ✅ ДОДАЄМО Custom Instructions
     ) -> str:
         """
         🎯 Генерує відповідь на основі inquiry→response пар (ПРАВИЛЬНИЙ ПІДХІД)
@@ -406,6 +407,9 @@ class VectorSearchService:
         logger.info(f"[VECTOR-SEARCH] Customer: {customer_name}")
         logger.info(f"[VECTOR-SEARCH] Business: {business_name}")
         logger.info(f"[VECTOR-SEARCH] Inquiry→Response pairs: {len(inquiry_response_pairs)}")
+        logger.info(f"[VECTOR-SEARCH] Custom Instructions: {'✅ Provided' if custom_instructions else '❌ Not provided'}")
+        if custom_instructions:
+            logger.info(f"[VECTOR-SEARCH] Custom Instructions length: {len(custom_instructions)} chars")
         
         # 🎯 Автоматичне визначення довжини на основі прикладів
         # Використовуємо response chunks з inquiry_response_pairs
@@ -445,7 +449,25 @@ BUSINESS RESPONSE: {response_content}
             context = "\n".join(context_parts)
             
             # Системний промпт для генерації з пар
-            system_prompt = f"""You are a professional business communication assistant for {business_name}.
+            if custom_instructions:
+                # ✅ ВИКОРИСТОВУЄМО CUSTOM INSTRUCTIONS як основу
+                system_prompt = f"""{custom_instructions}
+
+---
+
+ADDITIONAL CONTEXT - TRAINING EXAMPLES:
+You also have access to inquiry→response pairs showing how the business has responded to similar requests:
+
+{context}
+
+IMPORTANT:
+- Follow ALL the rules and guidelines from the main instructions above
+- Use the training examples ONLY to learn the business's specific response style and phrasing
+- Examples show natural response length: approximately {avg_length} characters (range: {min_length}-{max_length})
+- If examples conflict with main instructions, ALWAYS follow the main instructions"""
+            else:
+                # Fallback якщо немає Custom Instructions
+                system_prompt = f"""You are a professional business communication assistant for {business_name}.
 
 TASK: Generate a personalized response using INQUIRY→RESPONSE pairs as training examples.
 

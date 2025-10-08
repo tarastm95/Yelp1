@@ -1305,13 +1305,22 @@ Respond to the customer using the business information above."""
                         logger.info(f"[AI-SERVICE]   Inquiry: {pair['inquiry']['content'][:80]}...")
                         logger.info(f"[AI-SERVICE]   Response: {pair['response']['content'][:80]}...")
                     
+                    # Отримуємо Custom Instructions з business settings
+                    custom_instructions = None
+                    if business_ai_settings and business_ai_settings.ai_custom_prompt:
+                        custom_instructions = business_ai_settings.ai_custom_prompt
+                        logger.info(f"[AI-SERVICE] ✅ Custom Instructions available ({len(custom_instructions)} chars)")
+                    else:
+                        logger.warning(f"[AI-SERVICE] ⚠️ No Custom Instructions - using default prompt")
+                    
                     # 🤖 ГЕНЕРАЦІЯ КОНТЕКСТУАЛЬНОЇ ВІДПОВІДІ З ПАР
                     contextual_response = vector_search_service.generate_contextual_response_from_pairs(
                         lead_inquiry=lead_inquiry,
                         customer_name=customer_name,
                         inquiry_response_pairs=inquiry_response_pairs,
                         business_name=business.name,
-                        max_response_length=response_length
+                        max_response_length=response_length,
+                        custom_instructions=custom_instructions  # ✅ ПЕРЕДАЄМО Custom Instructions
                     )
                     
                     if contextual_response:
