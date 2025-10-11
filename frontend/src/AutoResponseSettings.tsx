@@ -2084,7 +2084,11 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                     
                                     {/* AI Temperature */}
                                     <Box>
-                                          <FormControl size="small" sx={{ width: 280, backgroundColor: 'grey.50' }}>
+                                      <FormControl 
+                                        size="small" 
+                                        sx={{ width: 280, backgroundColor: 'grey.50' }}
+                                        disabled={aiModel?.startsWith('gpt-5')}
+                                      >
                                         <InputLabel>AI Temperature (optional)</InputLabel>
                                         <Select
                                           value={aiTemperature === '' ? '' : aiTemperature.toString()}
@@ -2127,11 +2131,81 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                           </MenuItem>
                                         </Select>
                                         <FormHelperText>
-                                          {aiTemperature !== '' 
-                                                    ? `Creativity level: ${aiTemperature <= 0.3 ? 'Very focused' : aiTemperature <= 0.7 ? 'Balanced' : 'Creative'}` 
-                                                : "Using default: 0.7 (balanced)"}
+                                          {aiModel?.startsWith('gpt-5')
+                                            ? '🔒 GPT-5 uses fixed temperature 1.0 (cannot be changed)'
+                                            : aiTemperature !== '' 
+                                              ? `Creativity level: ${aiTemperature <= 0.3 ? 'Very focused' : aiTemperature <= 0.7 ? 'Balanced' : 'Creative'}` 
+                                              : "Using default: 0.7 (balanced)"}
                                         </FormHelperText>
                                       </FormControl>
+                                      
+                                      {/* GPT-5 Temperature Warning */}
+                                      {aiModel?.startsWith('gpt-5') && (
+                                        <Alert severity="info" sx={{ mt: 1, fontSize: '0.875rem' }}>
+                                          ℹ️ GPT-5 models use a fixed temperature of 1.0 for optimal performance with their reasoning router. Temperature adjustment is not supported.
+                                        </Alert>
+                                      )}
+                                    </Box>
+
+                                    {/* 📊 Model Settings Support */}
+                                    <Box sx={{ 
+                                      p: 2, 
+                                      mt: 2,
+                                      border: '1px solid',
+                                      borderColor: 'divider',
+                                      borderRadius: 2,
+                                      backgroundColor: 'background.paper'
+                                    }}>
+                                      <Typography variant="subtitle2" sx={{ mb: 1.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                        📊 Model Settings Support
+                                      </Typography>
+                                      <Stack spacing={1}>
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                            AI Temperature:
+                                          </Typography>
+                                          {aiModel?.startsWith('gpt-5') ? (
+                                            <Chip 
+                                              label="Fixed at 1.0" 
+                                              size="small" 
+                                              color="warning"
+                                              icon={<span>🔒</span>}
+                                            />
+                                          ) : (
+                                            <Chip 
+                                              label="Fully Supported" 
+                                              size="small" 
+                                              color="success"
+                                              icon={<CheckCircleIcon />}
+                                            />
+                                          )}
+                                        </Box>
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                            Max Message Length:
+                                          </Typography>
+                                          <Chip 
+                                            label="Fully Supported" 
+                                            size="small" 
+                                            color="success"
+                                            icon={<CheckCircleIcon />}
+                                          />
+                                        </Box>
+                                        {aiModel?.startsWith('gpt-5') && (
+                                          <Alert severity="info" sx={{ mt: 1, py: 0.5 }}>
+                                            <Typography variant="caption">
+                                              <strong>GPT-5 Info:</strong> Uses reasoning router for optimal performance. Context window: ~400k tokens (GPT-5), ~200k (Mini), ~50k (Nano).
+                                            </Typography>
+                                          </Alert>
+                                        )}
+                                        {aiModel === 'gpt-4o-realtime' && (
+                                          <Alert severity="info" sx={{ mt: 1, py: 0.5 }}>
+                                            <Typography variant="caption">
+                                              <strong>Realtime Mode:</strong> Optimized for streaming with ultra-low latency (~320ms response time).
+                                            </Typography>
+                                          </Alert>
+                                        )}
+                                      </Stack>
                                     </Box>
                                   </Stack>
                                 </Box>

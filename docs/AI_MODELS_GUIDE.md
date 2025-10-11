@@ -34,57 +34,74 @@ This document describes all available AI models that can be configured in the sy
 ---
 
 ### GPT-5 🚀
-**Status:** Next Generation  
+**Status:** Next Generation (2025)  
 **Context Window:** ~400k tokens (4x larger than GPT-4o)  
-**Use Case:** Advanced RAG with large documents
+**Use Case:** Advanced RAG with large documents  
+**Temperature:** 🔒 Fixed at 1.0 (not adjustable)
 
 - **Recommended for:** Complex RAG scenarios
 - **Strengths:** 
   - Massive context window for processing large document sets
+  - Intelligent **reasoning router** (fast vs. deep thinking)
   - Superior reasoning and instruction following
+  - Automatic task complexity detection
   - Best for feeding large subsets of documents
 - **Best For:** 
   - Businesses with extensive knowledge bases
   - Complex multi-document analysis
   - Detailed product/service catalogs
-- **Cost:** Premium pricing
+  - Tasks requiring variable complexity handling
+- **Limitations:**
+  - Temperature cannot be adjusted (fixed at 1.0)
+  - Uses `max_completion_tokens` instead of `max_tokens`
+- **Cost:** Premium pricing (~3x GPT-4o)
 
 ---
 
 ### GPT-5 Mini ⚡
-**Status:** Next Generation  
+**Status:** Next Generation (2025)  
 **Context Window:** ~200k tokens  
-**Use Case:** Balanced GPT-5 performance
+**Use Case:** Balanced GPT-5 performance  
+**Temperature:** 🔒 Fixed at 1.0 (not adjustable)
 
 - **Recommended for:** Most GPT-5 use cases
 - **Strengths:**
   - Faster response times than GPT-5
   - More affordable than full GPT-5
   - Good balance of performance and cost
+  - Same reasoning router as GPT-5
 - **Best For:**
   - Auto-responses with limited context requirements
   - Speed-critical applications
   - Cost-sensitive GPT-5 deployments
-- **Cost:** Mid-tier pricing
+- **Limitations:**
+  - Temperature fixed at 1.0
+  - Uses `max_completion_tokens`
+- **Cost:** Mid-tier pricing (~1.5x GPT-4o)
 
 ---
 
 ### GPT-5 Nano ⚡⚡
-**Status:** Next Generation  
+**Status:** Next Generation (2025)  
 **Context Window:** ~50k tokens  
-**Use Case:** Ultra-fast lightweight responses
+**Use Case:** Ultra-fast lightweight responses  
+**Temperature:** 🔒 Fixed at 1.0 (not adjustable)
 
 - **Recommended for:** High-volume scenarios
 - **Strengths:**
   - Extremely fast response generation
   - Lowest latency among GPT-5 family
   - Very cost-effective
+  - Same reasoning router architecture
 - **Best For:**
   - Very short responses
   - High-volume auto-responses
   - Simple greeting messages
   - Quick acknowledgments
-- **Cost:** Budget pricing
+- **Limitations:**
+  - Temperature fixed at 1.0
+  - Uses `max_completion_tokens`
+- **Cost:** Budget pricing (~0.3x GPT-4o)
 
 ---
 
@@ -187,11 +204,31 @@ Need advanced reasoning?
 
 ## Temperature Settings
 
-All models support temperature configuration (0.0 - 1.0):
+### ⚠️ Important: Temperature Support Varies by Model
+
+**GPT-4o Family (✅ Fully Supported):**
+- `gpt-4o`, `gpt-4o-mini`, `gpt-4o-realtime`
+- Temperature range: **0.0 - 2.0**
+- Adjustable in UI
+- Default: 0.7
+
+**GPT-5 Family (🔒 Fixed at 1.0):**
+- `gpt-5`, `gpt-5-mini`, `gpt-5-nano`
+- Temperature: **Fixed at 1.0**
+- **Cannot be adjusted** (API will reject other values)
+- Optimized for reasoning router performance
+- UI will disable temperature selection for these models
+
+### Temperature Guidelines (for GPT-4o models):
 
 - **0.1-0.3:** Very focused, consistent (formal business)
 - **0.5-0.7:** Balanced (recommended for most cases)
 - **0.8-1.0:** Creative, varied (use with caution)
+- **1.1-2.0:** Very creative, experimental (not recommended)
+
+### Why GPT-5 Has Fixed Temperature?
+
+GPT-5 uses a **reasoning router** that automatically decides when to respond quickly vs. when to "think" longer for complex tasks. This intelligent routing system requires a fixed temperature of 1.0 for optimal performance. The model handles creativity/consistency internally based on task complexity.
 
 ---
 
