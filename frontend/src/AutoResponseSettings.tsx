@@ -2307,14 +2307,6 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                             Example: requesting 500 tokens → GPT-5 gets 2,500 tokens (500 × 5) to ensure complete responses with reasoning.
                                           </Typography>
                                         </Alert>
-                                        </Box>
-                                        
-                                        <Alert severity="info" sx={{ mt: 2, fontSize: '0.75rem' }}>
-                                          <Typography variant="caption">
-                                            <strong>🧠 Token Multiplier:</strong> Reasoning models (GPT-5) automatically receive extra tokens for thinking process. 
-                                            Example: requesting 500 tokens → GPT-5 gets 2,500 tokens (500 × 5) to ensure complete responses with reasoning.
-                                          </Typography>
-                                        </Alert>
                                       </Box>
                                     </Box>
                                   </Stack>
