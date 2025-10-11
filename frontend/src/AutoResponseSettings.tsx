@@ -2020,10 +2020,38 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                             </Box>
                                           </MenuItem>
 
-                                              <MenuItem value="gpt-4o-mini">
+                                          <MenuItem value="gpt-4o-mini">
                                             <Box>
-                                                  <Typography variant="body2">GPT-4o Mini <Chip label="Budget" size="small" color="success" sx={{ ml: 1 }} /></Typography>
-                                                  <Typography variant="caption" color="text.secondary">⚡ Fastest & most cost-effective. May skip some instructions.</Typography>
+                                              <Typography variant="body2">GPT-4o Mini <Chip label="Budget" size="small" color="success" sx={{ ml: 1 }} /></Typography>
+                                              <Typography variant="caption" color="text.secondary">⚡ Fastest & most cost-effective. May skip some instructions.</Typography>
+                                            </Box>
+                                          </MenuItem>
+
+                                          <MenuItem value="gpt-5">
+                                            <Box>
+                                              <Typography variant="body2">GPT-5 <Chip label="Flagship" size="small" color="secondary" sx={{ ml: 1 }} /></Typography>
+                                              <Typography variant="caption" color="text.secondary">🚀 Large context window (~400k tokens), best for RAG with large document sets</Typography>
+                                            </Box>
+                                          </MenuItem>
+
+                                          <MenuItem value="gpt-5-mini">
+                                            <Box>
+                                              <Typography variant="body2">GPT-5 Mini <Chip label="Fast" size="small" color="info" sx={{ ml: 1 }} /></Typography>
+                                              <Typography variant="caption" color="text.secondary">⚡ Faster & cheaper GPT-5 version, ideal for auto-responses with limited context</Typography>
+                                            </Box>
+                                          </MenuItem>
+
+                                          <MenuItem value="gpt-5-nano">
+                                            <Box>
+                                              <Typography variant="body2">GPT-5 Nano <Chip label="Ultra-Fast" size="small" color="success" sx={{ ml: 1 }} /></Typography>
+                                              <Typography variant="caption" color="text.secondary">⚡⚡ Lightest version for very fast short responses or high-volume scenarios</Typography>
+                                            </Box>
+                                          </MenuItem>
+
+                                          <MenuItem value="gpt-4o-realtime">
+                                            <Box>
+                                              <Typography variant="body2">GPT-4o Realtime <Chip label="Low Latency" size="small" color="warning" sx={{ ml: 1 }} /></Typography>
+                                              <Typography variant="caption" color="text.secondary">🎙️ Real-time streaming for instant chatbot responses (voice/chat scenarios)</Typography>
                                             </Box>
                                           </MenuItem>
                                         </Select>
