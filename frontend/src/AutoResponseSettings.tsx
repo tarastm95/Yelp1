@@ -1793,15 +1793,15 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                             textAlign: 'left',
                             fontSize: '0.85rem'
                           }}>
-                            <Typography variant="body2" sx={{ fontWeight: 600, mb: 1, color: '#fff' }}>
+                            <Typography variant="body2" sx={{ fontWeight: 600, mb: 1.5, color: '#fff' }}>
                               🎯 How Smart AI System Works:
                             </Typography>
                             
-                            <Typography variant="caption" sx={{ display: 'block', mb: 1, color: 'rgba(255,255,255,0.95)' }}>
+                            <Typography variant="caption" sx={{ display: 'block', mb: 1.5, color: 'rgba(255,255,255,0.95)', fontSize: '0.9rem' }}>
                               <strong>Intelligent Response Generation:</strong> Sample Replies → Custom Instructions → {aiModel || 'gpt-4o'}
                             </Typography>
                             
-                            <Box sx={{ mt: 1 }}>
+                            <Box sx={{ mt: 1.5 }}>
                               <Typography variant="caption" sx={{ display: 'block', color: 'rgba(255,255,255,0.9)' }}>
                                 <strong>🔍 Step 1 - Try Sample Replies (Vector Search):</strong><br/>
                                 • Searches for similar customer inquiries in your uploaded Sample Replies<br/>
@@ -1810,7 +1810,7 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                 <em>→ Best for: Requests similar to your Sample Replies examples</em>
                               </Typography>
                               
-                              <Typography variant="caption" sx={{ display: 'block', mt: 1, color: 'rgba(255,255,255,0.9)' }}>
+                              <Typography variant="caption" sx={{ display: 'block', mt: 1.5, color: 'rgba(255,255,255,0.9)' }}>
                                 <strong>📝 Step 2 - Fallback to Custom Instructions:</strong><br/>
                                 • If no similar examples found → uses your Custom Instructions<br/>
                                 • AI receives: customer inquiry, time-based greeting, business data<br/>
@@ -1819,10 +1819,16 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                               </Typography>
                             </Box>
                             
-                            <Typography variant="caption" sx={{ display: 'block', mt: 1.5, fontWeight: 600, color: '#fff' }}>
-                              🤖 <strong>Model:</strong> {aiModel || 'gpt-4o (default)'} 
-                              {aiModel?.startsWith('gpt-5') && ' - Reasoning router for intelligent task handling'}
-                              {aiModel === 'gpt-4o-realtime' && ' - Ultra-low latency streaming (~320ms)'}
+                            <Divider sx={{ my: 2, borderColor: 'rgba(255,255,255,0.2)' }} />
+                            
+                            <Typography variant="caption" sx={{ display: 'block', mb: 1, fontWeight: 600, color: '#fff', fontSize: '0.85rem' }}>
+                              ⚙️ Current Configuration:
+                            </Typography>
+                            
+                            <Typography variant="caption" sx={{ display: 'block', mt: 0.5, fontWeight: 600, color: '#fff' }}>
+                              🤖 <strong>Model:</strong> {aiModel || 'gpt-4o (default)'}{' '}
+                              {aiModel?.startsWith('gpt-5') && '- Reasoning router for intelligent task handling'}
+                              {aiModel?.startsWith('gpt-4.1') && '- Enhanced instruction following'}
                             </Typography>
                             
                             <Typography variant="caption" sx={{ display: 'block', mt: 0.5, fontWeight: 600, color: '#fff' }}>
@@ -2193,65 +2199,115 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                       )}
                                     </Box>
 
-                                    {/* 📊 Model Settings Support */}
+                                    {/* 📊 Model Comparison Table */}
                                     <Box sx={{ 
-                                      p: 2, 
                                       mt: 2,
                                       border: '1px solid',
                                       borderColor: 'divider',
                                       borderRadius: 2,
-                                      backgroundColor: 'background.paper'
+                                      backgroundColor: 'background.paper',
+                                      overflow: 'hidden'
                                     }}>
-                                      <Typography variant="subtitle2" sx={{ mb: 1.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                        📊 Model Settings Support
-                                      </Typography>
-                                      <Stack spacing={1}>
-                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                                            AI Temperature:
-                                          </Typography>
-                                          {aiModel?.startsWith('gpt-5') ? (
-                                            <Chip 
-                                              label="Fixed at 1.0" 
-                                              size="small" 
-                                              color="warning"
-                                              icon={<span>🔒</span>}
-                                            />
-                                          ) : (
-                                            <Chip 
-                                              label="Fully Supported" 
-                                              size="small" 
-                                              color="success"
-                                              icon={<CheckCircleIcon />}
-                                            />
-                                          )}
+                                      <Box sx={{ 
+                                        p: 2, 
+                                        backgroundColor: 'primary.50',
+                                        borderBottom: '1px solid',
+                                        borderColor: 'divider'
+                                      }}>
+                                        <Typography variant="subtitle2" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                          📊 Available Models Comparison
+                                        </Typography>
+                                      </Box>
+                                      
+                                      <Box sx={{ p: 2 }}>
+                                        <Box sx={{ overflowX: 'auto' }}>
+                                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+                                            <thead>
+                                              <tr style={{ borderBottom: '2px solid #e0e0e0' }}>
+                                                <th style={{ textAlign: 'left', padding: '8px', fontWeight: 600 }}>Model</th>
+                                                <th style={{ textAlign: 'center', padding: '8px', fontWeight: 600 }}>Token Multiplier</th>
+                                                <th style={{ textAlign: 'center', padding: '8px', fontWeight: 600 }}>Status</th>
+                                                <th style={{ textAlign: 'left', padding: '8px', fontWeight: 600 }}>Best For</th>
+                                              </tr>
+                                            </thead>
+                                            <tbody>
+                                              <tr style={{ borderBottom: '1px solid #f0f0f0', backgroundColor: aiModel === 'gpt-4o' ? '#e3f2fd' : 'transparent' }}>
+                                                <td style={{ padding: '8px' }}>gpt-4o</td>
+                                                <td style={{ padding: '8px', textAlign: 'center' }}>1x</td>
+                                                <td style={{ padding: '8px', textAlign: 'center' }}>✅ 100%</td>
+                                                <td style={{ padding: '8px' }}>Default для більшості</td>
+                                              </tr>
+                                              <tr style={{ borderBottom: '1px solid #f0f0f0', backgroundColor: aiModel === 'gpt-4o-mini' ? '#e3f2fd' : 'transparent' }}>
+                                                <td style={{ padding: '8px' }}>gpt-4o-mini</td>
+                                                <td style={{ padding: '8px', textAlign: 'center' }}>1x</td>
+                                                <td style={{ padding: '8px', textAlign: 'center' }}>✅ 100%</td>
+                                                <td style={{ padding: '8px' }}>Бюджетний варіант</td>
+                                              </tr>
+                                              <tr style={{ borderBottom: '1px solid #f0f0f0', backgroundColor: aiModel === 'gpt-4.1' ? '#e3f2fd' : 'transparent' }}>
+                                                <td style={{ padding: '8px' }}>
+                                                  <strong>gpt-4.1</strong> <Chip label="NEW" size="small" color="primary" sx={{ ml: 0.5, height: 18, fontSize: '0.7rem' }} />
+                                                </td>
+                                                <td style={{ padding: '8px', textAlign: 'center' }}>1x</td>
+                                                <td style={{ padding: '8px', textAlign: 'center' }}>✅ 100%</td>
+                                                <td style={{ padding: '8px' }}>Покращена якість</td>
+                                              </tr>
+                                              <tr style={{ borderBottom: '1px solid #f0f0f0', backgroundColor: aiModel === 'gpt-4.1-mini' ? '#e3f2fd' : 'transparent' }}>
+                                                <td style={{ padding: '8px' }}>
+                                                  <strong>gpt-4.1-mini</strong> <Chip label="NEW" size="small" color="primary" sx={{ ml: 0.5, height: 18, fontSize: '0.7rem' }} />
+                                                </td>
+                                                <td style={{ padding: '8px', textAlign: 'center' }}>1x</td>
+                                                <td style={{ padding: '8px', textAlign: 'center' }}>✅ 100%</td>
+                                                <td style={{ padding: '8px' }}>Швидкість+якість</td>
+                                              </tr>
+                                              <tr style={{ borderBottom: '1px solid #f0f0f0', backgroundColor: aiModel === 'gpt-4.1-nano' ? '#e3f2fd' : 'transparent' }}>
+                                                <td style={{ padding: '8px' }}>
+                                                  <strong>gpt-4.1-nano</strong> <Chip label="NEW" size="small" color="primary" sx={{ ml: 0.5, height: 18, fontSize: '0.7rem' }} />
+                                                </td>
+                                                <td style={{ padding: '8px', textAlign: 'center' }}>1x</td>
+                                                <td style={{ padding: '8px', textAlign: 'center' }}>✅ 100%</td>
+                                                <td style={{ padding: '8px' }}>Максимальна швидкість</td>
+                                              </tr>
+                                              <tr style={{ borderBottom: '1px solid #f0f0f0', backgroundColor: aiModel === 'gpt-5' ? '#fff3e0' : 'transparent' }}>
+                                                <td style={{ padding: '8px' }}>
+                                                  <strong>gpt-5</strong> <Chip label="Reasoning" size="small" color="secondary" sx={{ ml: 0.5, height: 18, fontSize: '0.7rem' }} />
+                                                </td>
+                                                <td style={{ padding: '8px', textAlign: 'center' }}>
+                                                  <Chip label="5x" size="small" color="warning" sx={{ fontWeight: 600 }} />
+                                                </td>
+                                                <td style={{ padding: '8px', textAlign: 'center' }}>✅ 100%</td>
+                                                <td style={{ padding: '8px' }}>Великі документи RAG</td>
+                                              </tr>
+                                              <tr style={{ borderBottom: '1px solid #f0f0f0', backgroundColor: aiModel === 'gpt-5-mini' ? '#fff3e0' : 'transparent' }}>
+                                                <td style={{ padding: '8px' }}>
+                                                  <strong>gpt-5-mini</strong> <Chip label="Reasoning" size="small" color="secondary" sx={{ ml: 0.5, height: 18, fontSize: '0.7rem' }} />
+                                                </td>
+                                                <td style={{ padding: '8px', textAlign: 'center' }}>
+                                                  <Chip label="4x" size="small" color="info" sx={{ fontWeight: 600 }} />
+                                                </td>
+                                                <td style={{ padding: '8px', textAlign: 'center' }}>✅ 100%</td>
+                                                <td style={{ padding: '8px' }}>Балансований GPT-5</td>
+                                              </tr>
+                                              <tr style={{ borderBottom: '1px solid #f0f0f0', backgroundColor: aiModel === 'gpt-5-nano' ? '#fff3e0' : 'transparent' }}>
+                                                <td style={{ padding: '8px' }}>
+                                                  <strong>gpt-5-nano</strong> <Chip label="Reasoning" size="small" color="secondary" sx={{ ml: 0.5, height: 18, fontSize: '0.7rem' }} />
+                                                </td>
+                                                <td style={{ padding: '8px', textAlign: 'center' }}>
+                                                  <Chip label="3x" size="small" color="success" sx={{ fontWeight: 600 }} />
+                                                </td>
+                                                <td style={{ padding: '8px', textAlign: 'center' }}>✅ 100%</td>
+                                                <td style={{ padding: '8px' }}>Швидкий GPT-5</td>
+                                              </tr>
+                                            </tbody>
+                                          </table>
                                         </Box>
-                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                                            Max Message Length:
+                                        
+                                        <Alert severity="info" sx={{ mt: 2, fontSize: '0.75rem' }}>
+                                          <Typography variant="caption">
+                                            <strong>🧠 Token Multiplier:</strong> Reasoning models (GPT-5) automatically receive extra tokens for thinking process. 
+                                            Example: requesting 500 tokens → GPT-5 gets 2,500 tokens (500 × 5) to ensure complete responses with reasoning.
                                           </Typography>
-                                          <Chip 
-                                            label="Fully Supported" 
-                                            size="small" 
-                                            color="success"
-                                            icon={<CheckCircleIcon />}
-                                          />
-                                        </Box>
-                                        {aiModel?.startsWith('gpt-5') && (
-                                          <Alert severity="info" sx={{ mt: 1, py: 0.5 }}>
-                                            <Typography variant="caption">
-                                              <strong>GPT-5 Info:</strong> Uses reasoning router for optimal performance. Context window: ~400k tokens (GPT-5), ~200k (Mini), ~50k (Nano).
-                                            </Typography>
-                                          </Alert>
-                                        )}
-                                        {aiModel === 'gpt-4o-realtime' && (
-                                          <Alert severity="info" sx={{ mt: 1, py: 0.5 }}>
-                                            <Typography variant="caption">
-                                              <strong>Realtime Mode:</strong> Optimized for streaming with ultra-low latency (~320ms response time).
-                                            </Typography>
-                                          </Alert>
-                                        )}
-                                      </Stack>
+                                        </Alert>
+                                      </Box>
                                     </Box>
                                   </Stack>
                                 </Box>
