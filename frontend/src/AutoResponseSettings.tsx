@@ -1798,7 +1798,7 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                             </Typography>
                             
                             <Typography variant="caption" sx={{ display: 'block', mb: 1, color: 'rgba(255,255,255,0.95)' }}>
-                              <strong>Intelligent Response Generation:</strong> Sample Replies → Custom Instructions → gpt-4o
+                              <strong>Intelligent Response Generation:</strong> Sample Replies → Custom Instructions → {aiModel || 'gpt-4o'}
                             </Typography>
                             
                             <Box sx={{ mt: 1 }}>
@@ -1820,11 +1820,30 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                             </Box>
                             
                             <Typography variant="caption" sx={{ display: 'block', mt: 1.5, fontWeight: 600, color: '#fff' }}>
-                              🤖 <strong>Model:</strong> Uses gpt-4o by default for best instruction compliance and natural responses
+                              🤖 <strong>Model:</strong> {aiModel || 'gpt-4o (default)'} 
+                              {aiModel?.startsWith('gpt-5') && ' - Reasoning router for intelligent task handling'}
+                              {aiModel === 'gpt-4o-realtime' && ' - Ultra-low latency streaming (~320ms)'}
                             </Typography>
                             
                             <Typography variant="caption" sx={{ display: 'block', mt: 0.5, fontWeight: 600, color: '#fff' }}>
-                              📏 <strong>Length:</strong> Automatically detected from Sample Replies examples (no manual limits)
+                              🌡️ <strong>Temperature:</strong> {
+                                aiModel?.startsWith('gpt-5') 
+                                  ? '1.0 (fixed for reasoning router)' 
+                                  : aiTemperature || '0.7 (balanced)'
+                              }
+                            </Typography>
+                            
+                            <Typography variant="caption" sx={{ display: 'block', mt: 0.5, fontWeight: 600, color: '#fff' }}>
+                              📏 <strong>Length:</strong> Auto-detected from Sample Replies examples (no manual limits)
+                            </Typography>
+                            
+                            <Typography variant="caption" sx={{ display: 'block', mt: 0.5, fontWeight: 600, color: '#fff' }}>
+                              📦 <strong>Context Window:</strong> {
+                                aiModel?.startsWith('gpt-5') && aiModel.includes('nano') ? '~50k tokens' :
+                                aiModel?.startsWith('gpt-5') && aiModel.includes('mini') ? '~200k tokens' :
+                                aiModel?.startsWith('gpt-5') ? '~400k tokens (4x GPT-4o!)' :
+                                '~128k tokens'
+                              }
                             </Typography>
                             
                             <Typography variant="caption" sx={{ display: 'block', mt: 0.5, fontWeight: 600, color: '#fff' }}>
@@ -1998,12 +2017,18 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                           color={aiModel ? 'secondary' : 'default'}
                                           variant="outlined"
                                         />
-                                        {aiTemperature !== '' && (
+                                        {/* Temperature badge - show fixed 1.0 for GPT-5, actual value for others */}
+                                        {(aiModel?.startsWith('gpt-5') || aiTemperature !== '') && (
                                           <Chip
                                             size="small"
-                                            label={`T=${aiTemperature}`}
-                                            color="secondary"
+                                            label={
+                                              aiModel?.startsWith('gpt-5') 
+                                                ? 'T=1.0 (fixed)' 
+                                                : `T=${aiTemperature}`
+                                            }
+                                            color={aiModel?.startsWith('gpt-5') ? 'warning' : 'secondary'}
                                             variant="outlined"
+                                            icon={aiModel?.startsWith('gpt-5') ? <span>🔒</span> : undefined}
                                           />
                                         )}
                                       </Box>
