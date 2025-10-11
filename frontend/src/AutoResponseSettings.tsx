@@ -1842,9 +1842,16 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                 aiModel?.startsWith('gpt-5') && aiModel.includes('nano') ? '~50k tokens' :
                                 aiModel?.startsWith('gpt-5') && aiModel.includes('mini') ? '~200k tokens' :
                                 aiModel?.startsWith('gpt-5') ? '~400k tokens (4x GPT-4o!)' :
+                                aiModel?.startsWith('gpt-4.1') ? '~128k tokens' :
                                 '~128k tokens'
                               }
                             </Typography>
+                            
+                            {(aiModel?.startsWith('gpt-5') || aiModel?.startsWith('o1')) && (
+                              <Typography variant="caption" sx={{ display: 'block', mt: 0.5, fontWeight: 600, color: 'rgba(255,220,100,1)' }}>
+                                🧠 <strong>Auto Token Allocation:</strong> System automatically allocates {aiModel?.includes('nano') ? '3x' : aiModel?.includes('mini') ? '4x' : '5x'} tokens for reasoning + text generation
+                              </Typography>
+                            )}
                             
                             <Typography variant="caption" sx={{ display: 'block', mt: 0.5, fontWeight: 600, color: '#fff' }}>
                               🕐 <strong>Greeting:</strong> Time-based (Good morning/afternoon/evening) based on business timezone
@@ -2092,10 +2099,24 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                             </Box>
                                           </MenuItem>
 
-                                          <MenuItem value="gpt-4o-realtime">
+                                          <MenuItem value="gpt-4.1">
                                             <Box>
-                                              <Typography variant="body2">GPT-4o Realtime <Chip label="Low Latency" size="small" color="warning" sx={{ ml: 1 }} /></Typography>
-                                              <Typography variant="caption" color="text.secondary">🎙️ Real-time streaming for instant chatbot responses (voice/chat scenarios)</Typography>
+                                              <Typography variant="body2">GPT-4.1 <Chip label="Enhanced" size="small" color="primary" sx={{ ml: 1 }} /></Typography>
+                                              <Typography variant="caption" color="text.secondary">🔧 Improved GPT-4 with better instruction following and reasoning</Typography>
+                                            </Box>
+                                          </MenuItem>
+
+                                          <MenuItem value="gpt-4.1-mini">
+                                            <Box>
+                                              <Typography variant="body2">GPT-4.1 Mini <Chip label="Efficient" size="small" color="info" sx={{ ml: 1 }} /></Typography>
+                                              <Typography variant="caption" color="text.secondary">⚡ Faster GPT-4.1 version, great balance of speed and quality</Typography>
+                                            </Box>
+                                          </MenuItem>
+
+                                          <MenuItem value="gpt-4.1-nano">
+                                            <Box>
+                                              <Typography variant="body2">GPT-4.1 Nano <Chip label="Speed" size="small" color="success" sx={{ ml: 1 }} /></Typography>
+                                              <Typography variant="caption" color="text.secondary">⚡⚡ Ultra-fast for high-volume simple responses</Typography>
                                             </Box>
                                           </MenuItem>
                                         </Select>

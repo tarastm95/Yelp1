@@ -3,7 +3,8 @@ import logging
 import time
 import json
 import re
-from typing import Optional, Dict, Any
+import tiktoken
+from typing import Optional, Dict, Any, List
 from django.conf import settings
 from django.utils import timezone
 from django.core.cache import cache
@@ -594,27 +595,135 @@ Respond to the customer."""
                 {"role": "user", "content": user_prompt}
             ]
 
-    def _get_api_params_for_model(self, model: str, messages: list, max_tokens: int, temperature: float) -> dict:
-        """Отримання параметрів API з урахуванням обмежень моделі"""
+    def _calculate_smart_token_budget(self, model: str, messages: List[dict], desired_response_tokens: int) -> dict:
+        """Автоматично розраховує оптимальний бюджет токенів для моделі"""
         
+        try:
+            # 1. Отримати правильний токенізатор для моделі
+            try:
+                encoding = tiktoken.encoding_for_model(model)
+            except KeyError:
+                # Fallback для невідомих моделей
+                encoding = tiktoken.get_encoding("cl100k_base")
+                logger.info(f"[AI-SERVICE] Using fallback tokenizer (cl100k_base) for model: {model}")
+            
+            # 2. Підрахувати токени в промпті
+            prompt_tokens = 0
+            for msg in messages:
+                content = msg.get('content', '')
+                prompt_tokens += len(encoding.encode(content))
+                prompt_tokens += 4  # Overhead для ролі та форматування
+            
+            logger.info(f"[AI-SERVICE] 📊 Prompt tokens: {prompt_tokens}")
+            
+            # 3. Визначити context window для моделі
+            context_windows = {
+                'gpt-4o': 128000,
+                'gpt-4o-mini': 128000,
+                'gpt-5': 400000,
+                'gpt-5-mini': 200000,
+                'gpt-5-nano': 50000,
+                'gpt-4.1': 128000,
+                'gpt-4.1-mini': 128000,
+                'gpt-4.1-nano': 128000,
+                'o1': 200000,
+                'o1-mini': 128000,
+            }
+            
+            # Знайти ліміт для моделі (prefix matching)
+            model_limit = 128000  # Safe default
+            for prefix, limit in context_windows.items():
+                if model.startswith(prefix):
+                    model_limit = limit
+                    break
+            
+            # 4. Розрахувати доступні токени
+            available_tokens = model_limit - prompt_tokens
+            
+            logger.info(f"[AI-SERVICE] 📦 Model '{model}' context window: {model_limit:,} tokens")
+            logger.info(f"[AI-SERVICE] 🆓 Available for response: {available_tokens:,} tokens")
+            
+            # 5. Розумний розподіл для reasoning моделей
+            if model.startswith('gpt-5') or model.startswith('o1'):
+                # Reasoning моделі потребують токени для thinking + text
+                # Множник залежить від моделі
+                if model.startswith('gpt-5-nano') or model.startswith('o1-mini'):
+                    multiplier = 3  # Легші моделі - менше reasoning
+                elif model.startswith('gpt-5-mini'):
+                    multiplier = 4
+                else:
+                    multiplier = 5  # Full GPT-5, o1 - більше reasoning
+                
+                smart_budget = desired_response_tokens * multiplier
+                
+                # Не перевищувати доступні токени
+                smart_budget = min(smart_budget, available_tokens)
+                
+                logger.info(f"[AI-SERVICE] 🧠 Reasoning model detected")
+                logger.info(f"[AI-SERVICE] 📈 Smart budget: {desired_response_tokens} × {multiplier} = {smart_budget} tokens")
+                logger.info(f"[AI-SERVICE]    └─ Estimated: ~{smart_budget*0.6:.0f} reasoning + ~{smart_budget*0.4:.0f} text")
+                
+                return {
+                    'budget': smart_budget,
+                    'is_reasoning': True,
+                    'multiplier': multiplier
+                }
+            else:
+                # Стандартні моделі - використовуємо запитане значення
+                smart_budget = min(desired_response_tokens, available_tokens)
+                
+                logger.info(f"[AI-SERVICE] 📝 Standard model: using {smart_budget} tokens")
+                
+                return {
+                    'budget': smart_budget,
+                    'is_reasoning': False,
+                    'multiplier': 1
+                }
+                
+        except Exception as e:
+            logger.error(f"[AI-SERVICE] Error calculating token budget: {e}")
+            # Fallback до простої логіки
+            multiplier = 4 if (model.startswith('gpt-5') or model.startswith('o1')) else 1
+            return {
+                'budget': desired_response_tokens * multiplier,
+                'is_reasoning': model.startswith('gpt-5') or model.startswith('o1'),
+                'multiplier': multiplier
+            }
+
+    def _get_api_params_for_model(self, model: str, messages: list, max_tokens: int, temperature: float) -> dict:
+        """Отримання параметрів API з автоматичним розрахунком токенів"""
+        
+        # 1. Автоматично розрахувати оптимальний бюджет токенів
+        token_calc = self._calculate_smart_token_budget(model, messages, max_tokens)
+        smart_budget = token_calc['budget']
+        
+        logger.info(f"[AI-SERVICE] 🎯 Auto-calculated token budget: {smart_budget} (multiplier: {token_calc['multiplier']}x)")
+        
+        # 2. Підготувати параметри
         params = {
             "model": model,
             "messages": messages
         }
         
+        # 3. Додати параметри залежно від типу моделі
         if model.startswith("o1"):
-            # o1 моделі не підтримують temperature та max_tokens
-            logger.info(f"[AI-SERVICE] o1 model: skipping temperature and max_tokens parameters")
+            # o1 моделі - reasoning без temperature
+            params["max_completion_tokens"] = smart_budget
+            logger.info(f"[AI-SERVICE] o1 reasoning model: max_completion_tokens={smart_budget}")
         elif model.startswith("gpt-5"):
-            # ✅ GPT-5 використовує max_completion_tokens замість max_tokens
-            params["max_completion_tokens"] = max_tokens
-            # GPT-5 має fixed temperature = 1.0 (не підтримує налаштування)
-            logger.info(f"[AI-SERVICE] GPT-5 model: using max_completion_tokens={max_tokens} (fixed temperature=1.0)")
-        else:
-            # Стандартні моделі підтримують max_tokens
-            params["max_tokens"] = max_tokens
+            # GPT-5 - reasoning без temperature
+            params["max_completion_tokens"] = smart_budget
+            logger.info(f"[AI-SERVICE] GPT-5 reasoning model: max_completion_tokens={smart_budget} (fixed temperature=1.0)")
+        elif model.startswith("gpt-4.1"):
+            # GPT-4.1 - стандартна модель
+            params["max_tokens"] = smart_budget
             params["temperature"] = temperature
-            logger.info(f"[AI-SERVICE] Standard model: using max_tokens and temperature")
+            logger.info(f"[AI-SERVICE] GPT-4.1 model: max_tokens={smart_budget}, temperature={temperature}")
+        else:
+            # Стандартні моделі (GPT-4o, GPT-4o-mini, тощо)
+            params["max_tokens"] = smart_budget
+            params["temperature"] = temperature
+            logger.info(f"[AI-SERVICE] Standard model: max_tokens={smart_budget}, temperature={temperature}")
         
         return params
     

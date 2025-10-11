@@ -14,10 +14,12 @@ class AISettingsAdminForm(forms.ModelForm):
     MODEL_CHOICES = [
         ('gpt-4o', 'GPT-4o (Default) - Best quality and compliance with instructions'),
         ('gpt-4o-mini', 'GPT-4o Mini (Budget) - Fastest & most cost-effective'),
-        ('gpt-5', 'GPT-5 (Flagship) - Large context window (~400k tokens), best for RAG'),
-        ('gpt-5-mini', 'GPT-5 Mini (Fast) - Faster & cheaper GPT-5 version'),
-        ('gpt-5-nano', 'GPT-5 Nano (Ultra-Fast) - Lightest version for high-volume scenarios'),
-        ('gpt-4o-realtime', 'GPT-4o Realtime (Low Latency) - Real-time streaming for instant responses'),
+        ('gpt-4.1', 'GPT-4.1 (Enhanced) - Improved instruction following and reasoning'),
+        ('gpt-4.1-mini', 'GPT-4.1 Mini (Efficient) - Fast GPT-4.1 variant'),
+        ('gpt-4.1-nano', 'GPT-4.1 Nano (Speed) - Ultra-fast for high-volume'),
+        ('gpt-5', 'GPT-5 (Flagship) - Large context window (~400k tokens), reasoning router'),
+        ('gpt-5-mini', 'GPT-5 Mini (Fast) - Faster GPT-5 with reasoning capabilities'),
+        ('gpt-5-nano', 'GPT-5 Nano (Ultra-Fast) - Lightest GPT-5 variant'),
     ]
     
     openai_model = forms.ChoiceField(
