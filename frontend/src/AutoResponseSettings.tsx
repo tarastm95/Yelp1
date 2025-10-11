@@ -225,6 +225,11 @@ const AutoResponseSettings: FC = () => {
   const [smsOnCustomerReply, setSmsOnCustomerReply] = useState(true);
   const [smsOnPhoneOptIn, setSmsOnPhoneOptIn] = useState(true);
 
+  // 🔔 Model Save Notification
+  const [modelSaveSnackbar, setModelSaveSnackbar] = useState(false);
+  const [modelSaveMessage, setModelSaveMessage] = useState('');
+  const [modelSaveSuccess, setModelSaveSuccess] = useState(true);
+
   // follow-up templates
   const [templates, setTemplates] = useState<FollowUpTemplate[]>([]);
   const [newText, setNewText] = useState('');
@@ -852,10 +857,24 @@ const AutoResponseSettings: FC = () => {
         sms_on_phone_opt_in: smsOnPhoneOptIn,
       });
       
-      // Show brief success indicator (optional)
+      // ✅ Show success notification
+      if (newAiModel !== undefined) {
+        setModelSaveMessage(`✅ Model "${newAiModel}" saved successfully!`);
+        setModelSaveSuccess(true);
+        setModelSaveSnackbar(true);
+      } else if (newAiTemperature !== undefined) {
+        setModelSaveMessage(`✅ Temperature ${newAiTemperature} saved successfully!`);
+        setModelSaveSuccess(true);
+        setModelSaveSnackbar(true);
+      }
+      
       console.log('AI model settings auto-saved');
     } catch (error) {
       console.error('Failed to auto-save AI model settings:', error);
+      // ❌ Show error notification
+      setModelSaveMessage('❌ Failed to save AI model settings');
+      setModelSaveSuccess(false);
+      setModelSaveSnackbar(true);
       // Could show a brief error message here if desired
     }
   };
@@ -3795,6 +3814,23 @@ In what location do you need the service?
             {error}
           </Alert>
         ) : undefined}
+      </Snackbar>
+
+      {/* 🔔 Model Save Notification Snackbar */}
+      <Snackbar
+        open={modelSaveSnackbar}
+        autoHideDuration={3000}
+        onClose={() => setModelSaveSnackbar(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert 
+          onClose={() => setModelSaveSnackbar(false)} 
+          severity={modelSaveSuccess ? "success" : "error"}
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          {modelSaveMessage}
+        </Alert>
       </Snackbar>
     </Container>
   );
