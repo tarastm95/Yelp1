@@ -2235,13 +2235,13 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                                 <td style={{ padding: '8px' }}>gpt-4o</td>
                                                 <td style={{ padding: '8px', textAlign: 'center' }}>1x</td>
                                                 <td style={{ padding: '8px', textAlign: 'center' }}>✅ 100%</td>
-                                                <td style={{ padding: '8px' }}>Default для більшості</td>
+                                                <td style={{ padding: '8px' }}>Default for most cases</td>
                                               </tr>
                                               <tr style={{ borderBottom: '1px solid #f0f0f0', backgroundColor: aiModel === 'gpt-4o-mini' ? '#e3f2fd' : 'transparent' }}>
                                                 <td style={{ padding: '8px' }}>gpt-4o-mini</td>
                                                 <td style={{ padding: '8px', textAlign: 'center' }}>1x</td>
                                                 <td style={{ padding: '8px', textAlign: 'center' }}>✅ 100%</td>
-                                                <td style={{ padding: '8px' }}>Бюджетний варіант</td>
+                                                <td style={{ padding: '8px' }}>Budget-friendly option</td>
                                               </tr>
                                               <tr style={{ borderBottom: '1px solid #f0f0f0', backgroundColor: aiModel === 'gpt-4.1' ? '#e3f2fd' : 'transparent' }}>
                                                 <td style={{ padding: '8px' }}>
@@ -2249,7 +2249,7 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                                 </td>
                                                 <td style={{ padding: '8px', textAlign: 'center' }}>1x</td>
                                                 <td style={{ padding: '8px', textAlign: 'center' }}>✅ 100%</td>
-                                                <td style={{ padding: '8px' }}>Покращена якість</td>
+                                                <td style={{ padding: '8px' }}>Enhanced quality</td>
                                               </tr>
                                               <tr style={{ borderBottom: '1px solid #f0f0f0', backgroundColor: aiModel === 'gpt-4.1-mini' ? '#e3f2fd' : 'transparent' }}>
                                                 <td style={{ padding: '8px' }}>
@@ -2257,7 +2257,7 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                                 </td>
                                                 <td style={{ padding: '8px', textAlign: 'center' }}>1x</td>
                                                 <td style={{ padding: '8px', textAlign: 'center' }}>✅ 100%</td>
-                                                <td style={{ padding: '8px' }}>Швидкість+якість</td>
+                                                <td style={{ padding: '8px' }}>Speed + quality balance</td>
                                               </tr>
                                               <tr style={{ borderBottom: '1px solid #f0f0f0', backgroundColor: aiModel === 'gpt-4.1-nano' ? '#e3f2fd' : 'transparent' }}>
                                                 <td style={{ padding: '8px' }}>
@@ -2265,7 +2265,7 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                                 </td>
                                                 <td style={{ padding: '8px', textAlign: 'center' }}>1x</td>
                                                 <td style={{ padding: '8px', textAlign: 'center' }}>✅ 100%</td>
-                                                <td style={{ padding: '8px' }}>Максимальна швидкість</td>
+                                                <td style={{ padding: '8px' }}>Maximum speed</td>
                                               </tr>
                                               <tr style={{ borderBottom: '1px solid #f0f0f0', backgroundColor: aiModel === 'gpt-5' ? '#fff3e0' : 'transparent' }}>
                                                 <td style={{ padding: '8px' }}>
@@ -2275,7 +2275,7 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                                   <Chip label="5x" size="small" color="warning" sx={{ fontWeight: 600 }} />
                                                 </td>
                                                 <td style={{ padding: '8px', textAlign: 'center' }}>✅ 100%</td>
-                                                <td style={{ padding: '8px' }}>Великі документи RAG</td>
+                                                <td style={{ padding: '8px' }}>Large document RAG</td>
                                               </tr>
                                               <tr style={{ borderBottom: '1px solid #f0f0f0', backgroundColor: aiModel === 'gpt-5-mini' ? '#fff3e0' : 'transparent' }}>
                                                 <td style={{ padding: '8px' }}>
@@ -2285,7 +2285,7 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                                   <Chip label="4x" size="small" color="info" sx={{ fontWeight: 600 }} />
                                                 </td>
                                                 <td style={{ padding: '8px', textAlign: 'center' }}>✅ 100%</td>
-                                                <td style={{ padding: '8px' }}>Балансований GPT-5</td>
+                                                <td style={{ padding: '8px' }}>Balanced GPT-5</td>
                                               </tr>
                                               <tr style={{ borderBottom: '1px solid #f0f0f0', backgroundColor: aiModel === 'gpt-5-nano' ? '#fff3e0' : 'transparent' }}>
                                                 <td style={{ padding: '8px' }}>
@@ -2295,10 +2295,18 @@ AVOID: Generic responses, overly formal language, sales pressure`;
                                                   <Chip label="3x" size="small" color="success" sx={{ fontWeight: 600 }} />
                                                 </td>
                                                 <td style={{ padding: '8px', textAlign: 'center' }}>✅ 100%</td>
-                                                <td style={{ padding: '8px' }}>Швидкий GPT-5</td>
+                                                <td style={{ padding: '8px' }}>Fast GPT-5</td>
                                               </tr>
                                             </tbody>
                                           </table>
+                                        </Box>
+                                        
+                                        <Alert severity="info" sx={{ mt: 2, fontSize: '0.75rem' }}>
+                                          <Typography variant="caption">
+                                            <strong>🧠 Token Multiplier:</strong> Reasoning models (GPT-5) automatically receive extra tokens for thinking process. 
+                                            Example: requesting 500 tokens → GPT-5 gets 2,500 tokens (500 × 5) to ensure complete responses with reasoning.
+                                          </Typography>
+                                        </Alert>
                                         </Box>
                                         
                                         <Alert severity="info" sx={{ mt: 2, fontSize: '0.75rem' }}>
