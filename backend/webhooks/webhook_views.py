@@ -1860,8 +1860,13 @@ class WebhookView(APIView):
                 should_send_sms = getattr(auto_settings, 'sms_on_phone_found', False)
                 sms_reason_field = "sms_on_phone_found"
             else:
-                should_send_sms = getattr(auto_settings, 'sms_on_customer_reply', False)
-                sms_reason_field = "sms_on_customer_reply"
+                # ⚠️ IMPORTANT: Customer Reply SMS should NOT be sent for NEW leads
+                # It should only be sent when customer actually replies
+                # This is handled by _send_customer_reply_sms_only() in webhook processing
+                should_send_sms = False
+                sms_reason_field = "sms_on_customer_reply (DISABLED for auto-response)"
+                logger.info(f"[AUTO-RESPONSE] 🚫 Customer Reply SMS disabled in _process_auto_response")
+                logger.info(f"[AUTO-RESPONSE] Customer Reply SMS is handled by _send_customer_reply_sms_only()")
             
             final_sms_decision = should_send_sms and auto_settings.enabled
             logger.info(f"[AUTO-RESPONSE] 📲 SMS PROCESSING FOR SCENARIO '{reason}':")
@@ -2394,24 +2399,12 @@ class WebhookView(APIView):
                     logger.info(f"[AUTO-RESPONSE] ✅ AI service is available")
                     logger.info(f"[AUTO-RESPONSE] Proceeding with AI generation...")
                     
-                    # Підготовка налаштувань бізнес-інформації для AI
-                    business_data_settings = {
-                        "include_rating": getattr(auto_settings, 'ai_include_rating', True),
-                        "include_categories": getattr(auto_settings, 'ai_include_categories', True),
-                        "include_phone": getattr(auto_settings, 'ai_include_phone', True),
-                        "include_website": getattr(auto_settings, 'ai_include_website', False),
-                        "include_price_range": getattr(auto_settings, 'ai_include_price_range', True),
-                        "include_hours": getattr(auto_settings, 'ai_include_hours', True),
-                        "include_reviews_count": getattr(auto_settings, 'ai_include_reviews_count', True),
-                        "include_address": getattr(auto_settings, 'ai_include_address', False),
-                        "include_transactions": getattr(auto_settings, 'ai_include_transactions', False)
-                    }
-                    
+                    # ✅ All business data passed to AI - Custom Instructions control what to include
                     logger.info(f"[AUTO-RESPONSE] AI generation parameters:")
-                    # All AI behavior controlled via Custom Instructions
                     logger.info(f"[AUTO-RESPONSE] - is_off_hours: {not within_hours}")
                     logger.info(f"[AUTO-RESPONSE] - custom_prompt available: {getattr(auto_settings, 'ai_custom_prompt', None) is not None}")
-                    logger.info(f"[AUTO-RESPONSE] - business data: automatically available for Custom Instructions")
+                    logger.info(f"[AUTO-RESPONSE] - business data: ALL business information passed to Custom Instructions")
+                    logger.info(f"[AUTO-RESPONSE] - Custom Instructions control what business data to include in response")
                     
                     logger.info(f"[AUTO-RESPONSE] Calling AI service...")
                     
@@ -2471,7 +2464,6 @@ class WebhookView(APIView):
                             is_off_hours=not within_hours,
                             # All AI behavior controlled via Custom Instructions
                             custom_prompt=getattr(auto_settings, 'ai_custom_prompt', None),
-                            business_data_settings=business_data_settings,
                             max_length=None,  # ✅ Auto-detect, ignore deprecated ai_max_message_length
                             business_ai_settings=auto_settings  # 🏢 Передаємо business AI налаштування
                         )

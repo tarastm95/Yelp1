@@ -99,21 +99,9 @@ class AutoResponseSettingsView(APIView):
                 greeting_delay=0,
                 # 🤖 AI Settings with proper defaults
                 use_ai_greeting=False,
-                ai_response_style='auto',
-                ai_include_location=False,
-                ai_mention_response_time=False,
                 ai_custom_prompt='',
-                # 📊 AI Business Data Settings
-                ai_include_rating=True,
-                ai_include_categories=True,
-                ai_include_phone=True,
-                ai_include_website=False,
-                ai_include_price_range=True,
-                ai_include_hours=True,
-                ai_include_reviews_count=True,
-                ai_include_address=False,
-                ai_include_transactions=False,
-                ai_max_message_length=160,  # 🎯 Ось тут проблема!
+                # ✅ AI Business Data Settings REMOVED - all data passed to Custom Instructions
+                ai_max_message_length=160,
                 # 🤖 Business-specific AI Model Settings
                 ai_model='',  # Empty = use global
                 ai_temperature=None,  # None = use global

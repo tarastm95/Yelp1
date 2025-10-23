@@ -107,7 +107,6 @@ class OpenAIService:
         is_off_hours: bool = False,
         # All AI behavior controlled via Custom Instructions (location, response time, business data, style)
         custom_prompt: Optional[str] = None,
-        business_data_settings: Optional[Dict[str, bool]] = None,
         max_length: Optional[int] = None,
         business_ai_settings: Optional['AutoResponseSettings'] = None
     ) -> Optional[str]:
@@ -126,7 +125,7 @@ class OpenAIService:
         logger.info(f"[AI-SERVICE] - is_off_hours: {is_off_hours}")
         # All AI behavior controlled via Custom Instructions
         logger.info(f"[AI-SERVICE] - custom_prompt provided: {custom_prompt is not None}")
-        logger.info(f"[AI-SERVICE] - business_data_settings: {business_data_settings}")
+        logger.info(f"[AI-SERVICE] - All business data passed to Custom Instructions")
         
         if not self.is_available():
             logger.error("[AI-SERVICE] ❌ OpenAI client not available")
@@ -143,10 +142,9 @@ class OpenAIService:
         try:
             logger.info(f"[AI-SERVICE] 🔄 Preparing lead context...")
             
-            # Підготовка контексту для AI
+            # Підготовка контексту для AI - all business data passed, Custom Instructions control usage
             context = self._prepare_lead_context(
-                lead_detail, business, is_off_hours, 
-                business_data_settings, custom_prompt
+                lead_detail, business, is_off_hours, custom_prompt
             )
             
             logger.info(f"[AI-SERVICE] ✅ Lead context prepared:")
@@ -732,14 +730,16 @@ Respond to the customer."""
         lead_detail: LeadDetail, 
         business: Optional[YelpBusiness],
         is_off_hours: bool,
-        # All AI behavior controlled via Custom Instructions (location, response time, business data, style)
-        business_data_settings: Optional[Dict[str, bool]] = None,
         custom_prompt: Optional[str] = None
     ) -> Dict[str, Any]:
-        """Підготовка контексту ліда для AI з повною інформацією про бізнес"""
+        """Підготовка контексту ліда для AI з повною інформацією про бізнес
         
-        # Налаштування за замовчуванням
-        if not business_data_settings:
+        ✅ All business data is passed to AI - Custom Instructions control what to include
+        """
+        
+        # ✅ REMOVED: business_data_settings - all business data passed to Custom Instructions
+        # Custom Instructions will decide what business information to include in the response
+        if False:  # Placeholder for removed code
             business_data_settings = {
                 "include_rating": True,
                 "include_categories": True,
@@ -786,47 +786,46 @@ Respond to the customer."""
             "business_id": business.business_id
         }
         
-        # Додаємо дані з details JSON на основі налаштувань
+        # ✅ Додаємо ВСІ дані з details JSON - Custom Instructions контролюють що використовувати
         if business.details:
             details = business.details
             
-            # Рейтинг та відгуки
-            if business_data_settings.get("include_rating") and details.get("rating"):
+            # Рейтинг та відгуки - завжди передаємо якщо є
+            if details.get("rating"):
                 business_data["rating"] = details.get("rating", 0)
-                if business_data_settings.get("include_reviews_count"):
-                    business_data["review_count"] = details.get("review_count", 0)
+                business_data["review_count"] = details.get("review_count", 0)
             
-            # Категорії бізнесу
-            if business_data_settings.get("include_categories") and details.get("categories"):
+            # Категорії бізнесу - завжди передаємо якщо є
+            if details.get("categories"):
                 business_data["categories"] = [cat.get("title", "") for cat in details.get("categories", [])]
                 business_data["category_aliases"] = [cat.get("alias", "") for cat in details.get("categories", [])]
             
-            # Контактна інформація
-            if business_data_settings.get("include_phone") and details.get("phone"):
+            # Контактна інформація - завжди передаємо якщо є
+            if details.get("phone"):
                 business_data["phone"] = details.get("phone", "")
             
-            if business_data_settings.get("include_website") and details.get("url"):
+            if details.get("url"):
                 business_data["website"] = details.get("url", "")
             
-            # Ціновий діапазон
-            if business_data_settings.get("include_price_range") and details.get("price"):
+            # Ціновий діапазон - завжди передаємо якщо є
+            if details.get("price"):
                 business_data["price"] = details.get("price", "")
             
-            # Адреса
-            if business_data_settings.get("include_address") and details.get("location"):
+            # Адреса - завжди передаємо якщо є
+            if details.get("location"):
                 location_data = details.get("location", {})
                 business_data["address"] = location_data.get("display_address", [])
                 business_data["city"] = location_data.get("city", "")
                 business_data["state"] = location_data.get("state", "")
                 business_data["zip_code"] = location_data.get("zip_code", "")
             
-            # Робочі години
-            if business_data_settings.get("include_hours") and details.get("hours"):
+            # Робочі години - завжди передаємо якщо є
+            if details.get("hours"):
                 business_data["hours_detailed"] = details.get("hours", [])
                 business_data["is_open_now"] = details.get("hours", [{}])[0].get("is_open_now", False) if details.get("hours") else False
             
-            # Транзакції та послуги
-            if business_data_settings.get("include_transactions") and details.get("transactions"):
+            # Транзакції та послуги - завжди передаємо якщо є
+            if details.get("transactions"):
                 business_data["transactions"] = details.get("transactions", [])
             
             # Додаткові дані (завжди включаємо для розширених можливостей)
@@ -841,8 +840,8 @@ Respond to the customer."""
         context.update({
             "business_name": business.name,
             "business_location": business.location if business.location else "",
-            "business_data": business_data,
-            "business_data_settings": business_data_settings
+            "business_data": business_data
+            # ✅ business_data_settings REMOVED - all data passed, Custom Instructions control usage
         })
         
         # 🎯 CONTEXTUAL AI: Більше не потрібен парсинг плейсхолдерів 
@@ -1058,27 +1057,26 @@ Respond to the customer using the examples above as style reference."""
         # 🔧 Якщо немає ні custom prompt, ні vector context - використовуємо базовий prompt з business data
         logger.info(f"[AI-SERVICE] 💼 No custom instructions/vector context - using basic prompt with business data")
         
-        # Формуємо базовий prompt з business data
+        # ✅ Формуємо базовий prompt з ВСЮ business data - Custom Instructions контролюють що використовувати
         customer_text = context.get('original_customer_text', '')
         customer_name = context.get('customer_name', 'there')
         business_name = context.get('business_name', 'our business')
         business_data = context.get('business_data', {})
-        business_data_settings = context.get('business_data_settings', {})
         
-        # Формуємо business information для базового prompt
+        # ✅ Формуємо business information - включаємо ВСІ доступні дані
         business_info_parts = []
         
-        # Rating and reviews
-        if business_data_settings.get('include_rating') and business_data.get('rating'):
+        # Rating and reviews - завжди включаємо якщо є
+        if business_data.get('rating'):
             rating = business_data['rating']
             review_count = business_data.get('review_count', 0)
-            if business_data_settings.get('include_reviews_count') and review_count > 0:
+            if review_count > 0:
                 business_info_parts.append(f"Rating: {rating}/5 stars ({review_count} reviews)")
             else:
                 business_info_parts.append(f"Rating: {rating}/5 stars")
         
-        # Categories
-        if business_data_settings.get('include_categories') and business_data.get('categories'):
+        # Categories - завжди включаємо якщо є
+        if business_data.get('categories'):
             category_titles = []
             for cat in business_data['categories'][:3]:
                 if isinstance(cat, dict):
@@ -1088,15 +1086,24 @@ Respond to the customer using the examples above as style reference."""
             if category_titles:
                 business_info_parts.append(f"Specializes in: {', '.join(category_titles)}")
         
-        # Phone
-        if business_data_settings.get('include_phone') and business_data.get('phone'):
+        # Phone - завжди включаємо якщо є
+        if business_data.get('phone'):
             business_info_parts.append(f"Phone: {business_data['phone']}")
         
-        # Price range
-        if business_data_settings.get('include_price_range') and business_data.get('price'):
+        # Website - завжди включаємо якщо є
+        if business_data.get('website'):
+            business_info_parts.append(f"Website: {business_data['website']}")
+        
+        # Price range - завжди включаємо якщо є
+        if business_data.get('price'):
             business_info_parts.append(f"Price range: {business_data['price']}")
         
-        business_info = "\n".join(business_info_parts) if business_info_parts else "No additional business information configured."
+        # Address - завжди включаємо якщо є
+        if business_data.get('address'):
+            address_str = ", ".join(business_data['address']) if isinstance(business_data['address'], list) else business_data['address']
+            business_info_parts.append(f"Address: {address_str}")
+        
+        business_info = "\n".join(business_info_parts) if business_info_parts else "No additional business information available."
         
         # ✅ No hard length limits - AI determines natural length
         length_instruction = ""

@@ -232,7 +232,7 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
     if existing_tasks.exists():
         logger.info(f"[FOLLOW-UP] Existing LeadPendingTask details:")
         for i, task in enumerate(existing_tasks[:3]):  # Show first 3
-            logger.info(f"[FOLLOW-UP] Task {i+1}: ID={task.pk}, task_id='{task.task_id}', active={task.active}, phone_opt_in={task.phone_opt_in}, phone_available={task.phone_available}")
+            logger.info(f"[FOLLOW-UP] Task {i+1}: ID={task.pk}, task_id='{task.task_id}', active={task.active}, phone_available={task.phone_available}")
     
     logger.info(f"[FOLLOW-UP] =====================================")
 

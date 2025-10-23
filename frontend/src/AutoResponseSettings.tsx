@@ -67,6 +67,8 @@ import NotificationSettings from './NotificationSettings';
 import SampleRepliesManager from './SampleRepliesManager';
 import WarningIcon from '@mui/icons-material/Warning';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import ToggleOnIcon from '@mui/icons-material/ToggleOn';
+import ToggleOffIcon from '@mui/icons-material/ToggleOff';
 
 // Helper placeholders used in message templates
 
@@ -221,9 +223,7 @@ const AutoResponseSettings: FC = () => {
   const [vectorChunkTypes, setVectorChunkTypes] = useState<string[]>([]);
 
   // 📱 SMS Notification Settings
-  const [smsOnPhoneFound, setSmsOnPhoneFound] = useState(true);
-  const [smsOnCustomerReply, setSmsOnCustomerReply] = useState(true);
-  const [smsOnPhoneOptIn, setSmsOnPhoneOptIn] = useState(true);
+  // (Moved to NotificationSettings component)
 
   // 🔔 Model Save Notification
   const [modelSaveSnackbar, setModelSaveSnackbar] = useState(false);
@@ -418,10 +418,7 @@ const AutoResponseSettings: FC = () => {
           setVectorSearchLimit(d.vector_search_limit ?? 5);
           setVectorChunkTypes(d.vector_chunk_types ?? []);
           
-          // Set SMS Notification Settings
-          setSmsOnPhoneFound(d.sms_on_phone_found ?? true);
-          setSmsOnCustomerReply(d.sms_on_customer_reply ?? true);
-          setSmsOnPhoneOptIn(d.sms_on_phone_opt_in ?? true);
+          // SMS Notification Settings are now managed in NotificationSettings component
           
           initialSettings.current = {
             enabled: d.enabled,
@@ -718,10 +715,7 @@ const AutoResponseSettings: FC = () => {
         // Business-specific AI Model Settings
         ai_model: aiModel,
         ai_temperature: aiTemperature === '' ? null : aiTemperature,
-        // SMS Notification Settings
-        sms_on_phone_found: smsOnPhoneFound,
-        sms_on_customer_reply: smsOnCustomerReply,
-        sms_on_phone_opt_in: smsOnPhoneOptIn,
+        // SMS Notification Settings are now managed in NotificationSettings component
       });
 
       setSettingsId(res.data.id);
@@ -743,10 +737,7 @@ const AutoResponseSettings: FC = () => {
         // AI Business Data Settings
         // Business data settings removed - controlled via Custom Instructions
         ai_max_message_length: aiMaxMessageLength,
-        // SMS Notification Settings
-        sms_on_phone_found: smsOnPhoneFound,
-        sms_on_customer_reply: smsOnCustomerReply,
-        sms_on_phone_opt_in: smsOnPhoneOptIn,
+        // SMS Notification Settings are now managed in NotificationSettings component
       };
 
       const params = new URLSearchParams();
@@ -851,10 +842,7 @@ const AutoResponseSettings: FC = () => {
         vector_similarity_threshold: vectorSimilarityThreshold,
         vector_search_limit: vectorSearchLimit,
         vector_chunk_types: vectorChunkTypes,
-        // SMS Notification Settings
-        sms_on_phone_found: smsOnPhoneFound,
-        sms_on_customer_reply: smsOnCustomerReply,
-        sms_on_phone_opt_in: smsOnPhoneOptIn,
+        // SMS Notification Settings are now managed in NotificationSettings component
       });
       
       // ✅ Show success notification
@@ -924,10 +912,7 @@ const AutoResponseSettings: FC = () => {
         vector_similarity_threshold: vectorSimilarityThreshold,
         vector_search_limit: vectorSearchLimit,
         vector_chunk_types: vectorChunkTypes,
-        // SMS Notification Settings
-        sms_on_phone_found: smsOnPhoneFound,
-        sms_on_customer_reply: smsOnCustomerReply,
-        sms_on_phone_opt_in: smsOnPhoneOptIn,
+        // SMS Notification Settings are now managed in NotificationSettings component
       });
       
       console.log('Vector search settings auto-saved');
@@ -1045,6 +1030,23 @@ const AutoResponseSettings: FC = () => {
         loadedTemplateIds.current = loadedTemplateIds.current.filter(id => id !== tplId);
       })
       .catch(() => setError('Failed to delete template.'));
+  };
+
+  // toggle template active status
+  const handleToggleTemplate = (tplId: number, currentActive: boolean) => {
+    const params = new URLSearchParams();
+    params.append('phone_opt_in', 'false');  // Always false - merged with No Phone
+    params.append('phone_available', phoneAvailable ? 'true' : 'false');
+    if (selectedBusiness) params.append('business_id', selectedBusiness);
+    const url = `/follow-up-templates/${tplId}/?${params.toString()}`;
+    
+    axios.patch(url, { active: !currentActive })
+      .then(() => {
+        setTemplates(prev => prev.map(t => 
+          t.id === tplId ? { ...t, active: !currentActive } : t
+        ));
+      })
+      .catch(() => setError('Failed to update template status.'));
   };
 
   const handleCloseSnackbar = () => {
@@ -3398,18 +3400,27 @@ In what location do you need the service?
                                       Working hours: {t.open_from} - {t.open_to}
                                     </Typography>
                                   </Box>
-                                  {t.active && (
-                                    <Chip 
-                                      label="Active" 
-                                      size="small" 
-                                      color="success" 
-                                      sx={{ height: 20, fontSize: '0.7rem' }}
-                                    />
-                                  )}
+                                  <Chip 
+                                    label={t.active ? "Active" : "Inactive"} 
+                                    size="small" 
+                                    color={t.active ? "success" : "default"} 
+                                    sx={{ height: 20, fontSize: '0.7rem' }}
+                                  />
                                 </Box>
                               </Box>
                               
                               <Box sx={{ display: 'flex', gap: 0.5 }}>
+                                <IconButton 
+                                  size="small" 
+                                  onClick={() => handleToggleTemplate(t.id, t.active)}
+                                  sx={{ 
+                                    color: t.active ? 'success.main' : 'grey.500',
+                                    '&:hover': { backgroundColor: t.active ? 'success.50' : 'grey.100' }
+                                  }}
+                                  title={t.active ? 'Disable template' : 'Enable template'}
+                                >
+                                  {t.active ? <ToggleOnIcon fontSize="small" /> : <ToggleOffIcon fontSize="small" />}
+                                </IconButton>
                                 <IconButton 
                                   size="small" 
                                   onClick={() => handleEditTemplate(t)}
@@ -3800,83 +3811,6 @@ In what location do you need the service?
                     </Stack>
                   </Box>
 
-                  {/* 📱 SMS Notification Center */}
-                  <Box sx={{ mt: 3 }}>
-                    <Typography variant="h6" sx={{ 
-                      mb: 2, 
-                      fontWeight: 600, 
-                      display: 'flex', 
-                      alignItems: 'center',
-                      color: 'primary.main'
-                    }}>
-                      📱 SMS Notification Center
-                    </Typography>
-                    <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>
-                      Configure when to send SMS messages to clients for each scenario
-                    </Typography>
-                    
-                    <Stack spacing={2}>
-                      <FormControlLabel
-                        control={
-                          <Switch 
-                            checked={smsOnPhoneFound} 
-                            onChange={e => setSmsOnPhoneFound(e.target.checked)}
-                            color="primary"
-                          />
-                        }
-                        label={
-                          <Box>
-                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                              📞 Phone Number Found
-                            </Typography>
-                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                              Send SMS when the system finds a phone number in the customer's message text
-                            </Typography>
-                          </Box>
-                        }
-                      />
-                      
-                      <FormControlLabel
-                        control={
-                          <Switch 
-                            checked={smsOnCustomerReply} 
-                            onChange={e => setSmsOnCustomerReply(e.target.checked)}
-                            color="primary"
-                          />
-                        }
-                        label={
-                          <Box>
-                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                              💬 Customer Reply
-                            </Typography>
-                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                              Send SMS when customer responds to messages (even without phone number)
-                            </Typography>
-                          </Box>
-                        }
-                      />
-                      
-                      <FormControlLabel
-                        control={
-                          <Switch 
-                            checked={smsOnPhoneOptIn} 
-                            onChange={e => setSmsOnPhoneOptIn(e.target.checked)}
-                            color="primary"
-                          />
-                        }
-                        label={
-                          <Box>
-                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                              ✅ Phone Opt-in
-                            </Typography>
-                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                              Send SMS when customer gives consent to use their phone number
-                            </Typography>
-                          </Box>
-                        }
-                      />
-                    </Stack>
-                  </Box>
 
                   {/* Save Action */}
                   <Box sx={{ textAlign: 'right', pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>

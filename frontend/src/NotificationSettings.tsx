@@ -23,6 +23,16 @@ import {
   Switch,
   FormControlLabel,
   FormGroup,
+  Tabs,
+  Tab,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Tooltip,
+  Collapse,
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -34,6 +44,11 @@ import {
   Save as SaveIcon,
   Close as CloseIcon,
   SmartButton as SmartButtonIcon,
+  Info as InfoIcon,
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon,
+  CheckCircle as CheckCircleIcon,
+  Cancel as CancelIcon,
 } from '@mui/icons-material';
 
 const PLACEHOLDERS = [
@@ -81,6 +96,16 @@ const NotificationSettings: React.FC<Props> = ({ businessId }) => {
   const [smsEnabled, setSmsEnabled] = useState<boolean>(false);
   const [smsLoading, setSmsLoading] = useState<boolean>(false);
   const [businessName, setBusinessName] = useState<string>('');
+  
+  // SMS Scenario Settings (початкові значення будуть завантажені з backend)
+  const [smsOnPhoneFound, setSmsOnPhoneFound] = useState<boolean>(true);
+  const [smsOnCustomerReply, setSmsOnCustomerReply] = useState<boolean>(true);
+  const [smsOnPhoneOptIn, setSmsOnPhoneOptIn] = useState<boolean>(true);
+  
+  // UI State
+  const [activeTab, setActiveTab] = useState(0);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  
   const templateRef = useRef<HTMLTextAreaElement | null>(null);
   const editTemplateRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -109,7 +134,6 @@ const NotificationSettings: React.FC<Props> = ({ businessId }) => {
 
   const loadSMSSettings = async () => {
     if (!businessId) {
-      // Business ID is required - no global settings support
       setSmsEnabled(false);
       setBusinessName('Business Required');
       setError('Business ID is required. SMS notifications are only available for specific businesses.');
@@ -149,9 +173,90 @@ const NotificationSettings: React.FC<Props> = ({ businessId }) => {
     }
   };
 
+  const loadSMSScenarios = async () => {
+    if (!businessId) return;
+    
+    try {
+      const params = new URLSearchParams();
+      params.append('business_id', businessId);
+      
+      console.log('[SMS-SCENARIOS] Loading SMS scenarios for business:', businessId);
+      
+      // Load settings for phone_available=false (Customer Reply + Phone Opt-in)
+      const noPhoneResponse = await axios.get(`/settings/auto-response/?${params.toString()}&phone_available=false`);
+      console.log('[SMS-SCENARIOS] No phone response:', noPhoneResponse.data);
+      if (noPhoneResponse.data) {
+        console.log('[SMS-SCENARIOS] Setting smsOnCustomerReply to:', noPhoneResponse.data.sms_on_customer_reply);
+        console.log('[SMS-SCENARIOS] Setting smsOnPhoneOptIn to:', noPhoneResponse.data.sms_on_phone_opt_in);
+        setSmsOnCustomerReply(noPhoneResponse.data.sms_on_customer_reply !== undefined ? noPhoneResponse.data.sms_on_customer_reply : true);
+        setSmsOnPhoneOptIn(noPhoneResponse.data.sms_on_phone_opt_in !== undefined ? noPhoneResponse.data.sms_on_phone_opt_in : true);
+      }
+      
+      // Load settings for phone_available=true (Phone Number Found)
+      const phoneResponse = await axios.get(`/settings/auto-response/?${params.toString()}&phone_available=true`);
+      console.log('[SMS-SCENARIOS] Phone response:', phoneResponse.data);
+      if (phoneResponse.data) {
+        console.log('[SMS-SCENARIOS] Setting smsOnPhoneFound to:', phoneResponse.data.sms_on_phone_found);
+        setSmsOnPhoneFound(phoneResponse.data.sms_on_phone_found !== undefined ? phoneResponse.data.sms_on_phone_found : true);
+      }
+      
+      console.log('[SMS-SCENARIOS] SMS scenarios loaded successfully');
+    } catch (error) {
+      console.error('[SMS-SCENARIOS] Failed to load SMS scenarios:', error);
+      setError('Failed to load SMS scenario settings');
+    }
+  };
+
+  const saveSMSScenarios = async (overrides?: {
+    smsOnPhoneFound?: boolean;
+    smsOnCustomerReply?: boolean;
+    smsOnPhoneOptIn?: boolean;
+  }) => {
+    if (!businessId) return;
+    
+    // Використовуємо нові значення якщо передані, інакше поточні state
+    const phoneFound = overrides?.smsOnPhoneFound !== undefined ? overrides.smsOnPhoneFound : smsOnPhoneFound;
+    const customerReply = overrides?.smsOnCustomerReply !== undefined ? overrides.smsOnCustomerReply : smsOnCustomerReply;
+    const phoneOptIn = overrides?.smsOnPhoneOptIn !== undefined ? overrides.smsOnPhoneOptIn : smsOnPhoneOptIn;
+    
+    try {
+      const params = new URLSearchParams();
+      params.append('business_id', businessId);
+      
+      console.log('[SMS-SCENARIOS] Saving SMS scenarios...');
+      console.log('[SMS-SCENARIOS] - smsOnCustomerReply:', customerReply);
+      console.log('[SMS-SCENARIOS] - smsOnPhoneOptIn:', phoneOptIn);
+      console.log('[SMS-SCENARIOS] - smsOnPhoneFound:', phoneFound);
+      
+      // Save settings for phone_available=false (Customer Reply + Phone Opt-in)
+      const noPhoneResult = await axios.put(`/settings/auto-response/?${params.toString()}&phone_available=false`, {
+        sms_on_customer_reply: customerReply,
+        sms_on_phone_opt_in: phoneOptIn,
+      });
+      console.log('[SMS-SCENARIOS] No phone settings saved:', noPhoneResult.data);
+      
+      // Save settings for phone_available=true (Phone Number Found)
+      const phoneResult = await axios.put(`/settings/auto-response/?${params.toString()}&phone_available=true`, {
+        sms_on_phone_found: phoneFound,
+      });
+      console.log('[SMS-SCENARIOS] Phone settings saved:', phoneResult.data);
+      
+      setSaved(true);
+      console.log('[SMS-SCENARIOS] ✅ SMS scenarios saved successfully');
+      
+      // ✅ НЕ перезавантажуємо дані одразу - це викликає "стрибки" тумблера
+      // Дані будуть перезавантажені при наступному завантаженні сторінки
+    } catch (error) {
+      console.error('[SMS-SCENARIOS] ❌ Failed to save SMS scenarios:', error);
+      setError('Failed to save SMS scenarios');
+    }
+  };
+
   useEffect(() => {
+    console.log('[NOTIFICATION-SETTINGS] useEffect triggered, businessId:', businessId);
     load();
     loadSMSSettings();
+    loadSMSScenarios();
   }, [businessId]);
 
   const handleSave = async () => {
@@ -215,275 +320,491 @@ const NotificationSettings: React.FC<Props> = ({ businessId }) => {
     }
   };
 
-  return (
-    <Box sx={{ py: 2 }}>
-      <Container maxWidth="lg">
-        {/* Section Header */}
-        <Box sx={{ mb: 4, textAlign: 'center' }}>
-          <Typography variant="h4" sx={{ fontWeight: 700, color: '#1a1a1a', mb: 1 }}>
-            📱 SMS Notification Center
-          </Typography>
-          <Typography variant="body1" sx={{ color: '#666', maxWidth: 600, mx: 'auto' }}>
-            Configure automated SMS notifications to stay informed about new leads and important business events in real-time
-          </Typography>
-        </Box>
+  const getScenarioIcon = (scenario: string) => {
+    switch (scenario) {
+      case 'phone_found': return '📞';
+      case 'customer_reply': return '💬';
+      case 'phone_opt_in': return '✅';
+      default: return '📱';
+    }
+  };
 
-        {/* SMS Enable/Disable Toggle */}
-        {businessId && (
-          <Paper elevation={2} sx={{ p: 3, mb: 3, border: '2px solid #e8f5e8' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <Box sx={{ 
-                  width: 40, 
-                  height: 40, 
-                  borderRadius: '50%', 
-                  backgroundColor: smsEnabled ? '#4caf50' : '#f5f5f5',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  mr: 2
-                }}>
-                  <NotificationsIcon sx={{ 
-                    fontSize: 20, 
-                    color: smsEnabled ? 'white' : '#999' 
-                  }} />
-                </Box>
-                <Box>
-                  <Typography variant="h6" sx={{ fontWeight: 600, color: '#1a1a1a' }}>
-                    SMS Notifications for {businessName}
-                  </Typography>
-                  <Typography variant="body2" sx={{ color: '#666' }}>
-                    {smsEnabled 
-                      ? 'SMS notifications are active - you will receive alerts for new leads' 
-                      : 'SMS notifications are disabled - no SMS alerts will be sent'
-                    }
-                  </Typography>
-                </Box>
-              </Box>
-              <FormGroup>
+  const getScenarioName = (scenario: string) => {
+    switch (scenario) {
+      case 'phone_found': return 'Phone Number Found';
+      case 'customer_reply': return 'Customer Reply';
+      case 'phone_opt_in': return 'Phone Opt-in';
+      default: return 'All Scenarios';
+    }
+  };
+
+  return (
+    <Box sx={{ py: 2, backgroundColor: '#f9fafb', minHeight: '100vh' }}>
+      <Container maxWidth="xl">
+        {/* Header Bar */}
+        <Paper elevation={1} sx={{ p: 2, mb: 3, backgroundColor: '#fff', border: '1px solid #e5e7eb' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <Typography variant="h5" sx={{ fontWeight: 600, color: '#1f2937', fontSize: '18px' }}>
+                📱 Twilio SMS Notification Center
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography variant="body2" sx={{ color: '#6b7280', fontSize: '12px' }}>
+                  Active: {items.length}
+                </Typography>
                 <FormControlLabel
                   control={
                     <Switch
                       checked={smsEnabled}
                       onChange={(e) => updateSMSSettings(e.target.checked)}
                       disabled={smsLoading}
-                      color="success"
-                      size="medium"
+                      size="small"
+                      sx={{
+                        '& .MuiSwitch-thumb': {
+                          backgroundColor: smsEnabled ? '#4f46e5' : '#9ca3af',
+                        },
+                        '& .MuiSwitch-track': {
+                          backgroundColor: smsEnabled ? '#c7d2fe' : '#e5e7eb',
+                        },
+                      }}
                     />
                   }
-                  label={smsEnabled ? 'Enabled' : 'Disabled'}
-                  labelPlacement="start"
+                  label={
+                    <Typography variant="body2" sx={{ fontSize: '12px', fontWeight: 500 }}>
+                      {smsEnabled ? 'Enabled' : 'Disabled'}
+                    </Typography>
+                  }
                   sx={{ m: 0 }}
                 />
-              </FormGroup>
-            </Box>
-          </Paper>
-        )}
-
-        {/* Header Section */}
-        <Paper elevation={2} sx={{ p: 3, mb: 3, border: '2px solid #e3f2fd' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-            <NotificationsIcon sx={{ fontSize: 28, color: '#1976d2', mr: 2 }} />
-            <Box>
-              <Typography variant="h5" sx={{ fontWeight: 600, color: '#1a1a1a', mb: 0.5 }}>
-                Notification Settings
-              </Typography>
-              <Typography variant="body2" sx={{ color: '#666' }}>
-                Configure SMS notifications to receive real-time updates about new leads
-              </Typography>
+              </Box>
             </Box>
           </Box>
         </Paper>
 
-        {/* Show notification settings only if SMS is enabled OR it's global settings */}
-        {(!businessId || smsEnabled) ? (
-          <Grid container spacing={3}>
-          {/* Add New Notification */}
-          <Grid item xs={12} md={4}>
-            <Paper elevation={2} sx={{ p: 3 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-                <AddIcon sx={{ fontSize: 20, color: '#1976d2', mr: 1 }} />
-                <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                  Add New Notification
-                </Typography>
+        {/* Main Content Grid */}
+        <Grid container spacing={3}>
+          {/* Left Column - Scenarios */}
+          <Grid item xs={12} lg={8}>
+            <Paper elevation={1} sx={{ backgroundColor: '#fff', border: '1px solid #e5e7eb' }}>
+              {/* Scenario Tabs */}
+              <Box sx={{ borderBottom: 1, borderColor: '#e5e7eb' }}>
+                <Tabs 
+                  value={activeTab} 
+                  onChange={(e, newValue) => setActiveTab(newValue)}
+                  sx={{
+                    '& .MuiTab-root': {
+                      fontSize: '14px',
+                      fontWeight: 500,
+                      textTransform: 'none',
+                      minHeight: 48,
+                      px: 2,
+                    },
+                    '& .Mui-selected': {
+                      color: '#4f46e5',
+                    },
+                  }}
+                >
+                  <Tab 
+                    label={
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <span>📞</span>
+                        <span>Phone Number Found</span>
+                      </Box>
+                    } 
+                  />
+                  <Tab 
+                    label={
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <span>💬</span>
+                        <span>Customer Reply</span>
+                      </Box>
+                    } 
+                  />
+                  <Tab 
+                    label={
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <span>✅</span>
+                        <span>Phone Opt-in</span>
+                      </Box>
+                    } 
+                  />
+                </Tabs>
               </Box>
 
-              <TextField
-                fullWidth
-                label="Phone Number"
-                value={phone}
-                onChange={e => setPhone(e.target.value)}
-                margin="normal"
-                variant="outlined"
-                size="small"
-                InputProps={{
-                  startAdornment: (
-                    <PhoneIcon sx={{ color: '#666', mr: 1, fontSize: 20 }} />
-                  ),
-                }}
-              />
-
-              <TextField
-                inputRef={templateRef}
-                fullWidth
-                multiline
-                rows={4}
-                label="Message Template"
-                value={template}
-                onChange={e => setTemplate(e.target.value)}
-                margin="normal"
-                variant="outlined"
-                size="small"
-              />
-
-              <Box sx={{ mt: 2, mb: 2 }}>
-                <Typography variant="body2" sx={{ color: '#666', mb: 1, fontWeight: 500 }}>
-                  Available placeholders:
-                </Typography>
-                <Stack spacing={1}>
-                  {PLACEHOLDERS.map(ph => (
-                    <Box key={ph} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Chip
-                        label={ph}
-                        size="small"
-                        variant="outlined"
-                        clickable
-                        onClick={() => insertPlaceholder(ph, 'new')}
-                        sx={{
-                          borderColor: '#1976d2',
-                          color: '#1976d2',
-                          fontFamily: 'monospace',
-                          fontSize: '0.75rem',
-                          minWidth: '120px',
-                          '&:hover': {
-                            backgroundColor: '#e3f2fd',
-                          },
-                        }}
-                      />
-                      <Typography variant="caption" sx={{ color: '#888', fontSize: '0.75rem' }}>
-                        {PLACEHOLDER_DESCRIPTIONS[ph]}
+              {/* Tab Content */}
+              <Box sx={{ p: 3 }}>
+                {activeTab === 0 && (
+                  <Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                      <Typography variant="h6" sx={{ fontSize: '16px', fontWeight: 600, color: '#1f2937' }}>
+                        📞 Phone Number Found
                       </Typography>
+                      <FormControlLabel
+                        control={
+                          <Switch 
+                            checked={smsOnPhoneFound} 
+                            onChange={async (e) => {
+                              const newValue = e.target.checked;
+                              setSmsOnPhoneFound(newValue);
+                              await saveSMSScenarios({ smsOnPhoneFound: newValue });
+                            }}
+                            size="small"
+                            sx={{
+                              '& .MuiSwitch-thumb': {
+                                backgroundColor: smsOnPhoneFound ? '#4f46e5' : '#9ca3af',
+                              },
+                              '& .MuiSwitch-track': {
+                                backgroundColor: smsOnPhoneFound ? '#c7d2fe' : '#e5e7eb',
+                              },
+                            }}
+                          />
+                        }
+                        label={
+                          <Typography variant="body2" sx={{ fontSize: '12px', fontWeight: 500 }}>
+                            {smsOnPhoneFound ? 'Enabled' : 'Disabled'}
+                          </Typography>
+                        }
+                        sx={{ m: 0 }}
+                      />
                     </Box>
-                  ))}
-                </Stack>
-              </Box>
+                    <Typography variant="body2" sx={{ color: '#6b7280', fontSize: '13px', mb: 2 }}>
+                      Send SMS when the system finds a phone number in the customer's message text
+                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Typography variant="body2" sx={{ color: '#6b7280', fontSize: '12px' }}>
+                        Triggers: phone_in_text=True, phone_in_additional_info=True
+                      </Typography>
+                      <Tooltip title="This scenario triggers when a phone number is detected in customer messages or additional info">
+                        <InfoIcon sx={{ fontSize: 14, color: '#9ca3af' }} />
+                      </Tooltip>
+                    </Box>
+                  </Box>
+                )}
 
-              <Button
-                fullWidth
-                variant="contained"
-                onClick={handleSave}
-                startIcon={<SaveIcon />}
-                disabled={!phone || !template}
-                sx={{ mt: 2 }}
-              >
-                Save Notification
-              </Button>
+                {activeTab === 1 && (
+                  <Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                      <Typography variant="h6" sx={{ fontSize: '16px', fontWeight: 600, color: '#1f2937' }}>
+                        💬 Customer Reply
+                      </Typography>
+                      <FormControlLabel
+                        control={
+                          <Switch 
+                            checked={smsOnCustomerReply} 
+                            onChange={async (e) => {
+                              const newValue = e.target.checked;
+                              setSmsOnCustomerReply(newValue);
+                              await saveSMSScenarios({ smsOnCustomerReply: newValue });
+                            }}
+                            size="small"
+                            sx={{
+                              '& .MuiSwitch-thumb': {
+                                backgroundColor: smsOnCustomerReply ? '#4f46e5' : '#9ca3af',
+                              },
+                              '& .MuiSwitch-track': {
+                                backgroundColor: smsOnCustomerReply ? '#c7d2fe' : '#e5e7eb',
+                              },
+                            }}
+                          />
+                        }
+                        label={
+                          <Typography variant="body2" sx={{ fontSize: '12px', fontWeight: 500 }}>
+                            {smsOnCustomerReply ? 'Enabled' : 'Disabled'}
+                          </Typography>
+                        }
+                        sx={{ m: 0 }}
+                      />
+                    </Box>
+                    <Typography variant="body2" sx={{ color: '#6b7280', fontSize: '13px', mb: 2 }}>
+                      Send SMS when customer responds to messages (even without phone number)
+                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Typography variant="body2" sx={{ color: '#6b7280', fontSize: '12px' }}>
+                        Triggers: Customer responds without phone number
+                      </Typography>
+                      <Tooltip title="This scenario triggers when a customer replies to messages, even if they don't provide a phone number">
+                        <InfoIcon sx={{ fontSize: 14, color: '#9ca3af' }} />
+                      </Tooltip>
+                    </Box>
+                  </Box>
+                )}
+
+                {activeTab === 2 && (
+                  <Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                      <Typography variant="h6" sx={{ fontSize: '16px', fontWeight: 600, color: '#1f2937' }}>
+                        ✅ Phone Opt-in
+                      </Typography>
+                      <FormControlLabel
+                        control={
+                          <Switch 
+                            checked={smsOnPhoneOptIn} 
+                            onChange={async (e) => {
+                              const newValue = e.target.checked;
+                              setSmsOnPhoneOptIn(newValue);
+                              await saveSMSScenarios({ smsOnPhoneOptIn: newValue });
+                            }}
+                            size="small"
+                            sx={{
+                              '& .MuiSwitch-thumb': {
+                                backgroundColor: smsOnPhoneOptIn ? '#4f46e5' : '#9ca3af',
+                              },
+                              '& .MuiSwitch-track': {
+                                backgroundColor: smsOnPhoneOptIn ? '#c7d2fe' : '#e5e7eb',
+                              },
+                            }}
+                          />
+                        }
+                        label={
+                          <Typography variant="body2" sx={{ fontSize: '12px', fontWeight: 500 }}>
+                            {smsOnPhoneOptIn ? 'Enabled' : 'Disabled'}
+                          </Typography>
+                        }
+                        sx={{ m: 0 }}
+                      />
+                    </Box>
+                    <Typography variant="body2" sx={{ color: '#6b7280', fontSize: '13px', mb: 2 }}>
+                      Send SMS when customer gives consent to use their phone number
+                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Typography variant="body2" sx={{ color: '#6b7280', fontSize: '12px' }}>
+                        Triggers: phone_opt_in=True
+                      </Typography>
+                      <Tooltip title="This scenario triggers when a customer explicitly opts in to provide their phone number">
+                        <InfoIcon sx={{ fontSize: 14, color: '#9ca3af' }} />
+                      </Tooltip>
+                    </Box>
+                  </Box>
+                )}
+              </Box>
             </Paper>
-          </Grid>
 
-          {/* Existing Notifications */}
-          <Grid item xs={12} md={8}>
-            <Paper elevation={2} sx={{ p: 3 }}>
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
-                  Active Notifications
-                </Typography>
-                <Typography variant="body2" sx={{ color: '#666' }}>
-                  {items.length} notification{items.length !== 1 ? 's' : ''} configured
-                </Typography>
-              </Box>
-
-              <Divider sx={{ mb: 2 }} />
-
-              {items.length === 0 ? (
-                <Box sx={{ textAlign: 'center', py: 4, color: '#999' }}>
-                  <MessageIcon sx={{ fontSize: 48, mb: 1, opacity: 0.5 }} />
-                  <Typography variant="body1" sx={{ mb: 0.5 }}>
-                    No notifications configured
+            {/* Active Notifications Table */}
+            <Paper elevation={1} sx={{ mt: 3, backgroundColor: '#fff', border: '1px solid #e5e7eb' }}>
+              <Box sx={{ p: 2, borderBottom: '1px solid #e5e7eb' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Typography variant="h6" sx={{ fontSize: '16px', fontWeight: 600, color: '#1f2937' }}>
+                    Active Notifications
                   </Typography>
-                  <Typography variant="body2">
-                    Add your first notification to get started
+                  <Typography variant="body2" sx={{ color: '#6b7280', fontSize: '12px' }}>
+                    {items.length} configured
                   </Typography>
                 </Box>
-              ) : (
-                <Stack spacing={2}>
-                  {items.map((item) => (
-                    <Card 
-                      key={item.id}
-                      variant="outlined"
-                      sx={{ 
-                        border: '1px solid #e0e0e0',
-                        '&:hover': {
-                          boxShadow: 1,
-                        },
-                      }}
-                    >
-                      <CardContent sx={{ p: 2 }}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                          <Box sx={{ flex: 1 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                              <PhoneIcon sx={{ color: '#1976d2', mr: 1, fontSize: 18 }} />
-                              <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                                {item.phone_number}
-                              </Typography>
+              </Box>
+
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow sx={{ backgroundColor: '#f9fafb' }}>
+                      <TableCell sx={{ fontSize: '12px', fontWeight: 600, py: 1 }}>Phone</TableCell>
+                      <TableCell sx={{ fontSize: '12px', fontWeight: 600, py: 1 }}>Template</TableCell>
+                      <TableCell sx={{ fontSize: '12px', fontWeight: 600, py: 1 }}>Scenario</TableCell>
+                      <TableCell sx={{ fontSize: '12px', fontWeight: 600, py: 1, textAlign: 'center' }}>Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {items.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={4} sx={{ textAlign: 'center', py: 4, color: '#9ca3af' }}>
+                          <MessageIcon sx={{ fontSize: 32, mb: 1, opacity: 0.5 }} />
+                          <Typography variant="body2" sx={{ fontSize: '13px' }}>
+                            No notifications configured
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      items.map((item) => (
+                        <TableRow key={item.id} sx={{ '&:hover': { backgroundColor: '#f9fafb' } }}>
+                          <TableCell sx={{ fontSize: '13px', py: 1 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <PhoneIcon sx={{ fontSize: 16, color: '#4f46e5' }} />
+                              {item.phone_number}
                             </Box>
-                            <Box
-                              sx={{
-                                background: '#f5f5f5',
-                                borderRadius: 1,
-                                p: 1.5,
-                                border: '1px solid #e0e0e0',
+                          </TableCell>
+                          <TableCell sx={{ fontSize: '12px', py: 1, maxWidth: 300 }}>
+                            <Typography 
+                              variant="body2" 
+                              sx={{ 
+                                fontFamily: 'monospace',
+                                fontSize: '12px',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
                               }}
                             >
-                              <Typography 
-                                variant="body2" 
-                                sx={{ 
-                                  color: '#444', 
-                                  fontFamily: 'monospace',
-                                  fontSize: '0.875rem',
-                                  lineHeight: 1.4,
-                                }}
-                              >
-                                {item.message_template}
-                              </Typography>
+                              {item.message_template}
+                            </Typography>
+                          </TableCell>
+                          <TableCell sx={{ fontSize: '12px', py: 1 }}>
+                            <Chip 
+                              label="All Scenarios" 
+                              size="small" 
+                              sx={{ 
+                                fontSize: '10px',
+                                height: 20,
+                                backgroundColor: '#e0e7ff',
+                                color: '#3730a3',
+                              }} 
+                            />
+                          </TableCell>
+                          <TableCell sx={{ py: 1, textAlign: 'center' }}>
+                            <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5 }}>
+                              <Tooltip title="Edit">
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleEditOpen(item)}
+                                  sx={{ color: '#4f46e5', p: 0.5 }}
+                                >
+                                  <EditIcon sx={{ fontSize: 16 }} />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title="Delete">
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleDelete(item.id)}
+                                  sx={{ color: '#dc2626', p: 0.5 }}
+                                >
+                                  <DeleteIcon sx={{ fontSize: 16 }} />
+                                </IconButton>
+                              </Tooltip>
                             </Box>
-                          </Box>
-                          <Box sx={{ ml: 2, display: 'flex', gap: 0.5 }}>
-                            <IconButton
-                              size="small"
-                              onClick={() => handleEditOpen(item)}
-                              sx={{ color: '#1976d2' }}
-                            >
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                            <IconButton
-                              size="small"
-                              onClick={() => handleDelete(item.id)}
-                              sx={{ color: '#d32f2f' }}
-                            >
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          </Box>
-                        </Box>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </Stack>
-              )}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
             </Paper>
           </Grid>
+
+          {/* Right Column - Add Notification Form (Sticky) */}
+          <Grid item xs={12} lg={4}>
+            <Box sx={{ position: 'sticky', top: 20 }}>
+              <Paper elevation={1} sx={{ backgroundColor: '#fff', border: '1px solid #e5e7eb' }}>
+                <Box sx={{ p: 2, borderBottom: '1px solid #e5e7eb' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <AddIcon sx={{ fontSize: 18, color: '#4f46e5' }} />
+                    <Typography variant="h6" sx={{ fontSize: '16px', fontWeight: 600, color: '#1f2937' }}>
+                      Add New Notification
+                    </Typography>
+                  </Box>
+                </Box>
+
+                <Box sx={{ p: 2 }}>
+                  <TextField
+                    fullWidth
+                    label="Phone Number"
+                    value={phone}
+                    onChange={e => setPhone(e.target.value)}
+                    size="small"
+                    sx={{ mb: 2 }}
+                    InputProps={{
+                      startAdornment: (
+                        <PhoneIcon sx={{ color: '#9ca3af', mr: 1, fontSize: 18 }} />
+                      ),
+                    }}
+                  />
+
+                  <TextField
+                    inputRef={templateRef}
+                    fullWidth
+                    multiline
+                    rows={3}
+                    label="Message Template"
+                    value={template}
+                    onChange={e => setTemplate(e.target.value)}
+                    size="small"
+                    sx={{ mb: 2 }}
+                  />
+
+                  {/* Placeholders */}
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="body2" sx={{ color: '#6b7280', mb: 1, fontSize: '12px', fontWeight: 500 }}>
+                      Placeholders:
+                    </Typography>
+                    <Box sx={{ 
+                      display: 'flex', 
+                      flexWrap: 'wrap', 
+                      gap: 0.5,
+                      maxHeight: 80,
+                      overflowY: 'auto',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: 1,
+                      p: 1,
+                    }}>
+                      {PLACEHOLDERS.map(ph => (
+                        <Chip
+                          key={ph}
+                          label={ph}
+                          size="small"
+                          variant="outlined"
+                          clickable
+                          onClick={() => insertPlaceholder(ph, 'new')}
+                          sx={{
+                            fontSize: '10px',
+                            height: 20,
+                            borderColor: '#4f46e5',
+                            color: '#4f46e5',
+                            fontFamily: 'monospace',
+                            '&:hover': {
+                              backgroundColor: '#e0e7ff',
+                            },
+                          }}
+                        />
+                      ))}
+                    </Box>
+                  </Box>
+
+                  {/* Advanced Settings */}
+                  <Box sx={{ mb: 2 }}>
+                    <Button
+                      size="small"
+                      onClick={() => setShowAdvanced(!showAdvanced)}
+                      endIcon={showAdvanced ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                      sx={{ 
+                        fontSize: '12px',
+                        textTransform: 'none',
+                        color: '#6b7280',
+                        p: 0,
+                        minWidth: 'auto',
+                      }}
+                    >
+                      Advanced Settings
+                    </Button>
+                    <Collapse in={showAdvanced}>
+                      <Box sx={{ mt: 1, p: 2, backgroundColor: '#f9fafb', borderRadius: 1, border: '1px solid #e5e7eb' }}>
+                        <Typography variant="body2" sx={{ color: '#6b7280', fontSize: '12px' }}>
+                          Additional configuration options will be available here in future updates.
+                        </Typography>
+                      </Box>
+                    </Collapse>
+                  </Box>
+
+                  <Button
+                    fullWidth
+                    variant="contained"
+                    onClick={handleSave}
+                    disabled={!phone || !template}
+                    sx={{
+                      backgroundColor: '#4f46e5',
+                      '&:hover': {
+                        backgroundColor: '#4338ca',
+                      },
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      py: 1,
+                    }}
+                  >
+                    Save Notification
+                  </Button>
+                </Box>
+              </Paper>
+            </Box>
+          </Grid>
         </Grid>
-        ) : (
-          <Box sx={{ textAlign: 'center', py: 4, color: '#999' }}>
-            <MessageIcon sx={{ fontSize: 48, mb: 1, opacity: 0.5 }} />
-            <Typography variant="body1" sx={{ mb: 0.5 }}>
-              SMS notifications are currently disabled for this business.
-            </Typography>
-            <Typography variant="body2">
-              Please enable SMS notifications in the settings above to configure your notifications.
-            </Typography>
-          </Box>
-        )}
       </Container>
 
       {/* Edit Dialog */}
@@ -493,9 +814,9 @@ const NotificationSettings: React.FC<Props> = ({ businessId }) => {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle sx={{ pb: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <EditIcon sx={{ color: '#1976d2', mr: 1 }} />
+        <DialogTitle sx={{ pb: 1, fontSize: '16px', fontWeight: 600 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <EditIcon sx={{ color: '#4f46e5', fontSize: 20 }} />
             Edit Notification
           </Box>
         </DialogTitle>
@@ -511,7 +832,7 @@ const NotificationSettings: React.FC<Props> = ({ businessId }) => {
             size="small"
             InputProps={{
               startAdornment: (
-                <PhoneIcon sx={{ color: '#666', mr: 1, fontSize: 20 }} />
+                <PhoneIcon sx={{ color: '#9ca3af', mr: 1, fontSize: 18 }} />
               ),
             }}
           />
@@ -530,46 +851,61 @@ const NotificationSettings: React.FC<Props> = ({ businessId }) => {
           />
 
           <Box sx={{ mt: 2 }}>
-            <Typography variant="body2" sx={{ color: '#666', mb: 1, fontWeight: 500 }}>
+            <Typography variant="body2" sx={{ color: '#6b7280', mb: 1, fontSize: '12px', fontWeight: 500 }}>
               Available placeholders:
             </Typography>
-            <Stack spacing={1}>
+            <Box sx={{ 
+              display: 'flex', 
+              flexWrap: 'wrap', 
+              gap: 0.5,
+              maxHeight: 80,
+              overflowY: 'auto',
+              border: '1px solid #e5e7eb',
+              borderRadius: 1,
+              p: 1,
+            }}>
               {PLACEHOLDERS.map(ph => (
-                <Box key={ph} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Chip
-                    label={ph}
-                    size="small"
-                    variant="outlined"
-                    clickable
-                    onClick={() => insertPlaceholder(ph, 'edit')}
-                    sx={{
-                      borderColor: '#1976d2',
-                      color: '#1976d2',
-                      fontFamily: 'monospace',
-                      fontSize: '0.75rem',
-                      minWidth: '120px',
-                      '&:hover': {
-                        backgroundColor: '#e3f2fd',
-                      },
-                    }}
-                  />
-                  <Typography variant="caption" sx={{ color: '#888', fontSize: '0.75rem' }}>
-                    {PLACEHOLDER_DESCRIPTIONS[ph]}
-                  </Typography>
-                </Box>
+                <Chip
+                  key={ph}
+                  label={ph}
+                  size="small"
+                  variant="outlined"
+                  clickable
+                  onClick={() => insertPlaceholder(ph, 'edit')}
+                  sx={{
+                    fontSize: '10px',
+                    height: 20,
+                    borderColor: '#4f46e5',
+                    color: '#4f46e5',
+                    fontFamily: 'monospace',
+                    '&:hover': {
+                      backgroundColor: '#e0e7ff',
+                    },
+                  }}
+                />
               ))}
-            </Stack>
+            </Box>
           </Box>
         </DialogContent>
 
         <DialogActions sx={{ p: 2 }}>
-          <Button onClick={() => setEditing(null)} color="inherit">
+          <Button 
+            onClick={() => setEditing(null)} 
+            color="inherit"
+            sx={{ fontSize: '13px' }}
+          >
             Cancel
           </Button>
           <Button
             variant="contained"
             onClick={handleUpdate}
-            startIcon={<SaveIcon />}
+            sx={{
+              backgroundColor: '#4f46e5',
+              '&:hover': {
+                backgroundColor: '#4338ca',
+              },
+              fontSize: '13px',
+            }}
           >
             Save Changes
           </Button>
