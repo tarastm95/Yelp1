@@ -25,6 +25,13 @@ class VectorDocument(models.Model):
         help_text="Опціональний location ID для мульти-локаційних бізнесів"
     )
     
+    # Phone scenario
+    phone_available = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text="True = Phone in message scenario, False = No phone / Phone opt-in scenario"
+    )
+    
     # Document metadata
     filename = models.CharField(max_length=255)
     file_hash = models.CharField(
@@ -77,19 +84,21 @@ class VectorDocument(models.Model):
         indexes = [
             models.Index(fields=['business_id', '-created_at']),
             models.Index(fields=['business_id', 'location_id']),
+            models.Index(fields=['business_id', 'phone_available']),
             models.Index(fields=['processing_status']),
             models.Index(fields=['file_hash']),
         ]
         constraints = [
             models.UniqueConstraint(
-                fields=['business_id', 'location_id', 'file_hash'],
-                name='unique_vector_business_location_file'
+                fields=['business_id', 'location_id', 'phone_available', 'file_hash'],
+                name='unique_vector_business_location_phone_file'
             )
         ]
     
     def __str__(self):
         location_part = f" (Location: {self.location_id})" if self.location_id else ""
-        return f"Vector Doc: {self.filename} - {self.business_id}{location_part}"
+        phone_mode = "Phone in message" if self.phone_available else "No phone"
+        return f"Vector Doc: {self.filename} - {self.business_id}{location_part} [{phone_mode}]"
     
     @property
     def is_ready_for_search(self) -> bool:

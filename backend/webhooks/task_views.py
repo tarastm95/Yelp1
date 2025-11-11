@@ -45,7 +45,7 @@ class TaskLogFilterSet(FilterSet):
             'CANCELLED': 'REVOKED', # Alternative spelling
             'SUCCESS': 'SUCCESS',
             'FAILURE': 'FAILURE', 
-            'SCHEDULED': 'SCHEDULED',
+            'SCHEDULED': ['SCHEDULED', 'GENERATING'],  # Scheduled includes AI generation
             'REVOKED': 'REVOKED',
         }
         
@@ -56,7 +56,11 @@ class TaskLogFilterSet(FilterSet):
                         normalized = s.strip().upper()
                         # Map frontend status to database status
                         db_status = status_mapping.get(normalized, normalized)
-                        statuses.append(db_status)
+                        # Handle list of statuses (for SCHEDULED)
+                        if isinstance(db_status, list):
+                            statuses.extend(db_status)
+                        else:
+                            statuses.append(db_status)
         
         logger.info(f"[FILTER] Status filter: frontend='{raw_values}' → database={statuses}")
         
@@ -145,7 +149,7 @@ class TaskLogListView(generics.ListAPIView):
         
         # Show breakdown by status
         status_breakdown = {}
-        for status_val in ['SUCCESS', 'FAILURE', 'SCHEDULED', 'REVOKED']:
+        for status_val in ['SUCCESS', 'FAILURE', 'SCHEDULED', 'GENERATING', 'REVOKED']:
             count = qs.filter(status=status_val).count()
             status_breakdown[status_val] = count
             logger.info(f"[TASK-LIST] - {status_val}: {count}")
@@ -283,7 +287,8 @@ class TaskStatsView(APIView):
         
         
         # All statistics from CeleryTaskLog only
-        stats['scheduled'] = qs.filter(status='SCHEDULED').count()
+        # Scheduled includes both SCHEDULED and GENERATING statuses
+        stats['scheduled'] = qs.filter(status__in=['SCHEDULED', 'GENERATING']).count()
         stats['canceled'] = qs.filter(status='REVOKED').count()
         stats['total'] = stats['successful'] + stats['failed'] + stats['scheduled'] + stats['canceled']
  

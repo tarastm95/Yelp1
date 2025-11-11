@@ -15,8 +15,17 @@ from .views import (
 )
 from .oauth_views import OAuthProcessingStatusView
 from .lead_views import BusinessSMSSettingsView, AIPreviewView, AITestPreviewView, TimeBasedGreetingView, JobMappingListCreateView, JobMappingDetailView, LeadTimeSeriesView
-from .task_views import TaskLogListView, TaskStatsView, TaskRevokeView, MessageTaskListView, TaskTimeSeriesView
 from .sms_views import SendSMSAPIView, SMSLogListView, SMSStatsView, SMSTimeSeriesView, SMSUpdatePricesView
+from .task_views import TaskLogListView, TaskStatsView, TaskRevokeView, MessageTaskListView, TaskTimeSeriesView
+from .whatsapp_views import (
+    WhatsAppLogListView, 
+    WhatsAppStatsView,
+    WhatsAppNotificationSettingListCreateView,
+    WhatsAppNotificationSettingDetailView,
+    TwilioContentTemplatesView,
+    TwilioContentTemplateDetailsView,
+    TwilioContentTemplatePreviewView
+)
 from .lead_logs_views import lead_activity_history, lead_complete_timeline, lead_logs_search
 from .diagnostic_views import (
     system_health_dashboard, error_logs_dashboard, resolve_error,
@@ -28,6 +37,7 @@ from .sample_replies_views import (
     SampleRepliesFileUploadView,
     SampleRepliesTextSaveView,
     SampleRepliesStatusView,
+    VectorSystemHealthView,
     VectorSearchTestView,
     VectorChunkListView,
     VectorDocumentDeleteView,
@@ -140,6 +150,16 @@ urlpatterns = [
     # SMS price update endpoint
     path('sms-logs/update-prices/', SMSUpdatePricesView.as_view(), name='sms-update-prices'),
     
+    # WhatsApp endpoints
+    path('whatsapp-logs/', WhatsAppLogListView.as_view(), name='whatsapp-log-list'),
+    path('whatsapp-logs/stats/', WhatsAppStatsView.as_view(), name='whatsapp-stats'),
+    path('whatsapp-notifications/', WhatsAppNotificationSettingListCreateView.as_view(), name='whatsapp-notification-list'),
+    path('whatsapp-notifications/<int:pk>/', WhatsAppNotificationSettingDetailView.as_view(), name='whatsapp-notification-detail'),
+    # Twilio Content Templates endpoints
+    path('twilio-content-templates/', TwilioContentTemplatesView.as_view(), name='twilio-content-templates'),
+    path('twilio-content-templates/<str:content_sid>/', TwilioContentTemplateDetailsView.as_view(), name='twilio-content-template-details'),
+    path('twilio-content-templates/<str:content_sid>/preview/', TwilioContentTemplatePreviewView.as_view(), name='twilio-content-template-preview'),
+    
     # ===== LEAD ACTIVITY LOGGING ENDPOINTS =====
     path('leads/<str:lead_id>/logs/', lead_activity_history, name='lead-activity-logs'),
     path('leads/<str:lead_id>/timeline/', lead_complete_timeline, name='lead-complete-timeline'),
@@ -158,6 +178,7 @@ urlpatterns = [
     path('sample-replies/upload/', SampleRepliesFileUploadView.as_view(), name='sample_replies_upload'),
     path('sample-replies/save-text/', SampleRepliesTextSaveView.as_view(), name='sample_replies_save_text'),
     path('sample-replies/status/', SampleRepliesStatusView.as_view(), name='sample_replies_status'),
+    path('sample-replies/vector-health/', VectorSystemHealthView.as_view(), name='vector_system_health'),
     path('sample-replies/vector-test/', VectorSearchTestView.as_view(), name='vector_search_test'),
     path('sample-replies/chunks/', VectorChunkListView.as_view(), name='vector_chunks_list'),
     

@@ -4,6 +4,7 @@
 """
 
 import logging
+import datetime
 from django.http import JsonResponse
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -90,6 +91,16 @@ class SampleRepliesFileUploadView(APIView):
             # 🔍 VECTOR PROCESSING: Обробка файлу з семантичним чанкуванням та ембедінгами
             file_content = uploaded_file.read()
             
+            # Перевірка OpenAI клієнта перед обробкою
+            if not vector_pdf_service.openai_client:
+                logger.error(f"[SAMPLE-REPLIES-API] ❌ OpenAI client not initialized!")
+                return Response({
+                    'error': 'Configuration error',
+                    'message': 'OpenAI API is not configured properly. Please check server configuration.',
+                    'type': 'configuration',
+                    'action_required': 'Contact administrator to configure OpenAI API key'
+                }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+            
             # Спроба векторної обробки
             try:
                 logger.info(f"[SAMPLE-REPLIES-API] 🔍 Starting vector processing...")
@@ -99,7 +110,8 @@ class SampleRepliesFileUploadView(APIView):
                     file_content=file_content,
                     filename=uploaded_file.name,
                     business_id=business_id,
-                    location_id=None  # TODO: Add location support
+                    location_id=None,  # TODO: Add location support
+                    phone_available=phone_available
                 )
                 
                 logger.info(f"[SAMPLE-REPLIES-API] ✅ Vector processing completed:")
@@ -131,10 +143,10 @@ class SampleRepliesFileUploadView(APIView):
                     logger.warning(f"[SAMPLE-REPLIES-API] ⚠️ AI mode was disabled, enabling for vector processing...")
                     auto_settings.use_ai_greeting = True
                 
-                # Зберігаємо базову інформацію (для fallback)
+                # Зберігаємо базову інформацію (БЕЗ тексту - тільки векторний режим!)
                 auto_settings.sample_replies_filename = uploaded_file.name
                 auto_settings.use_sample_replies = True  # Автоматично увімкнути
-                # sample_replies_content залишається порожнім - використовуємо векторний пошук
+                auto_settings.sample_replies_content = ""  # ❌ НЕ зберігаємо текст - тільки векторний пошук!
                 auto_settings.save()
                 
                 logger.info(f"[SAMPLE-REPLIES-API] 💾 Settings saved successfully:")
@@ -158,88 +170,42 @@ class SampleRepliesFileUploadView(APIView):
                     'auto_enabled': True
                 }, status=status.HTTP_201_CREATED)
                 
+            except ValueError as config_error:
+                # Помилка конфігурації або валідації
+                logger.error(f"[SAMPLE-REPLIES-API] ❌ Configuration/Validation error: {config_error}")
+                logger.exception("[SAMPLE-REPLIES-API] Error details:")
+                return Response({
+                    'error': 'Configuration or validation error',
+                    'message': str(config_error),
+                    'type': 'configuration',
+                    'suggestions': [
+                        'Check if file is a valid PDF or text file',
+                        'Ensure file contains proper Inquiry:/Reply: format',
+                        'Try using "Paste Text" option instead'
+                    ]
+                }, status=status.HTTP_400_BAD_REQUEST)
+                
             except Exception as vector_error:
+                # Інші помилки векторної обробки - FAIL FAST!
                 logger.error(f"[SAMPLE-REPLIES-API] ❌ VECTOR PROCESSING FAILED!")
                 logger.error(f"[SAMPLE-REPLIES-API] Error type: {type(vector_error).__name__}")
                 logger.error(f"[SAMPLE-REPLIES-API] Error message: {vector_error}")
                 logger.error(f"[SAMPLE-REPLIES-API] File details: {uploaded_file.name}, {uploaded_file.size} bytes")
                 logger.exception("[SAMPLE-REPLIES-API] Full error traceback:")
-                logger.warning("[SAMPLE-REPLIES-API] 🔄 Falling back to simple text processing...")
                 
-                # 📄 FALLBACK: Простий парсинг якщо векторна обробка не вдалася
-                extracted_text = vector_pdf_service.extract_text_from_uploaded_file(
-                    file_content, uploaded_file.name
-                )
-                
-                # Обробка помилок парсингу
-                if extracted_text in ["PDF_BINARY_DETECTED", "PDF_BINARY_DETECTED_NO_PARSER"]:
-                    return Response({
-                        'error': 'PDF binary detected',
-                        'message': 'Binary PDF files require additional libraries. Please copy text from PDF and use "Paste Text" option instead.',
-                        'instruction': 'Open your PDF, select all text (Ctrl+A), copy (Ctrl+C), and paste into the text area.',
-                        'vector_processing_failed': True
-                    }, status=status.HTTP_400_BAD_REQUEST)
-                
-                if extracted_text == "EMPTY_FILE":
-                    return Response({
-                        'error': 'Empty file',
-                        'message': 'The uploaded file appears to be empty.'
-                    }, status=status.HTTP_400_BAD_REQUEST)
-                
-                if extracted_text in ["ENCODING_ERROR", "PROCESSING_ERROR"]:
-                    return Response({
-                        'error': 'Processing error',
-                        'message': 'Failed to process file. Please try copying and pasting the text content instead.'
-                    }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-                
-                # Форматування та валідація контенту
-                formatted_content = vector_pdf_service.format_sample_replies(extracted_text)
-                
-                if formatted_content == "EMPTY_CONTENT":
-                    return Response({
-                        'error': 'Empty content',
-                        'message': 'File content is empty after processing.'
-                    }, status=status.HTTP_400_BAD_REQUEST)
-                
-                # Валідація Sample Replies контенту
-                is_valid, validation_error = vector_pdf_service.validate_sample_replies_content(formatted_content)
-                
-                if not is_valid:
-                    return Response({
-                        'error': 'Invalid content',
-                        'message': validation_error
-                    }, status=status.HTTP_400_BAD_REQUEST)
-                
-                # Збереження як fallback метод
-                auto_settings, created = AutoResponseSettings.objects.get_or_create(
-                    business=business,
-                    phone_available=phone_available,
-                    defaults={
-                        'enabled': True,
-                        'use_ai_greeting': True
-                    }
-                )
-                
-                auto_settings.sample_replies_content = formatted_content  # Legacy fallback
-                auto_settings.sample_replies_filename = uploaded_file.name
-                auto_settings.use_sample_replies = True
-                auto_settings.save()
-                
-                logger.warning(f"[SAMPLE-REPLIES-API] ⚠️ FALLBACK MODE SUCCESS:")
-                logger.warning(f"[SAMPLE-REPLIES-API]   - File stored in legacy mode: {uploaded_file.name}")
-                logger.warning(f"[SAMPLE-REPLIES-API]   - Content length: {len(formatted_content)} characters")
-                logger.warning(f"[SAMPLE-REPLIES-API]   - AI mode: {auto_settings.use_ai_greeting}")
-                logger.warning(f"[SAMPLE-REPLIES-API]   - Vector search: DISABLED due to processing failure")
-                
+                # ❌ NO FALLBACK - повертаємо помилку користувачу
                 return Response({
-                    'message': 'Sample replies uploaded (fallback mode - vector processing failed)',
-                    'filename': uploaded_file.name,
-                    'content_length': len(formatted_content),
-                    'preview': formatted_content[:300] + '...' if len(formatted_content) > 300 else formatted_content,
-                    'mode': 'AI Generated (Mode 2) - Legacy Fallback',
-                    'vector_search_enabled': False,
-                    'vector_error': str(vector_error)
-                }, status=status.HTTP_201_CREATED)
+                    'error': 'Vector processing failed',
+                    'message': 'Failed to process file with vector embeddings',
+                    'details': str(vector_error),
+                    'type': 'processing_error',
+                    'suggestions': [
+                        'Try using "Paste Text" option instead',
+                        'Check if file is corrupted',
+                        'Ensure file size is under 5MB',
+                        'Contact support if problem persists'
+                    ]
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             
         except Exception as e:
             logger.error(f"[SAMPLE-REPLIES-API] 🔥 CRITICAL UPLOAD ERROR!")
@@ -295,6 +261,16 @@ class SampleRepliesTextSaveView(APIView):
             
             # 🔍 VECTOR PROCESSING: Обробка тексту з семантичним чанкуванням та ембедінгами
             
+            # Перевірка OpenAI клієнта перед обробкою
+            if not vector_pdf_service.openai_client:
+                logger.error(f"[SAMPLE-REPLIES-API] ❌ OpenAI client not initialized!")
+                return Response({
+                    'error': 'Configuration error',
+                    'message': 'OpenAI API is not configured properly. Please check server configuration.',
+                    'type': 'configuration',
+                    'action_required': 'Contact administrator to configure OpenAI API key'
+                }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+            
             # Спроба векторної обробки
             try:
                 logger.info(f"[SAMPLE-REPLIES-API] 🔍 Starting vector processing for text input...")
@@ -304,7 +280,8 @@ class SampleRepliesTextSaveView(APIView):
                     file_content=sample_text.encode('utf-8'),
                     filename="Manual_Text_Input.txt",
                     business_id=business_id,
-                    location_id=None
+                    location_id=None,
+                    phone_available=phone_available
                 )
                 
                 logger.info(f"[SAMPLE-REPLIES-API] ✅ Vector processing completed for text input:")
@@ -324,7 +301,7 @@ class SampleRepliesTextSaveView(APIView):
                 
                 auto_settings.sample_replies_filename = "Manual Text Input (Vector Enhanced)"
                 auto_settings.use_sample_replies = True
-                # sample_replies_content залишається порожнім - використовуємо векторний пошук
+                auto_settings.sample_replies_content = ""  # ❌ НЕ зберігаємо текст - тільки векторний пошук!
                 auto_settings.save()
                 
                 return Response({
@@ -338,52 +315,38 @@ class SampleRepliesTextSaveView(APIView):
                     'source': 'Manual Input'
                 })
                 
-            except Exception as vector_error:
-                logger.error(f"[SAMPLE-REPLIES-API] Vector processing failed for text: {vector_error}")
-                logger.warning("[SAMPLE-REPLIES-API] Falling back to simple text processing...")
-                
-                # 📄 FALLBACK: Простий парсинг якщо векторна обробка не вдалася
-                formatted_content = vector_pdf_service.format_sample_replies(sample_text)
-                
-                if formatted_content == "EMPTY_CONTENT":
-                    return Response({
-                        'error': 'Empty content',
-                        'message': 'Text content is empty after processing.'
-                    }, status=status.HTTP_400_BAD_REQUEST)
-                
-                # Валідація контенту
-                is_valid, validation_error = vector_pdf_service.validate_sample_replies_content(formatted_content)
-                
-                if not is_valid:
-                    return Response({
-                        'error': 'Invalid content',
-                        'message': validation_error
-                    }, status=status.HTTP_400_BAD_REQUEST)
-                
-                # Збереження як fallback метод
-                auto_settings, created = AutoResponseSettings.objects.get_or_create(
-                    business=business,
-                    phone_available=phone_available,
-                    defaults={
-                        'enabled': True,
-                        'use_ai_greeting': True
-                    }
-                )
-                
-                auto_settings.sample_replies_content = formatted_content  # Legacy fallback
-                auto_settings.sample_replies_filename = "Manual Text Input (Legacy)"
-                auto_settings.use_sample_replies = True
-                auto_settings.save()
-                
+            except ValueError as config_error:
+                # Помилка конфігурації або валідації
+                logger.error(f"[SAMPLE-REPLIES-API] ❌ Configuration/Validation error: {config_error}")
+                logger.exception("[SAMPLE-REPLIES-API] Error details:")
                 return Response({
-                    'message': 'Sample replies text saved (fallback mode - vector processing failed)',
-                    'content_length': len(formatted_content),
-                    'preview': formatted_content[:300] + '...' if len(formatted_content) > 300 else formatted_content,
-                    'mode': 'AI Generated (Mode 2) - Legacy Fallback',
-                    'vector_search_enabled': False,
-                    'vector_error': str(vector_error),
-                    'source': 'Manual Input'
-                })
+                    'error': 'Configuration or validation error',
+                    'message': str(config_error),
+                    'type': 'configuration',
+                    'suggestions': [
+                        'Check if text contains proper Inquiry:/Reply: format',
+                        'Ensure text is not empty',
+                        'Review sample replies format requirements'
+                    ]
+                }, status=status.HTTP_400_BAD_REQUEST)
+                
+            except Exception as vector_error:
+                # Інші помилки векторної обробки - FAIL FAST!
+                logger.error(f"[SAMPLE-REPLIES-API] ❌ Vector processing failed for text: {vector_error}")
+                logger.exception("[SAMPLE-REPLIES-API] Error details:")
+                
+                # ❌ NO FALLBACK - повертаємо помилку користувачу
+                return Response({
+                    'error': 'Vector processing failed',
+                    'message': 'Failed to process text with vector embeddings',
+                    'details': str(vector_error),
+                    'type': 'processing_error',
+                    'suggestions': [
+                        'Check if text format is correct',
+                        'Ensure proper Inquiry:/Reply: structure',
+                        'Contact support if problem persists'
+                    ]
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             
         except Exception as e:
             logger.error(f"[SAMPLE-REPLIES-API] Text save error: {e}")
@@ -440,17 +403,13 @@ class SampleRepliesStatusView(APIView):
             logger.info(f"[SAMPLE-REPLIES-STATUS]   - Filename: {auto_settings.sample_replies_filename}")
             logger.info(f"[SAMPLE-REPLIES-STATUS]   - Content length: {len(auto_settings.sample_replies_content or '')}")
             
-            has_sample_replies = bool(
-                auto_settings.use_sample_replies and 
-                auto_settings.sample_replies_content
-            )
-            
             # 🔍 Перевіряємо vector документи для детального статусу
             logger.info(f"[SAMPLE-REPLIES-STATUS] 🔍 Checking vector documents...")
             from .vector_models import VectorDocument, VectorChunk
             
             vector_documents = VectorDocument.objects.filter(
-                business_id=business_id
+                business_id=business_id,
+                phone_available=phone_available  # 🆕 Фільтруємо по phone_available!
             ).order_by('-created_at')
             
             vector_status = {
@@ -458,9 +417,18 @@ class SampleRepliesStatusView(APIView):
                 'completed_documents': vector_documents.filter(processing_status='completed').count(),
                 'processing_documents': vector_documents.filter(processing_status='processing').count(),
                 'error_documents': vector_documents.filter(processing_status='error').count(),
-                'total_chunks': VectorChunk.objects.filter(document__business_id=business_id).count(),
+                'total_chunks': VectorChunk.objects.filter(
+                    document__business_id=business_id,
+                    document__phone_available=phone_available
+                ).count(),
                 'documents': []
             }
+            
+            # ✅ Перевіряємо чи є sample replies (векторні або текстові)
+            has_sample_replies = bool(
+                auto_settings.use_sample_replies and 
+                (vector_status['total_chunks'] > 0 or auto_settings.sample_replies_content)
+            )
             
             # Детальна інформація про кожен документ
             for doc in vector_documents[:10]:  # Останні 10 документів
@@ -480,11 +448,19 @@ class SampleRepliesStatusView(APIView):
                     'has_vector_data': chunks_count > 0
                 })
             
+            # ✅ Показуємо filename тільки якщо є векторні документи
+            display_filename = ''
+            if vector_status['total_documents'] > 0 and vector_documents.first():
+                display_filename = vector_documents.first().filename
+            elif auto_settings.sample_replies_content:
+                # Legacy: якщо є текстовий контент
+                display_filename = auto_settings.sample_replies_filename
+            
             return Response({
                 'business_name': business.name,
                 'has_sample_replies': has_sample_replies,
                 'use_sample_replies': auto_settings.use_sample_replies,
-                'filename': auto_settings.sample_replies_filename,
+                'filename': display_filename,  # 🆕 Показуємо filename тільки якщо є дані
                 'content_length': len(auto_settings.sample_replies_content) if auto_settings.sample_replies_content else 0,
                 'priority': auto_settings.sample_replies_priority,
                 'ai_mode_enabled': auto_settings.use_ai_greeting,
@@ -498,7 +474,8 @@ class SampleRepliesStatusView(APIView):
             from .vector_models import VectorDocument, VectorChunk
             
             vector_documents = VectorDocument.objects.filter(
-                business_id=business_id
+                business_id=business_id,
+                phone_available=phone_available  # 🆕 Фільтруємо по phone_available!
             ).order_by('-created_at')
             
             vector_status = {
@@ -506,7 +483,10 @@ class SampleRepliesStatusView(APIView):
                 'completed_documents': vector_documents.filter(processing_status='completed').count(),
                 'processing_documents': vector_documents.filter(processing_status='processing').count(),
                 'error_documents': vector_documents.filter(processing_status='error').count(),
-                'total_chunks': VectorChunk.objects.filter(document__business_id=business_id).count(),
+                'total_chunks': VectorChunk.objects.filter(
+                    document__business_id=business_id,
+                    document__phone_available=phone_available
+                ).count(),
                 'documents': []
             }
             
@@ -528,18 +508,93 @@ class SampleRepliesStatusView(APIView):
                     'has_vector_data': chunks_count > 0
                 })
             
+            # ✅ Якщо є векторні документи, показуємо їх навіть без AutoResponseSettings
+            has_vector_data = vector_status['total_chunks'] > 0
+            display_filename = vector_documents.first().filename if vector_documents.first() else None
+            
             return Response({
                 'business_name': business.name,
-                'has_sample_replies': False,
-                'use_sample_replies': False,
-                'filename': None,
+                'has_sample_replies': has_vector_data,  # 🆕 True якщо є векторні дані
+                'use_sample_replies': has_vector_data,  # 🆕 True якщо є векторні дані
+                'filename': display_filename,  # 🆕 Filename з VectorDocument
                 'content_length': 0,
                 'priority': True,
-                'ai_mode_enabled': False,
-                'mode': 'Not configured',
+                'ai_mode_enabled': has_vector_data,  # 🆕 AI enabled якщо є векторні дані
+                'mode': 'AI Generated (Mode 2) - Vector Enhanced' if has_vector_data else 'Not configured',
                 'vector_status': vector_status,
                 'vector_search_available': vector_status['total_chunks'] > 0
             })
+
+
+class VectorSystemHealthView(APIView):
+    """Перевірка здоров'я векторної системи"""
+    
+    def get(self, request):
+        """Отримати статус векторної системи"""
+        
+        try:
+            from .vector_models import VectorDocument, VectorChunk
+            
+            # Перевірка OpenAI клієнта
+            openai_status = {
+                'initialized': vector_pdf_service.openai_client is not None,
+                'model': 'text-embedding-3-small' if vector_pdf_service.openai_client else None
+            }
+            
+            # Статистика по всій базі
+            total_documents = VectorDocument.objects.count()
+            total_chunks = VectorChunk.objects.count()
+            
+            # Статистика по статусах
+            status_breakdown = {
+                'completed': VectorDocument.objects.filter(processing_status='completed').count(),
+                'processing': VectorDocument.objects.filter(processing_status='processing').count(),
+                'error': VectorDocument.objects.filter(processing_status='error').count()
+            }
+            
+            # Статистика по phone_available
+            phone_breakdown = {
+                'no_phone': VectorDocument.objects.filter(phone_available=False).count(),
+                'phone_in_message': VectorDocument.objects.filter(phone_available=True).count()
+            }
+            
+            # Перевірка pgvector extension
+            from django.db import connection
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT extversion FROM pg_extension WHERE extname = 'vector';")
+                pgvector_row = cursor.fetchone()
+                pgvector_version = pgvector_row[0] if pgvector_row else None
+            
+            system_healthy = (
+                openai_status['initialized'] and
+                pgvector_version is not None and
+                total_documents >= 0  # Може бути 0 якщо нічого не завантажено
+            )
+            
+            return Response({
+                'healthy': system_healthy,
+                'openai': openai_status,
+                'pgvector': {
+                    'installed': pgvector_version is not None,
+                    'version': pgvector_version
+                },
+                'statistics': {
+                    'total_documents': total_documents,
+                    'total_chunks': total_chunks,
+                    'by_status': status_breakdown,
+                    'by_phone_mode': phone_breakdown
+                },
+                'timestamp': datetime.datetime.now().isoformat()
+            })
+            
+        except Exception as e:
+            logger.error(f"[VECTOR-HEALTH] Health check error: {e}")
+            logger.exception("Health check error details:")
+            return Response({
+                'healthy': False,
+                'error': str(e),
+                'timestamp': datetime.datetime.now().isoformat()
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class VectorSearchTestView(APIView):
@@ -744,6 +799,7 @@ class VectorDocumentDeleteView(APIView):
                 'id': document.id,
                 'filename': document.filename,
                 'business_id': document.business_id,
+                'phone_available': document.phone_available,
                 'chunks_count': document.chunk_count,
                 'total_tokens': document.total_tokens,
                 'file_size': document.file_size
@@ -755,9 +811,38 @@ class VectorDocumentDeleteView(APIView):
             
             logger.info(f"[VECTOR-DELETE-API] ✅ Document '{document_info['filename']}' deleted successfully")
             
+            # 🔧 Перевіряємо чи залишились інші документи для цього режиму
+            remaining_docs = VectorDocument.objects.filter(
+                business_id=document_info['business_id'],
+                phone_available=document_info['phone_available']
+            ).count()
+            
+            logger.info(f"[VECTOR-DELETE-API] Remaining documents for this mode: {remaining_docs}")
+            
+            # Якщо немає документів - очищаємо AutoResponseSettings
+            if remaining_docs == 0:
+                try:
+                    business = YelpBusiness.objects.get(business_id=document_info['business_id'])
+                    auto_settings = AutoResponseSettings.objects.get(
+                        business=business,
+                        phone_available=document_info['phone_available']
+                    )
+                    
+                    logger.info(f"[VECTOR-DELETE-API] 🧹 No documents left - clearing AutoResponseSettings")
+                    auto_settings.sample_replies_filename = ''
+                    auto_settings.use_sample_replies = False
+                    auto_settings.sample_replies_content = ''
+                    auto_settings.save()
+                    
+                    logger.info(f"[VECTOR-DELETE-API] ✅ AutoResponseSettings cleared")
+                    
+                except (YelpBusiness.DoesNotExist, AutoResponseSettings.DoesNotExist) as e:
+                    logger.warning(f"[VECTOR-DELETE-API] ⚠️ Could not clear AutoResponseSettings: {e}")
+            
             return Response({
                 'message': f"Document '{document_info['filename']}' deleted successfully",
-                'deleted_document': document_info
+                'deleted_document': document_info,
+                'remaining_documents': remaining_docs
             })
             
         except Exception as e:

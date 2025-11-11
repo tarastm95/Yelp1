@@ -102,6 +102,7 @@ class VectorSearchService:
         self,
         query_text: str,
         business_id: str,
+        phone_available: bool = False,
         location_id: Optional[str] = None,
         limit: int = 5,
         similarity_threshold: float = 0.6,
@@ -125,6 +126,7 @@ class VectorSearchService:
         logger.info(f"[VECTOR-SEARCH] ========== VECTOR SEARCH ==========")
         logger.info(f"[VECTOR-SEARCH] Query: {query_text[:200]}...")
         logger.info(f"[VECTOR-SEARCH] Business ID: {business_id}")
+        logger.info(f"[VECTOR-SEARCH] Phone Available: {phone_available}")
         logger.info(f"[VECTOR-SEARCH] Location ID: {location_id}")
         logger.info(f"[VECTOR-SEARCH] Limit: {limit}")
         logger.info(f"[VECTOR-SEARCH] Similarity threshold: {similarity_threshold}")
@@ -143,6 +145,7 @@ class VectorSearchService:
             # Отримуємо кандидатів для similarity calculation
             chunks_queryset = VectorChunk.objects.select_related('document').filter(
                 document__business_id=business_id,
+                document__phone_available=phone_available,
                 document__processing_status='completed'
             ).exclude(embedding__isnull=True)
             
@@ -228,6 +231,7 @@ class VectorSearchService:
         self,
         query_text: str,
         business_id: str,
+        phone_available: bool = False,
         location_id: Optional[str] = None,
         limit: int = 5,
         similarity_threshold: float = 0.6
@@ -249,6 +253,7 @@ class VectorSearchService:
         logger.info(f"[VECTOR-SEARCH] ========== INQUIRY→RESPONSE PAIR MATCHING ==========")
         logger.info(f"[VECTOR-SEARCH] Query: {query_text[:200]}...")
         logger.info(f"[VECTOR-SEARCH] Business ID: {business_id}")
+        logger.info(f"[VECTOR-SEARCH] Phone Available: {phone_available}")
         logger.info(f"[VECTOR-SEARCH] Limit: {limit}")
         logger.info(f"[VECTOR-SEARCH] Similarity threshold: {similarity_threshold}")
         
@@ -259,6 +264,7 @@ class VectorSearchService:
             similar_inquiries = self.search_similar_chunks(
                 query_text=query_text,
                 business_id=business_id,
+                phone_available=phone_available,  # 🆕 Використовуємо phone_available з параметрів!
                 location_id=location_id,
                 limit=limit * 2,  # Шукаємо більше inquiry для кращого вибору
                 similarity_threshold=similarity_threshold,

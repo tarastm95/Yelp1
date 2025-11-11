@@ -122,6 +122,7 @@ class VectorDebugView(APIView):
                 search_results = vector_search_service.search_similar_chunks(
                     query_text=test_query,
                     business_id=business_id,
+                    phone_available=False,  # Default to no phone mode for debug
                     similarity_threshold=0.4,
                     chunk_types=['response', 'example'],
                     limit=5

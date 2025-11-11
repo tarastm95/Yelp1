@@ -64,6 +64,7 @@ import PhoneDisabledIcon from '@mui/icons-material/PhoneDisabled';
 import ContactPhoneIcon from '@mui/icons-material/ContactPhone';
 import BusinessInfoCard from './BusinessInfoCard';
 import NotificationSettings from './NotificationSettings';
+import WhatsAppNotificationSettings from './WhatsAppNotificationSettings';
 import SampleRepliesManager from './SampleRepliesManager';
 import WarningIcon from '@mui/icons-material/Warning';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -71,8 +72,6 @@ import ToggleOnIcon from '@mui/icons-material/ToggleOn';
 import ToggleOffIcon from '@mui/icons-material/ToggleOff';
 
 // Helper placeholders used in message templates
-
-// For Template Configuration and Follow-up Templates - include greetings
 const TEMPLATE_PLACEHOLDERS = ['{name}', '{jobs}', '{greetings}'] as const;
 
 // For Notification Settings and other sections - full placeholders
@@ -85,8 +84,6 @@ type Placeholder = typeof TEMPLATE_PLACEHOLDERS[number];
 const PLACEHOLDER_DESCRIPTIONS: Record<string, string> = {
   '{name}': 'Customer display name',
   '{jobs}': 'List of services requested',
-  '{sep}': 'Separator between services',
-  '{reason}': 'Reason for SMS (Phone Found, Customer Reply, Phone Opt-in)',
   '{greetings}': 'Time-based greeting (Good morning, Good afternoon, etc.)'
 };
 
@@ -664,6 +661,10 @@ const AutoResponseSettings: FC = () => {
   }, [selectedBusiness, businesses]);
 
   useEffect(() => {
+    // Очищаємо AI Preview при зміні режиму
+    setAiPreview('');
+    setAiCustomPreviewText('');
+    
     if (!phoneAvailable) {
       setGreetingOpenDays('');
     }
@@ -1121,6 +1122,7 @@ AVOID: Generic responses, overly formal language, sales pressure`;
     try {
       const response = await axios.post('/ai/preview/', {
         business_id: selectedBusiness,  // Передаємо business_id для отримання реальних даних
+        phone_available: phoneAvailable,  // 🆕 Передаємо phone_available для правильного режиму!
         // ai_response_style removed - AI learns style from PDF examples
         // All AI behavior controlled via Custom Instructions
         ai_custom_prompt: aiCustomPrompt || undefined,  // Custom Instructions is now the primary prompt (no fallback needed)
@@ -3908,6 +3910,8 @@ In what location do you need the service?
     </Box>
 
     <NotificationSettings businessId={selectedBusiness} />
+
+    <WhatsAppNotificationSettings businessId={selectedBusiness} />
 
       <Snackbar
         open={saved || Boolean(error)}

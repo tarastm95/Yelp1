@@ -57,6 +57,12 @@ class YelpBusiness(models.Model):
     open_days = models.CharField(max_length=128, blank=True)
     open_hours = models.TextField(blank=True)
     details = models.JSONField(blank=True, null=True)
+    representative_name = models.CharField(
+        max_length=100,
+        blank=True,
+        default='',
+        help_text="ОБОВ'ЯЗКОВЕ: Ім'я представника для підпису AI повідомлень (напр. 'Developer D.', 'John Smith'). AI використає ТЕ ім'я для підпису замість плейсхолдерів."
+    )
     sms_notifications_enabled = models.BooleanField(
         default=False,
         help_text="Enable/disable SMS notifications for new leads for this business"
@@ -195,6 +201,20 @@ class AutoResponseSettings(models.Model):
     sms_on_phone_opt_in = models.BooleanField(
         default=True,
         help_text="Відправляти SMS коли приходить phone opt-in від клієнта"
+    )
+
+    # 📱 WhatsApp Notification Settings
+    whatsapp_on_phone_found = models.BooleanField(
+        default=True, 
+        help_text="Відправляти WhatsApp коли система знаходить номер телефону в тексті"
+    )
+    whatsapp_on_customer_reply = models.BooleanField(
+        default=True,
+        help_text="Відправляти WhatsApp коли клієнт відповідає на повідомлення"
+    )
+    whatsapp_on_phone_opt_in = models.BooleanField(
+        default=True,
+        help_text="Відправляти WhatsApp коли приходить phone opt-in від клієнта"
     )
 
     greeting_open_from = models.TimeField(
@@ -466,6 +486,47 @@ class SMSLog(models.Model):
         return f"SMS {self.sid} to {self.to_phone} ({self.status})"
 
 
+class WhatsAppLog(models.Model):
+    """Log of WhatsApp messages sent via Twilio."""
+    
+    # Basic WhatsApp info
+    sid = models.CharField(max_length=128, unique=True, db_index=True, help_text="Twilio Message SID")
+    to_phone = models.CharField(max_length=32, db_index=True, help_text="Destination phone number")
+    from_phone = models.CharField(max_length=32, help_text="Source phone number (Twilio WhatsApp)")
+    body = models.TextField(help_text="WhatsApp message content")
+    
+    # Context info  
+    lead_id = models.CharField(max_length=64, blank=True, null=True, db_index=True)
+    business_id = models.CharField(max_length=128, blank=True, null=True, db_index=True)
+    purpose = models.CharField(max_length=50, blank=True, help_text="notification, auto_response, manual, api")
+    
+    # Status tracking
+    status = models.CharField(max_length=20, default='sent')
+    error_message = models.TextField(blank=True, null=True)
+    
+    # Twilio metadata
+    price = models.CharField(max_length=20, blank=True, null=True)
+    price_unit = models.CharField(max_length=10, blank=True, null=True)
+    direction = models.CharField(max_length=20, blank=True, null=True)
+    
+    # Timestamps
+    sent_at = models.DateTimeField(auto_now_add=True)
+    twilio_created_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-sent_at']
+        indexes = [
+            models.Index(fields=['business_id', '-sent_at']),
+            models.Index(fields=['lead_id', '-sent_at']),
+            models.Index(fields=['purpose', '-sent_at']),
+            models.Index(fields=['status', '-sent_at']),
+        ]
+
+    def __str__(self):
+        return f"WhatsApp {self.sid} to {self.to_phone} ({self.status})"
+
+
 class LeadPendingTask(models.Model):
     """
     Track Celery tasks scheduled for a lead with sequential ordering.
@@ -477,7 +538,7 @@ class LeadPendingTask(models.Model):
     """
 
     lead_id = models.CharField(max_length=64, db_index=True)
-    text = models.TextField()
+    text = models.TextField(blank=True, default='')  # ✅ Може бути порожнім до AI генерації
     task_id = models.CharField(max_length=128, unique=True)
     phone_available = models.BooleanField(default=False)
     active = models.BooleanField(default=True)
@@ -514,14 +575,33 @@ class LeadPendingTask(models.Model):
         blank=True,
         help_text="Коли повідомлення було відправлено"
     )
+    
+    # 🤖 AI генерація тексту (Варіант B)
+    template_id = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="ID FollowUpTemplate для AI генерації (якщо потрібно)"
+    )
+    ai_mode = models.CharField(
+        max_length=20,
+        choices=[
+            ('NONE', 'No AI'),           # Текст вже згенерований
+            ('TEMPLATE', 'Template'),     # Використати template.format()
+            ('AI_FULL', 'AI Full'),       # Повна AI генерація
+            ('AI_VECTOR', 'AI Vector'),   # AI з Vector Search
+        ],
+        default='NONE',
+        help_text="Режим генерації тексту"
+    )
+    generated_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Коли текст було згенеровано AI"
+    )
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(
-                fields=["lead_id", "text"],
-                name="uniq_lead_text_active",
-                condition=Q(active=True) & ~Q(text=""),
-            ),
+            # ✅ Тільки sequence-based uniqueness (text може бути порожнім до AI генерації)
             models.UniqueConstraint(
                 fields=["lead_id", "sequence_number"],
                 name="uniq_lead_sequence",
@@ -583,6 +663,79 @@ class NotificationSetting(models.Model):
 
     def __str__(self):
         return f"Notification to {self.phone_number}"
+
+
+class WhatsAppNotificationSetting(models.Model):
+    """Phone number and template for WhatsApp notifications."""
+
+    business = models.ForeignKey(
+        YelpBusiness,
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        help_text="Business for this setting. Null → global",
+    )
+    phone_number = models.CharField(max_length=64, blank=True, default='')
+    
+    # NEW: Content Template fields
+    use_content_template = models.BooleanField(
+        default=False, 
+        help_text="Use Twilio Content Template instead of simple template"
+    )
+    content_sid = models.CharField(
+        max_length=64, 
+        blank=True, 
+        help_text="Twilio Content SID (HX...)"
+    )
+    content_name = models.CharField(
+        max_length=255, 
+        blank=True, 
+        help_text="Template friendly name"
+    )
+    
+    # KEEP: Legacy simple template (for backward compatibility)
+    message_template = models.TextField(
+        blank=True,  # Allow empty for Content Templates
+        help_text="Simple template with {business_id}, {lead_id}, {business_name}, {timestamp}, {phone}"
+    )
+    
+    # NEW: Variable mapping (JSON field)
+    # Maps Twilio {{1}}, {{2}}, etc. to our field names
+    variable_mapping = models.JSONField(
+        default=dict,
+        help_text="Maps template variables: {'1': 'business_id', '2': 'lead_id', ...}"
+    )
+    
+    # NEW: Enable/Disable notification
+    enabled = models.BooleanField(
+        default=True,
+        help_text="Enable or disable this WhatsApp notification"
+    )
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            # Unique constraint for Content Templates: business + content_sid + phone_number
+            models.UniqueConstraint(
+                fields=["business", "content_sid", "phone_number"],
+                condition=models.Q(use_content_template=True, content_sid__gt=''),
+                name="uniq_whatsapp_content_business_phone",
+            ),
+            # Unique constraint for Simple Templates: business + phone_number
+            models.UniqueConstraint(
+                fields=["business", "phone_number"],
+                condition=models.Q(use_content_template=False),
+                name="uniq_whatsapp_simple_business_phone",
+            )
+        ]
+
+    def __str__(self):
+        if self.use_content_template and self.content_name:
+            return f"WhatsApp Content Template: {self.content_name}"
+        return f"WhatsApp Notification to {self.phone_number}"
 
 
 class TimeBasedGreeting(models.Model):

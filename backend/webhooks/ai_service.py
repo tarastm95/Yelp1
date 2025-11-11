@@ -147,6 +147,18 @@ class OpenAIService:
                 lead_detail, business, is_off_hours, custom_prompt
             )
             
+            # Якщо сценарій без телефону – НЕ передавати телефон у контекст
+            if business_ai_settings and not getattr(business_ai_settings, "phone_available", False):
+                logger.info("[AI-SERVICE] 🔒 Phone not available for this scenario – removing phone from context")
+                business_data = context.get("business_data", {})
+                if "phone" in business_data:
+                    business_data.pop("phone", None)
+                context["business_data"] = business_data
+                
+                business_data_settings = context.get("business_data_settings", {})
+                business_data_settings["include_phone"] = False
+                context["business_data_settings"] = business_data_settings
+            
             logger.info(f"[AI-SERVICE] ✅ Lead context prepared:")
             logger.info(f"[AI-SERVICE] - Customer name: {context.get('customer_name')}")
             logger.info(f"[AI-SERVICE] - Services: {context.get('services')}")
@@ -225,6 +237,40 @@ class OpenAIService:
             logger.info(f"[AI-SERVICE] " + "="*60)
             logger.info(f"[AI-SERVICE] 📊 Response length: {original_length} characters")
             
+            # 🛡️ SAFETY CHECK: Перевірка на залишкові плейсхолдери
+            import re
+            placeholders_found = re.findall(r'\[([^\]]+)\]', ai_message)
+            if placeholders_found:
+                logger.error(f"[AI-SERVICE] ❌ PLACEHOLDERS DETECTED in AI response!")
+                logger.error(f"[AI-SERVICE] Found placeholders: {placeholders_found}")
+                logger.error(f"[AI-SERVICE] This means AI didn't substitute real data for placeholders")
+                logger.error(f"[AI-SERVICE] Generated text preview: {ai_message[:300]}...")
+                
+                # Логуємо доступні дані для діагностики
+                business_data = context.get('business_data', {})
+                logger.error(f"[AI-SERVICE] Available business data keys: {list(business_data.keys())}")
+                logger.error(f"[AI-SERVICE] Customer name: {context.get('customer_name', 'N/A')}")
+                logger.error(f"[AI-SERVICE] Representative name: {business_data.get('representative_name', 'N/A')}")
+                logger.error(f"[AI-SERVICE] Phone: {business_data.get('phone', 'N/A')}")
+                
+                # Видаляємо плейсхолдери як останній захист
+                cleaned_text = ai_message
+                for placeholder in placeholders_found:
+                    # Видаляємо плейсхолдер разом з можливими навколишніми словами
+                    # Патерни для видалення: "at [phone]", "[Your Name]", "Call [phone number]"
+                    cleaned_text = re.sub(rf'\s*\[{re.escape(placeholder)}\]\s*', ' ', cleaned_text)
+                    logger.warning(f"[AI-SERVICE] ⚠️ Removed placeholder: [{placeholder}]")
+                
+                # Очищаємо подвійні пробіли та зайві коми/крапки
+                cleaned_text = re.sub(r'\s+', ' ', cleaned_text)
+                cleaned_text = re.sub(r'\s+([,.])', r'\1', cleaned_text)  # Fix spaces before punctuation
+                cleaned_text = cleaned_text.strip()
+                
+                logger.warning(f"[AI-SERVICE] ⚠️ Cleaned text: {cleaned_text[:300]}...")
+                ai_message = cleaned_text
+            else:
+                logger.info(f"[AI-SERVICE] ✅ No placeholders detected - response is clean")
+            
             # 🔍 АНАЛІЗ ДОТРИМАННЯ ПРАВИЛ З ПРОМПТУ
             logger.info(f"[AI-SERVICE] ==================== PROMPT COMPLIANCE ANALYSIS ====================")
             
@@ -301,6 +347,7 @@ class OpenAIService:
     def generate_preview_message(
         self,
         business,  # YelpBusiness object
+        phone_available: bool = False,
         # All AI behavior controlled via Custom Instructions (location, response time, business data, style)
         custom_prompt: Optional[str] = None,
         max_length: Optional[int] = None,
@@ -315,6 +362,7 @@ class OpenAIService:
         # 🎯 НОВА СПРОЩЕНА АРХІТЕКТУРА AI СИСТЕМИ
         logger.info(f"[AI-SERVICE] 🎯 SIMPLIFIED AI: Vector Search → Custom Instructions")
         logger.info(f"[AI-SERVICE] Business: {business.name}")
+        logger.info(f"[AI-SERVICE] Phone Available: {phone_available}")
         logger.info(f"[AI-SERVICE] Has custom_prompt: {bool(custom_prompt)}")
         logger.info(f"[AI-SERVICE] Has custom_preview_text: {bool(custom_preview_text)}")
         
@@ -337,6 +385,7 @@ class OpenAIService:
                     vector_response = self.generate_sample_replies_response(
                         lead_detail=mock_lead,
                         business=business,
+                        phone_available=phone_available,  # 🆕 Передаємо phone_available!
                         max_length=None,  # ✅ Auto-detect from Sample Replies examples
                         business_ai_settings=business_ai_settings,
                         use_vector_search=True
@@ -366,7 +415,8 @@ class OpenAIService:
                 "location": business.location or "",
                 "time_zone": business.time_zone or "",
                 "open_days": business.open_days or "",
-                "open_hours": business.open_hours or ""
+                "open_hours": business.open_hours or "",
+                "representative_name": getattr(business, 'representative_name', '') or ''
             }
             
             # Додаємо всі доступні business.details (Custom Instructions сам вибере що використовувати)
@@ -394,6 +444,12 @@ class OpenAIService:
                 logger.info(f"[AI-SERVICE] 📊 Available business data for Custom Instructions: {', '.join(available_data)}")
             else:
                 logger.warning(f"[AI-SERVICE] ⚠️ No business details available")
+            
+            # Якщо сценарій без телефону → не передаємо телефон у превʼю
+            if not phone_available:
+                if business_context.get("phone"):
+                    logger.info("[AI-SERVICE] 🔒 Preview mode: phone not available, removing phone number from context")
+                business_context["phone"] = ""
             
             # 🎯 СПРОЩЕНИЙ CONTEXT ДЛЯ CUSTOM INSTRUCTIONS
             customer_text = custom_preview_text or "I need help with your services"
@@ -438,6 +494,13 @@ class OpenAIService:
             length_instruction = ""
             
             # 🎯 СПРОЩЕНИЙ PROMPT ГЕНЕРАЦІЯ З CUSTOM INSTRUCTIONS
+            # Перевіряємо чи є representative_name
+            representative_name = business_context.get('representative_name', '')
+            if representative_name:
+                rep_note = f"\n\nTECHNICAL NOTE: Representative Name for signature: {representative_name}"
+            else:
+                rep_note = "\n\nTECHNICAL NOTE: No representative name available - do not use [Your Name] or similar placeholders"
+            
             simplified_prompt = f"""Customer message:
 "{customer_text}"
 
@@ -445,11 +508,14 @@ Customer name: {customer_name}
 Business name: {business_name}
 
 Available Business Information:
-{business_info}{length_instruction}
+{business_info}{length_instruction}{rep_note}
 
-{custom_prompt}
+TECHNICAL NOTES - Data Substitution Rules:
+1. All data in "Business Information" above is REAL - use it directly in your response
+2. If specific data is missing, simply omit it - do NOT use placeholders like [Your Name], [Name], etc.
+3. For Yelp URLs: use only the clean URL up to the business name (https://www.yelp.com/biz/business-name), remove everything after "?"
 
-Respond to the customer."""
+Respond to the customer following your instructions."""
             
             logger.info(f"[AI-SERVICE] 📝 Generated simplified prompt (length: {len(simplified_prompt)} chars)")
             
@@ -725,6 +791,34 @@ Respond to the customer."""
         
         return params
     
+    def _clean_yelp_url(self, url: str) -> str:
+        """Очищає Yelp URL від query параметрів, залишаючи тільки базовий шлях
+        
+        Приклад:
+            https://www.yelp.com/biz/digitize-it-glendale?adjust_creative=...&utm_campaign=...
+            -> https://www.yelp.com/biz/digitize-it-glendale
+        """
+        if not url:
+            return ""
+        
+        try:
+            from urllib.parse import urlparse, urlunparse
+            parsed = urlparse(url)
+            # Створюємо новий URL без query параметрів та fragment
+            clean_url = urlunparse((
+                parsed.scheme,  # http/https
+                parsed.netloc,  # www.yelp.com
+                parsed.path,    # /biz/digitize-it-glendale
+                '',             # params (пусто)
+                '',             # query (пусто - видаляємо всі параметри)
+                ''              # fragment (пусто)
+            ))
+            logger.info(f"[AI-SERVICE] 🔗 Cleaned Yelp URL: {url[:80]}... -> {clean_url}")
+            return clean_url
+        except Exception as e:
+            logger.warning(f"[AI-SERVICE] ⚠️ Failed to clean URL: {url[:50]}..., error: {e}")
+            return url  # Повертаємо оригінальний URL якщо не вдалось очистити
+    
     def _prepare_lead_context(
         self, 
         lead_detail: LeadDetail, 
@@ -736,21 +830,6 @@ Respond to the customer."""
         
         ✅ All business data is passed to AI - Custom Instructions control what to include
         """
-        
-        # ✅ REMOVED: business_data_settings - all business data passed to Custom Instructions
-        # Custom Instructions will decide what business information to include in the response
-        if False:  # Placeholder for removed code
-            business_data_settings = {
-                "include_rating": True,
-                "include_categories": True,
-                "include_phone": True,
-                "include_website": False,
-                "include_price_range": True,
-                "include_hours": True,
-                "include_reviews_count": True,
-                "include_address": False,
-                "include_transactions": False
-            }
         
         # Отримуємо оригінальний текст клієнта для contextual analysis
         original_customer_text = self._get_lead_text(lead_detail)
@@ -783,7 +862,8 @@ Respond to the customer."""
             "time_zone": business.time_zone,
             "open_days": business.open_days,
             "open_hours": business.open_hours,
-            "business_id": business.business_id
+            "business_id": business.business_id,
+            "representative_name": getattr(business, 'representative_name', '') or ''  # 🆕 Ім'я представника для підпису
         }
         
         # ✅ Додаємо ВСІ дані з details JSON - Custom Instructions контролюють що використовувати
@@ -834,14 +914,28 @@ Respond to the customer."""
                 "image_url": details.get("image_url", ""),
                 "is_claimed": details.get("is_claimed", False),
                 "is_closed": details.get("is_closed", False),
-                "yelp_url": details.get("url", "")
+                "yelp_url": self._clean_yelp_url(details.get("url", ""))  # 🔗 Очищений URL без параметрів
             })
+        
+        # ✅ Додаємо business_data_settings для контролю що включати в промпт
+        # Всі дані доступні - Custom Instructions контролюють як використовувати
+        business_data_settings = {
+            "include_rating": True,
+            "include_categories": True,
+            "include_phone": True,  # 🔑 Включаємо номер телефону!
+            "include_website": True,
+            "include_price_range": True,
+            "include_hours": True,
+            "include_reviews_count": True,
+            "include_address": True,
+            "include_transactions": True
+        }
         
         context.update({
             "business_name": business.name,
             "business_location": business.location if business.location else "",
-            "business_data": business_data
-            # ✅ business_data_settings REMOVED - all data passed, Custom Instructions control usage
+            "business_data": business_data,
+            "business_data_settings": business_data_settings  # ✅ Передаємо налаштування
         })
         
         # 🎯 CONTEXTUAL AI: Більше не потрібен парсинг плейсхолдерів 
@@ -963,6 +1057,15 @@ Respond to the customer."""
             
             business_info = "\n".join(business_info_parts) if business_info_parts else "No additional business information configured."
             
+            # 🆕 Representative name for signature - додаємо окремо для перевірки нижче
+            representative_name = business_data.get('representative_name', '')
+            if representative_name:
+                # Додаємо до Business Information тільки якщо є
+                business_info += f"\nRepresentative Name (for signature): {representative_name}"
+                logger.info(f"[AI-SERVICE] 👤 Representative name provided: '{representative_name}'")
+            else:
+                logger.warning(f"[AI-SERVICE] ⚠️ No representative name configured for {business_name}!")
+            
             # 🔍 VECTOR SEARCH CONTEXT for Custom Preview Text
             vector_context = ""
             if context.get('sample_replies_context'):
@@ -991,6 +1094,36 @@ STYLE GUIDANCE: Use the tone, approach, and communication style from the similar
             # System uses generous token limit to allow natural conversation length
             length_instruction = ""
             
+            # 🔍 Check if custom_prompt contains NAME placeholder patterns (these are style choices)
+            name_placeholders = ['[Your Name]', '[Name]', '[Representative]', '[Agent Name]']
+            has_name_placeholders = False
+            if custom_prompt:
+                has_name_placeholders = any(pattern in custom_prompt for pattern in name_placeholders)
+                logger.info(f"[AI-SERVICE] 🔍 Custom Instructions name placeholder check: {has_name_placeholders}")
+            
+            # 📝 Build signature requirements conditionally based on name placeholders AND representative_name
+            signature_requirements = ""
+            representative_name = business_data.get('representative_name', '')
+            
+            if not has_name_placeholders:
+                # Тільки якщо в Custom Instructions НЕМАЄ плейсхолдерів імені
+                if representative_name:
+                    # Є representative_name - коротка інструкція
+                    signature_requirements = f"""
+4. Representative Name for signature: {representative_name}
+"""
+                    logger.info(f"[AI-SERVICE] ✅ Added representative_name: '{representative_name}'")
+                else:
+                    # Немає representative_name - нагадування не використовувати плейсхолдери
+                    signature_requirements = """
+4. No representative name available - do not use [Your Name] or similar placeholders in signature
+"""
+                    logger.info(f"[AI-SERVICE] ⚠️ No representative_name - added note to avoid placeholders")
+            else:
+                # Якщо Custom Instructions містить [Your Name] - це частина стилю, не додаємо нічого
+                signature_requirements = ""
+                logger.info(f"[AI-SERVICE] ⏭️ Skipping signature note - [Your Name] found in Custom Instructions (style choice)")
+            
             contextual_prompt = f"""Customer message:
 "{customer_text}"
 
@@ -1001,9 +1134,46 @@ Time-appropriate greeting: {time_greeting}
 Business Information:
 {business_info}{vector_context}{length_instruction}
 
-IMPORTANT: Start your response with the time-appropriate greeting ({time_greeting}) followed by the customer's name.
+CRITICAL RULES - How to Handle Placeholders in Examples:
+1. PLACEHOLDER INTERPRETATION: If you see placeholders like [Name], [phone], [Business], [Location] in your instructions or examples:
+   - These are TEMPLATES showing WHERE to put real data
+   - [Name] means "use the customer's real name from Customer name above"
+   - [phone] means "use the real phone number from Business Information above"
+   - [Business] means "use the real Business name above"
+   - [Location] means "use the real Address from Business Information above"
+   - [Your Name] means "use the Representative Name from Business Information above"
 
-Customer inquiry requires response based on the information above."""
+2. SUBSTITUTION RULES:
+   ✅ If real data is available → substitute the placeholder with real data
+      Example: "[Name]" + Customer name: John → "John"
+      Example: "Call [phone]" + Phone: +12138161560 → "Call +12138161560"
+      Example: "[Your Name]" + Representative Name: Ben → "Ben"
+   
+   ✅ If real data is NOT available → omit that part entirely
+      Example: "[Your Name]" + No representative name → omit signature or use business name
+      Example: "Call [phone]" + No phone → omit the call instruction
+
+3. YOUR RESPONSE MUST NEVER CONTAIN BRACKETS [ ]:
+   ❌ WRONG: "Best regards, [Your Name]"
+   ✅ CORRECT: "Best regards, Ben" (if representative name is Ben)
+   ✅ CORRECT: "Best regards, Priority Remodeling" (if no representative name)
+   ❌ WRONG: "Call us at [phone number]"
+   ✅ CORRECT: "Call us at +12138161560" (if phone is provided)
+   ✅ CORRECT: Don't mention calling (if no phone provided)
+
+4. REAL DATA LOCATION:
+   - Customer name: see "Customer name:" above
+   - Business name: see "Business name:" above
+   - Phone: see "Phone:" in "Business Information:" section
+   - Address: see "Address:" in "Business Information:" section
+   - Representative name: see "Representative Name (for signature):" in "Business Information:" section
+   - Rating: see "Rating:" in "Business Information:" section
+
+5. For Yelp URLs: use only the clean URL up to the business name (https://www.yelp.com/biz/business-name), remove everything after "?"
+
+SUMMARY: Treat [placeholders] as instructions to substitute real data, NOT as text to copy into your response.
+{signature_requirements}
+Generate your response following your instructions above."""
             
             logger.info(f"[AI-SERVICE] 🎯 Using contextual AI analysis with custom prompt")
             logger.info(f"[AI-SERVICE] Customer text length: {len(customer_text)} characters")
@@ -1357,6 +1527,7 @@ Respond to the customer using the business information above."""
         self, 
         lead_detail: LeadDetail, 
         business: Optional[YelpBusiness] = None,
+        phone_available: bool = False,
         max_length: Optional[int] = None,
         business_ai_settings: Optional['AutoResponseSettings'] = None,
         use_vector_search: bool = True
@@ -1370,6 +1541,7 @@ Respond to the customer using the business information above."""
         logger.info(f"[AI-SERVICE] ========== MODE 2: VECTOR SAMPLE REPLIES AI GENERATION ==========")
         logger.info(f"[AI-SERVICE] Lead ID: {lead_detail.lead_id}")
         logger.info(f"[AI-SERVICE] Business: {business.name} ({business.business_id})")
+        logger.info(f"[AI-SERVICE] Phone Available: {phone_available}")
         logger.info(f"[AI-SERVICE] Use vector search: {use_vector_search}")
         
         if not self.is_available():
@@ -1404,6 +1576,7 @@ Respond to the customer using the business information above."""
                     inquiry_response_pairs = vector_search_service.search_inquiry_response_pairs(
                         query_text=lead_inquiry,
                         business_id=business.business_id,
+                        phone_available=phone_available,  # 🆕 Передаємо phone_available!
                         location_id=None,  # TODO: Add location support if needed
                         limit=business_ai_settings.vector_search_limit if business_ai_settings else 5,
                         similarity_threshold=business_ai_settings.vector_similarity_threshold if business_ai_settings else 0.6
@@ -1493,6 +1666,7 @@ Respond to the customer using the business information above."""
             temperature = ai_config['temperature']
             
             # Використовуємо business custom prompt замість захардкодженого
+            custom_prompt = business_ai_settings.custom_instructions if business_ai_settings else ""
             system_prompt = custom_prompt if custom_prompt else ""
             
             # Додаємо sample replies як контекст без захардкоджених інструкцій

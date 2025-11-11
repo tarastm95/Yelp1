@@ -30,6 +30,7 @@ import {
   Api as IntegrationIcon,
   ExpandMore as ExpandMoreIcon,
   Sms as SmsIcon,
+  WhatsApp as WhatsAppIcon,
   Psychology as AIIcon,
   AccessTime as AccessTimeIcon,
   Work as WorkIcon,
@@ -58,6 +59,7 @@ const menuGroups = {
       { text: 'Events', icon: <EventIcon />, href: '/events', color: '#f093fb' },
       { text: 'Tasks', icon: <ChecklistIcon />, href: '/tasks', color: '#fa709a' },
       { text: 'SMS Logs', icon: <SmsIcon />, href: '/sms-logs', color: '#4facfe' },
+      { text: 'WhatsApp Logs', icon: <WhatsAppIcon />, href: '/whatsapp-logs', color: '#25D366' },
       { text: 'Lead Activity Logs', icon: <TimelineIcon />, href: '/lead-logs', color: '#667eea' },
     ]
   },

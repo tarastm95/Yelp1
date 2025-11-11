@@ -1,10 +1,22 @@
 from django.contrib import admin
 from django import forms
-from .models import NotificationSetting, AISettings, TimeBasedGreeting
+from .models import NotificationSetting, WhatsAppLog, WhatsAppNotificationSetting, AISettings, TimeBasedGreeting
 
 
 @admin.register(NotificationSetting)
 class NotificationSettingAdmin(admin.ModelAdmin):
+    list_display = ["phone_number", "business", "message_template"]
+
+
+@admin.register(WhatsAppLog)
+class WhatsAppLogAdmin(admin.ModelAdmin):
+    list_display = ["sid", "to_phone", "business_id", "purpose", "status", "sent_at"]
+    list_filter = ["status", "purpose", "sent_at"]
+    search_fields = ["sid", "to_phone", "business_id", "lead_id"]
+
+
+@admin.register(WhatsAppNotificationSetting)
+class WhatsAppNotificationSettingAdmin(admin.ModelAdmin):
     list_display = ["phone_number", "business", "message_template"]
 
 

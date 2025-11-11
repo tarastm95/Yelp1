@@ -60,6 +60,7 @@ interface TaskLog {
   task_id: string;
   name: string;
   args: any[];
+  kwargs?: any;
   eta: string | null;
   started_at?: string | null;
   finished_at?: string | null;
@@ -68,6 +69,7 @@ interface TaskLog {
   result?: string | null;
   traceback?: string | null;
   business_id?: string | null;
+  text?: string | null;  // Message text extracted by serializer
 }
 
 interface Business {
@@ -86,6 +88,7 @@ interface PaginatedResponse<T> {
 const TaskLogs: React.FC = () => {
   const [completedTasks, setCompletedTasks] = useState<TaskLog[]>([]);
   const [scheduledTasks, setScheduledTasks] = useState<TaskLog[]>([]);
+  const [failedTasks, setFailedTasks] = useState<TaskLog[]>([]);
   const [canceledTasks, setCanceledTasks] = useState<TaskLog[]>([]);
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [selectedBusiness, setSelectedBusiness] = useState<string>(''); // '' means "All Businesses"
@@ -97,12 +100,14 @@ const TaskLogs: React.FC = () => {
   // Infinite scroll state
   const [completedPage, setCompletedPage] = useState(1);
   const [scheduledPage, setScheduledPage] = useState(1);
+  const [failedPage, setFailedPage] = useState(1);
   const [canceledPage, setCanceledPage] = useState(1);
   const [hasMoreCompleted, setHasMoreCompleted] = useState(true);
   const [hasMoreScheduled, setHasMoreScheduled] = useState(true);
+  const [hasMoreFailed, setHasMoreFailed] = useState(true);
   const [hasMoreCanceled, setHasMoreCanceled] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [tab, setTab] = useState<'completed' | 'scheduled' | 'canceled'>('completed');
+  const [tab, setTab] = useState<'completed' | 'scheduled' | 'failed' | 'canceled'>('completed');
   
   // Ref for scroll container
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -135,9 +140,11 @@ const TaskLogs: React.FC = () => {
     // Reset pagination state
     setCompletedPage(1);
     setScheduledPage(1);
+    setFailedPage(1);
     setCanceledPage(1);
     setHasMoreCompleted(true);
     setHasMoreScheduled(true);
+    setHasMoreFailed(true);
     setHasMoreCanceled(true);
     
     try {
@@ -145,21 +152,25 @@ const TaskLogs: React.FC = () => {
       const businessParam = selectedBusiness ? `&business_id=${selectedBusiness}` : '';
       const leadIdParam = leadIdSearch.trim() ? `&lead_id=${leadIdSearch.trim()}` : '';
       
-      const [completedRes, scheduledRes, canceledRes, businessesRes] = await Promise.all([
-        axios.get<PaginatedResponse<TaskLog>>(`/tasks/?page=1&status=success,failure${businessParam}${leadIdParam}`).catch(() => ({ data: { count: 0, next: null, previous: null, results: [] } })),
+      // Scheduled now includes GENERATING tasks too
+      const [completedRes, scheduledRes, failedRes, canceledRes, businessesRes] = await Promise.all([
+        axios.get<PaginatedResponse<TaskLog>>(`/tasks/?page=1&status=success${businessParam}${leadIdParam}`).catch(() => ({ data: { count: 0, next: null, previous: null, results: [] } })),
         axios.get<PaginatedResponse<TaskLog>>(`/tasks/?page=1&status=scheduled${businessParam}${leadIdParam}`).catch(() => ({ data: { count: 0, next: null, previous: null, results: [] } })),
+        axios.get<PaginatedResponse<TaskLog>>(`/tasks/?page=1&status=failure${businessParam}${leadIdParam}`).catch(() => ({ data: { count: 0, next: null, previous: null, results: [] } })),
         axios.get<PaginatedResponse<TaskLog>>(`/tasks/?page=1&status=canceled${businessParam}${leadIdParam}`).catch(() => ({ data: { count: 0, next: null, previous: null, results: [] } })),
         axios.get<Business[]>('/businesses/').catch(() => ({ data: [] }))
       ]);
 
       setCompletedTasks(completedRes.data.results);
       setScheduledTasks(scheduledRes.data.results);
+      setFailedTasks(failedRes.data.results);
       setCanceledTasks(canceledRes.data.results);
       setBusinesses(businessesRes.data);
       
       // Update hasMore state based on API response
       setHasMoreCompleted(!!completedRes.data.next);
       setHasMoreScheduled(!!scheduledRes.data.next);
+      setHasMoreFailed(!!failedRes.data.next);
       setHasMoreCanceled(!!canceledRes.data.next);
       
       // Load statistics separately from a dedicated endpoint
@@ -206,13 +217,19 @@ const TaskLogs: React.FC = () => {
         if (!hasMoreCompleted) return;
         nextPage = completedPage + 1;
         hasMore = hasMoreCompleted;
-        status = 'success,failure';
+        status = 'success';
         break;
       case 'scheduled':
         if (!hasMoreScheduled) return;
         nextPage = scheduledPage + 1;
         hasMore = hasMoreScheduled;
         status = 'scheduled';
+        break;
+      case 'failed':
+        if (!hasMoreFailed) return;
+        nextPage = failedPage + 1;
+        hasMore = hasMoreFailed;
+        status = 'failure';
         break;
       case 'canceled':
         if (!hasMoreCanceled) return;
@@ -247,6 +264,11 @@ const TaskLogs: React.FC = () => {
           setScheduledTasks(prev => [...prev, ...newTasks]);
           setScheduledPage(nextPage);
           setHasMoreScheduled(hasMoreData);
+          break;
+        case 'failed':
+          setFailedTasks(prev => [...prev, ...newTasks]);
+          setFailedPage(nextPage);
+          setHasMoreFailed(hasMoreData);
           break;
         case 'canceled':
           setCanceledTasks(prev => [...prev, ...newTasks]);
@@ -437,7 +459,8 @@ const TaskLogs: React.FC = () => {
   }
 
   const currentTasks = tab === 'completed' ? completedTasks : 
-                     tab === 'scheduled' ? scheduledTasks : canceledTasks;
+                     tab === 'scheduled' ? scheduledTasks :
+                     tab === 'failed' ? failedTasks : canceledTasks;
 
   return (
     <Box sx={{ 
@@ -895,7 +918,7 @@ const TaskLogs: React.FC = () => {
               <Tab 
                 label={
                   <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <Badge badgeContent={statistics.successful + statistics.failed} color="primary" sx={{ mr: 1 }}>
+                    <Badge badgeContent={statistics.successful} color="success" sx={{ mr: 1 }}>
                       <CheckCircleIcon />
                     </Badge>
                     <Typography sx={{ ml: 1 }}>Completed</Typography>
@@ -913,6 +936,17 @@ const TaskLogs: React.FC = () => {
                   </Box>
                 } 
                 value="scheduled" 
+              />
+              <Tab 
+                label={
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Badge badgeContent={statistics.failed} color="error" sx={{ mr: 1 }}>
+                      <ErrorIcon />
+                    </Badge>
+                    <Typography sx={{ ml: 1 }}>Failed</Typography>
+                  </Box>
+                } 
+                value="failed" 
               />
               <Tab 
                 label={
@@ -964,6 +998,7 @@ const TaskLogs: React.FC = () => {
               >
                 {tab === 'completed' && <CheckCircleIcon sx={{ fontSize: 64, color: 'grey.400', mb: 2 }} />}
                 {tab === 'scheduled' && <ScheduleIcon sx={{ fontSize: 64, color: 'grey.400', mb: 2 }} />}
+                {tab === 'failed' && <ErrorIcon sx={{ fontSize: 64, color: 'grey.400', mb: 2 }} />}
                 {tab === 'canceled' && <CancelIcon sx={{ fontSize: 64, color: 'grey.400', mb: 2 }} />}
                 
                 <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
@@ -976,6 +1011,7 @@ const TaskLogs: React.FC = () => {
                     ? `No ${tab} tasks found for ${businesses.find(b => b.business_id === selectedBusiness)?.name || 'this business'}`
                     : tab === 'completed' && 'No tasks have been completed yet' ||
                       tab === 'scheduled' && 'No tasks are currently scheduled' ||
+                      tab === 'failed' && 'No tasks have failed' ||
                       tab === 'canceled' && 'No tasks have been canceled'
                   }
                 </Typography>
@@ -988,7 +1024,7 @@ const TaskLogs: React.FC = () => {
                   const StatusIcon = statusInfo.icon;
                   const timeUntil = getTimeUntilExecution(task.eta);
                   const leadId = getLeadId(task.args);
-                  const message = getMessage(task.args);
+                  const message = task.text || getMessage(task.args);  // Use serializer text first
                   const businessName = getBusinessName(task.business_id);
                   const isOverdue = timeUntil === 'Overdue';
                   
@@ -1253,6 +1289,7 @@ const TaskLogs: React.FC = () => {
                 {currentTasks.length > 0 && !loadingMore && (
                   (tab === 'completed' && !hasMoreCompleted) ||
                   (tab === 'scheduled' && !hasMoreScheduled) ||
+                  (tab === 'failed' && !hasMoreFailed) ||
                   (tab === 'canceled' && !hasMoreCanceled)
                 ) && (
                   <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>

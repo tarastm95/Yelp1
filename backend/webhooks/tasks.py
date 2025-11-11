@@ -49,20 +49,29 @@ def logged_job(func):
     def wrapper(*args, **kwargs):
         job_obj = get_current_job()
         task_id = job_obj.id if job_obj else str(uuid.uuid4())
+        
+        # Remove RQ-specific parameters (start with underscore)
+        rq_params = ['_job_id', '_countdown', '_timeout', '_result_ttl', '_at_front']
+        filtered_kwargs = {k: v for k, v in kwargs.items() if k not in rq_params}
+        
+        # Check if this is a GENERATING task (for AI greeting generation)
+        is_generating_task = func.__name__ == 'generate_and_send_greeting'
+        initial_status = "GENERATING" if is_generating_task else "STARTED"
+        
         CeleryTaskLog.objects.update_or_create(
             task_id=task_id,
             defaults={
                 "name": func.__name__,
                 "args": list(args),
-                "kwargs": kwargs,
+                "kwargs": filtered_kwargs,
                 "eta": getattr(job_obj, "enqueued_at", timezone.now()),
                 "started_at": timezone.now(),
-                "status": "STARTED",
-                "business_id": kwargs.get("business_id"),
+                "status": initial_status,
+                "business_id": filtered_kwargs.get("business_id"),
             },
         )
         try:
-            result = func(*args, **kwargs)
+            result = func(*args, **filtered_kwargs)
         except Exception as exc:
             CeleryTaskLog.objects.filter(task_id=task_id).update(
                 finished_at=timezone.now(),
@@ -116,6 +125,257 @@ def _extract_yelp_error(resp: requests.Response) -> str:
 
 
 @logged_job
+def generate_and_send_follow_up(
+    lead_id: str, 
+    template_id: int,
+    business_id: str | None = None,
+    ai_mode: str = 'TEMPLATE'
+):
+    """
+    Генерує текст повідомлення (через AI або template) і відправляє його.
+    
+    Цей task виконує 3 кроки:
+    1. Перевіряє чергу (чи відправлено попередній)
+    2. Генерує текст (AI або template.format())
+    3. Відправляє через send_follow_up()
+    
+    Args:
+        lead_id: ID ліда
+        template_id: ID FollowUpTemplate
+        business_id: ID бізнесу
+        ai_mode: Режим генерації ('TEMPLATE', 'AI_FULL', 'AI_VECTOR')
+    """
+    from .models import FollowUpTemplate, YelpBusiness
+    from .ai_service import OpenAIService
+    from .vector_search_service import VectorSearchService
+    from .utils import get_time_based_greeting
+    
+    logger.info(f"[GEN-SEND] 🤖 STARTING generate_and_send_follow_up")
+    logger.info(f"[GEN-SEND] ========================================")
+    logger.info(f"[GEN-SEND] Lead ID: {lead_id}")
+    logger.info(f"[GEN-SEND] Template ID: {template_id}")
+    logger.info(f"[GEN-SEND] Business ID: {business_id}")
+    logger.info(f"[GEN-SEND] AI Mode: {ai_mode}")
+    
+    job = get_current_job()
+    job_id = job.id if job else None
+    
+    # STEP 0: Знайти поточний task в БД
+    try:
+        current_task = LeadPendingTask.objects.get(task_id=job_id)
+        logger.info(f"[GEN-SEND] Current task: sequence #{current_task.sequence_number}")
+        logger.info(f"[GEN-SEND] Previous task ID: {current_task.previous_task_id or 'None'}")
+        logger.info(f"[GEN-SEND] Status: {current_task.status}")
+    except LeadPendingTask.DoesNotExist:
+        logger.error(f"[GEN-SEND] ❌ Task {job_id} not found in DB")
+        return "ERROR: Task not found in database"
+    
+    # STEP 1: Перевірка черги (чи можна відправляти)
+    logger.info(f"[GEN-SEND] 🔗 STEP 1: Checking queue order")
+    
+    if not current_task.can_send():
+        logger.warning(f"[GEN-SEND] ⏸️ WAITING: Previous message not sent yet")
+        
+        # Перевірити статус попереднього
+        try:
+            prev_task = LeadPendingTask.objects.get(task_id=current_task.previous_task_id)
+            logger.info(f"[GEN-SEND] Previous task status: {prev_task.status}")
+            logger.info(f"[GEN-SEND] Previous task sequence: #{prev_task.sequence_number}")
+            
+            # Якщо попередній failed/cancelled - скасувати і цей
+            if prev_task.status in ['FAILED', 'CANCELLED']:
+                logger.error(f"[GEN-SEND] ❌ Previous task {prev_task.status} - cancelling this task")
+                current_task.status = 'CANCELLED'
+                current_task.save()
+                return f"CANCELLED: Previous task {prev_task.status}"
+            
+            # Якщо попередній застряг більше 15 хвилин - пропустити
+            if prev_task.status in ['PENDING', 'WAITING']:
+                wait_time = timezone.now() - prev_task.created_at
+                if wait_time.total_seconds() > 900:  # 15 хвилин
+                    logger.warning(f"[GEN-SEND] ⚠️ Previous task stuck for {wait_time.total_seconds():.0f}s")
+                    logger.warning(f"[GEN-SEND] Proceeding anyway to prevent queue deadlock")
+                else:
+                    # Retry через 10 секунд
+                    logger.info(f"[GEN-SEND] 🔄 Retrying in 10 seconds...")
+                    current_task.status = 'WAITING'
+                    current_task.save()
+                    
+                    # Use django-rq enqueue_in to schedule retry with same job_id
+                    from django_rq import get_queue
+                    from datetime import timedelta
+                    queue = get_queue('default')
+                    queue.enqueue_in(
+                        timedelta(seconds=10),
+                        generate_and_send_follow_up,
+                        lead_id,
+                        template_id,
+                        business_id,
+                        ai_mode,
+                        job_id=job_id,  # Keep the same job_id for retry
+                    )
+                    logger.info(f"[GEN-SEND] Retry scheduled with job_id={job_id}")
+                    return "WAITING: Previous message not sent yet, retry in 10s"
+        except LeadPendingTask.DoesNotExist:
+            logger.warning(f"[GEN-SEND] Previous task not found - proceeding")
+    
+    logger.info(f"[GEN-SEND] ✅ Queue check passed")
+    current_task.status = 'SENDING'
+    current_task.save()
+    
+    # STEP 2: Генерація тексту
+    logger.info(f"[GEN-SEND] 📝 STEP 2: Generating message text")
+    logger.info(f"[GEN-SEND] Generation mode: {ai_mode}")
+    
+    generation_start = time.time()
+    text = None
+    
+    try:
+        # Завантажити template
+        template = FollowUpTemplate.objects.get(id=template_id)
+        logger.info(f"[GEN-SEND] Template: '{template.name}'")
+        
+        # Завантажити lead details
+        lead_detail = LeadDetail.objects.get(lead_id=lead_id)
+        name = lead_detail.user_display_name or "there"
+        jobs = ", ".join(lead_detail.project.get("job_names", []))
+        sep = "\n"
+        
+        # Отримати greetings та reason
+        greetings = get_time_based_greeting(business_id) if business_id else "Hello"
+        reason = ""
+        
+        if ai_mode == 'TEMPLATE':
+            # Простий template.format()
+            logger.info(f"[GEN-SEND] Using template.format() - no AI")
+            text = template.template.format(
+                name=name,
+                jobs=jobs,
+                sep=sep,
+                reason=reason,
+                greetings=greetings
+            )
+            
+        elif ai_mode == 'AI_VECTOR':
+            # AI з Vector Search
+            logger.info(f"[GEN-SEND] Using AI with Vector Search")
+            
+            # Отримати business для контексту
+            business = YelpBusiness.objects.filter(business_id=business_id).first()
+            business_name = business.name if business else "our company"
+            
+            # Отримати customer inquiry
+            customer_text = ""
+            consumer_events = LeadEvent.objects.filter(
+                lead_id=lead_id,
+                user_type="CONSUMER",
+                from_backend=False
+            ).order_by('time_created')
+            
+            if consumer_events.exists():
+                customer_text = consumer_events.first().text
+            
+            # Vector Search
+            vector_service = VectorSearchService()
+            similar_chunks = vector_service.search_similar_replies(
+                query=customer_text or f"{name} interested in {jobs}",
+                business_id=business_id,
+                top_k=5
+            )
+            
+            if similar_chunks and similar_chunks[0].get('similarity', 0) > 0.6:
+                logger.info(f"[GEN-SEND] Found {len(similar_chunks)} similar chunks")
+                text = vector_service.generate_contextual_response(
+                    lead_inquiry=customer_text or f"Customer interested in {jobs}",
+                    customer_name=name,
+                    similar_chunks=similar_chunks,
+                    business_name=business_name
+                )
+            else:
+                logger.info(f"[GEN-SEND] No good matches - falling back to AI_FULL")
+                ai_mode = 'AI_FULL'
+        
+        if ai_mode == 'AI_FULL' or text is None:
+            # Повна AI генерація (fallback)
+            logger.info(f"[GEN-SEND] Using full AI generation")
+            ai_service = OpenAIService()
+            
+            if not ai_service.is_available():
+                logger.error(f"[GEN-SEND] ❌ AI service not available - using template fallback")
+                text = template.template.format(
+                    name=name, jobs=jobs, sep=sep, reason=reason, greetings=greetings
+                )
+            else:
+                # 🔧 FIX: Отримати phone_available з поточного task замість hardcoded False
+                task_phone_available = current_task.phone_available
+                logger.info(f"[GEN-SEND] 🔍 Using phone_available from task: {task_phone_available}")
+                logger.info(f"[GEN-SEND] - Lead ID: {lead_id}")
+                logger.info(f"[GEN-SEND] - Task phone_available: {task_phone_available}")
+                
+                # Отримати AI settings для бізнесу з ПРАВИЛЬНИМ phone_available
+                from .models import AutoResponseSettings
+                ai_settings = AutoResponseSettings.objects.filter(
+                    business__business_id=business_id,
+                    phone_available=task_phone_available  # ✅ Використовуємо значення з task!
+                ).first()
+                
+                if ai_settings:
+                    logger.info(f"[GEN-SEND] ✅ Found AI settings for phone_available={task_phone_available}")
+                else:
+                    logger.error(f"[GEN-SEND] ❌ No AI settings found for phone_available={task_phone_available}")
+                    logger.error(f"[GEN-SEND] Cannot generate AI message without proper settings")
+                    logger.error(f"[GEN-SEND] Business: {business_id}, phone_available: {task_phone_available}")
+                    # ❌ НЕ використовуємо fallback з іншим phone_available - це призводить до неправильних Custom Instructions!
+                    # Замість цього використовуємо template
+                    ai_settings = None
+                
+                business = YelpBusiness.objects.filter(business_id=business_id).first()
+                
+                text = ai_service.generate_greeting_message(
+                    lead_detail=lead_detail,
+                    business=business,
+                    custom_prompt=ai_settings.ai_custom_prompt if ai_settings else None,
+                    business_ai_settings=ai_settings
+                )
+                
+                if not text:
+                    logger.error(f"[GEN-SEND] ❌ AI generation returned empty - using template")
+                    text = template.template.format(
+                        name=name, jobs=jobs, sep=sep, reason=reason, greetings=greetings
+                    )
+        
+        generation_duration = time.time() - generation_start
+        logger.info(f"[GEN-SEND] ✅ Text generated in {generation_duration:.2f}s")
+        logger.info(f"[GEN-SEND] Generated text ({len(text)} chars): '{text[:100]}...'")
+        
+        # Оновити task з згенерованим текстом
+        current_task.text = text
+        current_task.generated_at = timezone.now()
+        current_task.save()
+        
+    except Exception as e:
+        logger.error(f"[GEN-SEND] ❌ Error generating text: {e}")
+        logger.exception(e)
+        current_task.status = 'FAILED'
+        current_task.save()
+        return f"ERROR: Text generation failed - {str(e)}"
+    
+    # STEP 3: Відправити через send_follow_up
+    logger.info(f"[GEN-SEND] 📤 STEP 3: Sending message via send_follow_up")
+    
+    try:
+        result = send_follow_up(lead_id=lead_id, text=text, business_id=business_id)
+        logger.info(f"[GEN-SEND] ✅ COMPLETED: {result}")
+        return result
+    except Exception as e:
+        logger.error(f"[GEN-SEND] ❌ Error in send_follow_up: {e}")
+        logger.exception(e)
+        current_task.status = 'FAILED'
+        current_task.save()
+        return f"ERROR: Send failed - {str(e)}"
+
+
+@logged_job
 def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
     """
     Одноразова відправка follow-up повідомлення без повторних спроб.
@@ -138,18 +398,26 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
     
     job = get_current_job()
     job_id = job.id if job else None
+    job_headers = job.meta if job and hasattr(job, 'meta') else {}
+    existing_task_id = job_headers.get('existing_task_id') if job_headers else None
     logger.info(f"[FOLLOW-UP] Task ID: {job_id}")
+    logger.info(f"[FOLLOW-UP] Existing task ID (retry): {existing_task_id or 'None (new task)'}")
     logger.info(f"[FOLLOW-UP] Worker process: {os.getpid()}")
     logger.info(f"[FOLLOW-UP] ============================================")
     
-    # Step 1: Check sequential queue - wait for previous message
+    # Step 防止: Check sequential queue - wait for previous message
     logger.info(f"[FOLLOW-UP] 🔗 STEP 0: Checking message queue order")
     logger.info(f"[FOLLOW-UP] ========== SEQUENTIAL QUEUE CHECK ==========")
     
     current_task = None
-    if job_id:
+    # Use existing_task_id if this is a retry, otherwise use job_id
+    task_id_to_lookup = existing_task_id or job_id
+    
+    # For exclude in duplicate check, use the task_id we're currently executing, not the DB record ID
+    exclude_task_id_for_duplicate_check = task_id_to_lookup
+    if task_id_to_lookup:
         try:
-            current_task = LeadPendingTask.objects.get(task_id=job_id)
+            current_task = LeadPendingTask.objects.get(task_id=task_id_to_lookup)
             logger.info(f"[FOLLOW-UP] Current task found:")
             logger.info(f"[FOLLOW-UP] - Sequence: #{current_task.sequence_number}")
             logger.info(f"[FOLLOW-UP] - Previous task ID: {current_task.previous_task_id or 'None (first in queue)'}")
@@ -181,12 +449,37 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
                 current_task.status = 'WAITING'
                 current_task.save()
                 
-                # Re-schedule цей task
-                send_follow_up.apply_async(
-                    args=[lead_id, text],
-                    headers={"business_id": business_id},
-                    countdown=30
-                )
+                # Re-schedule цей SAME task (use current job_id)
+                # Important: Don't create a new task, retry the existing one
+                try:
+                    current_rq_job = get_current_job()
+                    if current_rq_job:
+                        logger.info(f"[FOLLOW-UP] Re-enqueuing existing job {current_rq_job.id}")
+                        send_follow_up.delay(
+                            lead_id,
+                            text,
+                            business_id,
+                            _job_id=current_rq_job.id,
+                            _countdown=30,
+                        )
+                    else:
+                        logger.warning(f"[FOLLOW-UP] No current RQ job found, scheduling new task")
+                        send_follow_up.delay(
+                            lead_id,
+                            text,
+                            business_id,
+                            _countdown=30,
+                        )
+                except Exception as requeue_error:
+                    logger.error(f"[FOLLOW-UP] ❌ Failed to requeue: {requeue_error}")
+                    # Fallback to creating new task
+                    send_follow_up.delay(
+                        lead_id,
+                        text,
+                        business_id,
+                        _countdown=30,
+                    )
+                
                 return "WAITING: Previous message not sent yet, retry scheduled"
             
             logger.info(f"[FOLLOW-UP] ✅ Queue check passed - can send message")
@@ -198,13 +491,8 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
     
     logger.info(f"[FOLLOW-UP] =============================================")
     
-    # Step 2: Mark task as inactive (moved from Step 1)
-    if job_id:
-        updated_count = LeadPendingTask.objects.filter(task_id=job_id).update(active=False)
-        logger.info(f"[FOLLOW-UP] 📝 Marked {updated_count} LeadPendingTask(s) as inactive")
-        
-    # Step 3: Check for duplicates
-    logger.info(f"[FOLLOW-UP] 🔍 STEP 1: Checking for duplicate messages")
+    # Step 2: Diagnostic logging for duplicate detection
+    logger.info(f"[FOLLOW-UP] 🔍 STEP 1: Preparing for duplicate check (diagnostic logging)")
     logger.info(f"[FOLLOW-UP] ========== DUPLICATE DETECTION ==========")
     logger.info(f"[FOLLOW-UP] Message to check for duplicates:")
     logger.info(f"[FOLLOW-UP] - Lead ID: {lead_id}")
@@ -307,17 +595,30 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
     
     logger.info(f"[FOLLOW-UP] ==========================================")
 
-    # Step 2: Check for duplicates (after consumer response check)
+    # Step 2: Check for duplicates (BEFORE marking as inactive!)
+    # 🐛 BUG FIX: We must check duplicates BEFORE setting active=False,
+    # otherwise we might find our own task marked as inactive and think it's a duplicate
     logger.info(f"[FOLLOW-UP] 🔍 STEP 2: Checking for duplicate messages")
-    if _already_sent(lead_id, text, exclude_task_id=job_id):
+    if _already_sent(lead_id, text, exclude_task_id=exclude_task_id_for_duplicate_check):
         logger.warning(f"[FOLLOW-UP] ⚠️ DUPLICATE DETECTED - message already sent for lead={lead_id}")
         logger.warning(f"[FOLLOW-UP] DUPLICATE DETAILS:")
         logger.warning(f"[FOLLOW-UP] - Duplicate message: '{text}'")
         logger.warning(f"[FOLLOW-UP] - Job ID: {job_id}")
+        
+        # Mark as inactive before returning (duplicate found)
+        if job_id:
+            updated_count = LeadPendingTask.objects.filter(task_id=job_id).update(active=False)
+            logger.info(f"[FOLLOW-UP] 📝 Marked {updated_count} duplicate task(s) as inactive")
+        
         logger.info(f"[FOLLOW-UP] 🛑 EARLY RETURN - skipping duplicate message")
         return "SKIPPED: Duplicate message detected"
 
     logger.info(f"[FOLLOW-UP] ✅ No duplicate found - proceeding with send")
+    
+    # Step 3: NOW mark as inactive (no duplicates found, task will proceed)
+    if job_id:
+        updated_count = LeadPendingTask.objects.filter(task_id=job_id).update(active=False)
+        logger.info(f"[FOLLOW-UP] 📝 Marked {updated_count} LeadPendingTask(s) as inactive (proceeding with send)")
 
     # Step 3: Validate message text
     logger.info(f"[FOLLOW-UP] 📝 STEP 2: Validating message text")
@@ -828,6 +1129,33 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
                 logger.info(f"[FOLLOW-UP] ✅ Task marked as SENT - next message in queue can proceed")
                 logger.info(f"[FOLLOW-UP] - Sequence #{current_task.sequence_number} completed")
                 logger.info(f"[FOLLOW-UP] - Sent at: {current_task.sent_at}")
+                
+                # 🎯 CRITICAL: If this is AI greeting (sequence 0), schedule follow-ups NOW!
+                # For template greeting, follow-ups are already scheduled during webhook
+                if current_task.sequence_number == 0:
+                    # Check if this is AI greeting or template greeting
+                    # AI greeting has template_id=None, template greeting has template_id set
+                    is_ai_greeting = current_task.template_id is None
+                    
+                    logger.info(f"[FOLLOW-UP] 🔍 Greeting type detection:")
+                    logger.info(f"[FOLLOW-UP] - Sequence: {current_task.sequence_number}")
+                    logger.info(f"[FOLLOW-UP] - Template ID: {current_task.template_id}")
+                    logger.info(f"[FOLLOW-UP] - AI mode: {current_task.ai_mode}")
+                    logger.info(f"[FOLLOW-UP] - Is AI greeting: {is_ai_greeting}")
+                    
+                    if is_ai_greeting:
+                        logger.info(f"[FOLLOW-UP] 🤖 AI GREETING COMPLETED - SCHEDULING FOLLOW-UPS NOW!")
+                        try:
+                            # Import and call the scheduling function
+                            from .utils import schedule_follow_ups_after_greeting
+                            schedule_follow_ups_after_greeting(lead_id, business_id)
+                            logger.info(f"[FOLLOW-UP] ✅ Follow-ups scheduled successfully")
+                        except Exception as schedule_error:
+                            logger.error(f"[FOLLOW-UP] ❌ Failed to schedule follow-ups: {schedule_error}")
+                            logger.exception(f"[FOLLOW-UP] Follow-up scheduling exception")
+                    else:
+                        logger.info(f"[FOLLOW-UP] 📝 Template greeting - follow-ups already scheduled during webhook")
+                        logger.info(f"[FOLLOW-UP] No action needed")
             
             return f"SUCCESS: Message sent to Yelp API (HTTP {resp.status_code if resp else 'N/A'}) in {task_duration:.2f}s"
                 
@@ -837,12 +1165,146 @@ def send_follow_up(lead_id: str, text: str, business_id: str | None = None):
         
         # ❌ ПОЗНАЧИТИ TASK ЯК FAILED (для черги повідомлень)
         if current_task:
-            current_task.status = 'FAILED'
-            current_task.save()
-            logger.error(f"[FOLLOW-UP] ❌ Task marked as FAILED - sequence #{current_task.sequence_number}")
-            logger.error(f"[FOLLOW-UP] ⚠️ Subsequent messages in queue may be cancelled")
+            try:
+                current_task.status = 'FAILED'
+                current_task.save()
+                logger.error(f"[FOLLOW-UP] ❌ Task marked as FAILED - sequence #{current_task.sequence_number}")
+                logger.error(f"[FOLLOW-UP] ⚠️ Subsequent messages in queue may be cancelled")
+            except Exception as task_error:
+                logger.error(f"[FOLLOW-UP] ⚠️ Could not mark task as FAILED: {task_error}")
+        else:
+            logger.warning(f"[FOLLOW-UP] ⚠️ No current_task to mark as FAILED")
         
         return f"ERROR: Lock error - {str(lock_exc)}"
+
+
+@logged_job
+def generate_and_send_greeting(
+    lead_id: str,
+    business_id: str,
+    phone_available: bool = False,
+    within_hours: bool = True,
+    use_sample_replies: bool = False
+):
+    """
+    Асинхронна генерація AI greeting повідомлення та відправка.
+    
+    Ця task виконується в фоні, щоб не блокувати webhook обробку.
+    Статус відображається в UI як GENERATING.
+    """
+    logger.info(f"[AI-GREETING] 🤖 STARTING AI greeting generation task")
+    logger.info(f"[AI-GREETING] ========== TASK INITIALIZATION ==========")
+    logger.info(f"[AI-GREETING] Parameters:")
+    logger.info(f"[AI-GREETING] - Lead ID: {lead_id}")
+    logger.info(f"[AI-GREETING] - Business ID: {business_id}")
+    logger.info(f"[AI-GREETING] - Within hours: {within_hours}")
+    logger.info(f"[AI-GREETING] - Use sample replies: {use_sample_replies}")
+    logger.info(f"[AI-GREETING] - Timestamp: {timezone.now().isoformat()}")
+    
+    generation_start = time.time()
+    
+    try:
+        # STEP 1: Отримати дані ліда
+        logger.info(f"[AI-GREETING] 📋 STEP 1: Fetching lead details")
+        try:
+            lead_detail = LeadDetail.objects.get(lead_id=lead_id)
+            logger.info(f"[AI-GREETING] ✅ Lead found: {lead_detail.user_display_name}")
+        except LeadDetail.DoesNotExist:
+            logger.error(f"[AI-GREETING] ❌ Lead not found: {lead_id}")
+            return "ERROR: Lead not found"
+        
+        # STEP 2: Отримати бізнес та AI settings
+        logger.info(f"[AI-GREETING] 🏢 STEP 2: Fetching business and AI settings")
+        from .models import YelpBusiness, AutoResponseSettings
+        
+        try:
+            business = YelpBusiness.objects.get(business_id=business_id)
+            logger.info(f"[AI-GREETING] ✅ Business found: {business.name}")
+        except YelpBusiness.DoesNotExist:
+            logger.error(f"[AI-GREETING] ❌ Business not found: {business_id}")
+            return "ERROR: Business not found"
+        
+        # Отримати AI settings для правильного режиму
+        auto_settings = AutoResponseSettings.objects.filter(
+            business=business,
+            phone_available=phone_available  # 🆕 Використовуємо параметр!
+        ).first()
+        
+        if not auto_settings:
+            logger.error(f"[AI-GREETING] ❌ No auto-response settings found")
+            return "ERROR: No auto-response settings"
+        
+        # STEP 3: Генерувати AI greeting
+        logger.info(f"[AI-GREETING] 🤖 STEP 3: Generating AI greeting message")
+        logger.info(f"[AI-GREETING] This may take 10-60 seconds...")
+        
+        from .ai_service import OpenAIService
+        ai_service = OpenAIService()
+        
+        if not ai_service.is_available():
+            logger.error(f"[AI-GREETING] ❌ AI service not available")
+            return "ERROR: AI service not available"
+        
+        ai_greeting = None
+        
+        # Спроба векторної генерації з Sample Replies
+        if use_sample_replies:
+            logger.info(f"[AI-GREETING] 🔍 Using Sample Replies mode")
+            ai_greeting = ai_service.generate_sample_replies_response(
+                lead_detail=lead_detail,
+                business=business,
+                phone_available=phone_available,  # 🆕 Передаємо phone_available!
+                max_length=None,
+                business_ai_settings=auto_settings,
+                use_vector_search=True
+            )
+            
+            if ai_greeting:
+                logger.info(f"[AI-GREETING] ✅ Sample Replies AI generated successfully")
+            else:
+                logger.warning(f"[AI-GREETING] ⚠️ Sample Replies failed, falling back...")
+        
+        # Fallback до стандартної AI генерації
+        if not ai_greeting:
+            logger.info(f"[AI-GREETING] 📋 Using Custom Instructions (standard AI)")
+            ai_greeting = ai_service.generate_greeting_message(
+                lead_detail=lead_detail,
+                business=business,
+                is_off_hours=not within_hours,
+                custom_prompt=getattr(auto_settings, 'ai_custom_prompt', None),
+                max_length=None,
+                business_ai_settings=auto_settings
+            )
+        
+        if not ai_greeting:
+            logger.error(f"[AI-GREETING] ❌ AI generation returned empty result")
+            return "ERROR: AI generation failed"
+        
+        generation_duration = time.time() - generation_start
+        logger.info(f"[AI-GREETING] ✅ AI greeting generated in {generation_duration:.2f}s")
+        logger.info(f"[AI-GREETING] Message preview: {ai_greeting[:100]}...")
+        logger.info(f"[AI-GREETING] Message length: {len(ai_greeting)} characters")
+        
+        # STEP 4: Відправити через send_follow_up
+        logger.info(f"[AI-GREETING] 📤 STEP 4: Sending greeting message")
+        
+        try:
+            result = send_follow_up(
+                lead_id=lead_id,
+                text=ai_greeting,
+                business_id=business_id
+            )
+            logger.info(f"[AI-GREETING] ✅ COMPLETED: {result}")
+            return result
+        except Exception as e:
+            logger.error(f"[AI-GREETING] ❌ Error sending greeting: {e}")
+            logger.exception(e)
+            return f"ERROR: Send failed - {str(e)}"
+            
+    except Exception as e:
+        logger.error(f"[AI-GREETING] ❌ Unexpected error: {e}")
+        logger.exception(e)
+        return f"ERROR: {str(e)}"
 
 
 @logged_job
@@ -896,7 +1358,7 @@ ALL_JOBS = [send_follow_up, refresh_expiring_tokens, cleanup_celery_logs]
 
 from datetime import timedelta
 from types import SimpleNamespace
-from django_rq import get_scheduler
+# Removed: from django_rq import get_scheduler (using job.delay() instead)
 
 
 def _apply(func, args=None, kwargs=None):
@@ -941,12 +1403,9 @@ def _apply_async(func, args=None, kwargs=None, countdown=0, headers=None):
     eta = timezone.now() + timedelta(seconds=countdown)
     task_id = str(uuid.uuid4())
     if countdown:
-        scheduler = get_scheduler("default")
-        job = scheduler.enqueue_in(
-            timedelta(seconds=countdown), func, *args, job_id=task_id, **kwargs
-        )
+        job = func.delay(*args, _job_id=task_id, _countdown=countdown, **kwargs)
     else:
-        job = func.delay(*args, job_id=task_id, **kwargs)
+        job = func.delay(*args, _job_id=task_id, **kwargs)
     CeleryTaskLog.objects.create(
         task_id=task_id,
         name=func.__name__,

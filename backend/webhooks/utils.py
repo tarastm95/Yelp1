@@ -439,8 +439,13 @@ def _already_sent(lead_id: str, text: str, exclude_task_id: str | None = None) -
             text=normalized_text,
             active=True,
         )
+        logger.debug(f"[DUP CHECK] Before exclude: {task_qs.count()} tasks found")
         if exclude_task_id:
+            logger.debug(f"[DUP CHECK] Excluding task_id: {exclude_task_id}")
             task_qs = task_qs.exclude(task_id=exclude_task_id)
+            logger.debug(f"[DUP CHECK] After exclude: {task_qs.count()} tasks found")
+        else:
+            logger.debug(f"[DUP CHECK] No exclude_task_id provided")
 
         task_exists = task_qs.exists()
         
@@ -931,4 +936,193 @@ def get_system_health_summary() -> dict:
             'status': 'ERROR',
             'error': str(e)
         }
+
+
+def schedule_follow_ups_after_greeting(lead_id: str, business_id: str):
+    """
+    🎯 CRITICAL: Schedule follow-ups AFTER greeting completes.
+    This is called from send_follow_up task when sequence_number == 0.
+    """
+    from .models import FollowUpTemplate, AutoResponseSettings
+    from .tasks import generate_and_send_follow_up
+    from django_rq import get_queue
+    
+    logger.info(f"[FOLLOW-UP-SCHEDULE] 🎯 SCHEDULING FOLLOW-UPS AFTER GREETING")
+    logger.info(f"[FOLLOW-UP-SCHEDULE] ========================================")
+    logger.info(f"[FOLLOW-UP-SCHEDULE] Lead ID: {lead_id}")
+    logger.info(f"[FOLLOW-UP-SCHEDULE] Business ID: {business_id}")
+    logger.info(f"[FOLLOW-UP-SCHEDULE] Trigger: Greeting just completed")
+    logger.info(f"[FOLLOW-UP-SCHEDULE] Base time: NOW (greeting completion time)")
+    
+    now = timezone.now()
+    
+    try:
+        # Get lead details
+        lead_detail = LeadDetail.objects.get(lead_id=lead_id)
+        name = lead_detail.user_display_name or "there"
+        jobs = ", ".join(lead_detail.project.get("job_names", []))
+        phone_available = lead_detail.phone_opt_in
+        
+        # Get templates
+        tpls = FollowUpTemplate.objects.filter(
+            active=True,
+            phone_available=phone_available,
+            business__business_id=business_id,
+        ).order_by('delay')
+        
+        if not tpls.exists():
+            tpls = FollowUpTemplate.objects.filter(
+                active=True,
+                phone_available=phone_available,
+                business__isnull=True,
+            ).order_by('delay')
+        
+        if not tpls.exists():
+            logger.info(f"[FOLLOW-UP-SCHEDULE] No follow-up templates found")
+            return
+        
+        business = YelpBusiness.objects.filter(business_id=business_id).first()
+        
+        logger.info(f"[FOLLOW-UP-SCHEDULE] Found {tpls.count()} templates to schedule")
+        logger.info(f"[FOLLOW-UP-SCHEDULE] Customer: {name}")
+        logger.info(f"[FOLLOW-UP-SCHEDULE] Jobs: {jobs}")
+        
+        # Find greeting task to link follow-ups
+        greeting_task = LeadPendingTask.objects.filter(
+            lead_id=lead_id,
+            sequence_number=0,
+            active=True
+        ).first()
+        
+        previous_task_id = greeting_task.task_id if greeting_task else None
+        current_sequence = 1  # Follow-ups start from 1
+        
+        # Determine AI mode
+        ai_mode = 'TEMPLATE'
+        try:
+            ai_settings = AutoResponseSettings.objects.filter(
+                business__business_id=business_id,
+                phone_available=phone_available
+            ).first()
+            
+            if ai_settings:
+                if ai_settings.use_sample_replies and ai_settings.mode == 'ai_generated':
+                    ai_mode = 'AI_VECTOR'
+                elif ai_settings.mode == 'ai_generated':
+                    ai_mode = 'AI_FULL'
+        except Exception as e:
+            logger.warning(f"[FOLLOW-UP-SCHEDULE] Could not determine AI mode: {e}")
+        
+        # Schedule each template
+        queue = get_queue('default')
+        
+        for tmpl in tpls:
+            delay = tmpl.delay.total_seconds()
+            
+            logger.info(f"[FOLLOW-UP-SCHEDULE] 📋 Template: {tmpl.name}")
+            logger.info(f"[FOLLOW-UP-SCHEDULE] - Delay: {delay}s from NOW")
+            logger.info(f"[FOLLOW-UP-SCHEDULE] - Sequence: #{current_sequence}")
+            logger.info(f"[FOLLOW-UP-SCHEDULE] - AI mode: {ai_mode}")
+            
+            # Calculate due time from NOW (greeting completion)
+            initial_due = now + timedelta(seconds=delay)
+            
+            due = adjust_due_time(
+                initial_due,
+                business.time_zone if business else None,
+                tmpl.open_from,
+                tmpl.open_to,
+            )
+            
+            countdown = max((due - now).total_seconds(), 0)
+            
+            logger.info(f"[FOLLOW-UP-SCHEDULE] - Due time: {due.isoformat()}")
+            logger.info(f"[FOLLOW-UP-SCHEDULE] - Countdown: {countdown}s")
+            
+            # Check if already scheduled
+            existing_task = LeadPendingTask.objects.filter(
+                lead_id=lead_id,
+                sequence_number=current_sequence,
+                active=True
+            ).exists()
+            
+            if existing_task:
+                logger.info(f"[FOLLOW-UP-SCHEDULE] ⚠️ Sequence #{current_sequence} already exists - skipping")
+                current_sequence += 1
+                continue
+            
+            # Schedule task
+            res = queue.enqueue_in(
+                timedelta(seconds=countdown),
+                generate_and_send_follow_up,
+                lead_id,
+                tmpl.id,
+                business_id,
+                ai_mode,
+            )
+            
+            logger.info(f"[FOLLOW-UP-SCHEDULE] ✅ Task scheduled: {res.id}")
+            
+            # Create CeleryTaskLog
+            CeleryTaskLog.objects.update_or_create(
+                task_id=res.id,
+                defaults={
+                    'name': 'generate_and_send_follow_up',
+                    'args': [lead_id, tmpl.id, business_id, ai_mode],
+                    'kwargs': {},
+                    'eta': due,
+                    'status': 'SCHEDULED',
+                    'business_id': business_id,
+                }
+            )
+            
+            # Generate message text immediately for display in UI
+            # This pre-generates the text so it shows in Scheduled tab
+            try:
+                # Get time-based greeting
+                greetings = get_time_based_greeting(business_id) if business_id else "Hello"
+                reason = ""
+                sep = "\n"
+                
+                # Generate text based on template
+                text = tmpl.template.format(
+                    name=name,
+                    jobs=jobs,
+                    sep=sep,
+                    reason=reason,
+                    greetings=greetings
+                )
+                
+                logger.info(f"[FOLLOW-UP-SCHEDULE] 📝 Generated text preview: {text[:50]}...")
+            except Exception as gen_err:
+                logger.warning(f"[FOLLOW-UP-SCHEDULE] Failed to generate text: {gen_err}")
+                text = f"[Template: {tmpl.name}] {tmpl.template[:100]}"
+            
+            # Create LeadPendingTask
+            try:
+                task_record = LeadPendingTask.objects.create(
+                    lead_id=lead_id,
+                    task_id=res.id,
+                    text=text,  # Pre-generated text for UI display
+                    template_id=tmpl.id,
+                    ai_mode=ai_mode,
+                    phone_available=phone_available,
+                    sequence_number=current_sequence,
+                    previous_task_id=previous_task_id,
+                    status='PENDING'
+                )
+                logger.info(f"[FOLLOW-UP-SCHEDULE] ✅ LeadPendingTask created: {task_record.pk}")
+                
+                # Update for next iteration
+                previous_task_id = res.id
+                current_sequence += 1
+                
+            except Exception as e:
+                logger.error(f"[FOLLOW-UP-SCHEDULE] ❌ Failed to create LeadPendingTask: {e}")
+        
+        logger.info(f"[FOLLOW-UP-SCHEDULE] ✅ COMPLETED - {tpls.count()} follow-ups scheduled")
+        
+    except Exception as e:
+        logger.error(f"[FOLLOW-UP-SCHEDULE] ❌ Error scheduling follow-ups: {e}")
+        logger.exception(e)
 

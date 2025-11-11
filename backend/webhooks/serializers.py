@@ -13,6 +13,8 @@ from .models import (
     CeleryTaskLog,
     NotificationSetting,
     SMSLog,
+    WhatsAppLog,
+    WhatsAppNotificationSetting,
     AISettings,
     TimeBasedGreeting,
 )
@@ -66,6 +68,10 @@ class AutoResponseSettingsSerializer(serializers.ModelSerializer):
             "sms_on_phone_found",
             "sms_on_customer_reply", 
             "sms_on_phone_opt_in",
+            # WhatsApp Notification Settings
+            "whatsapp_on_phone_found",
+            "whatsapp_on_customer_reply", 
+            "whatsapp_on_phone_opt_in",
         ]
         read_only_fields = ["id"]
 
@@ -280,6 +286,7 @@ class YelpBusinessSerializer(serializers.ModelSerializer):
             "open_days",
             "open_hours",
             "details",
+            "representative_name",
         ]
         read_only_fields = fields
 
@@ -304,6 +311,8 @@ class YelpTokenInfoSerializer(serializers.ModelSerializer):
 
 
 class CeleryTaskLogSerializer(serializers.ModelSerializer):
+    text = serializers.SerializerMethodField()
+    
     class Meta:
         model = CeleryTaskLog
         fields = [
@@ -319,8 +328,91 @@ class CeleryTaskLogSerializer(serializers.ModelSerializer):
             "result",
             "traceback",
             "business_id",
+            "text",  # Add text field
         ]
         read_only_fields = fields
+    
+    def get_text(self, obj):
+        """Extract message text from args or kwargs - same logic as MessageTaskSerializer"""
+        args = obj.args or []
+        kwargs = obj.kwargs or {}
+        
+        if obj.name == "send_follow_up":
+            # Check args first (positional parameters)
+            if len(args) >= 2:
+                return args[1]
+            # Check kwargs (named parameters from generate_and_send_follow_up)
+            elif 'text' in kwargs:
+                return kwargs['text']
+        elif obj.name == "generate_and_send_greeting":
+            # For generate_and_send_greeting: args = [lead_id, business_id, phone_available, within_hours, use_sample_replies]
+            lead_id = args[0] if len(args) >= 1 else None
+            business_id = args[1] if len(args) >= 2 else None
+            
+            phone_available = None
+            use_sample_replies = False
+            
+            if len(args) >= 5:
+                phone_available = args[2]
+                use_sample_replies = args[4]
+            elif len(args) >= 4:
+                # Legacy format without explicit phone_available argument
+                use_sample_replies = args[3]
+            
+            if phone_available is None:
+                from .models import LeadPendingTask
+                pending = LeadPendingTask.objects.filter(task_id=obj.task_id).first()
+                if pending is not None:
+                    phone_available = getattr(pending, "phone_available", False)
+                else:
+                    phone_available = False
+            
+            scenario = "phone_available=True (Phone Number in Message)" if phone_available else "phone_available=False (No Phone / Phone Opt-in)"
+            
+            if obj.status == 'GENERATING':
+                mode = "Sample Replies AI" if use_sample_replies else "Custom Instructions AI"
+                return f"🤖 Generating greeting with {mode} · {scenario}"
+            elif obj.status == 'SCHEDULED':
+                mode = "Sample Replies AI" if use_sample_replies else "Custom Instructions AI"
+                return f"🤖 AI Greeting ({mode} · {scenario})"
+            else:
+                # For completed/failed - try to find the actual message
+                from .models import LeadEvent
+                if lead_id:
+                    event = LeadEvent.objects.filter(
+                        lead_id=lead_id,
+                        user_type='BIZ',
+                        from_backend=True
+                    ).order_by('-time_created').first()
+                    if event:
+                        prefix = f"[{scenario}] "
+                        return (prefix + event.text)[:200] if event.text else f"[AI Greeting Sent · {scenario}]"
+                return f"[AI Greeting · {scenario}]"
+        elif obj.name == "generate_and_send_follow_up" and len(args) >= 2:
+            # For generate_and_send_follow_up: args[1] is template_id
+            template_id = args[1]
+            # Try to get the actual generated text from LeadPendingTask by task_id
+            from .models import LeadPendingTask
+            task = LeadPendingTask.objects.filter(task_id=obj.task_id).first()
+            if task and task.text:
+                return task.text
+            # If no task found or no text yet, try by lead_id + template_id (fallback)
+            lead_id = args[0] if len(args) >= 1 else None
+            if lead_id:
+                task = LeadPendingTask.objects.filter(
+                    lead_id=lead_id, 
+                    template_id=template_id
+                ).order_by('-created_at').first()  # Get latest task
+                if task and task.text:
+                    return task.text
+            # If no text yet, show template info
+            from .models import FollowUpTemplate
+            template = FollowUpTemplate.objects.filter(id=template_id).first()
+            if template:
+                return f"[Template: {template.name}] {template.template[:100]}"
+            return f"[Template ID: {template_id}]"
+        
+        return None
 
 
 class MessageTaskSerializer(serializers.ModelSerializer):
@@ -335,8 +427,82 @@ class MessageTaskSerializer(serializers.ModelSerializer):
 
     def get_text(self, obj):
         args = obj.args or []
-        if obj.name == "send_follow_up" and len(args) >= 2:
-            return args[1]
+        kwargs = obj.kwargs or {}
+        
+        if obj.name == "send_follow_up":
+            # Check args first (positional parameters)
+            if len(args) >= 2:
+                return args[1]
+            # Check kwargs (named parameters from generate_and_send_follow_up)
+            elif 'text' in kwargs:
+                return kwargs['text']
+        elif obj.name == "generate_and_send_greeting":
+            # For generate_and_send_greeting: args = [lead_id, business_id, phone_available, within_hours, use_sample_replies]
+            # Text will be generated, so show status
+            lead_id = args[0] if len(args) >= 1 else None
+            business_id = args[1] if len(args) >= 2 else None
+            
+            phone_available = None
+            use_sample_replies = False
+            
+            if len(args) >= 5:
+                phone_available = args[2]
+                use_sample_replies = args[4]
+            elif len(args) >= 4:
+                use_sample_replies = args[3]
+            
+            if phone_available is None:
+                from .models import LeadPendingTask
+                pending = LeadPendingTask.objects.filter(task_id=obj.task_id).first()
+                if pending is not None:
+                    phone_available = getattr(pending, "phone_available", False)
+                else:
+                    phone_available = False
+            
+            scenario = "phone_available=True (Phone Number in Message)" if phone_available else "phone_available=False (No Phone / Phone Opt-in)"
+            
+            if obj.status == 'GENERATING':
+                mode = "Sample Replies AI" if use_sample_replies else "Custom Instructions AI"
+                return f"🤖 Generating greeting with {mode} · {scenario}"
+            elif obj.status == 'SCHEDULED':
+                mode = "Sample Replies AI" if use_sample_replies else "Custom Instructions AI"
+                return f"🤖 AI Greeting ({mode} · {scenario})"
+            else:
+                # For completed/failed - try to find the actual message
+                from .models import LeadEvent
+                if lead_id:
+                    event = LeadEvent.objects.filter(
+                        lead_id=lead_id,
+                        user_type='BIZ',
+                        from_backend=True
+                    ).order_by('-time_created').first()
+                    if event:
+                        prefix = f"[{scenario}] "
+                        return (prefix + event.text)[:200] if event.text else f"[AI Greeting Sent · {scenario}]"
+                return f"[AI Greeting · {scenario}]"
+        elif obj.name == "generate_and_send_follow_up" and len(args) >= 2:
+            # For generate_and_send_follow_up: args[1] is template_id
+            template_id = args[1]
+            # Try to get the actual generated text from LeadPendingTask by task_id
+            from .models import LeadPendingTask
+            task = LeadPendingTask.objects.filter(task_id=obj.task_id).first()
+            if task and task.text:
+                return task.text
+            # If no task found or no text yet, try by lead_id + template_id (fallback)
+            lead_id = args[0] if len(args) >= 1 else None
+            if lead_id:
+                task = LeadPendingTask.objects.filter(
+                    lead_id=lead_id, 
+                    template_id=template_id
+                ).order_by('-created_at').first()  # Get latest task
+                if task and task.text:
+                    return task.text
+            # If no text yet, show template info
+            from .models import FollowUpTemplate
+            template = FollowUpTemplate.objects.filter(id=template_id).first()
+            if template:
+                return f"[Template: {template.name}] {template.template[:100]}"
+            return f"[Template ID: {template_id}]"
         # Other task types were removed
         return ""
 
@@ -347,6 +513,8 @@ class MessageTaskSerializer(serializers.ModelSerializer):
     def get_task_type(self, obj):
         mapping = {
             "send_follow_up": "Follow-up",
+            "generate_and_send_follow_up": "Follow-up (AI)",
+            "generate_and_send_greeting": "Greeting (AI)",
         }
         return mapping.get(obj.name, obj.name)
 
@@ -356,6 +524,79 @@ class SendSMSSerializer(serializers.Serializer):
 
     to = serializers.CharField()
     body = serializers.CharField()
+
+
+class SendWhatsAppSerializer(serializers.Serializer):
+    """Validate data for sending a WhatsApp message."""
+    to = serializers.CharField()
+    body = serializers.CharField()
+
+
+class WhatsAppNotificationSettingSerializer(serializers.ModelSerializer):
+    business_id = serializers.SerializerMethodField()
+    phone_number = serializers.CharField(required=False, allow_blank=True, default='')
+    
+    def get_business_id(self, obj):
+        return obj.business.business_id if obj.business else None
+    
+    def validate(self, data):
+        """Custom validation for Content Templates vs Simple Templates"""
+        use_content_template = data.get('use_content_template', False)
+        
+        # Phone number is always required
+        if not data.get('phone_number') or data.get('phone_number', '').strip() == '':
+            raise serializers.ValidationError({
+                'phone_number': 'Phone number is required'
+            })
+        
+        if use_content_template:
+            # For Content Templates, content_sid is required
+            if not data.get('content_sid'):
+                raise serializers.ValidationError({
+                    'content_sid': 'Content SID is required when using Content Template'
+                })
+            # message_template can be empty for Content Templates
+            if not data.get('message_template'):
+                data['message_template'] = ''  # Allow empty for Content Templates
+        else:
+            # For Simple Templates, message_template is required
+            if not data.get('message_template'):
+                raise serializers.ValidationError({
+                    'message_template': 'Message template is required for Simple Template'
+                })
+        
+        return data
+    
+    class Meta:
+        model = WhatsAppNotificationSetting
+        fields = [
+            "id", 
+            "business_id",
+            "phone_number", 
+            "message_template",  # Legacy
+            "use_content_template",  # NEW
+            "content_sid",  # NEW
+            "content_name",  # NEW
+            "variable_mapping",  # NEW
+            "enabled",  # NEW
+            "created_at",
+            "updated_at"
+        ]
+        read_only_fields = ["id", "business_id", "created_at", "updated_at"]
+
+
+class WhatsAppLogSerializer(serializers.ModelSerializer):
+    business_name = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = WhatsAppLog
+        fields = '__all__'
+    
+    def get_business_name(self, obj):
+        if obj.business_id:
+            business = YelpBusiness.objects.filter(business_id=obj.business_id).first()
+            return business.name if business else None
+        return None
 
 
 class NotificationSettingSerializer(serializers.ModelSerializer):

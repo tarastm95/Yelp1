@@ -178,11 +178,25 @@ const SampleRepliesManager: React.FC<Props> = ({
       });
 
       setDetailedStatus(response.data);
+      
+      // Також оновлюємо vectorStats для сумісності
+      if (response.data.vector_status) {
+        setVectorStats({
+          total_documents: response.data.vector_status.total_documents,
+          total_chunks: response.data.vector_status.total_chunks,
+          total_tokens: response.data.vector_status.documents.reduce(
+            (sum: number, doc: any) => sum + doc.total_tokens, 
+            0
+          )
+        });
+      }
+      
       console.log('[SAMPLE-REPLIES] Status loaded:', response.data);
       
     } catch (error) {
       console.error('[SAMPLE-REPLIES] Failed to load status:', error);
       setDetailedStatus(null);
+      setVectorStats(null);
     } finally {
       setStatusLoading(false);
     }
@@ -227,23 +241,36 @@ const SampleRepliesManager: React.FC<Props> = ({
       }
       setUploadDialogOpen(false);
       setSelectedFile(null);
-      onSampleRepliesUpdate(); // Reload settings
       
-      // Auto-refresh status to show the new document
-      setTimeout(() => loadStatus(), 1000);
+      // Refresh parent component first, then local status
+      onSampleRepliesUpdate();
+      setTimeout(() => loadStatus(), 100);
 
     } catch (error: any) {
       console.error('[SAMPLE-REPLIES] Upload error:', error);
       const errorData = error.response?.data;
       
-      if (errorData?.error === 'PDF binary detected') {
+      // Детальна обробка помилок векторної обробки
+      if (errorData?.type === 'configuration') {
+        showMessage(
+          `⚙️ Configuration Error: ${errorData.message}\n${errorData.action_required || ''}`, 
+          'error'
+        );
+      } else if (errorData?.type === 'processing_error') {
+        const suggestions = errorData.suggestions?.join('\n• ') || '';
+        showMessage(
+          `❌ Vector Processing Failed: ${errorData.message}\n\nSuggestions:\n• ${suggestions}`, 
+          'error'
+        );
+      } else if (errorData?.error === 'PDF binary detected') {
         showMessage(
           `❌ ${errorData.message} ${errorData.instruction}`, 
           'info'
         );
       } else {
         const errorMessage = errorData?.message || errorData?.error || 'Upload failed';
-        showMessage(`❌ Upload failed: ${errorMessage}`, 'error');
+        const details = errorData?.details ? `\nDetails: ${errorData.details}` : '';
+        showMessage(`❌ Upload failed: ${errorMessage}${details}`, 'error');
       }
     } finally {
       setUploading(false);
@@ -264,13 +291,32 @@ const SampleRepliesManager: React.FC<Props> = ({
       showMessage(`✅ MODE 2: Sample Replies text saved successfully!`, 'success');
       setTextDialogOpen(false);
       setSampleText('');
-      onSampleRepliesUpdate(); // Reload settings
+      
+      // Refresh parent component first, then local status
+      onSampleRepliesUpdate();
+      setTimeout(() => loadStatus(), 100);
 
     } catch (error: any) {
       console.error('[SAMPLE-REPLIES] Text save error:', error);
       const errorData = error.response?.data;
-      const errorMessage = errorData?.message || errorData?.error || 'Save failed';
-      showMessage(`❌ Save failed: ${errorMessage}`, 'error');
+      
+      // Детальна обробка помилок векторної обробки
+      if (errorData?.type === 'configuration') {
+        showMessage(
+          `⚙️ Configuration Error: ${errorData.message}\n${errorData.action_required || ''}`, 
+          'error'
+        );
+      } else if (errorData?.type === 'processing_error') {
+        const suggestions = errorData.suggestions?.join('\n• ') || '';
+        showMessage(
+          `❌ Vector Processing Failed: ${errorData.message}\n\nSuggestions:\n• ${suggestions}`, 
+          'error'
+        );
+      } else {
+        const errorMessage = errorData?.message || errorData?.error || 'Save failed';
+        const details = errorData?.details ? `\nDetails: ${errorData.details}` : '';
+        showMessage(`❌ Save failed: ${errorMessage}${details}`, 'error');
+      }
     } finally {
       setUploading(false);
     }
@@ -382,8 +428,9 @@ const SampleRepliesManager: React.FC<Props> = ({
         'success'
       );
       
-      // Refresh status to update document list
-      setTimeout(() => loadStatus(), 500);
+      // Refresh parent component first, then local status
+      onSampleRepliesUpdate();
+      setTimeout(() => loadStatus(), 100);
       
     } catch (error: any) {
       console.error('[DOCUMENT-DELETE] Error:', error);
@@ -468,7 +515,7 @@ const SampleRepliesManager: React.FC<Props> = ({
         <CardContent sx={{ p: 3 }}>
           <Stack spacing={3}>
             {/* Current Status */}
-            {useSampleReplies ? (
+            {(detailedStatus?.has_sample_replies || useSampleReplies) ? (
               <Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
                   <SuccessIcon color="success" />
@@ -481,9 +528,9 @@ const SampleRepliesManager: React.FC<Props> = ({
                     color="info" 
                     variant="filled"
                   />
-                  {vectorStats && (
+                  {detailedStatus?.vector_status && (
                     <Chip 
-                      label={`${vectorStats.total_chunks || 0} chunks`}
+                      label={`${detailedStatus.vector_status.total_chunks || 0} chunks`}
                       size="small" 
                       color="success" 
                       variant="outlined"
@@ -492,28 +539,31 @@ const SampleRepliesManager: React.FC<Props> = ({
                 </Box>
                 
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  <strong>Source:</strong> {sampleRepliesFilename || 'Manual Input'} 
-                  {vectorStats && (
-                    <span> • <strong>Documents:</strong> {vectorStats.total_documents} • <strong>Tokens:</strong> {vectorStats.total_tokens?.toLocaleString()}</span>
+                  <strong>Source:</strong> {detailedStatus?.filename || sampleRepliesFilename || 'Manual Input'} 
+                  {detailedStatus?.vector_status && (
+                    <span> • <strong>Documents:</strong> {detailedStatus.vector_status.total_documents} • <strong>Tokens:</strong> {detailedStatus.vector_status.total_chunks > 0 ? detailedStatus.vector_status.documents.reduce((sum: number, doc: any) => sum + doc.total_tokens, 0).toLocaleString() : 0}</span>
                   )}
                 </Typography>
                 
                 {/* Vector Statistics */}
-                {vectorStats && vectorStats.chunk_types && (
+                {detailedStatus?.vector_status?.documents && detailedStatus.vector_status.documents.length > 0 && (
                   <Box sx={{ mb: 2 }}>
                     <Typography variant="caption" sx={{ display: 'block', mb: 1, fontWeight: 600 }}>
-                      🔍 Semantic Chunk Types:
+                      📊 Vector Documents:
                     </Typography>
                     <Stack direction="row" spacing={1} flexWrap="wrap">
-                      {Object.entries(vectorStats.chunk_types).map(([type, count]) => (
-                        <Chip 
-                          key={type}
-                          label={`${type}: ${count}`}
-                          size="small"
-                          variant="outlined"
-                          color={type === 'example' ? 'primary' : type === 'response' ? 'success' : 'default'}
-                        />
-                      ))}
+                      <Chip 
+                        label={`${detailedStatus.vector_status.total_documents} documents`}
+                        size="small"
+                        variant="outlined"
+                        color="primary"
+                      />
+                      <Chip 
+                        label={`${detailedStatus.vector_status.total_chunks} chunks`}
+                        size="small"
+                        variant="outlined"
+                        color="success"
+                      />
                     </Stack>
                   </Box>
                 )}

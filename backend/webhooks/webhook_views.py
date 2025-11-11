@@ -1112,6 +1112,25 @@ class WebhookView(APIView):
         logger.info(f"[AUTO-RESPONSE] About to determine scenario for new lead")
         
         try:
+            # Ensure LeadDetail exists even if auto-response later skips due to missing settings
+            try:
+                sync_payload = self._sync_lead_detail_from_yelp(
+                    lead_id,
+                    phone_available=False,
+                )
+                if sync_payload:
+                    logger.info(
+                        f"[AUTO-RESPONSE] LeadDetail pre-sync completed "
+                        f"(created={sync_payload.get('detail_created')})"
+                    )
+            except Exception as sync_error:
+                logger.error(
+                    f"[AUTO-RESPONSE] ❌ LeadDetail pre-sync failed for lead_id={lead_id}: {sync_error}"
+                )
+                logger.exception(
+                    "[AUTO-RESPONSE] Exception details for LeadDetail pre-sync during handle_new_lead"
+                )
+
             # Check if this is a phone opt-in lead for detailed logging
             ld = LeadDetail.objects.filter(lead_id=lead_id).first()
             is_phone_optin = ld and ld.phone_opt_in
@@ -1449,13 +1468,12 @@ class WebhookView(APIView):
                         active=True,
                     )
                     
-                    queue = django_rq.get_queue("default")
-                    job = queue.enqueue_in(
-                        timedelta(seconds=countdown),
-                        "webhooks.tasks.send_follow_up",
+                    from .tasks import send_follow_up
+                    job = send_follow_up.delay(
                         lead_id,
                         text,
-                        business_id=pl.business_id,
+                        pl.business_id,
+                        _countdown=int(countdown),
                     )
                     
                     # Update task with job ID
@@ -1689,6 +1707,174 @@ class WebhookView(APIView):
         logger.info(f"[AUTO-RESPONSE] - Tasks with errors: {error_count}")
         logger.info(f"[AUTO-RESPONSE] ✅ _cancel_all_tasks completed")
 
+    def _sync_lead_detail_from_yelp(
+        self,
+        lead_id: str,
+        phone_available: bool,
+        *,
+        business_id: str | None = None,
+        token: str | None = None,
+    ) -> dict | None:
+        """
+        Fetch lead details from Yelp and ensure LeadDetail is created/updated.
+        Returns a payload describing the synced data or None if syncing failed.
+        """
+        logger.info(f"[AUTO-RESPONSE] 🔄 SYNCING LeadDetail for lead_id={lead_id}")
+
+        pl = None
+        if business_id is None or token is None:
+            pl = ProcessedLead.objects.filter(lead_id=lead_id).first()
+            if not pl:
+                logger.error(
+                    f"[AUTO-RESPONSE] ❌ Cannot sync LeadDetail - no ProcessedLead for lead_id={lead_id}"
+                )
+                return None
+            business_id = business_id or pl.business_id
+        else:
+            pl = ProcessedLead.objects.filter(lead_id=lead_id).first()
+
+        if not business_id:
+            logger.error(
+                f"[AUTO-RESPONSE] ❌ Cannot sync LeadDetail - missing business_id for lead_id={lead_id}"
+            )
+            return None
+
+        if token is None:
+            logger.info(
+                f"[AUTO-RESPONSE] 🔐 Fetching business token for lead_id={lead_id}, business_id={business_id}"
+            )
+            try:
+                token = get_valid_business_token(business_id)
+                logger.info(f"[AUTO-RESPONSE] ✅ Obtained business token for LeadDetail sync")
+            except ValueError as token_error:
+                logger.warning(
+                    f"[AUTO-RESPONSE] ⚠️ No Yelp token available for business_id={business_id}: {token_error}"
+                )
+                logger.warning(
+                    f"[AUTO-RESPONSE] LeadDetail sync skipped (token unavailable)"
+                )
+                return None
+
+        detail_url = f"https://api.yelp.com/v3/leads/{lead_id}"
+        headers = {"Authorization": f"Bearer {token}"}
+
+        logger.info(f"[AUTO-RESPONSE] 📡 Requesting lead details from Yelp")
+        try:
+            resp = requests.get(detail_url, headers=headers, timeout=10)
+        except Exception as request_error:
+            logger.error(
+                f"[AUTO-RESPONSE] ❌ Lead detail request failed for lead_id={lead_id}: {request_error}"
+            )
+            return None
+
+        if resp.status_code != 200:
+            logger.error(f"[AUTO-RESPONSE] ❌ Lead detail response status={resp.status_code}")
+            logger.error(f"[AUTO-RESPONSE] Response preview: {resp.text[:200]}...")
+            return None
+
+        try:
+            detail_json = resp.json()
+        except Exception as parse_error:
+            logger.error(
+                f"[AUTO-RESPONSE] ❌ Failed to parse lead detail JSON for lead_id={lead_id}: {parse_error}"
+            )
+            return None
+
+        last_event_time = None
+        try:
+            ev_resp = requests.get(
+                f"{detail_url}/events",
+                headers=headers,
+                params={"limit": 1},
+                timeout=10,
+            )
+            if ev_resp.status_code == 200:
+                events = ev_resp.json().get("events", []) or []
+                if events:
+                    last_event_time = events[0].get("time_created")
+                logger.info(
+                    f"[AUTO-RESPONSE] 📋 Events API returned {len(events)} event(s) for lead_id={lead_id}"
+                )
+            else:
+                logger.warning(
+                    f"[AUTO-RESPONSE] ⚠️ Events API returned status={ev_resp.status_code} for lead_id={lead_id}"
+                )
+        except Exception as events_error:
+            logger.warning(
+                f"[AUTO-RESPONSE] ⚠️ Events API request failed for lead_id={lead_id}: {events_error}"
+            )
+            last_event_time = None
+
+        project_data = detail_json.get("project", {}) or {}
+        raw_answers = project_data.get("survey_answers", []) or []
+        if isinstance(raw_answers, dict):
+            survey_answers = [
+                {"question_text": q, "answer_text": a if isinstance(a, list) else [a]}
+                for q, a in raw_answers.items()
+            ]
+        else:
+            survey_answers = raw_answers
+
+        additional_info_raw = project_data.get("additional_info", "") or ""
+        phone_number = _extract_phone(additional_info_raw) or ""
+
+        display_name = detail_json.get("user", {}).get("display_name", "")
+        first_name = display_name.split()[0] if display_name else ""
+
+        existing_ld = LeadDetail.objects.filter(lead_id=lead_id).first()
+        phone_opt_in_value = detail_json.get("phone_opt_in", False)
+        if existing_ld and existing_ld.phone_opt_in:
+            phone_opt_in_value = True
+
+        detail_data = {
+            "lead_id": lead_id,
+            "business_id": detail_json.get("business_id") or business_id,
+            "conversation_id": detail_json.get("conversation_id"),
+            "temporary_email_address": detail_json.get("temporary_email_address"),
+            "temporary_email_address_expiry": detail_json.get(
+                "temporary_email_address_expiry"
+            ),
+            "time_created": detail_json.get("time_created"),
+            "last_event_time": last_event_time,
+            "user_display_name": first_name,
+            "phone_number": phone_number,
+            "phone_opt_in": phone_opt_in_value,
+            "project": {
+                "survey_answers": survey_answers,
+                "location": project_data.get("location", {}),
+                "additional_info": additional_info_raw,
+                "availability": project_data.get("availability", {}),
+                "job_names": project_data.get("job_names", []),
+                "attachments": project_data.get("attachments", []),
+            },
+        }
+
+        ld, created = safe_update_or_create(
+            LeadDetail, defaults=detail_data, lead_id=lead_id
+        )
+
+        logger.info(
+            f"[AUTO-RESPONSE] ✅ LeadDetail {'created' if created else 'updated'} "
+            f"(id={ld.id}) for lead_id={lead_id}"
+        )
+        logger.info(
+            f"[AUTO-RESPONSE] LeadDetail phone_number='{ld.phone_number}', "
+            f"phone_opt_in={ld.phone_opt_in}"
+        )
+
+        return {
+            "lead_detail": ld,
+            "detail_created": created,
+            "detail_data": detail_data,
+            "raw_detail": detail_json,
+            "phone_number": phone_number,
+            "additional_info": additional_info_raw,
+            "last_event_time": last_event_time,
+            "business_id": business_id,
+            "token": token,
+            "processed_lead": pl,
+        }
+
     def _process_auto_response(
         self, lead_id: str, phone_available: bool
     ):
@@ -1721,40 +1907,7 @@ class WebhookView(APIView):
         
         # Step 1: Look up settings
         logger.info(f"[AUTO-RESPONSE] 🔍 STEP 1: Looking up AutoResponseSettings")
-        logger.info(f"[AUTO-RESPONSE] ========== SMS SETTINGS LOOKUP ==========")
-        logger.info(f"[AUTO-RESPONSE] Search criteria:")
-        logger.info(f"[AUTO-RESPONSE] - business__isnull=True (global settings)")
-        logger.info(f"[AUTO-RESPONSE] - phone_available={phone_available}")
-        
-        # Debug: Show all AutoResponseSettings in database
-        all_auto_settings = AutoResponseSettings.objects.all()
-        logger.info(f"[AUTO-RESPONSE] 📊 ALL AutoResponseSettings in database:")
-        if all_auto_settings.exists():
-            for setting in all_auto_settings:
-                logger.info(f"[AUTO-RESPONSE] - ID={setting.id}, business={setting.business}, phone_available={setting.phone_available}, enabled={setting.enabled}")
-                if hasattr(setting, 'sms_on_customer_reply'):
-                    logger.info(f"[AUTO-RESPONSE]   sms_on_customer_reply={setting.sms_on_customer_reply}, sms_on_phone_found={setting.sms_on_phone_found}, sms_on_phone_opt_in={setting.sms_on_phone_opt_in}")
-        else:
-            logger.info(f"[AUTO-RESPONSE] ❌ NO AutoResponseSettings found in database!")
-        
-        default_settings = AutoResponseSettings.objects.filter(
-            business__isnull=True,
-            phone_available=phone_available,
-        ).first()
-        logger.info(f"[AUTO-RESPONSE] 🎯 Default settings found: {default_settings is not None}")
-        if default_settings:
-            logger.info(f"[AUTO-RESPONSE] ✅ Default settings details:")
-            logger.info(f"[AUTO-RESPONSE] - ID: {default_settings.id}")
-            logger.info(f"[AUTO-RESPONSE] - enabled: {default_settings.enabled}")
-            logger.info(f"[AUTO-RESPONSE] - phone_available: {default_settings.phone_available}")
-            if hasattr(default_settings, 'sms_on_customer_reply'):
-                logger.info(f"[AUTO-RESPONSE] - sms_on_customer_reply: {default_settings.sms_on_customer_reply}")
-                logger.info(f"[AUTO-RESPONSE] - sms_on_phone_found: {default_settings.sms_on_phone_found}")
-                logger.info(f"[AUTO-RESPONSE] - sms_on_phone_opt_in: {default_settings.sms_on_phone_opt_in}")
-        else:
-            logger.error(f"[AUTO-RESPONSE] ❌ NO MATCHING AutoResponseSettings!")
-            logger.error(f"[AUTO-RESPONSE] This means SMS won't be sent for {reason} scenario")
-            logger.error(f"[AUTO-RESPONSE] Need AutoResponseSettings with business=null, phone_available={phone_available}")
+        logger.info(f"[AUTO-RESPONSE] ========== BUSINESS-SPECIFIC SETTINGS ONLY ==========")
         
         logger.debug(
             f"[AUTO-RESPONSE] Looking up ProcessedLead for lead_id={lead_id}"
@@ -1762,69 +1915,100 @@ class WebhookView(APIView):
         pl = ProcessedLead.objects.filter(lead_id=lead_id).first()
         logger.info(f"[AUTO-RESPONSE] ProcessedLead found: {pl is not None}")
         
-        biz_settings = None
-        if pl:
-            logger.info(f"[AUTO-RESPONSE] ProcessedLead details:")
-            logger.info(f"[AUTO-RESPONSE] - ID: {pl.id}")
-            logger.info(f"[AUTO-RESPONSE] - Business ID: {pl.business_id}")
-            logger.info(f"[AUTO-RESPONSE] - Lead ID: {pl.lead_id}")
-            logger.info(f"[AUTO-RESPONSE] - Processed at: {pl.processed_at}")
-            
-            biz_settings = AutoResponseSettings.objects.filter(
-                business__business_id=pl.business_id,
-                phone_available=phone_available,
-            ).first()
-            logger.info(f"[AUTO-RESPONSE] Business-specific settings found: {biz_settings is not None}")
-            if biz_settings:
-                logger.info(f"[AUTO-RESPONSE] Business settings ID: {biz_settings.id}, enabled: {biz_settings.enabled}")
-            
-            # Step 2: Get authentication token (optional for SMS)
-            logger.info(f"[AUTO-RESPONSE] 🔐 STEP 2: Getting authentication token")
-            token = None
-            has_token = False
-            try:
-                token = get_valid_business_token(pl.business_id)
-                has_token = True
-                logger.info(f"[AUTO-RESPONSE] ✅ Successfully obtained business token")
-                logger.debug(
-                    f"[AUTO-RESPONSE] Obtained business token for {pl.business_id}: {token[:20]}..."
-                )
-            except ValueError as e:
-                logger.warning(
-                    f"[AUTO-RESPONSE] ⚠️ No token for business {pl.business_id}; continuing for SMS functionality"
-                )
-                logger.warning(f"[AUTO-RESPONSE] Token error: {e}")
-                logger.warning(f"[AUTO-RESPONSE] Auto-response messages will be disabled, but SMS can still work")
-                has_token = False
-        else:
-            qs = ProcessedLead.objects.filter(lead_id=lead_id)
-            logger.error(
-                "[AUTO-RESPONSE] ❌ Cannot determine business for lead=%s (found %s ProcessedLead records)",
-                lead_id,
-                qs.count(),
-            )
-            if qs.exists():
-                logger.error(
-                    "[AUTO-RESPONSE] Sample ProcessedLead records: %s",
-                    list(qs.values("id", "business_id", "processed_at")[:3]),
-                )
+        if not pl:
+            logger.error(f"[AUTO-RESPONSE] ❌ No ProcessedLead found for lead_id={lead_id}")
+            logger.error(f"[AUTO-RESPONSE] Cannot proceed without ProcessedLead")
             return
+        
+        logger.info(f"[AUTO-RESPONSE] Search criteria:")
+        logger.info(f"[AUTO-RESPONSE] - business__business_id={pl.business_id}")
+        logger.info(f"[AUTO-RESPONSE] - phone_available={phone_available}")
+        logger.info(f"[AUTO-RESPONSE] ⚠️ NO FALLBACK: If settings not found, auto-response will be skipped")
+        logger.info(f"[AUTO-RESPONSE] Each business MUST have its own AutoResponseSettings configured")
+        
+        # Now we have pl, so we can proceed
+        logger.info(f"[AUTO-RESPONSE] ProcessedLead details:")
+        logger.info(f"[AUTO-RESPONSE] - ID: {pl.id}")
+        logger.info(f"[AUTO-RESPONSE] - Business ID: {pl.business_id}")
+        logger.info(f"[AUTO-RESPONSE] - Lead ID: {pl.lead_id}")
+        logger.info(f"[AUTO-RESPONSE] - Processed at: {pl.processed_at}")
+        
+        # 🎯 CRITICAL: Шукаємо settings ТІЛЬКИ з правильним phone_available
+        biz_settings = AutoResponseSettings.objects.filter(
+            business__business_id=pl.business_id,
+            phone_available=phone_available,
+        ).first()
+        logger.info(f"[AUTO-RESPONSE] Business-specific settings found (phone_available={phone_available}): {biz_settings is not None}")
+        if biz_settings:
+            logger.info(f"[AUTO-RESPONSE] ✅ Business settings ID: {biz_settings.id}, enabled: {biz_settings.enabled}, phone_available: {biz_settings.phone_available}")
+        else:
+            logger.warning(f"[AUTO-RESPONSE] ⚠️ No business settings found for phone_available={phone_available}")
+            logger.warning(f"[AUTO-RESPONSE] Will use default settings if available, or skip auto-response")
+        
+        # Step 2: Get authentication token (optional for SMS)
+        logger.info(f"[AUTO-RESPONSE] 🔐 STEP 2: Getting authentication token")
+        token = None
+        has_token = False
+        try:
+            token = get_valid_business_token(pl.business_id)
+            has_token = True
+            logger.info(f"[AUTO-RESPONSE] ✅ Successfully obtained business token")
+            logger.debug(
+                f"[AUTO-RESPONSE] Obtained business token for {pl.business_id}: {token[:20]}..."
+            )
+        except ValueError as e:
+            logger.warning(
+                f"[AUTO-RESPONSE] ⚠️ No token for business {pl.business_id}; continuing for SMS functionality"
+            )
+            logger.warning(f"[AUTO-RESPONSE] Token error: {e}")
+            logger.warning(f"[AUTO-RESPONSE] Auto-response messages will be disabled, but SMS can still work")
+            has_token = False
 
-        auto_settings = biz_settings if biz_settings is not None else default_settings
-        if auto_settings is None:
-            logger.info("[AUTO-RESPONSE] AutoResponseSettings not configured")
+        detail_sync = self._sync_lead_detail_from_yelp(
+            lead_id,
+            phone_available,
+            business_id=pl.business_id,
+            token=token if has_token else None,
+        )
+
+        ld = None
+        detail_data = {}
+        additional_info = ""
+        phone_number = ""
+        created = False
+
+        if detail_sync:
+            ld = detail_sync.get("lead_detail")
+            detail_data = detail_sync.get("detail_data") or {}
+            additional_info = detail_sync.get("additional_info") or ""
+            phone_number = detail_sync.get("phone_number") or ""
+            created = detail_sync.get("detail_created", False)
+            if not has_token and detail_sync.get("token"):
+                token = detail_sync["token"]
+                has_token = True
+        else:
+            ld = LeadDetail.objects.filter(lead_id=lead_id).first()
+            project_payload = getattr(ld, "project", {}) if ld else {}
+            if not isinstance(project_payload, dict):
+                project_payload = {}
+            detail_data = {"project": project_payload}
+            additional_info = project_payload.get("additional_info", "")
+            phone_number = getattr(ld, "phone_number", "") if ld else ""
+            created = False
+
+        # ❌ FALLBACK ВИДАЛЕНО: Використовуємо ТІЛЬКИ business-specific settings
+        # Якщо settings не знайдено - auto-response не працюватиме
+        auto_settings = biz_settings
         
         # Enhanced logging for settings selection
         logger.info(f"[AUTO-RESPONSE] ========== SETTINGS SELECTION ==========")
-        logger.info(f"[AUTO-RESPONSE] Business-specific settings available: {biz_settings is not None}")
-        logger.info(f"[AUTO-RESPONSE] Default settings available: {default_settings is not None}")
-        logger.info(f"[AUTO-RESPONSE] Final settings selected: {auto_settings is not None}")
+        logger.info(f"[AUTO-RESPONSE] Business-specific settings found: {auto_settings is not None}")
+        logger.info(f"[AUTO-RESPONSE] ⚠️ NO FALLBACK to global settings - each business must have its own settings")
         
         if auto_settings:
-            logger.info(f"[AUTO-RESPONSE] SELECTED AutoResponseSettings:")
+            logger.info(f"[AUTO-RESPONSE] ✅ SELECTED AutoResponseSettings:")
             logger.info(f"[AUTO-RESPONSE] - Settings ID: {auto_settings.id}")
-            logger.info(f"[AUTO-RESPONSE] - Settings type: {'Business-specific' if biz_settings is not None else 'Default'}")
-            logger.info(f"[AUTO-RESPONSE] - Business: {auto_settings.business.name if auto_settings.business else 'Global (None)'}")
+            logger.info(f"[AUTO-RESPONSE] - Business: {auto_settings.business.name if auto_settings.business else 'N/A'}")
             logger.info(f"[AUTO-RESPONSE] - Enabled: {auto_settings.enabled}")
             logger.info(f"[AUTO-RESPONSE] - phone_available: {auto_settings.phone_available}")
             logger.info(f"[AUTO-RESPONSE] - use_ai_greeting: {getattr(auto_settings, 'use_ai_greeting', False)}")
@@ -1838,10 +2022,13 @@ class WebhookView(APIView):
             logger.info(f"[AUTO-RESPONSE] - sms_on_phone_opt_in: {getattr(auto_settings, 'sms_on_phone_opt_in', 'MISSING FIELD')}")
             logger.info(f"[AUTO-RESPONSE] SMS processing will be handled in Step 3 below")
         else:
-            logger.warning(f"[AUTO-RESPONSE] ❌ NO AutoResponseSettings found!")
-            logger.warning(f"[AUTO-RESPONSE] Query filters used:")
-            logger.warning(f"[AUTO-RESPONSE] - phone_available: {phone_available}")
-            logger.warning(f"[AUTO-RESPONSE] - business_id: {pl.business_id if pl else 'N/A'}")
+            logger.error(f"[AUTO-RESPONSE] ❌ NO AutoResponseSettings found!")
+            logger.error(f"[AUTO-RESPONSE] Auto-response will be SKIPPED for this lead")
+            logger.error(f"[AUTO-RESPONSE] Required settings:")
+            logger.error(f"[AUTO-RESPONSE] - business_id: {pl.business_id if pl else 'N/A'}")
+            logger.error(f"[AUTO-RESPONSE] - phone_available: {phone_available}")
+            logger.error(f"[AUTO-RESPONSE] ⚠️ Please create AutoResponseSettings for this business in Django Admin")
+            return  # ⚠️ Виходимо якщо немає settings
         
         biz_id = pl.business_id if pl else None
         logger.info(
@@ -1969,167 +2156,71 @@ class WebhookView(APIView):
             logger.warning(f"[AUTO-RESPONSE] Only SMS processing was performed")
             return
         
-        logger.info(f"[AUTO-RESPONSE] 🔗 STEP 4: Processing Yelp auto-response messages")
-        detail_url = f"https://api.yelp.com/v3/leads/{lead_id}"
-        headers = {"Authorization": f"Bearer {token}"}
-        
-        logger.info(f"[AUTO-RESPONSE] 🚀 STARTING lead details API request")
-        logger.info(f"[AUTO-RESPONSE] =================== YELP DETAIL API DEBUG ===================")
-        logger.info(f"[AUTO-RESPONSE] - Lead ID: {lead_id}")
-        logger.info(f"[AUTO-RESPONSE] - Detail URL: {detail_url}")
-        logger.info(f"[AUTO-RESPONSE] - Token ending: ...{token[-10:] if token and len(token) > 10 else 'N/A'}")
-        
-        import time
-        detail_start_time = time.time()
-        
-        try:
-            logger.info(f"[AUTO-RESPONSE] 📡 Making lead details API request...")
-            resp = requests.get(detail_url, headers=headers, timeout=10)
-            
-            detail_duration = time.time() - detail_start_time
-            logger.info(f"[AUTO-RESPONSE] ✅ Lead details API completed in {detail_duration:.3f}s")
-            logger.info(f"[AUTO-RESPONSE] - Status code: {resp.status_code}")
-            
-        except Exception as e:
-            detail_duration = time.time() - detail_start_time
-            logger.error(f"[AUTO-RESPONSE] ❌ Lead details API error after {detail_duration:.3f}s: {e}")
-            return
-        
-        if resp.status_code != 200:
-            source = f"business {pl.business_id}" if pl else "unknown"
-            logger.error(f"[AUTO-RESPONSE] ❌ DETAIL API ERROR")
-            logger.error(f"[AUTO-RESPONSE] - Lead: {lead_id}")
-            logger.error(f"[AUTO-RESPONSE] - Business: {pl.business_id if pl else 'N/A'}")
-            logger.error(f"[AUTO-RESPONSE] - Token source: {source}")
-            logger.error(f"[AUTO-RESPONSE] - Status: {resp.status_code}")
-            logger.error(f"[AUTO-RESPONSE] - Response: {resp.text[:200]}...")
-            return
-            
-        try:
-            d = resp.json()
-            logger.info(f"[AUTO-RESPONSE] 📋 Lead details parsed successfully")
-        except Exception as e:
-            logger.error(f"[AUTO-RESPONSE] ❌ Failed to parse lead details JSON: {e}")
-            return
+        logger.info(f"[AUTO-RESPONSE] 🔗 STEP 4: Preparing lead data for message generation")
 
-        logger.info(f"[AUTO-RESPONSE] 🚀 STARTING events API request")
-        events_start_time = time.time()
-        
-        try:
-            logger.info(f"[AUTO-RESPONSE] 📡 Making events API request...")
-            ev_resp = requests.get(
-                f"{detail_url}/events", headers=headers, params={"limit": 1}, timeout=10
+        detail_payload = detail_sync
+        if not detail_payload and has_token:
+            detail_payload = self._sync_lead_detail_from_yelp(
+                lead_id,
+                phone_available,
+                business_id=pl.business_id,
+                token=token,
             )
-            
-            events_duration = time.time() - events_start_time
-            logger.info(f"[AUTO-RESPONSE] ✅ Events API completed in {events_duration:.3f}s")
-            logger.info(f"[AUTO-RESPONSE] - Status code: {ev_resp.status_code}")
-            
-        except Exception as e:
-            events_duration = time.time() - events_start_time
-            logger.error(f"[AUTO-RESPONSE] ❌ Events API error after {events_duration:.3f}s: {e}")
-            ev_resp = None
-        
-        last_time = None
-        if ev_resp and ev_resp.status_code == 200:
-            try:
-                evs = ev_resp.json().get("events", [])
-                if evs:
-                    last_time = evs[0]["time_created"]
-                logger.info(f"[AUTO-RESPONSE] 📋 Events API parsed successfully, found {len(evs)} event(s)")
-            except Exception as e:
-                logger.error(f"[AUTO-RESPONSE] ❌ Failed to parse events JSON: {e}")
-        else:
-            logger.warning(f"[AUTO-RESPONSE] ⚠️ Events API failed or returned non-200")
-            
-        logger.info(f"[AUTO-RESPONSE] Last event time for lead={lead_id}: {last_time}")
+            if detail_payload:
+                ld = detail_payload.get("lead_detail") or ld
+                detail_data = detail_payload.get("detail_data") or detail_data
+                additional_info = detail_payload.get("additional_info") or additional_info
+                phone_number = detail_payload.get("phone_number") or phone_number
+                created = detail_payload.get("detail_created", created)
 
-        raw_proj = d.get("project", {}) or {}
-        raw_answers = raw_proj.get("survey_answers", []) or []
-        if isinstance(raw_answers, dict):
-            survey_list = [
-                {"question_text": q, "answer_text": a if isinstance(a, list) else [a]}
-                for q, a in raw_answers.items()
-            ]
-        else:
-            survey_list = raw_answers
+        if not ld:
+            ld = LeadDetail.objects.filter(lead_id=lead_id).first()
+            if not ld:
+                logger.error(
+                    f"[AUTO-RESPONSE] ❌ No LeadDetail available for lead_id={lead_id} after sync"
+                )
+                return
 
-        # 🔍 DETAILED PHONE NUMBER EXTRACTION DEBUG
-        additional_info_raw = raw_proj.get("additional_info", "")
+        if not isinstance(detail_data, dict):
+            detail_data = {}
+
+        project_block = detail_data.get("project")
+        if not isinstance(project_block, dict):
+            project_block = getattr(ld, "project", {})
+            if not isinstance(project_block, dict):
+                project_block = {}
+            detail_data["project"] = project_block
+
+        additional_info_value = (
+            additional_info
+            or project_block.get("additional_info")
+            or ""
+        )
+
         logger.info(f"[PHONE-EXTRACTION] 📞 PHONE NUMBER EXTRACTION DEBUG:")
-        logger.info(f"[PHONE-EXTRACTION] - additional_info raw: '{additional_info_raw}'")
-        logger.info(f"[PHONE-EXTRACTION] - additional_info type: {type(additional_info_raw)}")
-        logger.info(f"[PHONE-EXTRACTION] - additional_info length: {len(additional_info_raw)}")
-        
-        phone_number = _extract_phone(additional_info_raw) or ""
-        
-        logger.info(f"[PHONE-EXTRACTION] - _extract_phone result: '{phone_number}'")
-        logger.info(f"[PHONE-EXTRACTION] - phone_number type: {type(phone_number)}")
-        logger.info(f"[PHONE-EXTRACTION] - phone_number length: {len(phone_number) if phone_number else 0}")
+        logger.info(f"[PHONE-EXTRACTION] - additional_info raw: '{additional_info_value}'")
+        logger.info(f"[PHONE-EXTRACTION] - additional_info type: {type(additional_info_value)}")
+        logger.info(f"[PHONE-EXTRACTION] - additional_info length: {len(additional_info_value)}")
+
+        phone_from_additional = _extract_phone(additional_info_value) or ""
+        if not phone_number:
+            phone_number = phone_from_additional
+
+        logger.info(f"[PHONE-EXTRACTION] - _extract_phone result: '{phone_from_additional}'")
+        logger.info(f"[PHONE-EXTRACTION] - phone_number (context): '{phone_number}'")
         logger.info(f"[PHONE-EXTRACTION] - phone_number bool: {bool(phone_number)}")
-        logger.info(f"[PHONE-EXTRACTION] - Final phone_number value: '{phone_number}'")
 
-        # 🔍 DETAILED LEAD DATA PREPARATION DEBUG
-        logger.info(f"[LEAD-DATA] 📋 PREPARING DETAIL_DATA:")
-        logger.info(f"[LEAD-DATA] - phone_number for detail_data: '{phone_number}'")
-        logger.info(f"[LEAD-DATA] - phone_number type: {type(phone_number)}")
-        logger.info(f"[LEAD-DATA] - phone_number bool: {bool(phone_number)}")
-
-        display_name = d.get("user", {}).get("display_name", "")
-        first_name = display_name.split()[0] if display_name else ""
-
-        existing_ld = LeadDetail.objects.filter(lead_id=lead_id).first()
-        phone_opt_in_value = d.get("phone_opt_in", False)
-        if existing_ld and existing_ld.phone_opt_in:
-            phone_opt_in_value = True
-
-        detail_data = {
-            "lead_id": lead_id,
-            "business_id": d.get("business_id"),
-            "conversation_id": d.get("conversation_id"),
-            "temporary_email_address": d.get("temporary_email_address"),
-            "temporary_email_address_expiry": d.get("temporary_email_address_expiry"),
-            "time_created": d.get("time_created"),
-            "last_event_time": last_time,
-            "user_display_name": first_name,
-            "phone_number": phone_number,
-            "phone_opt_in": phone_opt_in_value,
-            "project": {
-                "survey_answers": survey_list,
-                "location": raw_proj.get("location", {}),
-                "additional_info": raw_proj.get("additional_info", ""),
-                "availability": raw_proj.get("availability", {}),
-                "job_names": raw_proj.get("job_names", []),
-                "attachments": raw_proj.get("attachments", []),
-            },
-        }
-
-        ld, created = safe_update_or_create(
-            LeadDetail, defaults=detail_data, lead_id=lead_id
-        )
-        logger.info(
-            f"[AUTO-RESPONSE] LeadDetail {'created' if created else 'updated'} pk={ld.pk}"
-        )
-        
-        # 🔍 DETAILED DATABASE SAVE VERIFICATION
-        logger.info(f"[LEAD-SAVE] 💾 LEADDETAL SAVE VERIFICATION:")
-        logger.info(f"[LEAD-SAVE] - Created: {created}")
-        logger.info(f"[LEAD-SAVE] - LeadDetail.id: {ld.id}")
-        logger.info(f"[LEAD-SAVE] - LeadDetail.phone_number from DB: '{ld.phone_number}'")
-        logger.info(f"[LEAD-SAVE] - LeadDetail.phone_number type: {type(ld.phone_number)}")
-        logger.info(f"[LEAD-SAVE] - LeadDetail.phone_number bool: {bool(ld.phone_number)}")
-        logger.info(f"[LEAD-SAVE] - Original phone_number variable: '{phone_number}'")
+        project_block["additional_info"] = additional_info_value
 
         # ✅ DETAILED PHONE DETECTION WITH EXTENSIVE LOGGING
         logger.info(f"[AUTO-RESPONSE] ======== PHONE DETECTION CHECK ========")
         logger.info(f"[AUTO-RESPONSE] Current scenario: phone_available={phone_available}")
         logger.info(f"[AUTO-RESPONSE] Checking for phone in additional_info...")
         
-        additional_info = detail_data["project"].get("additional_info", "")
-        logger.info(f"[AUTO-RESPONSE] additional_info content: '{additional_info[:200]}...'" + ("" if len(additional_info) <= 200 else " (truncated)"))
-        logger.info(f"[AUTO-RESPONSE] additional_info length: {len(additional_info)} characters")
+        logger.info(f"[AUTO-RESPONSE] additional_info content: '{additional_info_value[:200]}...'" + ("" if len(additional_info_value) <= 200 else " (truncated)"))
+        logger.info(f"[AUTO-RESPONSE] additional_info length: {len(additional_info_value)} characters")
         
-        phone_match = PHONE_RE.search(additional_info)
+        phone_match = PHONE_RE.search(additional_info_value)
         logger.info(f"[AUTO-RESPONSE] Phone regex match found: {phone_match is not None}")
         
         if phone_match:
@@ -2293,6 +2384,7 @@ class WebhookView(APIView):
         logger.info(f"[AUTO-RESPONSE] - greetings: '{greetings}'")
         logger.info(f"[AUTO-RESPONSE] - Full project data: {ld.project}")
         
+        logger.info(f"[AUTO-RESPONSE] 🔍 Starting duplicate detection block")
         # 🔍 DUPLICATE DETECTION: Check if similar message might already exist
         potential_duplicate_jobs = ["", "Remodeling", "remodeling"]  # Common variations
         for alt_jobs in potential_duplicate_jobs:
@@ -2302,6 +2394,7 @@ class WebhookView(APIView):
                 if auto_settings and hasattr(auto_settings, 'greeting_template'):
                     try:
                         alt_text = auto_settings.greeting_template.format(name=name, jobs=alt_jobs, sep=alt_sep, reason=reason, greetings=greetings)
+                        logger.debug(f"[AUTO-RESPONSE] Checking duplicate for alt_jobs='{alt_jobs}', alt_text='{alt_text[:50]}'")
                         if _already_sent(lead_id, alt_text):
                             logger.warning(f"[AUTO-RESPONSE] ⚠️ POTENTIAL DUPLICATE DETECTED!")
                             logger.warning(f"[AUTO-RESPONSE] Similar message already sent with jobs='{alt_jobs}'")
@@ -2310,9 +2403,13 @@ class WebhookView(APIView):
                             # Note: We don't return here, just log the warning for analysis
                     except Exception as e:
                         # Template formatting might fail, that's OK
+                        logger.debug(f"[AUTO-RESPONSE] Duplicate check exception (expected): {e}")
                         pass
+        
+        logger.info(f"[AUTO-RESPONSE] ✅ Duplicate detection completed, continuing...")
 
         biz_id = ld.business_id if ld else None
+        logger.info(f"[AUTO-RESPONSE] Looking up YelpBusiness for biz_id={biz_id}")
         business = YelpBusiness.objects.filter(business_id=biz_id).first()
         
         logger.info(f"[AUTO-RESPONSE] Business information:")
@@ -2381,130 +2478,19 @@ class WebhookView(APIView):
         # Generate greeting message - AI or template-based
         logger.info(f"[AUTO-RESPONSE] ========= GREETING GENERATION =========")
         
+        # 🎯 NEW: Check if AI greeting should be async
+        use_async_ai = use_ai
+        greet_text = None
+        
         if use_ai:
-            logger.info(f"[AUTO-RESPONSE] 🤖 USING AI for greeting generation")
-            logger.info(f"[AUTO-RESPONSE] ========== AI GENERATION PATH ==========")
-            logger.info(f"[AUTO-RESPONSE] AI generation path selected")
+            logger.info(f"[AUTO-RESPONSE] 🤖 USING ASYNC AI for greeting generation")
+            logger.info(f"[AUTO-RESPONSE] ========== ASYNC AI GENERATION PATH ==========")
+            logger.info(f"[AUTO-RESPONSE] AI generation will be done in background task")
+            logger.info(f"[AUTO-RESPONSE] Status will be visible as GENERATING in UI")
             logger.info(f"[AUTO-RESPONSE] use_ai_greeting setting: {use_ai}")
-            logger.info(f"[AUTO-RESPONSE] Attempting to import OpenAI service...")
             
-            try:
-                from .ai_service import OpenAIService
-                ai_service = OpenAIService()
-                logger.info(f"[AUTO-RESPONSE] ✅ OpenAI service imported successfully")
-                
-                logger.info(f"[AUTO-RESPONSE] AI service availability check...")
-                
-                if ai_service.is_available():
-                    logger.info(f"[AUTO-RESPONSE] ✅ AI service is available")
-                    logger.info(f"[AUTO-RESPONSE] Proceeding with AI generation...")
-                    
-                    # ✅ All business data passed to AI - Custom Instructions control what to include
-                    logger.info(f"[AUTO-RESPONSE] AI generation parameters:")
-                    logger.info(f"[AUTO-RESPONSE] - is_off_hours: {not within_hours}")
-                    logger.info(f"[AUTO-RESPONSE] - custom_prompt available: {getattr(auto_settings, 'ai_custom_prompt', None) is not None}")
-                    logger.info(f"[AUTO-RESPONSE] - business data: ALL business information passed to Custom Instructions")
-                    logger.info(f"[AUTO-RESPONSE] - Custom Instructions control what business data to include in response")
-                    
-                    logger.info(f"[AUTO-RESPONSE] Calling AI service...")
-                    
-                    # 🎯 MODE 2: Sample Replies Priority (тільки для AI Generated режиму)
-                    ai_greeting = None
-                    
-                    if getattr(auto_settings, 'use_sample_replies', False):
-                        
-                        logger.info(f"[AUTO-RESPONSE] 🔍 MODE 2: Using Vector-Enhanced Sample Replies AI generation...")
-                        
-                        # Перевірка чи є векторні дані
-                        try:
-                            from .vector_models import VectorDocument
-                            vector_docs = VectorDocument.objects.filter(
-                                business_id=business.business_id,
-                                processing_status='completed'
-                            ).count()
-                            
-                            if vector_docs > 0:
-                                logger.info(f"[AUTO-RESPONSE] ✅ Found {vector_docs} vector documents - using vector search")
-                            else:
-                                logger.info(f"[AUTO-RESPONSE] ⚠️ No vector documents found - will try legacy fallback")
-                                
-                        except Exception as e:
-                            logger.warning(f"[AUTO-RESPONSE] Vector check failed: {e}")
-                        
-                        logger.info(f"[AUTO-RESPONSE] Sample Replies filename: {getattr(auto_settings, 'sample_replies_filename', 'Unknown')}")
-                        
-                        # 🔍 Спроба векторної генерації з Sample Replies (Режим 2)
-                        ai_greeting = ai_service.generate_sample_replies_response(
-                            lead_detail=ld,
-                            business=business,
-                            max_length=None,  # ✅ Auto-detect from Sample Replies examples
-                            business_ai_settings=auto_settings,
-                            use_vector_search=True  # Використовуємо векторний пошук
-                        )
-                        
-                        if ai_greeting:
-                            logger.info(f"[AUTO-RESPONSE] ✅ MODE 2: Sample Replies AI generated successfully")
-                            logger.info(f"[AUTO-RESPONSE] Sample Replies response: {ai_greeting[:100]}...")
-                        else:
-                            logger.warning(f"[AUTO-RESPONSE] ⚠️ MODE 2: Sample Replies AI failed, falling back...")
-                            logger.info(f"[AUTO-RESPONSE] 📋 Possible reasons:")
-                            logger.info(f"[AUTO-RESPONSE]   - No similar chunks found (similarity < threshold)")
-                            logger.info(f"[AUTO-RESPONSE]   - Vector search error")
-                            logger.info(f"[AUTO-RESPONSE]   - No Sample Replies examples match inquiry")
-                    
-                    # 🎯 MODE 2: Fallback to standard AI generation if Sample Replies didn't work
-                    if not ai_greeting:
-                        logger.info(f"[AUTO-RESPONSE] 🔄 FALLBACK: Using Custom Instructions (standard AI generation)...")
-                        logger.info(f"[AUTO-RESPONSE] This is NORMAL when no similar Sample Replies examples found")
-                        
-                        # Generate standard AI greeting 
-                        ai_greeting = ai_service.generate_greeting_message(
-                            lead_detail=ld,
-                            business=business,
-                            is_off_hours=not within_hours,
-                            # All AI behavior controlled via Custom Instructions
-                            custom_prompt=getattr(auto_settings, 'ai_custom_prompt', None),
-                            max_length=None,  # ✅ Auto-detect, ignore deprecated ai_max_message_length
-                            business_ai_settings=auto_settings  # 🏢 Передаємо business AI налаштування
-                        )
-                    
-                    if ai_greeting:
-                        logger.info(f"[AUTO-RESPONSE] ✅ AI generated greeting successfully")
-                        logger.info(f"[AUTO-RESPONSE] AI greeting preview: {ai_greeting[:100]}...")
-                        logger.info(f"[AUTO-RESPONSE] AI greeting length: {len(ai_greeting)} characters")
-                        greet_text = ai_greeting
-                    else:
-                        logger.warning(f"[AUTO-RESPONSE] ⚠️ AI generation returned empty result, using template fallback")
-                        # Fallback to template
-                        if within_hours:
-                            greet_text = auto_settings.greeting_template.format(name=name, jobs=jobs, sep=sep, reason=reason, greetings=greetings)
-                            logger.info(f"[AUTO-RESPONSE] Template fallback (within hours): {greet_text[:100]}...")
-                        else:
-                            greet_text = auto_settings.greeting_off_hours_template.format(name=name, jobs=jobs, sep=sep, reason=reason, greetings=greetings)
-                            logger.info(f"[AUTO-RESPONSE] Template fallback (off hours): {greet_text[:100]}...")
-                else:
-                    logger.warning(f"[AUTO-RESPONSE] ⚠️ AI service not available, using template fallback")
-                    logger.warning(f"[AUTO-RESPONSE] AI service unavailability reason: check API keys/network")
-                    logger.info(f"[AUTO-RESPONSE] 🔄 SWITCHING TO TEMPLATE FALLBACK")
-                    # Fallback to template
-                    if within_hours:
-                        greet_text = auto_settings.greeting_template.format(name=name, jobs=jobs, sep=sep, reason=reason, greetings=greetings)
-                        logger.info(f"[AUTO-RESPONSE] Template fallback (within hours): {greet_text[:100]}...")
-                    else:
-                        greet_text = auto_settings.greeting_off_hours_template.format(name=name, jobs=jobs, sep=sep, reason=reason, greetings=greetings)
-                        logger.info(f"[AUTO-RESPONSE] Template fallback (off hours): {greet_text[:100]}...")
-                        
-            except Exception as e:
-                logger.error(f"[AUTO-RESPONSE] ❌ AI generation error: {e}")
-                logger.exception(f"[AUTO-RESPONSE] AI generation exception details")
-                # Fallback to template on any error
-                logger.info(f"[AUTO-RESPONSE] 🔄 SWITCHING TO TEMPLATE FALLBACK due to AI error")
-                if within_hours:
-                    greet_text = auto_settings.greeting_template.format(name=name, jobs=jobs, sep=sep, greetings=greetings)
-                    logger.info(f"[AUTO-RESPONSE] Template fallback (within hours): {greet_text[:100]}...")
-                else:
-                    greet_text = auto_settings.greeting_off_hours_template.format(name=name, jobs=jobs, sep=sep, greetings=greetings)
-                    logger.info(f"[AUTO-RESPONSE] Template fallback (off hours): {greet_text[:100]}...")
+            # AI greeting will be generated async - no greet_text yet
+            greet_text = None
         else:
             # Traditional template-based approach
             logger.info(f"[AUTO-RESPONSE] 📝 USING TEMPLATE-BASED greeting generation")
@@ -2531,12 +2517,19 @@ class WebhookView(APIView):
             logger.info(f"[AUTO-RESPONSE] Template result: {greet_text[:100]}...")
         
         # Final message logging
-        logger.info(f"[AUTO-RESPONSE] ========== FINAL MESSAGE ==========")
-        logger.info(f"[AUTO-RESPONSE] Generated greeting message:")
-        logger.info(f"[AUTO-RESPONSE] - Full text: {greet_text}")
-        logger.info(f"[AUTO-RESPONSE] - Length: {len(greet_text)} characters")
-        logger.info(f"[AUTO-RESPONSE] - Generation method: {'AI' if use_ai else 'Template'}")
-        logger.info(f"[AUTO-RESPONSE] ===============================")
+        if greet_text:
+            logger.info(f"[AUTO-RESPONSE] ========== FINAL MESSAGE ==========")
+            logger.info(f"[AUTO-RESPONSE] Generated greeting message:")
+            logger.info(f"[AUTO-RESPONSE] - Full text: {greet_text}")
+            logger.info(f"[AUTO-RESPONSE] - Length: {len(greet_text)} characters")
+            logger.info(f"[AUTO-RESPONSE] - Generation method: Template")
+            logger.info(f"[AUTO-RESPONSE] ===============================")
+        else:
+            logger.info(f"[AUTO-RESPONSE] ========== ASYNC AI GENERATION ==========")
+            logger.info(f"[AUTO-RESPONSE] Greeting will be generated asynchronously")
+            logger.info(f"[AUTO-RESPONSE] - Generation method: AI (async)")
+            logger.info(f"[AUTO-RESPONSE] - Status: GENERATING")
+            logger.info(f"[AUTO-RESPONSE] ===============================")
 
         # Calculate due time with enhanced logging
         logger.info(f"[AUTO-RESPONSE] ========= GREETING TIMING DEBUG =========")
@@ -2565,37 +2558,46 @@ class WebhookView(APIView):
         scheduled_texts = set()
 
         # ✅ DETAILED DUPLICATE DETECTION WITH EXTENSIVE LOGGING
-        logger.info(f"[AUTO-RESPONSE] ======== DUPLICATE DETECTION CHECK ========")
-        logger.info(f"[AUTO-RESPONSE] About to check if greeting was already sent...")
-        logger.info(f"[AUTO-RESPONSE] Greeting text to check: '{greet_text[:100]}...'" + ("" if len(greet_text) <= 100 else " (truncated)"))
-        logger.info(f"[AUTO-RESPONSE] Greeting text length: {len(greet_text)} characters")
-        logger.info(f"[AUTO-RESPONSE] Lead ID: {lead_id}")
-        
-        # Check if already sent via _already_sent function
-        already_sent_result = _already_sent(lead_id, greet_text)
-        logger.info(f"[AUTO-RESPONSE] _already_sent result: {already_sent_result}")
-        
-        # Check if there are active pending tasks with same text
-        pending_tasks_count = LeadPendingTask.objects.filter(lead_id=lead_id, text=greet_text, active=True).count()
-        logger.info(f"[AUTO-RESPONSE] Active pending tasks with same text: {pending_tasks_count}")
-        
-        if pending_tasks_count > 0:
-            logger.info(f"[AUTO-RESPONSE] Found {pending_tasks_count} active pending task(s) with same text")
-            pending_tasks = LeadPendingTask.objects.filter(lead_id=lead_id, text=greet_text, active=True)[:3]
-            for i, task in enumerate(pending_tasks):
-                logger.info(f"[AUTO-RESPONSE] Pending task {i+1}: ID={task.id}, task_id={task.task_id}, created_at={task.created_at}")
+        # Skip duplicate detection for async AI (greet_text will be None)
+        if greet_text is not None:
+            logger.info(f"[AUTO-RESPONSE] ======== DUPLICATE DETECTION CHECK ========")
+            logger.info(f"[AUTO-RESPONSE] About to check if greeting was already sent...")
+            logger.info(f"[AUTO-RESPONSE] Greeting text to check: '{greet_text[:100]}...'" + ("" if len(greet_text) <= 100 else " (truncated)"))
+            logger.info(f"[AUTO-RESPONSE] Greeting text length: {len(greet_text)} characters")
+            logger.info(f"[AUTO-RESPONSE] Lead ID: {lead_id}")
+            
+            # Check if already sent via _already_sent function
+            already_sent_result = _already_sent(lead_id, greet_text)
+            logger.info(f"[AUTO-RESPONSE] _already_sent result: {already_sent_result}")
+            
+            # Check if there are active pending tasks with same text
+            pending_tasks_count = LeadPendingTask.objects.filter(lead_id=lead_id, text=greet_text, active=True).count()
+            logger.info(f"[AUTO-RESPONSE] Active pending tasks with same text: {pending_tasks_count}")
+            
+            if pending_tasks_count > 0:
+                logger.info(f"[AUTO-RESPONSE] Found {pending_tasks_count} active pending task(s) with same text")
+                pending_tasks = LeadPendingTask.objects.filter(lead_id=lead_id, text=greet_text, active=True)[:3]
+                for i, task in enumerate(pending_tasks):
+                    logger.info(f"[AUTO-RESPONSE] Pending task {i+1}: ID={task.id}, task_id={task.task_id}, created_at={task.created_at}")
 
-        # ✅ VALIDATION: Don't send empty or invalid messages
-        if not greet_text or len(greet_text.strip()) < 10:
-            logger.error(f"[AUTO-RESPONSE] ❌ INVALID MESSAGE - Cannot send empty or too short greeting")
-            logger.error(f"[AUTO-RESPONSE] - Message length: {len(greet_text) if greet_text else 0} characters")
-            logger.error(f"[AUTO-RESPONSE] - Message content: '{greet_text}'")
-            logger.error(f"[AUTO-RESPONSE] 🛑 ABORTING MESSAGE SEND - fix AI generation issue")
-            logger.error(f"[AUTO-RESPONSE] Check Custom Instructions and AI service logs")
-            return
+            # ✅ VALIDATION: Don't send empty or invalid messages
+            if not greet_text or len(greet_text.strip()) < 10:
+                logger.error(f"[AUTO-RESPONSE] ❌ INVALID MESSAGE - Cannot send empty or too short greeting")
+                logger.error(f"[AUTO-RESPONSE] - Message length: {len(greet_text) if greet_text else 0} characters")
+                logger.error(f"[AUTO-RESPONSE] - Message content: '{greet_text}'")
+                logger.error(f"[AUTO-RESPONSE] 🛑 ABORTING MESSAGE SEND - fix AI generation issue")
+                logger.error(f"[AUTO-RESPONSE] Check Custom Instructions and AI service logs")
+                return
+        else:
+            # Async AI mode - no text yet
+            logger.info(f"[AUTO-RESPONSE] ======== ASYNC AI MODE ========")
+            logger.info(f"[AUTO-RESPONSE] Greeting will be generated asynchronously")
+            logger.info(f"[AUTO-RESPONSE] Skipping duplicate detection (no text yet)")
+            already_sent_result = False
+            pending_tasks_count = 0
 
         with transaction.atomic():
-            if (
+            if greet_text and (
                 already_sent_result
                 or LeadPendingTask.objects.select_for_update()
                 .filter(lead_id=lead_id, text=greet_text, active=True)
@@ -2612,18 +2614,47 @@ class WebhookView(APIView):
                 logger.info(f"[AUTO-RESPONSE] ✅ GREETING WILL BE SENT IMMEDIATELY")
                 logger.info(f"[AUTO-RESPONSE] Due time: {due.isoformat()}")
                 logger.info(f"[AUTO-RESPONSE] Current time: {now.isoformat()}")
-                logger.info(f"[AUTO-RESPONSE] Sending greeting via Celery with countdown=0")
                 logger.info(f"[AUTO-RESPONSE] 🚀 DISPATCHING GREETING TASK")
                 
-                send_follow_up.apply_async(
-                    args=[lead_id, greet_text],
-                    headers={"business_id": biz_id},
-                    countdown=0,
-                )
-                logger.info(
-                    "[AUTO-RESPONSE] ✅ Greeting dispatched immediately via Celery"
-                )
-                scheduled_texts.add(greet_text)
+                # Check if AI or template
+                if use_async_ai:
+                    # AI greeting - use async task
+                    logger.info(f"[AUTO-RESPONSE] Using async AI generation task")
+                    from .tasks import generate_and_send_greeting
+                    from django_rq import get_queue
+                    
+                    queue = get_queue('default')
+                    res = queue.enqueue_in(
+                        timedelta(seconds=0),  # Immediate
+                        generate_and_send_greeting,
+                        lead_id,
+                        biz_id,
+                        phone_available,
+                        within_hours,
+                        getattr(auto_settings, 'use_sample_replies', False)
+                    )
+                    
+                    # Create CeleryTaskLog with GENERATING status
+                    from .models import CeleryTaskLog
+                    CeleryTaskLog.objects.update_or_create(
+                        task_id=res.id,
+                        defaults={
+                            'name': 'generate_and_send_greeting',
+                            'args': [lead_id, biz_id, phone_available, within_hours, getattr(auto_settings, 'use_sample_replies', False)],
+                            'kwargs': {},
+                            'eta': now,
+                            'status': 'GENERATING',
+                            'business_id': biz_id,
+                        }
+                    )
+                    logger.info(f"[AUTO-RESPONSE] ✅ AI greeting task created with ID: {res.id}")
+                    logger.info(f"[AUTO-RESPONSE] Status: GENERATING (visible in UI)")
+                else:
+                    # Template greeting - send directly
+                    from .tasks import send_follow_up
+                    send_follow_up.delay(lead_id, greet_text, business_id=biz_id)
+                    logger.info("[AUTO-RESPONSE] ✅ Template greeting dispatched immediately")
+                    scheduled_texts.add(greet_text)
             else:
                 logger.info(f"[AUTO-RESPONSE] ✅ GREETING WILL BE SCHEDULED")
                 logger.info(f"[AUTO-RESPONSE] Due time: {due.isoformat()}")
@@ -2631,50 +2662,136 @@ class WebhookView(APIView):
                 logger.info(f"[AUTO-RESPONSE] Countdown: {countdown_greeting} seconds")
                 logger.info(f"[AUTO-RESPONSE] 🚀 SCHEDULING GREETING TASK")
                 
-                res = send_follow_up.apply_async(
-                    args=[lead_id, greet_text],
-                    headers={"business_id": biz_id},
-                    countdown=countdown_greeting,
-                )
-                logger.info(f"[AUTO-RESPONSE] ✅ Celery task created with ID: {res.id}")
-                logger.info(f"[AUTO-RESPONSE] Creating LeadPendingTask record...")
+                # Use enqueue_in for scheduled execution
+                from django_rq import get_queue
+                queue = get_queue('default')
                 
-                try:
-                    normalized_greet_text = normalize_text(greet_text)
-                    logger.info(f"[AUTO-RESPONSE] 🔄 GREETING TEXT NORMALIZATION (CONSISTENT):")
-                    logger.info(f"[AUTO-RESPONSE] - Original: '{greet_text[:50]}...'")
-                    logger.info(f"[AUTO-RESPONSE] - Normalized: '{normalized_greet_text[:50]}...'")
-                    logger.info(f"[AUTO-RESPONSE] - Normalization changed text: {greet_text != normalized_greet_text}")
-                    if greet_text != normalized_greet_text:
-                        logger.info(f"[AUTO-RESPONSE] ✅ Using same normalization as follow-ups for consistency")
-                    task_record = LeadPendingTask.objects.create(
+                # Check if AI or template
+                if use_async_ai:
+                    # AI greeting - use async task
+                    logger.info(f"[AUTO-RESPONSE] Scheduling async AI generation task")
+                    from .tasks import generate_and_send_greeting
+                    
+                    res = queue.enqueue_in(
+                        timedelta(seconds=countdown_greeting),
+                        generate_and_send_greeting,
+                        lead_id,
+                        biz_id,
+                        phone_available,
+                        within_hours,
+                        getattr(auto_settings, 'use_sample_replies', False)
+                    )
+                    
+                    # Create CeleryTaskLog with GENERATING status
+                    from .models import CeleryTaskLog
+                    CeleryTaskLog.objects.update_or_create(
+                        task_id=res.id,
+                        defaults={
+                            'name': 'generate_and_send_greeting',
+                            'args': [lead_id, biz_id, phone_available, within_hours, getattr(auto_settings, 'use_sample_replies', False)],
+                            'kwargs': {},
+                            'eta': due,
+                            'status': 'SCHEDULED',  # Will change to GENERATING when it starts
+                            'business_id': biz_id,
+                        }
+                    )
+                    
+                    # Create LeadPendingTask for AI greeting (sequence 0)
+                    # This is CRITICAL for follow-up scheduling trigger!
+                    LeadPendingTask.objects.create(
                         lead_id=lead_id,
                         task_id=res.id,
-                        text=normalized_greet_text,  # Store in normalized format
+                        text="",  # Will be generated by AI
+                        template_id=None,  # No template for AI greeting
+                        ai_mode='AI_FULL' if not getattr(auto_settings, 'use_sample_replies', False) else 'AI_VECTOR',
                         phone_available=phone_available,
-                        sequence_number=0,  # ✅ Greeting завжди #0 в черзі
-                        previous_task_id=None,  # ✅ Greeting не має попереднього
-                        status='PENDING'  # ✅ Початковий статус
+                        sequence_number=0,  # Greeting is always sequence 0
+                        previous_task_id=None,  # First message in sequence
+                        status='PENDING'
                     )
-                    logger.info(f"[AUTO-RESPONSE] ✅ LeadPendingTask created with ID: {task_record.id}")
-                    logger.info(f"[AUTO-RESPONSE] - Sequence: #0 (Greeting)")
-                    logger.info(f"[AUTO-RESPONSE] - Previous task: None")
-                except IntegrityError:
-                    logger.info(
-                        "[AUTO-RESPONSE] ❌ Duplicate pending task already exists → skipping"
-                    )
+                    
+                    logger.info(f"[AUTO-RESPONSE] ✅ AI greeting task scheduled with ID: {res.id}")
+                    logger.info(f"[AUTO-RESPONSE] ✅ LeadPendingTask created with sequence_number=0")
+                    logger.info(f"[AUTO-RESPONSE] Will change to GENERATING when execution starts")
                 else:
-                    logger.info(
-                        f"[AUTO-RESPONSE] ✅ Greeting scheduled at {due.isoformat()}"
+                    # Template greeting - use send_follow_up
+                    from .tasks import send_follow_up
+                    
+                    res = queue.enqueue_in(
+                        timedelta(seconds=countdown_greeting),
+                        send_follow_up,
+                        lead_id,
+                        greet_text,
+                        biz_id,
                     )
-                    scheduled_texts.add(greet_text)
+                    logger.info(f"[AUTO-RESPONSE] ✅ RQ task created with ID: {res.id}")
+                    
+                    # Create CeleryTaskLog for Scheduled tab
+                    from .models import CeleryTaskLog
+                    CeleryTaskLog.objects.update_or_create(
+                        task_id=res.id,
+                        defaults={
+                            'name': 'send_follow_up',
+                            'args': [lead_id, greet_text, biz_id],
+                            'kwargs': {},
+                            'eta': due,
+                            'status': 'SCHEDULED',
+                            'business_id': biz_id,
+                        }
+                    )
+                    logger.info(f"[AUTO-RESPONSE] ✅ CeleryTaskLog created for Scheduled tab")
+                    logger.info(f"[AUTO-RESPONSE] Creating LeadPendingTask record...")
+                    
+                    try:
+                        normalized_greet_text = normalize_text(greet_text)
+                        logger.info(f"[AUTO-RESPONSE] 🔄 GREETING TEXT NORMALIZATION (CONSISTENT):")
+                        logger.info(f"[AUTO-RESPONSE] - Original: '{greet_text[:50]}...'")
+                        logger.info(f"[AUTO-RESPONSE] - Normalized: '{normalized_greet_text[:50]}...'")
+                        logger.info(f"[AUTO-RESPONSE] - Normalization changed text: {greet_text != normalized_greet_text}")
+                        if greet_text != normalized_greet_text:
+                            logger.info(f"[AUTO-RESPONSE] ✅ Using same normalization as follow-ups for consistency")
+                        task_record = LeadPendingTask.objects.create(
+                            lead_id=lead_id,
+                            task_id=res.id,
+                            text=normalized_greet_text,  # Store in normalized format
+                            phone_available=phone_available,
+                            sequence_number=0,  # ✅ Greeting завжди #0 в черзі
+                            previous_task_id=None,  # ✅ Greeting не має попереднього
+                            status='PENDING'  # ✅ Початковий статус
+                        )
+                        logger.info(f"[AUTO-RESPONSE] ✅ LeadPendingTask created with ID: {task_record.id}")
+                        logger.info(f"[AUTO-RESPONSE] - Sequence: #0 (Greeting)")
+                        logger.info(f"[AUTO-RESPONSE] - Previous task: None")
+                    except IntegrityError:
+                        logger.info(
+                            "[AUTO-RESPONSE] ❌ Duplicate pending task already exists → skipping"
+                        )
+                    else:
+                        logger.info(
+                            f"[AUTO-RESPONSE] ✅ Greeting scheduled at {due.isoformat()}"
+                        )
+                        scheduled_texts.add(greet_text)
 
         if phone_available:
             return
 
-        # Use the same 'now' timestamp for consistent timing calculations
-        # instead of calling timezone.now() again
-
+        # 🎯 CRITICAL: Different logic for AI vs Template greeting!
+        if use_async_ai:
+            # AI режим: Follow-ups плануються ПІСЛЯ greeting
+            logger.info(f"[AUTO-RESPONSE] 🤖 AI GREETING MODE DETECTED")
+            logger.info(f"[AUTO-RESPONSE] 🎯 FOLLOW-UP SCHEDULING DEFERRED")
+            logger.info(f"[AUTO-RESPONSE] Follow-ups will be scheduled AFTER AI greeting completes")
+            logger.info(f"[AUTO-RESPONSE] This ensures correct timing regardless of AI generation time")
+            logger.info(f"[AUTO-RESPONSE] See send_follow_up task for scheduling trigger")
+            return  # Exit - follow-ups will be scheduled after greeting
+        else:
+            # Template режим: Можна планувати ВСЕ ОДРАЗУ!
+            logger.info(f"[AUTO-RESPONSE] 📝 TEMPLATE GREETING MODE DETECTED")
+            logger.info(f"[AUTO-RESPONSE] ✅ SCHEDULING FOLLOW-UPS NOW (during webhook)")
+            logger.info(f"[AUTO-RESPONSE] Template greeting is fast - no need to wait!")
+            # Continue to follow-up planning below...
+        
+        # Get templates for follow-up planning
         tpls = FollowUpTemplate.objects.filter(
             active=True,
             phone_available=phone_available,
@@ -2710,7 +2827,12 @@ class WebhookView(APIView):
         current_sequence = 1  # Greeting = 0, follow-ups start from 1
         previous_task_id = None
         
-        # Знайти greeting task ID (якщо був створений)
+        # 📝 TEMPLATE MODE: Simple timing from webhook arrival
+        # No AI buffer needed - template greeting is instant!
+        logger.info(f"[AUTO-RESPONSE] 📝 Template mode: Using webhook time as base")
+        logger.info(f"[AUTO-RESPONSE] Base time: {now.isoformat()}")
+        
+        # Знайти greeting task ID для зв'язку
         try:
             greeting_task = LeadPendingTask.objects.filter(
                 lead_id=lead_id,
@@ -2720,43 +2842,67 @@ class WebhookView(APIView):
             if greeting_task:
                 previous_task_id = greeting_task.task_id
                 logger.info(f"[AUTO-RESPONSE] 🔗 Found greeting task: {previous_task_id}")
-                logger.info(f"[AUTO-RESPONSE] Follow-ups will wait for greeting to be sent")
+                logger.info(f"[AUTO-RESPONSE] Follow-ups will wait for greeting in queue")
         except Exception as e:
             logger.warning(f"[AUTO-RESPONSE] Could not find greeting task: {e}")
         
         for tmpl in tpls:
             # Keep exact seconds precision - don't use int() which truncates
             delay = tmpl.delay.total_seconds()
-            text = tmpl.template.format(name=name, jobs=jobs, sep=sep, reason=reason, greetings=greetings)
+            
+            # ✅ ВАРІАНТ B: НЕ генеруємо text тут! Це буде зроблено в generate_and_send_follow_up
+            # text = tmpl.template.format(name=name, jobs=jobs, sep=sep, reason=reason, greetings=greetings)
+            
+            # Визначити AI mode для цього бізнесу
+            ai_mode = 'TEMPLATE'  # Default
+            try:
+                ai_settings = AutoResponseSettings.objects.filter(
+                    business__business_id=biz_id,
+                    phone_available=phone_available
+                ).first()
+                
+                if ai_settings:
+                    if ai_settings.use_sample_replies and ai_settings.mode == 'ai_generated':
+                        ai_mode = 'AI_VECTOR'
+                        logger.info(f"[AUTO-RESPONSE] Will use AI with Vector Search")
+                    elif ai_settings.mode == 'ai_generated':
+                        ai_mode = 'AI_FULL'
+                        logger.info(f"[AUTO-RESPONSE] Will use full AI generation")
+                    else:
+                        logger.info(f"[AUTO-RESPONSE] Will use simple template formatting")
+            except Exception as e:
+                logger.warning(f"[AUTO-RESPONSE] Could not determine AI mode: {e}")
             
             # Enhanced logging for precise timing debug
             logger.info(f"[AUTO-RESPONSE] 📱 PLANNING MESSAGE #{len(planned_messages) + 1} (IN DELAY ORDER)")
             logger.info(f"[AUTO-RESPONSE] ========= FOLLOW-UP TIMING DEBUG =========")
             logger.info(f"[AUTO-RESPONSE] Template: '{tmpl.name}' (processing in correct delay order)")
+            logger.info(f"[AUTO-RESPONSE] Template ID: {tmpl.id}")
+            logger.info(f"[AUTO-RESPONSE] AI Mode: {ai_mode}")
             logger.info(f"[AUTO-RESPONSE] Raw delay (seconds): {delay}")
             logger.info(f"[AUTO-RESPONSE] Raw delay formatted: {tmpl.delay}")
             logger.info(f"[AUTO-RESPONSE] Base time (now): {now.isoformat()}")
-            logger.info(f"[AUTO-RESPONSE] Message text (first 100 chars): '{text[:100]}{'...' if len(text) > 100 else ''}'")
-            logger.info(f"[AUTO-RESPONSE] Full message length: {len(text)} characters")
+            logger.info(f"[AUTO-RESPONSE] 💡 Text will be generated at execution time (not now!)")
             
             # Database logging for follow-up planning
             log_lead_activity(
                 lead_id=lead_id,
                 activity_type="PLANNING",
                 event_name="template_planning",
-                message=f"Planning follow-up message #{len(planned_messages) + 1}: {tmpl.name}",
+                message=f"Planning follow-up message #{len(planned_messages) + 1}: {tmpl.name} (AI mode: {ai_mode})",
                 business_id=biz_id,
                 template_name=tmpl.name,
                 template_id=tmpl.id,
                 delay_seconds=delay,
                 delay_formatted=str(tmpl.delay),
-                message_preview=text[:100],
-                message_length=len(text),
+                message_preview=f"[Will generate with {ai_mode}]",
                 phone_available=phone_available
             )
             
+            # 📝 TEMPLATE MODE: Simple calculation from webhook time
             initial_due = now + timedelta(seconds=delay)
             logger.info(f"[AUTO-RESPONSE] Initial due time: {initial_due.isoformat()}")
+            logger.info(f"[AUTO-RESPONSE] 📝 Calculated from webhook: {now.isoformat()} + {delay}s")
             
             due = adjust_due_time(
                 initial_due,
@@ -2767,6 +2913,7 @@ class WebhookView(APIView):
             
             logger.info(f"[AUTO-RESPONSE] Adjusted due time: {due.isoformat()}")
             countdown = max((due - now).total_seconds(), 0)
+            logger.info(f"[AUTO-RESPONSE] 📝 Countdown from NOW: {countdown}s")
             
             # Preserve exact countdown as configured - no adjustments
             logger.info(f"[AUTO-RESPONSE] ✅ Preserving exact countdown: {countdown}s (delay: {delay}s)")
@@ -2781,61 +2928,126 @@ class WebhookView(APIView):
             is_24_7 = (tmpl.open_from == datetime_time(0, 0) and tmpl.open_to == datetime_time(0, 0))
             logger.info(f"[AUTO-RESPONSE] Template working hours: {tmpl.open_from} - {tmpl.open_to} (24/7: {is_24_7})")
             
-            # Store for summary
+            # Store for summary  
             planned_messages.append({
                 'template': tmpl.name,
                 'delay': delay,
                 'countdown': countdown,
                 'execution_time': execution_time.strftime('%H:%M:%S'),
                 'due_time': due.isoformat(),
-                'text_preview': text[:50] + ('...' if len(text) > 50 else ''),
-                'full_text': text
+                'text_preview': f"[{ai_mode}]",
+                'ai_mode': ai_mode
             })
             
             logger.info(f"[AUTO-RESPONSE] ========= END TIMING DEBUG =========")
             with transaction.atomic():
-                if (
-                    _already_sent(lead_id, text)
-                    or text in scheduled_texts
-                    or LeadPendingTask.objects.select_for_update()
-                    .filter(lead_id=lead_id, text=text, active=True)
-                    .exists()
-                ):
+                # ✅ ВАРІАНТ B: Перевірка дублікатів по sequence_number (не по text)
+                existing_task = LeadPendingTask.objects.select_for_update().filter(
+                    lead_id=lead_id,
+                    sequence_number=current_sequence,
+                    active=True
+                ).exists()
+                
+                if existing_task:
                     logger.info(
-                        f"[AUTO-RESPONSE] Custom follow-up '{tmpl.name}' already sent or duplicate → skipping"
+                        f"[AUTO-RESPONSE] Task with sequence #{current_sequence} already exists → skipping"
                     )
                 else:
-                    res = send_follow_up.apply_async(
-                        args=[lead_id, text],
-                        headers={"business_id": biz_id},
-                        countdown=countdown,
+                    # ✅ Використовуємо новий generate_and_send_follow_up
+                    from .tasks import generate_and_send_follow_up
+                    from django_rq import get_queue
+                    
+                    # Use enqueue_in for scheduled execution
+                    queue = get_queue('default')
+                    res = queue.enqueue_in(
+                        timedelta(seconds=countdown),
+                        generate_and_send_follow_up,
+                        lead_id,
+                        tmpl.id,
+                        biz_id,
+                        ai_mode,
                     )
+                    
+                    # Create CeleryTaskLog for Scheduled tab
+                    from .models import CeleryTaskLog
+                    CeleryTaskLog.objects.update_or_create(
+                        task_id=res.id,
+                        defaults={
+                            'name': 'generate_and_send_follow_up',
+                            'args': [lead_id, tmpl.id, biz_id, ai_mode],
+                            'kwargs': {},
+                            'eta': due,
+                            'status': 'SCHEDULED',
+                            'business_id': biz_id,
+                        }
+                    )
+                    
+                    logger.info(f"[AUTO-RESPONSE] ✅ CeleryTaskLog created, now generating preview...")
+                    
+                    # 🎯 Generate preview text from template for UI display
+                    preview_text = ""
                     try:
-                        normalized_followup_text = normalize_text(text)
+                        logger.info(f"[AUTO-RESPONSE] 🔍 Starting preview generation for template '{tmpl.name}'")
+                        lead_detail = LeadDetail.objects.filter(lead_id=lead_id).first()
+                        logger.info(f"[AUTO-RESPONSE] 🔍 LeadDetail found: {lead_detail is not None}")
+                        
+                        if lead_detail and tmpl.template:
+                            logger.info(f"[AUTO-RESPONSE] 🔍 Template content: '{tmpl.template}'")
+                            # Get placeholder values
+                            name = lead_detail.user_display_name or "there"
+                            # Get jobs from project
+                            project = lead_detail.project or {}
+                            job_names = project.get('job_names', [])
+                            jobs = ', '.join(job_names) if job_names else 'your request'
+                            reason = ""  # Not used in follow-up templates
+                            sep = ". " if reason else ""
+                            greetings = get_time_based_greeting(biz_id)
+                            
+                            logger.info(f"[AUTO-RESPONSE] 🔍 Placeholder values: name={name}, jobs={jobs}, greetings={greetings}")
+                            
+                            # Format template with real values
+                            preview_text = tmpl.template.format(
+                                name=name,
+                                jobs=jobs,
+                                sep=sep,
+                                reason=reason,
+                                greetings=greetings
+                            )
+                            logger.info(f"[AUTO-RESPONSE] 📝 Generated preview text: '{preview_text[:100]}...'")
+                        else:
+                            logger.warning(f"[AUTO-RESPONSE] ⚠️ Cannot generate preview: lead_detail={lead_detail is not None}, tmpl.template={tmpl.template is not None}")
+                            preview_text = f"[Template: {tmpl.name}] {tmpl.template[:100] if tmpl.template else 'empty'}"
+                    except Exception as e:
+                        logger.error(f"[AUTO-RESPONSE] ❌ Could not generate preview text: {e}", exc_info=True)
+                        preview_text = f"[Template: {tmpl.name}] {tmpl.template[:100] if tmpl.template else 'empty'}"
+                    
+                    try:
                         task_record = LeadPendingTask.objects.create(
                             lead_id=lead_id,
                             task_id=res.id,
-                            text=normalized_followup_text,  # Store in Yelp format
+                            text=preview_text,  # ✅ Preview text для UI
+                            template_id=tmpl.id,  # ✅ Зберігаємо template_id
+                            ai_mode=ai_mode,  # ✅ Зберігаємо режим
                             phone_available=phone_available,
-                            sequence_number=current_sequence,  # ✅ Послідовний номер
-                            previous_task_id=previous_task_id,  # ✅ Посилання на попередній
-                            status='PENDING'  # ✅ Початковий статус
+                            sequence_number=current_sequence,
+                            previous_task_id=previous_task_id,
+                            status='PENDING'
                         )
-                        logger.info(f"[AUTO-RESPONSE] ✅ Custom follow-up '{tmpl.name}' scheduled at {due.isoformat()}")
+                        logger.info(f"[AUTO-RESPONSE] ✅ Scheduled AI generation task for '{tmpl.name}'")
                         logger.info(f"[AUTO-RESPONSE] - Sequence: #{current_sequence}")
+                        logger.info(f"[AUTO-RESPONSE] - AI Mode: {ai_mode}")
+                        logger.info(f"[AUTO-RESPONSE] - Template ID: {tmpl.id}")
                         logger.info(f"[AUTO-RESPONSE] - Previous task: {previous_task_id or 'None (will send immediately)'}")
-                        logger.info(f"[AUTO-RESPONSE] - Will wait for previous message before sending")
+                        logger.info(f"[AUTO-RESPONSE] - Will generate text in {countdown}s using {ai_mode}")
                         
                         # Оновити для наступного task
                         previous_task_id = res.id
                         current_sequence += 1
                         
-                    except IntegrityError:
-                        logger.info(
-                            "[AUTO-RESPONSE] Duplicate pending task already exists → skipping"
-                        )
+                    except IntegrityError as e:
+                        logger.info(f"[AUTO-RESPONSE] Duplicate pending task: {e} → skipping")
                     else:
-                        scheduled_texts.add(text)
+                        scheduled_texts.add(tmpl.name)  # ✅ Додаємо template name замість text
         
         # =============== FOLLOW-UP PLANNING SUMMARY ===============
         logger.info(f"[AUTO-RESPONSE] 📋 FOLLOW-UP PLANNING SUMMARY for lead={lead_id}")
@@ -2851,8 +3063,8 @@ class WebhookView(APIView):
             for i, msg in enumerate(sorted_messages, 1):
                 logger.info(f"[AUTO-RESPONSE] #{i}: {msg['template']} (delay: {msg['delay']}s)")
                 logger.info(f"[AUTO-RESPONSE]     ⏰ Execute at: {msg['execution_time']} (in {msg['countdown']:.1f}s)")
-                logger.info(f"[AUTO-RESPONSE]     💬 Message: \"{msg['text_preview']}\"")
-                logger.info(f"[AUTO-RESPONSE]     📏 Length: {len(msg['full_text'])} chars")
+                logger.info(f"[AUTO-RESPONSE]     🤖 AI Mode: {msg.get('ai_mode', 'N/A')}")
+                logger.info(f"[AUTO-RESPONSE]     💬 Generation: {msg['text_preview']}")
                 logger.info(f"[AUTO-RESPONSE]     🕰 Due time: {msg['due_time']}")
                 logger.info(f"[AUTO-RESPONSE]     ---")
                 

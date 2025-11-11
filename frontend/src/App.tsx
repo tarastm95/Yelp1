@@ -27,6 +27,7 @@ import ClientDetails from "./ClientDetails/ClientDetails";
 import TokenStatus from "./TokenStatus";
 import TaskLogs from "./TaskLogs";
 import SMSLogs from "./SMSLogs";
+import WhatsAppLogs from "./WhatsAppLogs";
 import Subscriptions from "./Subscriptions";
 import LoginPage from "./LoginPage";
 import TopMenu from "./TopMenu";
@@ -276,6 +277,7 @@ const App: FC = () => {
               <Route path="/subscriptions" element={<Subscriptions />} />
               <Route path="/tasks" element={<TaskLogs />} />
               <Route path="/sms-logs" element={<SMSLogs />} />
+              <Route path="/whatsapp-logs" element={<WhatsAppLogs />} />
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/lead-logs" element={<LeadLogs />} />
               <Route path="/diagnostics" element={<SystemDiagnostics />} />

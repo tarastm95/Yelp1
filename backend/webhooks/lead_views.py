@@ -492,10 +492,17 @@ class AIPreviewView(APIView):
                     'error': f'Business with id {business_id} not found'
                 }, status=status.HTTP_404_NOT_FOUND)
             
-            # Отримуємо AutoResponseSettings для бізнесу (для AI налаштувань)
+            # Отримуємо phone_available з request
+            phone_val = request.data.get('phone_available', False)
+            if isinstance(phone_val, bool):
+                phone_available = phone_val
+            else:
+                phone_available = str(phone_val).lower() == 'true'
+            
+            # Отримуємо AutoResponseSettings для бізнесу і правильного режиму
             business_ai_settings = AutoResponseSettings.objects.filter(
                 business=business,
-                phone_available=False
+                phone_available=phone_available  # 🆕 Використовуємо правильний режим!
             ).first()
             
             # Параметри з запиту
@@ -518,6 +525,7 @@ class AIPreviewView(APIView):
             # Генерація preview повідомлення з реальними даними бізнесу
             preview_message = ai_service.generate_preview_message(
                 business=business,
+                phone_available=phone_available,  # 🆕 Передаємо phone_available!
                 # All AI behavior controlled via Custom Instructions
                 custom_prompt=custom_prompt,
                 max_length=max_length,

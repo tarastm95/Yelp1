@@ -349,10 +349,11 @@ class VectorPDFService:
     def calculate_file_hash(self, file_content: bytes) -> str:
         return hashlib.sha256(file_content).hexdigest()
     
-    def process_pdf_file(self, file_content: bytes, filename: str, business_id: str, location_id: Optional[str] = None) -> Dict:
+    def process_pdf_file(self, file_content: bytes, filename: str, business_id: str, location_id: Optional[str] = None, phone_available: bool = False) -> Dict:
         logger.info(f"[VECTOR-PDF] ======== PROCESSING PDF ========")
         logger.info(f"[VECTOR-PDF] File: {filename}")
         logger.info(f"[VECTOR-PDF] Business: {business_id}")
+        logger.info(f"[VECTOR-PDF] Phone Available: {phone_available}")
         
         try:
             # Extract text
@@ -386,10 +387,14 @@ class VectorPDFService:
             with transaction.atomic():
                 file_hash = self.calculate_file_hash(file_content)
                 
-                # Handle duplicates
+                # Handle duplicates - видаляємо тільки якщо той самий файл для того ж business + phone_available
                 try:
-                    existing_doc = VectorDocument.objects.get(file_hash=file_hash)
-                    logger.warning(f"[VECTOR-PDF] Deleting existing document with same hash")
+                    existing_doc = VectorDocument.objects.get(
+                        business_id=business_id,
+                        phone_available=phone_available,
+                        file_hash=file_hash
+                    )
+                    logger.warning(f"[VECTOR-PDF] Deleting existing document with same hash for this phone_available mode")
                     existing_doc.delete()
                 except VectorDocument.DoesNotExist:
                     pass
@@ -397,6 +402,7 @@ class VectorPDFService:
                 document = VectorDocument.objects.create(
                     business_id=business_id,
                     location_id=location_id,
+                    phone_available=phone_available,
                     filename=filename,
                     file_hash=file_hash,
                     file_size=len(file_content),
@@ -443,6 +449,8 @@ class VectorPDFService:
             return {
                 'document_id': document.id,
                 'chunks_count': len(chunk_objects),
+                'pages_count': page_count,
+                'total_tokens': sum(chunk.token_count for chunk, _ in embeddings_data),
                 'chunk_types': chunk_stats
             }
             
